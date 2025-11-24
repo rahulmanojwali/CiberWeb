@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8">
+    <title>CiberMandi – India’s Live Digital Mandi Network</title>
+
+        <meta content="width=device-width, initial-scale=1.0" name="viewport">
+        <meta content="" name="keywords">
+        <meta content="" name="description">
+
+        <!-- Google Web Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet"> 
+
+        <!-- Icon Font Stylesheet -->
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"/>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+        <!-- Libraries Stylesheet -->
+        <link rel="stylesheet" href="lib/animate/animate.min.css"/>
+        <link href="lib/lightbox/css/lightbox.min.css" rel="stylesheet">
+        <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+
+
+        <!-- Customized Bootstrap Stylesheet -->
+        <link href="css/bootstrap.min.css" rel="stylesheet">
+
+        <!-- Template Stylesheet -->
+        <link href="css/style.css" rel="stylesheet">
+    </head>
+
+    <body>
+
+        <!-- Spinner Start -->
+        <div id="spinner" class="show bg-white position-fixed translate-middle w-100 vh-100 top-50 start-50 d-flex align-items-center justify-content-center">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+        <!-- Spinner End -->
+
+        <!-- Topbar Start -->
+        <div class="container-fluid topbar bg-light px-5 d-none d-lg-block">
+            <div class="row gx-0 align-items-center">
+                <div class="col-lg-8 text-center text-lg-start mb-2 mb-lg-0">
+                    <div class="d-flex flex-wrap">
+                        <a href="#" class="text-muted small me-4"><i class="fas fa-map-marker-alt text-primary me-2"></i>Find A Location</a>
+                        <a href="tel:+01234567890" class="text-muted small me-4"><i class="fas fa-phone-alt text-primary me-2"></i>+01234567890</a>
+                        <a href="mailto:example@gmail.com" class="text-muted small me-0"><i class="fas fa-envelope text-primary me-2"></i>Example@gmail.com</a>
+                    </div>
+                </div>
+                <div class="col-lg-4 text-center text-lg-end">
+                    <div class="d-inline-flex align-items-center" style="height: 45px;">
+                        <a href="#"><small class="me-3 text-dark"><i class="fa fa-user text-primary me-2"></i>Register</small></a>
+                        <a href="/admin/login"><small class="me-3 text-dark"><i class="fa fa-sign-in-alt text-primary me-2"></i>Login</small></a>
+                        <div class="dropdown">
+                            <a href="#" class="dropdown-toggle text-dark" data-bs-toggle="dropdown"><small><i class="fa fa-home text-primary me-2"></i> My Dashboard</small></a>
+                            <div class="dropdown-menu rounded">
+                                <a href="#" class="dropdown-item"><i class="fas fa-user-alt me-2"></i> My Profile</a>
+                                <a href="#" class="dropdown-item"><i class="fas fa-comment-alt me-2"></i> Inbox</a>
+                                <a href="#" class="dropdown-item"><i class="fas fa-bell me-2"></i> Notifications</a>
+                                <a href="#" class="dropdown-item"><i class="fas fa-cog me-2"></i> Account Settings</a>
+                                <a href="#" class="dropdown-item"><i class="fas fa-power-off me-2"></i> Log Out</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Topbar End -->
+
+        <!-- Navbar & Hero Start -->
+        <div class="container-fluid position-relative p-0">
+            <nav class="navbar navbar-expand-lg navbar-light px-4 px-lg-5 py-3 py-lg-0">
+                
+             <a href="index.html" class="navbar-brand d-flex align-items-center p-0">
+    <img src="img/logo_transparent.png" alt="CiberMandi" style="height: 52px;" class="img-fluid me-2">
+    <div class="lh-sm">
+        <div class="text-primary fw-bold fs-4 mb-0">CiberMandi</div>
+        <small class="text-dark">India’s Digital Mandi Network</small>
+    </div>
+</a>
+
+
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
+                    <span class="fa fa-bars"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarCollapse">
+                    <ul class="navbar-nav ms-auto py-0">
+    <li class="nav-item"><a href="index.html#why" class="nav-link active">Why CiberMandi</a></li>
+    <li class="nav-item"><a href="index.html#farmers" class="nav-link">Farmers</a></li>
+    <li class="nav-item"><a href="index.html#traders" class="nav-link">Traders</a></li>
+    <li class="nav-item"><a href="index.html#mandi-boards" class="nav-link">Mandi Boards</a></li>
+    <li class="nav-item"><a href="index.html#how" class="nav-link">How it Works</a></li>
+    <li class="nav-item"><a href="index.html#faq" class="nav-link">FAQ</a></li>
+    <li class="nav-item"><a href="index.html#contact" class="nav-link">Contact</a></li>
+</ul>
+
+                    <a href="/admin/login" class="btn btn-primary rounded-pill py-2 px-4 my-3 my-lg-0 flex-shrink-0">Log In</a>
+                </div>
+            </nav>
+
+            <!-- Carousel Start -->
+            <div class="header-carousel owl-carousel">
+
+    <!-- Slide 1 – One network -->
+    <div class="header-carousel-item">
+        <img src="img/cibermandi-live-mandi-banner.png" class="img-fluid w-100" alt="Live mandi network map">
+        <div class="carousel-caption">
+            <div class="container">
+                <div class="row gy-0 gx-5">
+                    <div class="col-lg-0 col-xl-5"></div>
+                    <div class="col-xl-7 animated fadeInLeft">
+                        <div class="text-sm-center text-md-end">
+                            <h4 class="text-primary text-uppercase fw-bold mb-4">One network</h4>
+                            <h1 class="display-4 text-uppercase text-white mb-4">
+                                Every mandi on a single screen with live prices
+                            </h1>
+                            <p class="mb-5 fs-5">
+                                CiberMandi connects mandis into a live digital network so farmers, traders and
+                                mandi boards all see the same real-time data.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 2 – For farmers -->
+    <div class="header-carousel-item">
+        <img src="img/cibermandi-hero-farmer.png" class="img-fluid w-100" alt="Farmer using CiberMandi app">
+        <div class="carousel-caption">
+            <div class="container">
+                <div class="row gy-0 gx-5">
+                    <div class="col-lg-0 col-xl-5"></div>
+                    <div class="col-xl-7 animated fadeInLeft">
+                        <div class="text-sm-center text-md-end">
+                            <h4 class="text-primary text-uppercase fw-bold mb-4">For farmers</h4>
+                            <h1 class="display-4 text-uppercase text-white mb-4">
+                                Check rates before leaving the village
+                            </h1>
+                            <p class="mb-5 fs-5">
+                                Compare mandi prices, choose where to sell and receive instant digital payment
+                                with full receipts and history.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3 – Digital auctions -->
+    <div class="header-carousel-item">
+        <img src="img/cibermandi-auctions.png" class="img-fluid w-100" alt="Digital auction in CiberMandi">
+        <div class="carousel-caption">
+            <div class="container">
+                <div class="row gy-0 gx-5">
+                    <div class="col-lg-0 col-xl-5"></div>
+                    <div class="col-xl-7 animated fadeInLeft">
+                        <div class="text-sm-center text-md-end">
+                            <h4 class="text-primary text-uppercase fw-bold mb-4">Digital auctions</h4>
+                            <h1 class="display-4 text-uppercase text-white mb-4">
+                                Transparent bidding for every lot
+                            </h1>
+                            <p class="mb-5 fs-5">
+                                Traders bid digitally with full lot visibility while farmers and mandi boards
+                                see how the final price was discovered.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4 – For mandi boards -->
+    <div class="header-carousel-item">
+        <img src="img/cibermandi-mandi-board.png" class="img-fluid w-100" alt="Mandi board control room">
+        <div class="carousel-caption">
+            <div class="container">
+                <div class="row gy-0 gx-5">
+                    <div class="col-lg-0 col-xl-5"></div>
+                    <div class="col-xl-7 animated fadeInLeft">
+                        <div class="text-sm-center text-md-end">
+                            <h4 class="text-primary text-uppercase fw-bold mb-4">Control tower</h4>
+                            <h1 class="display-4 text-uppercase text-white mb-4">
+                                Real-time visibility for mandi owners & boards
+                            </h1>
+                            <p class="mb-5 fs-5">
+                                Monitor arrivals, auctions, payments and dispatch across all connected mandis
+                                with audit-ready digital records.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+            <!-- Carousel End -->
+        </div>
+        <!-- Navbar & Hero End -->
+
+        <!-- Mandi Price Board -->
+        <div class="container py-5">
+            <div class="text-center mx-auto pb-4" style="max-width: 720px;">
+                <h4 class="text-primary">Live mandi pulse</h4>
+                <h1 class="display-5 mb-3">Live mandi prices at a glance</h1>
+                <p class="mb-0">Top bids, daily high/low and quick movement signals across key mandis.</p>
+            </div>
+            <div class="price-board-controls">
+                <button id="price-board-toggle" class="btn-toggle">Collapse</button>
+            </div>
+            <div class="price-board">
+                <div class="price-board-header">
+                    <div>Commodity</div>
+                    <div>Mandi</div>
+                    <div>Last traded</div>
+                    <div>Day high</div>
+                    <div>Day low</div>
+                </div>
+                <div id="price-board-body" class="price-board-body"></div>
+            </div>
+        </div>
+
+
+        <!-- Abvout Start -->
+       <!-- About Start -->
+<div class="container-fluid about py-5" id="why">
+    <div class="container py-5">
+        <div class="row g-5 align-items-center">
+
+            <!-- LEFT SIDE TEXT -->
+            <div class="col-xl-7 col-lg-6 wow fadeInLeft" data-wow-delay="0.2s">
+                <div>
+                    <h4 class="text-primary">About CiberMandi</h4>
+                    <h1 class="display-5 mb-4">A digital mandi built for transparency and trust</h1>
+
+                    <p class="mb-4">
+                        CiberMandi is a public digital mandi ecosystem that modernises agriculture trading.
+                        The platform digitises the entire mandi workflow – from gate entry and weighbridge
+                        to auction, payment and dispatch – so every step is transparent, traceable and efficient.
+                    </p>
+
+                    <p class="mb-4">
+                        Farmers, traders and mandi authorities all see the same real-time information, which
+                        builds trust and ensures fair price discovery across all connected mandis.
+                    </p>
+
+                    <div class="row g-4">
+
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div><i class="fas fa-seedling fa-3x text-primary"></i></div>
+                                <div class="ms-4">
+                                    <h4>For farmers</h4>
+                                    <p class="mb-0">
+                                        Live mandi prices, faster payments and reduced waiting.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div><i class="fas fa-balance-scale fa-3x text-primary"></i></div>
+                                <div class="ms-4">
+                                    <h4>For traders</h4>
+                                    <p class="mb-0">
+                                        Transparent auctions and clean digital ledgers.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div><i class="fas fa-landmark fa-3x text-primary"></i></div>
+                                <div class="ms-4">
+                                    <h4>For mandi boards</h4>
+                                    <p class="mb-0">
+                                        Full control with real-time dashboards & analytics.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div><i class="fas fa-shield-alt fa-3x text-primary"></i></div>
+                                <div class="ms-4">
+                                    <h4>Secure & compliant</h4>
+                                    <p class="mb-0">
+                                        Encrypted, audit-ready and aligned with APMC norms.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE IMAGE (RESTORED FROM ORIGINAL TEMPLATE) -->
+            <div class="col-xl-5 col-lg-6 wow fadeInRight" data-wow-delay="0.2s">
+                <div class="about-img">
+                    <!-- you can replace this with CiberMandi image if needed -->
+                    <img src="img/about-img.png" class="img-fluid w-100 rounded" alt="About CiberMandi">
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- About End -->
+
+    </div>
+</div>
+
+        <!-- About End -->
+
+        <!-- Services Start -->
+              <!-- Farmers Start -->
+        <div class="container-fluid service pb-5" id="farmers">
+            <div class="container pb-5">
+                <div class="text-center mx-auto pb-5 wow fadeInUp" data-wow-delay="0.2s" style="max-width: 800px;">
+                    <h4 class="text-primary">For Farmers</h4>
+                    <h1 class="display-5 mb-4">Better prices, less waiting, full transparency</h1>
+                    <p class="mb-0">
+                        CiberMandi helps farmers check mandi prices before leaving the village, avoid
+                        long queues at the gate, and receive faster digital payments with full receipts.
+                    </p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.2s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-farmers-prices.png" class="img-fluid rounded-top w-100" alt="Live mandi prices">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Live mandi prices</h4>
+                                <p class="mb-4">
+                                    See real-time auction and arrival prices for nearby mandis in your language,
+                                    even before you start from the farm.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow FadeInUp" data-wow-delay="0.4s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-farmers-gate.png" class="img-fluid rounded-top w-100" alt="Smart gate entry">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Fast gate entry</h4>
+                                <p class="mb-4">
+                                    Digital gate slips, queue numbers and weighbridge tokens reduce waiting,
+                                    confusion and disputes at the mandi gate.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.6s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-farmers-payments.png" class="img-fluid rounded-top w-100" alt="Digital payments">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Digital, traceable payments</h4>
+                                <p class="mb-4">
+                                    Receive money directly in your bank with digital receipts, full lot history
+                                    and dispute-ready records.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Farmers End -->
+
+
+        <!-- Traders Start -->
+        <div class="container-fluid blog pb-5" id="traders">
+            <div class="container pb-5">
+                <div class="text-center mx-auto pb-5 wow fadeInUp" data-wow-delay="0.2s" style="max-width: 800px;">
+                    <h4 class="text-primary">For Traders & Commission Agents</h4>
+                    <h1 class="display-5 mb-4">Digitised auctions. Clean books. More deal flow.</h1>
+                    <p class="mb-0">
+                        CiberMandi gives traders a digital cockpit to discover lots, bid, settle and dispatch —
+                        while keeping every transaction audited and compliant.
+                    </p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.2s">
+                        <div class="blog-item p-4">
+                            <div class="blog-img mb-4">
+                                <img src="img/cibermandi-traders-auction.png" class="img-fluid w-100 rounded" alt="Digital auction console">
+                                <div class="blog-title">
+                                    <span class="btn">Digital auctions</span>
+                                </div>
+                            </div>
+                            <h4 class="d-inline-block mb-3">Bid from a single interface</h4>
+                            <p class="mb-0">
+                                View incoming lots, quality parameters, base prices and bid digitally — with each
+                                click securely recorded and time-stamped.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.4s">
+                        <div class="blog-item p-4">
+                            <div class="blog-img mb-4">
+                                <img src="img/cibermandi-traders-ledger.png" class="img-fluid w-100 rounded" alt="Digital ledgers">
+                                <div class="blog-title">
+                                    <span class="btn">Digital ledger</span>
+                                </div>
+                            </div>
+                            <h4 class="d-inline-block mb-3">Clean books, less paperwork</h4>
+                            <p class="mb-0">
+                                Auto-generate bills, farmer slips, payouts and commission notes with GST-ready
+                                reports and exportable statements.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.6s">
+                        <div class="blog-item p-4">
+                            <div class="blog-img mb-4">
+                                <img src="img/cibermandi-traders-network.png" class="img-fluid w-100 rounded" alt="Network expansion">
+                                <div class="blog-title">
+                                    <span class="btn">More deal flow</span>
+                                </div>
+                            </div>
+                            <h4 class="d-inline-block mb-3">Reach more farmers & mandis</h4>
+                            <p class="mb-0">
+                                Discover produce from multiple mandis on one network and participate in
+                                special auctions, bulk lots and forward contracts.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Traders End -->
+
+
+        <!-- Mandi Boards Start -->
+        <div class="container-fluid team pb-5" id="mandi-boards">
+            <div class="container pb-5">
+                <div class="text-center mx-auto pb-5 wow fadeInUp" data-wow-delay="0.2s" style="max-width: 900px;">
+                    <h4 class="text-primary">For Mandi Boards & Owners</h4>
+                    <h1 class="display-5 mb-4">A control tower for every mandi in your state</h1>
+                    <p class="mb-0">
+                        CiberMandi provides a live “control room” view of arrivals, auctions, payments and dispatch,
+                        helping boards enforce rules, reduce leakages and increase revenues.
+                    </p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-3 wow fadeInUp" data-wow-delay="0.2s">
+                        <div class="team-item">
+                            <div class="team-img">
+                                <img src="img/cibermandi-board-arrivals.png" class="img-fluid" alt="Arrivals dashboard">
+                            </div>
+                            <div class="team-title">
+                                <h4 class="mb-0">Arrivals & queues</h4>
+                                <p class="mb-0">Live truck & tractor inflow, queue status, crop mix.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 wow fadeInUp" data-wow-delay="0.4s">
+                        <div class="team-item">
+                            <div class="team-img">
+                                <img src="img/cibermandi-board-auction-room.png" class="img-fluid" alt="Auction monitoring">
+                            </div>
+                            <div class="team-title">
+                                <h4 class="mb-0">Auction monitoring</h4>
+                                <p class="mb-0">Digital records of every lot, bid & final price.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 wow fadeInUp" data-wow-delay="0.6s">
+                        <div class="team-item">
+                            <div class="team-img">
+                                <img src="img/cibermandi-board-revenue.png" class="img-fluid" alt="Revenue analytics">
+                            </div>
+                            <div class="team-title">
+                                <h4 class="mb-0">Revenue analytics</h4>
+                                <p class="mb-0">Market fee, cess and collection summaries.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 wow fadeInUp" data-wow-delay="0.8s">
+                        <div class="team-item">
+                            <div class="team-img">
+                                <img src="img/cibermandi-board-compliance.png" class="img-fluid" alt="Compliance dashboards">
+                            </div>
+                            <div class="team-title">
+                                <h4 class="mb-0">Compliance & audit</h4>
+                                <p class="mb-0">Audit-ready logs for inspections & policy review.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Mandi Boards End -->
+
+
+        <!-- Platform Modules Start (reusing Services layout) -->
+        <div class="container-fluid service pb-5">
+            <div class="container pb-5">
+                <div class="text-center mx-auto pb-5 wow fadeInUp" data-wow-delay="0.2s" style="max-width: 850px;">
+                    <h4 class="text-primary">Platform Modules</h4>
+                    <h1 class="display-5 mb-4">Everything a mandi needs to go digital</h1>
+                    <p class="mb-0">
+                        CiberMandi is modular. Start with gate and weighbridge, then add digital auctions,
+                        payments, marketplace listings and analytics — all on the same secure backbone.
+                    </p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.2s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-gate.png" class="img-fluid rounded-top w-100" alt="Gate management">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Gate & Yard Management</h4>
+                                <p class="mb-4">
+                                    Digital gate slips, RFID/QR-based entry, queue management and yard allocation
+                                    with full audit trail.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.4s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-weighbridge.png" class="img-fluid rounded-top w-100" alt="Weighbridge integration">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Weighbridge Integration</h4>
+                                <p class="mb-4">
+                                    Connect electronic weighbridges and handheld devices to auto-capture weights,
+                                    reduce errors and prevent manipulation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.6s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-auctions.png" class="img-fluid rounded-top w-100" alt="Digital auctions">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Digital Auctions</h4>
+                                <p class="mb-4">
+                                    Run live auctions with transparent bidding, lot history and configurable rules
+                                    for each commodity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.2s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-payments.png" class="img-fluid rounded-top w-100" alt="Payments & settlement">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Payments & Settlement</h4>
+                                <p class="mb-4">
+                                    Fully digital payouts with split settlements for farmers, agents, mandi boards
+                                    and tax authorities.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.4s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-marketplace.png" class="img-fluid rounded-top w-100" alt="Marketplace listings">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Marketplace Listings</h4>
+                                <p class="mb-4">
+                                    Showcase mandi prices and available lots to buyers outside the mandi
+                                    through a controlled marketplace layer.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 wow fadeInUp" data-wow-delay="0.6s">
+                        <div class="service-item">
+                            <div class="service-img">
+                                <img src="img/cibermandi-module-analytics.png" class="img-fluid rounded-top w-100" alt="Analytics dashboards">
+                            </div>
+                            <div class="rounded-bottom p-4">
+                                <h4 class="mb-3">Analytics & MIS</h4>
+                                <p class="mb-4">
+                                    Powerful dashboards for arrivals, commodities, price trends and revenue to
+                                    support policy and operations decisions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Platform Modules End -->
+
+
+        <!-- How It Works Start -->
+                <!-- How It Works Start -->
+        <div class="container-fluid about py-5 bg-light" id="how">
+            <div class="container py-5">
+                <div class="row g-5 align-items-center">
+
+                    <!-- LEFT SIDE TEXT (similar to #why) -->
+                    <div class="col-xl-7 col-lg-6 wow fadeInLeft" data-wow-delay="0.2s">
+                        <div>
+                            <h4 class="text-primary">How CiberMandi Works</h4>
+                            <h1 class="display-5 mb-4">From gate entry to final dispatch on one digital rail</h1>
+
+                            <p class="mb-4">
+                                CiberMandi connects every step of the mandi journey – farmer arrival,
+                                weighment, auction, settlement and dispatch – into a single, secure workflow.
+                                Each action creates a digital record, so boards, traders and farmers see
+                                the same truth.
+                            </p>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex">
+                                        <div><i class="fa fa-door-open fa-3x text-primary"></i></div>
+                                        <div class="ms-4">
+                                            <h4 class="mb-1">1. Gate & registration</h4>
+                                            <p class="mb-0">
+                                                Vehicles, farmers and lots get digital gate slips,
+                                                queue numbers and lot IDs as they enter the mandi.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex">
+                                        <div><i class="fa fa-weight fa-3x text-primary"></i></div>
+                                        <div class="ms-4">
+                                            <h4 class="mb-1">2. Weighbridge</h4>
+                                            <p class="mb-0">
+                                                Gross and net weights are captured directly from
+                                                electronic weighbridges, removing manual errors.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex">
+                                        <div><i class="fa fa-gavel fa-3x text-primary"></i></div>
+                                        <div class="ms-4">
+                                            <h4 class="mb-1">3. Digital auction</h4>
+                                            <p class="mb-0">
+                                                Traders bid digitally on each lot with full visibility
+                                                of quality, base price and ranked bids.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex">
+                                        <div><i class="fa fa-receipt fa-3x text-primary"></i></div>
+                                        <div class="ms-4">
+                                            <h4 class="mb-1">4. Settlement & dispatch</h4>
+                                            <p class="mb-0">
+                                                Payouts, commissions, mandi fee and taxes are computed
+                                                automatically, with digital receipts and dispatch slips.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- RIGHT SIDE IMAGE (you will plug your final artwork here) -->
+                    <div class="col-xl-5 col-lg-6 wow fadeInRight" data-wow-delay="0.4s">
+                        <div class="position-relative">
+                            <!-- TODO: replace with your actual flow / architecture image -->
+                            <img src="img/cibermandi-how-flow.png"
+                                 class="img-fluid w-100 rounded"
+                                 alt="CiberMandi end-to-end mandi flow diagram">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <!-- How It Works End -->
+
+        <!-- How It Works End -->
+
+
+        <!-- FAQ Start -->
+        <div class="container-fluid py-5" id="faq">
+            <div class="container py-5">
+                <div class="text-center mx-auto pb-5 wow fadeInUp" data-wow-delay="0.2s" style="max-width: 800px;">
+                    <h4 class="text-primary">FAQ</h4>
+                    <h1 class="display-5 mb-4">Questions mandi stakeholders often ask</h1>
+                    <p class="mb-0">
+                        A quick set of answers for farmers, traders and mandi boards evaluating CiberMandi.
+                        Detailed documentation and demos are available on request.
+                    </p>
+                </div>
+
+                <div class="row g-5">
+                    <div class="col-lg-8 mx-auto wow fadeInUp" data-wow-delay="0.3s">
+                        <div class="accordion" id="faqAccordion">
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="faq-heading-1">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq-collapse-1" aria-expanded="true" aria-controls="faq-collapse-1">
+                                        Is CiberMandi a replacement for the existing mandi system?
+                                    </button>
+                                </h2>
+                                <div id="faq-collapse-1" class="accordion-collapse collapse show" aria-labelledby="faq-heading-1" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        No. CiberMandi is a <strong>digital layer on top of APMC and state rules</strong>. It does not replace
+                                        the mandi but makes its processes more transparent, efficient and data-driven.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="faq-heading-2">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-collapse-2" aria-expanded="false" aria-controls="faq-collapse-2">
+                                        What if we don’t have high-speed internet in all mandis?
+                                    </button>
+                                </h2>
+                                <div id="faq-collapse-2" class="accordion-collapse collapse" aria-labelledby="faq-heading-2" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        CiberMandi is optimised for <strong>low-bandwidth, mobile-first environments</strong> with
+                                        offline-friendly flows. We design deployments based on your infrastructure reality,
+                                        not just urban assumptions.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="faq-heading-3">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-collapse-3" aria-expanded="false" aria-controls="faq-collapse-3">
+                                        How long does a typical mandi go-live take?
+                                    </button>
+                                </h2>
+                                <div id="faq-collapse-3" class="accordion-collapse collapse" aria-labelledby="faq-heading-3" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        A phased go-live can start in <strong>6–8 weeks</strong> for a pilot mandi (gate + weighbridge +
+                                        basic auctions), followed by roll-out across more mandis and modules in your state.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item mb-3">
+                                <h2 class="accordion-header" id="faq-heading-4">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-collapse-4" aria-expanded="false" aria-controls="faq-collapse-4">
+                                        Can we customise workflows for our state rules?
+                                    </button>
+                                </h2>
+                                <div id="faq-collapse-4" class="accordion-collapse collapse" aria-labelledby="faq-heading-4" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        Yes. CiberMandi has a <strong>configurable rules engine</strong> for commodities, commissions,
+                                        auction formats, fees and slabs so that deployments can match state notifications and circulars.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="faq-heading-5">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-collapse-5" aria-expanded="false" aria-controls="faq-collapse-5">
+                                        How is data security and privacy handled?
+                                    </button>
+                                </h2>
+                                <div id="faq-collapse-5" class="accordion-collapse collapse" aria-labelledby="faq-heading-5" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        CiberMandi uses <strong>end-to-end encryption, role-based access control and detailed audit logs</strong>.
+                                        All deployments are aligned with applicable government guidelines and data hosting policies.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- FAQ End -->
+
+
+        <!-- Contact Start -->
+        <div class="container-fluid py-5 bg-dark" id="contact">
+            <div class="container py-5">
+                <div class="row g-5 align-items-start">
+                    <div class="col-lg-5 wow fadeInLeft" data-wow-delay="0.2s">
+                        <h4 class="text-primary">Contact Us</h4>
+                        <h1 class="display-5 text-white mb-4">Let’s discuss your mandi or state deployment</h1>
+                        <p class="text-white-50 mb-4">
+                            Whether you are a mandi board, government department, FPO, federation or technology partner,
+                            we’d be happy to walk you through a live demo of CiberMandi.
+                        </p>
+                        <div class="d-flex mb-3">
+                            <i class="fas fa-map-marker-alt text-primary me-3 mt-1"></i>
+                            <p class="text-white mb-0">
+                                CiberDukaan Technologies<br/>
+                                (Registered office details to be updated)
+                            </p>
+                        </div>
+                        <div class="d-flex mb-3">
+                            <i class="fas fa-envelope text-primary me-3 mt-1"></i>
+                            <p class="text-white mb-0">info@cibermandi.in</p>
+                        </div>
+                        <div class="d-flex mb-3">
+                            <i class="fa fa-phone-alt text-primary me-3 mt-1"></i>
+                                <p class="text-white mb-0">91 789-268-6714</p>
+                        </div>
+                    </div>
+                    <div class="col-lg-7 wow fadeInRight" data-wow-delay="0.4s">
+                        <div class="bg-white rounded p-4 p-md-5">
+                            <h4 class="mb-4">Share your details</h4>
+                            <form>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" placeholder="Your Name">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="email" class="form-control" placeholder="Official Email">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" placeholder="Organisation / Department">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" placeholder="State / Country">
+                                    </div>
+                                    <div class="col-12">
+                                        <select class="form-select">
+                                            <option selected>Nature of enquiry</option>
+                                            <option value="1">State-wide deployment</option>
+                                            <option value="2">Single mandi pilot</option>
+                                            <option value="3">FPO / Private market integration</option>
+                                            <option value="4">Technology & API partnership</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <textarea class="form-control" rows="4" placeholder="Tell us a bit about your current mandi setup and goals"></textarea>
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-primary rounded-pill py-2 px-4" type="submit">
+                                            Submit enquiry
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Contact End -->
+
+
+
+        <!-- Team End -->
+
+        <!-- Footer Start -->
+        <div class="container-fluid footer py-5 wow fadeIn" data-wow-delay="0.2s">
+            <div class="container py-5 border-start-0 border-end-0" style="border: 1px solid; border-color: rgb(255, 255, 255, 0.08);">
+                <div class="row g-5">
+                    <div class="col-md-6 col-lg-6 col-xl-4">
+                        <div class="footer-item">
+                            <a href="index.html" class="p-0">
+                                <div class="d-flex align-items-center mb-2">
+                                    <img src="img/logo_transparent.png" alt="CiberMandi" style="height: 46px;" class="me-2">
+                                    <div class="lh-sm">
+                                        <h4 class="text-white mb-0">CiberMandi</h4>
+                                        <p class="text-muted mb-0 small">India’s Digital Mandi Network</p>
+                                    </div>
+                                </div>
+                                <p class="text-muted mb-0">A Ciberdukaan Technologies product</p>
+                            </a>
+                            <p class="mb-4">India’s live digital mandi network for farmers, traders and mandi boards.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-6 col-xl-2">
+                        <div class="footer-item">
+                            <h4 class="text-white mb-4">Navigate</h4>
+                            <a href="#why"><i class="fas fa-angle-right me-2"></i> Why CiberMandi</a>
+                            <a href="#farmers"><i class="fas fa-angle-right me-2"></i> Farmers</a>
+                            <a href="#traders"><i class="fas fa-angle-right me-2"></i> Traders</a>
+                            <a href="#mandi-boards"><i class="fas fa-angle-right me-2"></i> Mandi Boards</a>
+                            <a href="#how"><i class="fas fa-angle-right me-2"></i> How it Works</a>
+                            <a href="#contact"><i class="fas fa-angle-right me-2"></i> Contact</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-6 col-xl-3">
+                        <div class="footer-item">
+                            <h4 class="text-white mb-4">Contact</h4>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-map-marker-alt text-primary me-3"></i>
+                                <p class="text-white mb-0">Vasundhra, Ghaziabad, Uttar Pradesh</p>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-envelope text-primary me-3"></i>
+                                <p class="text-white mb-0">info@ciberdukaan.com</p>
+                            </div>
+                            <div class="d-flex">
+                                <a class="btn btn-primary btn-sm-square rounded-circle me-3" href="#"><i class="fab fa-facebook-f text-white"></i></a>
+                                <a class="btn btn-primary btn-sm-square rounded-circle me-3" href="#"><i class="fab fa-twitter text-white"></i></a>
+                                <a class="btn btn-primary btn-sm-square rounded-circle me-3" href="#"><i class="fab fa-instagram text-white"></i></a>
+                                <a class="btn btn-primary btn-sm-square rounded-circle me-0" href="#"><i class="fab fa-linkedin-in text-white"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Footer End -->
+        
+        <!-- Copyright Start -->
+        <div class="container-fluid copyright py-4">
+            <div class="container">
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-6 text-center text-md-start mb-md-0">
+                        <span class="text-body"><a href="#" class="border-bottom text-white"><i class="fas fa-copyright text-light me-2"></i>Ciberdukaan Technologies</a>, All rights reserved.</span>
+                    </div>
+                    <div class="col-md-6 text-center text-md-end text-body">
+                        Built for the CiberMandi network
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Copyright End -->
+
+
+        <!-- Back to Top -->
+        <a href="#" class="btn btn-primary btn-lg-square rounded-circle back-to-top"><i class="fa fa-arrow-up"></i></a>   
+
+        
+        <!-- JavaScript Libraries -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="lib/wow/wow.min.js"></script>
+        <script src="lib/easing/easing.min.js"></script>
+        <script src="lib/waypoints/waypoints.min.js"></script>
+        <script src="lib/counterup/counterup.min.js"></script>
+        <script src="lib/lightbox/js/lightbox.min.js"></script>
+        <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+        
+
+        <!-- Template Javascript -->
+        <script src="js/main.js"></script>
+        <script>
+            // Mandi-wise board
+            (function () {
+                const rows = [
+                    { commodity: "Wheat Sharbati", mandi: "Kota, Rajasthan", last: 2365, change: 18, high: 2410, low: 2280 },
+                    { commodity: "Chana", mandi: "Latur, Maharashtra", last: 5435, change: -12, high: 5510, low: 5380 },
+                    { commodity: "Mustard", mandi: "Bharatpur, Rajasthan", last: 6150, change: 26, high: 6205, low: 6060 },
+                    { commodity: "Soybean", mandi: "Indore, MP", last: 4855, change: -35, high: 4930, low: 4800 },
+                    { commodity: "Maize", mandi: "Nizamabad, Telangana", last: 1930, change: 8, high: 1965, low: 1880 },
+                    { commodity: "Paddy Basmati", mandi: "Karnal, Haryana", last: 3240, change: 22, high: 3295, low: 3180 },
+                    { commodity: "Cotton", mandi: "Rajkot, Gujarat", last: 7240, change: -28, high: 7320, low: 7185 },
+                    { commodity: "Tur / Arhar", mandi: "Gulbarga, Karnataka", last: 6135, change: 15, high: 6180, low: 6060 }
+                ];
+
+                const body = document.getElementById("price-board-body");
+                if (!body) return;
+
+                function render(limit) {
+                    body.innerHTML = "";
+                    const list = typeof limit === "number" ? rows.slice(0, limit) : rows;
+                    list.forEach((row) => {
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "price-row";
+
+                        const commodity = document.createElement("div");
+                        commodity.className = "price-commodity";
+                        commodity.textContent = row.commodity;
+
+                        const mandi = document.createElement("div");
+                        mandi.className = "price-mandi";
+                        mandi.innerHTML = `<span class="price-pill"><i class="fas fa-map-marker-alt"></i>${row.mandi}</span>`;
+
+                        const last = document.createElement("div");
+                        last.className = "price-value price-last";
+                        last.textContent = "₹" + row.last.toLocaleString("en-IN");
+
+                        const high = document.createElement("div");
+                        high.className = "price-sub price-high";
+                        high.textContent = "High: ₹" + row.high.toLocaleString("en-IN");
+
+                        const low = document.createElement("div");
+                        low.className = "price-sub price-low";
+                        low.textContent = "Low: ₹" + row.low.toLocaleString("en-IN");
+
+                        const change = document.createElement("div");
+                        change.className = "price-change price-change-now price-change" + (row.change >= 0 ? " up" : " down");
+                        change.innerHTML = `<i class="fas fa-arrow-${row.change >= 0 ? "up" : "down"}"></i> ${Math.abs(row.change)}`;
+
+                        wrapper.append(commodity, mandi, last, high, low);
+                        wrapper.children[3].before(change); // ensure order matches header
+                        body.appendChild(wrapper);
+                    });
+                }
+
+                function jitter() {
+                    rows.forEach((r) => {
+                        const delta = Math.floor(Math.random() * 30 + 1) * (Math.random() > 0.5 ? 1 : -1);
+                        r.last = Math.max(500, r.last + delta);
+                        r.high = Math.max(r.high, r.last);
+                        r.low = Math.min(r.low, r.last);
+                        r.change = delta;
+                    });
+                    render(collapsed ? 3 : undefined);
+                }
+
+                let collapsed = true;
+                render(3);
+                setInterval(jitter, 3200);
+
+                const toggleBtn = document.getElementById("price-board-toggle");
+                if (toggleBtn) {
+                    toggleBtn.textContent = "Expand";
+                    toggleBtn.addEventListener("click", () => {
+                        collapsed = !collapsed;
+                        toggleBtn.textContent = collapsed ? "Expand" : "Collapse";
+                        render(collapsed ? 3 : undefined);
+                    });
+                }
+            })();
+        </script>
+    </body>
+
+</html>

@@ -1,0 +1,82 @@
+{
+  "common": {
+    "language": "भाषा",
+    "active": "सक्रिय",
+    "inactive": "निष्क्रिय",
+    "all": "सभी",
+    "cancel": "रद्द करें",
+    "save": "सहेजें",
+    "close": "बंद करें",
+    "generate": "जनरेट करें",
+    "refresh": "रीफ़्रेश"
+  },
+  "header": {
+    "sign_out": "साइन आउट",
+    "language": "भाषा",
+    "theme_toggle": "थीम बदलें"
+  },
+  "login": {
+    "heading": "साइन इन",
+    "username": {
+      "label": "उपयोगकर्ता नाम",
+      "placeholder": "एडमिन उपयोगकर्ता नाम दर्ज करें",
+      "required": "उपयोगकर्ता नाम आवश्यक है",
+      "invalid": "3-64 वर्ण: अक्षर, अंक, डॉट, अंडरस्कोर, हाइफ़न"
+    },
+    "password": "पासवर्ड",
+    "country": "देश",
+    "language": "भाषा",
+    "submit": "साइन इन",
+    "status_success": "सफलतापूर्वक साइन इन किया गया।",
+    "status_failure": "साइन इन विफल।",
+    "debug": {
+      "title": "डिबग",
+      "toggle_hide": "छिपाएँ",
+      "toggle_show": "दिखाएँ",
+      "no_response": "(कोई एपीआई प्रतिक्रिया कैप्चर नहीं हुई)"
+    }
+  },
+  "menu": {
+    "dashboard": "डैशबोर्ड",
+    "organisations": "संगठन",
+    "orgMandi": "संस्था–मंडी मैपिंग",
+    "mandis": "मंडी सूची",
+    "adminUsers": "प्रशासन उपयोगकर्ता",
+    "traderApprovals": "ट्रेडर स्वीकृति",
+    "reports": "रिपोर्ट्स",
+    "mandiCoverage": "मंडी कवरेज",
+    "mandiPrices": "मंडी मूल्य प्रविष्टि"
+  },
+  "adminUsers": {
+    "title": "एडमिन उपयोगकर्ता",
+    "filters": {
+      "search": "उपयोगकर्ता नाम/ईमेल/मोबाइल खोजें",
+      "organisation": "संगठन",
+      "role": "भूमिका",
+      "status": "स्थिति",
+      "all": "सभी",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "dialog": {
+      "createTitle": "एडमिन उपयोगकर्ता बनाएँ",
+      "editTitle": "एडमिन उपयोगकर्ता संपादित करें",
+      "username": "उपयोगकर्ता नाम",
+      "fullName": "पूरा नाम",
+      "email": "ईमेल",
+      "mobile": "मोबाइल",
+      "organisation": "संगठन",
+      "roles": "भूमिकाएँ",
+      "password": "पासवर्ड",
+      "status": "स्थिति",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय",
+      "save": "सहेजें",
+      "cancel": "रद्द करें"
+    },
+    "resetDialog": {
+      "title": "पासवर्ड रीसेट करें",
+      "close": "बंद करें"
+    }
+  }
+}

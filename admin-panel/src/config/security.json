@@ -1,0 +1,9 @@
+{
+   "device_secret":"rahul_ciberdukaan_layered_secret_2025@#%$&!Dukaan",
+   "aes_key":"52f52c7d686226cd52f52c7d686226cd",
+   "aes_iv":"48f12d73726130cd48f12d73726130cd",
+   "password_aes_key":"2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819",
+   "password_aes_iv":"1a2b3c4d5e6f70891a2b3c4d5e6f7089",
+   "manifest_aes_key":"7e9b8c6f4d5a3b217e9b8c6f4d5a3b21",
+   "manifest_aes_iv":"2a4b6c8d0e1f2a4b2a4b6c8d0e1f2a4b"
+}

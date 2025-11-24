@@ -1,0 +1,321 @@
+{
+  "app": {
+    "title": "CiberMandi",
+    "tagline": "Super Admin Console"
+  },
+  "languages": {
+    "en": "English",
+    "hi": "Hindi",
+    "bn": "Bengali",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "mr": "Marathi",
+    "gu": "Gujarati",
+    "kn": "Kannada",
+    "ml": "Malayalam",
+    "pa": "Punjabi",
+    "or": "Odia"
+  },
+  "common": {
+    "language": "Language",
+    "select_language": "Select language",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "all": "All",
+    "actions": "Actions",
+    "organisation": "Organisation",
+    "role": "Role",
+    "search": "Search",
+    "filters": "Filters",
+    "loading": "Loading...",
+    "error_generic": "Something went wrong.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "generate": "Generate",
+    "none": "None",
+    "required_hint": "Required if any selected role is ORG scoped",
+    "no_records": "No records found.",
+    "refresh": "Refresh"
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "organisations": "Organisations",
+    "orgMandi": "Org–Mandi Mapping",
+    "mandis": "Mandis",
+    "adminUsers": "Admin Users",
+    "traderApprovals": "Trader Approvals",
+    "reports": "Reports",
+    "mandiCoverage": "Mandi Coverage",
+    "mandiPrices": "Mandi Price Entry"
+  },
+  "header": {
+    "sign_out": "Sign Out",
+    "language": "Language",
+    "theme_toggle": "Toggle theme"
+  },
+  "login": {
+    "heading": "Sign in",
+    "username": {
+      "label": "Username",
+      "placeholder": "Enter admin username",
+      "required": "Username is required",
+      "invalid": "Use 3-64 characters: letters, numbers, dot, underscore, hyphen"
+    },
+    "password": "Password",
+    "country": "Country",
+    "language": "Language",
+    "submit": "Sign in",
+    "status_default": "",
+    "status_success": "Login successful.",
+    "status_failure": "Login failed.",
+    "debug": {
+      "title": "Debug",
+      "toggle_hide": "Hide",
+      "toggle_show": "Show",
+      "no_response": "(No API response captured yet)"
+    }
+  },
+  "adminUsers": {
+    "title": "Admin Users",
+    "actions": {
+      "new": "New Admin User",
+      "edit": "Edit",
+      "reset": "Reset Password",
+      "generate": "Generate",
+      "refresh": "Refresh"
+    },
+    "filters": {
+      "search": "Search username/email/mobile",
+      "organisation": "Organisation",
+      "role": "Role",
+      "status": "Status",
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "columns": {
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "orgCode": "Org Code",
+      "orgName": "Org Name",
+      "roles": "Roles",
+      "status": "Status",
+      "lastLogin": "Last Login",
+      "updatedOn": "Updated On",
+      "actions": "Actions"
+    },
+    "dialog": {
+      "createTitle": "Create Admin User",
+      "editTitle": "Edit Admin User",
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "organisation": "Organisation",
+      "orgHelper": "Required if any selected role is ORG scoped",
+      "roles": "Roles",
+      "rolesHelper": "Select one or more roles",
+      "password": "Password",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "resetDialog": {
+      "title": "Reset Password",
+      "prompt": "Generate a temporary password for {{username}}?",
+      "temp": "Temporary password for {{username}}: {{password}}",
+      "close": "Close"
+    },
+    "messages": {
+      "noSession": "No admin session.",
+      "loadFailed": "Failed to load admin users.",
+      "networkLoad": "Network error while loading admin users.",
+      "usernameRequired": "Username is required.",
+      "usernameInvalid": "Username must be 3-64 chars, lowercase letters/numbers/._- only (no spaces).",
+      "fullNameRequired": "Full name is required.",
+      "mobileRequired": "Mobile is required.",
+      "mobileInvalid": "Mobile must be 8-15 digits.",
+      "rolesRequired": "Select at least one role.",
+      "superOrgConflict": "SUPERADMIN cannot be tied to an organisation.",
+      "orgRequired": "Organisation is required for org-scoped roles.",
+      "updateFailed": "Update failed.",
+      "updateSuccess": "Admin user updated.",
+      "createFailed": "Create failed.",
+      "createSuccess": "Admin user created.",
+      "networkError": "Network error.",
+      "resetFailed": "Reset failed.",
+      "resetSuccess": "Temporary password generated.",
+      "validation_missing_user": "No admin session found."
+    }
+  },
+  "websiteDoc": {
+    "title": "CiberMandi Website Build Document",
+    "description": "Single source of content, illustration mapping, and implementation instructions to build the complete CiberMandi website.",
+    "content": {
+      "hero": {
+        "title": "India's Digital Mandi",
+        "subtitle": "Transparent, fair and real-time marketplace connecting farmers, traders, buyers and mandi authorities on one digital platform.",
+        "highlights": [
+          "Transparent auctions",
+          "Real-time prices",
+          "Instant payments",
+          "Faster mandi operations"
+        ]
+      },
+      "why": {
+        "title": "Why CiberMandi",
+        "body": "CiberMandi is a public digital mandi ecosystem designed to modernize agricultural trading. It digitizes the entire mandi workflow—from farmer arrival to auction, payment, and dispatch. It ensures transparency, fairness, and efficiency for all stakeholders."
+      },
+      "benefits": {
+        "farmers": {
+          "title": "Benefits for Farmers",
+          "points": [
+            "Transparent digital auctions with fair price discovery.",
+            "Real-time mandi rates and trends.",
+            "Fast, secure UPI/bank payments.",
+            "Digital receipts for weight, auction, payment, and dispatch.",
+            "Option to sell directly to buyers in the marketplace.",
+            "Weather alerts, soil insights, crop advisory.",
+            "Multi-language interface with reduced waiting times."
+          ]
+        },
+        "traders": {
+          "title": "Benefits for Traders",
+          "points": [
+            "Access to more farmers and incoming lots.",
+            "Participate in fair auctions with no manual interference.",
+            "Faster checkout via automated weight capture.",
+            "Digital ledger for balances, dues, and settlements.",
+            "Accurate records and analytics for planning."
+          ]
+        },
+        "mandiBoards": {
+          "title": "Benefits for Mandi Boards / Authorities",
+          "points": [
+            "Fully digital and transparent mandi operations.",
+            "Real-time monitoring of arrivals, auctions, prices, and users.",
+            "Reduction in revenue leakage; improved fee collection.",
+            "Automated weighbridge integration.",
+            "Daily/monthly reports and commodity analytics.",
+            "Higher farmer satisfaction and trust."
+          ]
+        }
+      },
+      "howItWorks": {
+        "title": "How CiberMandi Works",
+        "steps": [
+          "Farmer completes digital gate entry.",
+          "Produce weighed on integrated weighbridge.",
+          "Live auction begins, traders bid digitally.",
+          "Winning bid locked, auction slip generated.",
+          "Instant digital payment to farmer.",
+          "Produce dispatched to trader.",
+          "Mandi board receives real-time dashboards."
+        ]
+      },
+      "liveDashboard": {
+        "title": "Live Mandi Dashboard (Features)",
+        "features": [
+          "Live prices",
+          "Live auctions",
+          "Arrivals count",
+          "Commodity trends",
+          "Volume charts",
+          "Historical insights"
+        ]
+      },
+      "marketplace": {
+        "title": "Marketplace for Farmers",
+        "points": [
+          "Farmers list produce directly for buyers.",
+          "Verified buyers and logistics support.",
+          "Direct payments, digital negotiation."
+        ]
+      },
+      "security": {
+        "title": "Security & Trust",
+        "points": [
+          "Encrypted transactions.",
+          "Verified farmers/traders.",
+          "Transparent audit logs.",
+          "Govt-compliant workflows."
+        ]
+      },
+      "faq": {
+        "title": "FAQ",
+        "entries": [
+          { "question": "Is CiberMandi free for farmers?", "answer": "Yes." },
+          { "question": "Do farmers need a smartphone?", "answer": "No." },
+          { "question": "Are traders verified?", "answer": "Yes." },
+          { "question": "Is it APMC compliant?", "answer": "Yes." },
+          { "question": "Is data safe?", "answer": "Yes, encrypted." }
+        ]
+      }
+    },
+    "imageMapping": {
+      "heroIllustration": {
+        "file": "/mnt/data/A_flat-style_digital_illustration_depicts_a_farmer.png",
+        "usage": "Homepage hero side image.",
+        "description": "Farmer standing near mandi gate with tractor."
+      },
+      "transparentAuctions": {
+        "file": "/mnt/data/A_flat-style_digital_illustration_depicts_a_farmer.png",
+        "usage": "Transparent auctions / How auctions work section.",
+        "description": "Farmer with crate, trader bidding, and a laptop with rising graph."
+      },
+      "benefitsFarmers": {
+        "file": "/mnt/data/A_flat-style_digital_illustration_features_a_farme.png",
+        "usage": "Benefits for Farmers section.",
+        "description": "Farmer using mobile with icons for money, crop, chart, and weather."
+      },
+      "benefitsTraders": {
+        "file": "/mnt/data/A_flat-style_digital_illustration_depicts_a_busine.png",
+        "usage": "Benefits for Traders section.",
+        "description": "Trader with clipboard, analytics icons, and crate background."
+      },
+      "benefitsMandiBoards": {
+        "status": "pending_generation",
+        "title": "Benefits for Mandi Boards",
+        "usage": "Benefits for Mandi Boards / Authorities section.",
+        "toInclude": "Officer/admin at dashboard, growth charts, shield icon."
+      }
+    },
+    "implementation": {
+      "structure": [
+        "Homepage",
+        "Why CiberMandi",
+        "Benefits (Farmers, Traders, Mandi Boards)",
+        "How It Works",
+        "Live Dashboard Preview",
+        "Marketplace",
+        "Security",
+        "FAQ",
+        "Contact"
+      ],
+      "imagePlacement": {
+        "desktop": "Place each illustration on the right side of its section.",
+        "mobile": "Image full-width above the content.",
+        "usageNotes": "Maintain padding and aspect ratio with no text overlay on images."
+      },
+      "styling": {
+        "palette": "Warm palette with greens, oranges, and yellows.",
+        "theme": "Flat illustration theme with rounded edges and soft shadows."
+      },
+      "responsive": {
+        "desktop": "Content left, image right.",
+        "mobile": "Stack image above content and keep margins comfortable."
+      },
+      "notes": [
+        "All images are without text.",
+        "Keep aspect ratios unchanged.",
+        "Use file paths exactly as specified."
+      ]
+    }
+  }
+}

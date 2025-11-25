@@ -136,7 +136,8 @@ login(
             <Stack alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
               <Box
                 component="img"
-                src={BRAND_ASSETS.logo}
+          src={BRAND_ASSETS.logo}
+
                 alt="CiberMandi"
                 sx={{ height: 54, width: "auto", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}
               />

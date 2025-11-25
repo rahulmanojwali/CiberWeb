@@ -64,9 +64,7 @@ export const BRAND_COLORS = {
 //   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
 // };
 
-export const BRAND_ASSETS = {
-  logo: "/admin/logo_transparent.png",
-};
+export const BRAND_ASSETS = { logo: "/admin/logo_transparent.png" };
 
 
 export const COLLECTIONS = {

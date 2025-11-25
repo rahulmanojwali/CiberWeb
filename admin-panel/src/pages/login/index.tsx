@@ -13,446 +13,316 @@ import {
   Select,
   MenuItem,
   Divider,
+  useMediaQuery,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { BRAND_ASSETS, DEFAULT_COUNTRY } from "../../config/appConfig";
-import { LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, normalizeLanguageCode } from "../../config/languages";
+
+import {
+  BRAND_ASSETS,
+  DEFAULT_COUNTRY,
+  DEFAULT_LANGUAGE,
+  APP_STRINGS,
+} from "../../config/appConfig";
+import {
+  LANGUAGE_STORAGE_KEY,
+  SUPPORTED_LANGUAGES,
+  normalizeLanguageCode,
+} from "../../config/languages";
 
 type LoginPayload = {
-  username: string;   // admin username (alphanumeric, ., _, -)
+  username: string; // admin username
   password: string;
-  country: string;    // e.g., "IN"
+  country: string;  // e.g., "IN"
 };
 
 export const Login: React.FC = () => {
-  const { mutate: login } = useLogin<LoginPayload>();
-  const { t, i18n } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  
+  const { mutate: login, isPending } = useLogin<LoginPayload>();
 
-  React.useEffect(() => {
-    document.title = `${t("app.title")} Admin Panel`;
-  }, [t]);
+  const { t, i18n } = useTranslation();
 
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [country, setCountry] = React.useState(DEFAULT_COUNTRY);
-  const [language, setLanguage] = React.useState(() => normalizeLanguageCode(i18n.language));
-  const [usernameError, setUsernameError] = React.useState<string | null>(null);
-  const [submitting, setSubmitting] = React.useState(false);
-console.log("logo src code:", BRAND_ASSETS.logo);
+  const [language, setLanguage] = React.useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_LANGUAGE;
+    try {
+      const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      return normalizeLanguageCode(stored);
+    } catch {
+      return DEFAULT_LANGUAGE;
+    }
+  });
+  const [error, setError] = React.useState<string | null>(null);
 
-  // visible status + debug state
-  const [status, setStatus] = React.useState("");
-  const [debugOpen, setDebugOpen] = React.useState(true);
-  const [lastEvent, setLastEvent] = React.useState<string>("");
-  const [lastUrl, setLastUrl] = React.useState<string>("");
-  const [lastResponse, setLastResponse] = React.useState<any>(null);
+  React.useEffect(() => {
+    document.title = `${APP_STRINGS.title} – Admin Login`;
+  }, []);
 
-  const countries = [
-    { code: "IN", name: "India" },
-    { code: "AE", name: "UAE" },
-    { code: "US", name: "United States" },
-  ];
-
-  const validateUsername = (value: string) => {
-    const cleaned = (value || "").trim().toLowerCase();
-    const pattern = /^[a-z0-9._-]{3,64}$/;
-    if (!cleaned) return t("login.username.required");
-    if (!pattern.test(cleaned)) return t("login.username.invalid");
-    return null;
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value);
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
+    } catch {
+      // ignore storage errors
+    }
+    i18n.changeLanguage(value).catch(() => undefined);
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    const err = validateUsername(username);
-    setUsernameError(err);
-    if (err) return;
+    if (!username.trim() || !password || !country) {
+      setError("Please fill all the fields.");
+      return;
+    }
 
-    const cleaned = username.trim().toLowerCase();
-    setSubmitting(true);
-    setStatus(t("login.status_default"));
-    setLastEvent("login_submit");
-    setLastResponse(null);
-
-    // we’ll capture messages coming back from authProvider
-    // login(
-    //   { username: cleaned, password, country },
-    //   {
-    //     onSuccess: (res: any) => {
-    //       setStatus("Login successful.");
-    //       setLastEvent("login_onSuccess");
-    //       // some refine builds pass { redirectTo } here; keep a breadcrumb
-    //       console.info({ event: "login_onSuccess", res });
-    //     },
-    //     onError: (err: any) => {
-    //       const msg = err?.message || "Login failed";
-    //       setStatus(msg);
-    //       setLastEvent("login_onError");
-    //       setLastResponse(err?.meta?.response ?? err);
-    //       console.error({ event: "login_onError", err });
-    //     },
-    //     onSettled: () => setSubmitting(false),
-    //   },
-    // );
-
-login(
-  { username: cleaned, password, country },
-  {
-    onSuccess: (res: any) => {
-      // IMPORTANT: refine's onSuccess fires when the mutation resolves,
-      // but auth result may still be success:false. Check it.
-      if (res?.success) {
-        setStatus(t("login.status_success"));
-        setLastEvent("login_onSuccess");
-        setLastUrl((window as any).__cd_last_login_url || "");
-        setLastResponse(null);
-      } else {
-        const msg = res?.error?.message || t("login.status_failure");
-        setStatus(msg);
-        setLastEvent("login_onError");
-        setLastUrl(res?.error?.meta?.url || (window as any).__cd_last_login_url || "");
-        setLastResponse(res?.error?.meta?.response || res?.error);
-      }
-    },
-    onError: (err: any) => {
-      const msg = err?.message || t("login.status_failure");
-      setStatus(msg);
-      setLastEvent("login_onError");
-      setLastUrl(err?.meta?.url || (window as any).__cd_last_login_url || "");
-      setLastResponse(err?.meta?.response || err);
-    },
-    onSettled: () => setSubmitting(false),
-  }
-);
-
-
+    login(
+      { username: username.trim(), password, country },
+      {
+        onError: (err: any) => {
+          const msg =
+            err?.message ||
+            err?.error?.message ||
+            "Login failed. Please check your credentials.";
+          setError(msg);
+        },
+      },
+    );
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: { xs: 1.5, sm: 2 } }}>
-      <Card
-        sx={{
-          width: { xs: "100%", sm: 420 },
-          maxWidth: 480,
-          boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-          borderRadius: 2,
-        }}
-      >
-        <CardContent>
-          <Stack component="form" onSubmit={onSubmit} spacing={2}>
-            <Stack alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "background.default",
+        px: { xs: 2, sm: 3 },
+        py: { xs: 4, sm: 6 },
+      }}
+    >
+      <Box sx={{ width: "100%", maxWidth: 1120 }}>
+        <Card
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            borderRadius: 4,
+            overflow: "hidden",
+            boxShadow: 4,
+          }}
+        >
+          {/* Left side – illustration / branding (hidden on very small screens) */}
+          <Box
+            sx={{
+              display: { xs: "none", md: "flex" },
+              flex: 1,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.success.dark})`,
+              color: "#fff",
+              alignItems: "center",
+              justifyContent: "center",
+              p: 4,
+            }}
+          >
+            <Stack spacing={3} maxWidth={360}>
               <Box
                 component="img"
                 src={BRAND_ASSETS.logo}
-
                 alt="CiberMandi"
                 sx={{
+                  width: 120,
                   height: "auto",
-                  width: "100%",
-                  maxWidth: 160,
-                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
+                  filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))",
                 }}
               />
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {t("app.title")}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {t("app.tagline")}
+              <Box>
+                <Typography variant="h5" fontWeight={600}>
+                  {APP_STRINGS.title}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9, mt: 1.5 }}>
+                  Secure admin console for managing organisations, mandis,
+                  and marketplace operations across the CiberMandi network.
+                </Typography>
+              </Box>
+              <Divider
+                sx={{
+                  borderColor: "rgba(255,255,255,0.25)",
+                  my: 2,
+                }}
+              />
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                Tip: Use your Superadmin / Org Admin / Mandi Admin credentials
+                provided by Ciberdukaan Technologies.
               </Typography>
             </Stack>
+          </Box>
 
-            <Typography variant="h5" sx={{ mb: 1, textAlign: "center" }}>
-              {t("login.heading")}
-            </Typography>
-
-            <FormControl fullWidth>
-              <InputLabel id="language-label">{t("login.language")}</InputLabel>
-              <Select
-                labelId="language-label"
-                value={language}
-                label={t("login.language")}
-                onChange={(e) => {
-                  const next = e.target.value as string;
-                  setLanguage(next);
-                  i18n.changeLanguage(next);
-                  try {
-                    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <MenuItem key={lang.code} value={lang.code}>
-                    {lang.nativeLabel} ({lang.label})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label={t("login.username.label")}
-              type="text"
-              placeholder={t("login.username.placeholder")}
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                if (usernameError) setUsernameError(null);
-              }}
-              inputProps={{ maxLength: 64 }}
-              error={!!usernameError}
-              helperText={usernameError || " "}
-              fullWidth
-              required
-            />
-
-            <TextField
-              label={t("login.password")}
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              fullWidth
-              required
-            />
-
-            <FormControl fullWidth>
-              <InputLabel id="country-label">{t("login.country")}</InputLabel>
-              <Select
-                labelId="country-label"
-                value={country}
-                label={t("login.country")}
-                onChange={(e) => setCountry((e.target.value as string) || DEFAULT_COUNTRY)}
-              >
-                {countries.map((c) => (
-                  <MenuItem key={c.code} value={c.code}>
-                    {c.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Button type="submit" variant="contained" size="large" disabled={submitting}>
-              {t("login.submit")}
-            </Button>
-
-            {/* status line */}
-            {status ? (
-              <Typography variant="body2" color="text.secondary">
-                {status}
-              </Typography>
-            ) : null}
-
-            {/* debug box */}
-            <Box
+          {/* Right side – actual login form */}
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              alignItems: "stretch",
+              bgcolor: "background.paper",
+            }}
+          >
+            <CardContent
               sx={{
-                mt: 1,
-                p: 1,
-                borderRadius: 1,
-                bgcolor: "#f7f7f7",
-                border: "1px solid #e0e0e0",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                width: "100%",
+                p: { xs: 3, sm: 4, md: 5 },
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                  Debug
-                </Typography>
-                <Button size="small" onClick={() => setDebugOpen((v) => !v)}>
-                  {debugOpen ? "Hide" : "Show"}
-                </Button>
-              </Box>
-              {debugOpen && (
-                <>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="caption">event: {lastEvent || "-"}</Typography>
-                  {lastUrl ? (
-                    <Typography variant="caption" sx={{ display: "block" }}>
-                      url: {lastUrl}
+              {/* Mobile logo / title */}
+              {isMobile && (
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={2}
+                  sx={{ mb: 3 }}
+                >
+                  <Box
+                    component="img"
+                    src={BRAND_ASSETS.logo}
+                    alt="CiberMandi"
+                    sx={{ width: 64, height: "auto" }}
+                  />
+                  <Box>
+                    <Typography variant="h6" fontWeight={600}>
+                      {APP_STRINGS.title}
                     </Typography>
-                  ) : null}
-                  {lastResponse ? (
-                    <Box sx={{ mt: 1, maxHeight: 160, overflow: "auto", whiteSpace: "pre-wrap" }}>
-                      <Typography variant="caption">
-                        {JSON.stringify(lastResponse, null, 2)}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Typography variant="caption" sx={{ display: "block", opacity: 0.7 }}>
-                      (No API response captured yet)
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                    >
+                      {APP_STRINGS.tagline}
+                    </Typography>
+                  </Box>
+                </Stack>
+              )}
+
+              {/* Heading */}
+              <Stack spacing={0.5} sx={{ mb: 3 }}>
+                <Typography variant="h5" fontWeight={600}>
+                  Admin Login
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Sign in to manage organisations, mandis and admin users.
+                </Typography>
+              </Stack>
+
+              {/* Language & Country row */}
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                sx={{ mb: 3 }}
+              >
+                <FormControl fullWidth size="small">
+                  <InputLabel id="language-label">Language</InputLabel>
+                  <Select
+                    labelId="language-label"
+                    label="Language"
+                    value={language}
+                    onChange={(e) =>
+                      handleLanguageChange(e.target.value as string)
+                    }
+                  >
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <MenuItem key={lang.code} value={lang.code}>
+                        {lang.nativeLabel} ({lang.label})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel id="country-label">Country</InputLabel>
+                  <Select
+                    labelId="country-label"
+                    label="Country"
+                    value={country}
+                    onChange={(e) =>
+                      setCountry(e.target.value as string)
+                    }
+                  >
+                    {/* You can add more countries later if needed */}
+                    <MenuItem value="IN">India</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+
+              {/* Login form */}
+              <Box component="form" onSubmit={handleSubmit} noValidate>
+                <Stack spacing={2.5}>
+                  <TextField
+                    label="Username"
+                    fullWidth
+                    size="small"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                  />
+                  <TextField
+                    label="Password"
+                    fullWidth
+                    size="small"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+
+                  {error && (
+                    <Typography
+                      variant="body2"
+                      color="error"
+                      sx={{ mt: 0.5 }}
+                    >
+                      {error}
                     </Typography>
                   )}
-                </>
-              )}
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
+
+                <Button
+  type="submit"
+  variant="contained"
+  fullWidth
+  size="medium"
+  disabled={isPending}
+  sx={{ mt: 1.5, py: 1.1 }}
+>
+  {isPending ? "Signing in..." : "Sign in"}
+</Button>
+
+                </Stack>
+              </Box>
+
+              {/* Footer hint */}
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+                sx={{ mt: 3 }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  © {new Date().getFullYear()} Ciberdukaan Technologies.
+                </Typography>
+
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                >
+                  Need access? Contact your organisation admin.
+                </Typography>
+              </Stack>
+            </CardContent>
+          </Box>
+        </Card>
+      </Box>
     </Box>
   );
 };
-
-
-// import * as React from "react";
-// import { useLogin } from "@refinedev/core";
-// import {
-//   Box,
-//   Card,
-//   CardContent,
-//   TextField,
-//   Button,
-//   Typography,
-//   Stack,
-//   FormControl,
-//   InputLabel,
-//   Select,
-//   MenuItem,
-// } from "@mui/material";
-// import { useTranslation } from "react-i18next";
-
-// type LoginPayload = {
-//   username: string;   // 10-digit mobile (6–9 start)
-//   password: string;
-//   country: string;    // e.g., "IN"
-// };
-
-// export const Login: React.FC = () => {
-//   const { mutate: login } = useLogin<LoginPayload>();
-//   const { t } = useTranslation();
-
-//   const [mobile, setMobile] = React.useState("");
-//   const [password, setPassword] = React.useState("");
-//   const [country, setCountry] = React.useState("IN");
-//   const [mobileError, setMobileError] = React.useState<string | null>(null);
-//   const [submitting, setSubmitting] = React.useState(false);
-//   const [status, setStatus] = React.useState<string>("");
-
-//   const countries = [
-//     { code: "IN", name: "India" },
-//     { code: "AE", name: "UAE" },
-//     { code: "US", name: "United States" },
-//   ];
-
-//   const validateMobile = (value: string) => {
-//     const cleaned = value.replace(/\D/g, "");
-//     const pattern = /^[6-9]\d{9}$/;
-//     if (!cleaned) return t("auth.mobile_required") || "Mobile number is required";
-//     if (!pattern.test(cleaned))
-//       return (
-//         t("auth.mobile_invalid") ||
-//         "Enter a valid 10-digit mobile number (starts with 6-9)"
-//       );
-//     return null;
-//   };
-
-//   const onSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-
-//     const err = validateMobile(mobile);
-//     setMobileError(err);
-//     if (err) return;
-
-//     const cleaned = mobile.replace(/\D/g, "");
-//     setSubmitting(true);
-//     setStatus("Signing in…");
-
-//     // 🔍 log what we're attempting (no secrets)
-//     console.info({
-//       event: "login_submit",
-//       payloadPreview: { username: cleaned, country },
-//     });
-
-// login(
-//   { username: cleaned, password, country },
-//   {
-//     onSuccess: () => {
-//       console.info({ event: "login_onSuccess" });
-//       // Refine will navigate automatically on success because authProvider returns success:true
-//     },
-//     onError: (err: any) => {
-//       const msg = err?.message || "Login failed";
-//       console.error({ event: "login_onError", msg, err });
-//       // show under the button (you already have setStatus in your version)
-//       // setStatus(msg);
-//       alert(msg); // simple and visible
-//     },
-//     onSettled: () => setSubmitting(false),
-//   }
-// );
-
-
-//   };
-
-//   return (
-//     <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2 }}>
-//       <Typography sx={{ position: "absolute", top: 8, left: 8 }} variant="caption">
-//         CD Custom Login
-//       </Typography>
-
-//       <Card sx={{ width: 380, maxWidth: "100%" }}>
-//         <CardContent>
-//           <Stack component="form" onSubmit={onSubmit} spacing={2}>
-//             <Typography variant="h5" sx={{ mb: 1, textAlign: "center" }}>
-//               {t("auth.sign_in") || "Sign in"}
-//             </Typography>
-
-//             {/* Mobile */}
-//             <TextField
-//               label={t("auth.mobile_label") || "Mobile number"}
-//               type="tel"
-//               placeholder={t("auth.mobile_placeholder") || "Enter 10-digit mobile number"}
-//               value={mobile}
-//               onChange={(e) => {
-//                 const digits = e.target.value.replace(/\D/g, "");
-//                 setMobile(digits.slice(0, 10));
-//                 if (mobileError) setMobileError(null);
-//               }}
-//               inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 10 }}
-//               error={!!mobileError}
-//               helperText={mobileError || " "}
-//               fullWidth
-//               required
-//             />
-
-//             {/* Password */}
-//             <TextField
-//               label={t("auth.password") || "Password"}
-//               type="password"
-//               value={password}
-//               onChange={(e) => setPassword(e.target.value)}
-//               fullWidth
-//               required
-//             />
-
-//             {/* Country (moved below password as requested) */}
-//             <FormControl fullWidth>
-//               <InputLabel id="country-label">Country</InputLabel>
-//               <Select
-//                 labelId="country-label"
-//                 value={country}
-//                 label="Country"
-//                 onChange={(e) => setCountry((e.target.value as string) || "IN")}
-//               >
-//                 {countries.map((c) => (
-//                   <MenuItem key={c.code} value={c.code}>
-//                     {c.name}
-//                   </MenuItem>
-//                 ))}
-//               </Select>
-//             </FormControl>
-
-//             <Button type="submit" variant="contained" size="large" disabled={submitting}>
-//               {t("auth.sign_in") || "Sign in"}
-//             </Button>
-
-//             {/* simple on-screen status */}
-//             {status ? (
-//               <Typography variant="caption" color="text.secondary">
-//                 {status}
-//               </Typography>
-//             ) : null}
-//           </Stack>
-//         </CardContent>
-//       </Card>
-//     </Box>
-//   );
-// };

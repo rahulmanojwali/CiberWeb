@@ -57,9 +57,11 @@ export const BRAND_COLORS = {
   primaryDark: "#1B6B3D",
 };
 
+import Logo from "../../logo_transparent.png";
+
 export const BRAND_ASSETS = {
-  // Use admin prefix so it loads from the admin build (dist) instead of the public site root
-  logo: "/admin/logo_transparent.png",
+  // Bundled asset so it survives hashing and serves from /admin correctly
+  logo: Logo,
 };
 
 export const COLLECTIONS = {

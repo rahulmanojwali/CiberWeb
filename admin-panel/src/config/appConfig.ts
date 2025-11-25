@@ -58,7 +58,8 @@ export const BRAND_COLORS = {
 };
 
 export const BRAND_ASSETS = {
-  logo: "/logo_transparent.png",
+  // Use admin prefix so it loads from the admin build (dist) instead of the public site root
+  logo: "/admin/logo_transparent.png",
 };
 
 export const COLLECTIONS = {

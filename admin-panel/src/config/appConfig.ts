@@ -61,7 +61,7 @@ export const BRAND_COLORS = {
 
 export const BRAND_ASSETS = {
   // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
-  logo: `${import.meta.env.BASE_URL}logo_transparent.png`,
+  logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
 };
 
 export const COLLECTIONS = {

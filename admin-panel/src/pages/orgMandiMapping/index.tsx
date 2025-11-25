@@ -3,6 +3,9 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -615,14 +618,79 @@ export const OrgMandiMapping: React.FC = () => {
         </Alert>
       ) : null}
 
-      <ResponsiveDataGrid
-        rows={filteredRows}
-        columns={columns}
-        pageSizeOptions={[10, 25, 50]}
-        disableRowSelectionOnClick
-        loading={loading}
-        minWidth={980}
-      />
+      {isSmallScreen ? (
+        <Stack spacing={1.5}>
+          {filteredRows.map((row) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={1}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {row.org_code || row.org_name || "Organisation"}
+                    </Typography>
+                    <Typography variant="h6">
+                      {row.mandi_name || `Mandi #${row.mandi_id}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {row.state_code} • {row.district_name}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={row.is_active === "Y" ? "ACTIVE" : "INACTIVE"}
+                    color={row.is_active === "Y" ? "success" : "default"}
+                    size="small"
+                  />
+                </Stack>
+                <Stack spacing={0.5} mt={1}>
+                  <Typography variant="caption" color="text.secondary">
+                    Scope: {row.assignment_scope}
+                  </Typography>
+                  {row.assignment_start && (
+                    <Typography variant="caption" color="text.secondary">
+                      Start: {row.assignment_start}
+                    </Typography>
+                  )}
+                  {row.assignment_end && (
+                    <Typography variant="caption" color="text.secondary">
+                      End: {row.assignment_end}
+                    </Typography>
+                  )}
+                </Stack>
+                {!isReadOnly && (
+                  <Stack direction="row" justifyContent="flex-end" mt={1.5}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleOpenEdit(row)}
+                    >
+                      Edit
+                    </Button>
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          {!filteredRows.length && (
+            <Typography variant="body2" color="text.secondary">
+              No mappings found.
+            </Typography>
+          )}
+        </Stack>
+      ) : (
+        <ResponsiveDataGrid
+          rows={filteredRows}
+          columns={columns}
+          pageSizeOptions={[10, 25, 50]}
+          disableRowSelectionOnClick
+          loading={loading}
+          minWidth={980}
+        />
+      )}
 
       <Dialog
         open={dialogOpen}

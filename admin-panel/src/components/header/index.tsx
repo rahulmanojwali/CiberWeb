@@ -11,6 +11,8 @@ import Box from "@mui/material/Box";
 import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { useGetIdentity, useLogout } from "@refinedev/core";
 import { HamburgerMenu, RefineThemedLayoutHeaderProps } from "@refinedev/mui";
 import React, { useContext } from "react";
@@ -31,6 +33,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const { mode, setMode } = useContext(ColorModeContext);
   const { mutate: logout } = useLogout();
   const { t, i18n } = useTranslation();
+  const isSmall = useMediaQuery((theme: any) => theme.breakpoints.down("md"));
 
   const { data: user } = useGetIdentity<IUser>();
   const currentLanguage = normalizeLanguageCode(i18n.language || DEFAULT_LANGUAGE);
@@ -56,7 +59,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
           "linear-gradient(135deg, rgba(47,166,82,0.95), rgba(25,107,61,0.95))",
       }}
     >
-      <Toolbar sx={{ py: 1.5, px: { xs: 2, md: 3 } }}>
+      <Toolbar sx={{ py: 1.25, px: { xs: 1.5, md: 3 } }}>
         <Stack
           direction="row"
           width="100%"
@@ -64,7 +67,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
           justifyContent="space-between"
           gap={2}
         >
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={isSmall ? 1 : 2} alignItems="center">
             <HamburgerMenu />
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box
@@ -72,26 +75,35 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                 src={BRAND_ASSETS.logo}
                 alt="CiberMandi"
                 sx={{
-                  height: 42,
+                  height: isSmall ? 32 : 42,
                   width: "auto",
                   filter: "brightness(0) invert(1)",
                 }}
               />
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                <Typography
+                  variant={isSmall ? "subtitle1" : "h6"}
+                  sx={{ fontWeight: 700 }}
+                >
                   {t("app.title")}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{ letterSpacing: 0.5, opacity: 0.85 }}
-                >
-                  {t("app.tagline")}
-                </Typography>
+                {!isSmall && (
+                  <Typography
+                    variant="caption"
+                    sx={{ letterSpacing: 0.5, opacity: 0.85 }}
+                  >
+                    {t("app.tagline")}
+                  </Typography>
+                )}
               </Box>
             </Stack>
           </Stack>
 
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={isSmall ? 1 : 2}
+            alignItems="center"
+          >
             <IconButton
               color="inherit"
               onClick={() => {
@@ -105,34 +117,36 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               {mode === "dark" ? <LightModeOutlined /> : <DarkModeOutlined />}
             </IconButton>
 
-            <FormControl
-              size="small"
-              sx={{
-                minWidth: 120,
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "rgba(255,255,255,0.4)",
-                },
-                "& .MuiSvgIcon-root": {
-                  color: "#fff",
-                },
-              }}
-            >
-              <Select
-                value={currentLanguage}
-                onChange={handleLanguageChange}
-                color="secondary"
+            {!isSmall && (
+              <FormControl
+                size="small"
                 sx={{
-                  color: "#fff",
-                  "& .MuiSelect-select": { py: 0.75 },
+                  minWidth: 120,
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.4)",
+                  },
+                  "& .MuiSvgIcon-root": {
+                    color: "#fff",
+                  },
                 }}
               >
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <MenuItem key={lang.code} value={lang.code}>
-                    {lang.nativeLabel} ({lang.label})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                <Select
+                  value={currentLanguage}
+                  onChange={handleLanguageChange}
+                  color="secondary"
+                  sx={{
+                    color: "#fff",
+                    "& .MuiSelect-select": { py: 0.75 },
+                  }}
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <MenuItem key={lang.code} value={lang.code}>
+                      {lang.nativeLabel} ({lang.label})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             {(user?.avatar || user?.name) && (
               <Stack direction="row" gap="12px" alignItems="center">
@@ -141,7 +155,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                     sx={{
                       display: {
                         xs: "none",
-                        sm: "inline-block",
+                        md: "inline-block",
                       },
                       fontWeight: 600,
                     }}
@@ -157,23 +171,36 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                 />
               </Stack>
             )}
-            <Button
-              variant="contained"
-              color="secondary"
-              size="small"
-              onClick={() => logout()}
-              sx={{
-                px: 2.5,
-                fontWeight: 600,
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#ffffff",
-                "&:hover": {
-                  bgcolor: "rgba(255,255,255,0.3)",
-                },
-              }}
-            >
-              {t("header.sign_out")}
-            </Button>
+            {isSmall ? (
+              <IconButton
+                color="inherit"
+                onClick={() => logout()}
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.4)",
+                }}
+                title={t("header.sign_out")}
+              >
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            ) : (
+              <Button
+                variant="contained"
+                color="secondary"
+                size="small"
+                onClick={() => logout()}
+                sx={{
+                  px: 2.5,
+                  fontWeight: 600,
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#ffffff",
+                  "&:hover": {
+                    bgcolor: "rgba(255,255,255,0.3)",
+                  },
+                }}
+              >
+                {t("header.sign_out")}
+              </Button>
+            )}
           </Stack>
         </Stack>
       </Toolbar>

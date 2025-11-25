@@ -2,13 +2,12 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Box, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { filterMenuByRole, RoleSlug } from "../config/menuConfig";
 import type { MenuItem } from "../config/menuConfig";
 import { BRAND_COLORS } from "../config/appConfig";
-
-const drawerWidth = 240;
 
 function getUserRole(): RoleSlug | null {
   try {
@@ -35,6 +34,7 @@ export const LeftSider: React.FC = () => {
   const location = useLocation();
   const role = getUserRole();
   const theme = useTheme();
+  const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";
   const { t } = useTranslation();
   const toolbarHeight =
@@ -48,14 +48,18 @@ export const LeftSider: React.FC = () => {
     <Box
       component="nav"
       sx={{
-        width: drawerWidth,
+        width: isCompact ? 68 : 240,
         flexShrink: 0,
-        backgroundColor: isDark ? alpha("#0f1f17", 0.8) : "#f8fbf9",
+        backgroundColor: isDark ? alpha("#0f1f17", 0.82) : "#f8fbf9",
         borderRight: `1px solid ${alpha(BRAND_COLORS.primary, isDark ? 0.3 : 0.15)}`,
         position: "sticky",
         top: toolbarHeight,
         height: `calc(100vh - ${toolbarHeight}px)`,
         overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isCompact ? "center" : "stretch",
+        zIndex: 10,
       }}
     >
       <Box component="ul" sx={{ listStyle: "none", m: 0, p: 1 }}>
@@ -96,6 +100,7 @@ export const LeftSider: React.FC = () => {
                 primaryTypographyProps={{
                   fontWeight: active ? 600 : 500,
                 }}
+                sx={{ display: isCompact ? "none" : "block" }}
               />
             </ListItemButton>
           );

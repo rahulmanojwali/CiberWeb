@@ -5,6 +5,9 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -416,14 +419,76 @@ export const Orgs: React.FC = () => {
         </Alert>
       ) : null}
 
-      <ResponsiveDataGrid
-        rows={filteredRows}
-        columns={columns}
-        pageSizeOptions={[10, 25, 50]}
-        disableRowSelectionOnClick
-        loading={loading}
-        minWidth={760}
-      />
+      {isSmallScreen ? (
+        <Stack spacing={1.5}>
+          {filteredRows.map((row) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={1}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {row.org_code}
+                    </Typography>
+                    <Typography variant="h6">{row.org_name}</Typography>
+                    {row.country && (
+                      <Typography variant="caption" color="text.secondary">
+                        {row.country}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Chip
+                    label={row.status}
+                    color={row.status === "ACTIVE" ? "success" : "default"}
+                    size="small"
+                  />
+                </Stack>
+                <Stack direction="row" spacing={2} mt={1}>
+                  {row.created_on && (
+                    <Typography variant="caption" color="text.secondary">
+                      Created: {row.created_on}
+                    </Typography>
+                  )}
+                  {row.updated_on && (
+                    <Typography variant="caption" color="text.secondary">
+                      Updated: {row.updated_on}
+                    </Typography>
+                  )}
+                </Stack>
+                {!isReadOnly && (
+                  <Stack direction="row" justifyContent="flex-end" mt={1.5}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleOpenEdit(row)}
+                    >
+                      Edit
+                    </Button>
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          {!filteredRows.length && (
+            <Typography variant="body2" color="text.secondary">
+              No organisations found.
+            </Typography>
+          )}
+        </Stack>
+      ) : (
+        <ResponsiveDataGrid
+          rows={filteredRows}
+          columns={columns}
+          pageSizeOptions={[10, 25, 50]}
+          disableRowSelectionOnClick
+          loading={loading}
+          minWidth={760}
+        />
+      )}
 
       <Dialog
         open={dialogOpen}

@@ -3,12 +3,15 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
   MenuItem,
   Snackbar,
@@ -620,14 +623,90 @@ const AdminUsersList: React.FC = () => {
         </Alert>
       ) : null}
 
-      <ResponsiveDataGrid
-        rows={filteredRows.map((u) => ({ id: u.username, ...u }))}
-        columns={columns}
-        pageSizeOptions={[10, 25, 50]}
-        disableRowSelectionOnClick
-        loading={loading}
-        minWidth={900}
-      />
+      {isSmallScreen ? (
+        <Stack spacing={1.5}>
+          {filteredRows.map((user) => (
+            <Card key={user.username} variant="outlined">
+              <CardContent>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="flex-start"
+                  spacing={1}
+                >
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {user.username}
+                    </Typography>
+                    <Typography variant="h6">
+                      {user.full_name || "—"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {user.email || user.mobile || "No contact info"}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={user.is_active === "N" ? "INACTIVE" : "ACTIVE"}
+                    color={user.is_active === "N" ? "default" : "success"}
+                    size="small"
+                  />
+                </Stack>
+                <Divider sx={{ my: 1.2 }} />
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Org: {user.org_code || user.org_name || "—"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Roles: {(user.roles || []).join(", ") || "—"}
+                  </Typography>
+                  {user.last_login_on && (
+                    <Typography variant="caption" color="text.secondary">
+                      Last login: {user.last_login_on}
+                    </Typography>
+                  )}
+                </Stack>
+                <Stack
+                  direction="row"
+                  justifyContent="flex-end"
+                  spacing={1}
+                  mt={1.5}
+                >
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleOpenEdit(user)}
+                  >
+                    {t("common.edit")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() =>
+                      setResetDialog({ open: true, username: user.username })
+                    }
+                  >
+                    {t("adminUsers.actions.resetPassword")}
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+          {!filteredRows.length && (
+            <Typography variant="body2" color="text.secondary">
+              {t("common.no_results")}
+            </Typography>
+          )}
+        </Stack>
+      ) : (
+        <ResponsiveDataGrid
+          rows={filteredRows.map((u) => ({ id: u.username, ...u }))}
+          columns={columns}
+          pageSizeOptions={[10, 25, 50]}
+          disableRowSelectionOnClick
+          loading={loading}
+          minWidth={900}
+        />
+      )}
 
       <Dialog
         open={dialogOpen}

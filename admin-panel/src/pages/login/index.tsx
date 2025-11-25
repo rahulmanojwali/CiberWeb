@@ -38,6 +38,7 @@ export const Login: React.FC = () => {
   const [language, setLanguage] = React.useState(() => normalizeLanguageCode(i18n.language));
   const [usernameError, setUsernameError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+console.log("logo src:", BRAND_ASSETS.logo);
 
   // visible status + debug state
   const [status, setStatus] = React.useState("");

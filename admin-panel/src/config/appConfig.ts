@@ -1,4 +1,4 @@
-export const API_BASE_URL = "https://mandiapi.ciberdukaan.com";
+export const API_BASE_URL = "/api";
 
 export const API_TAGS = {
   ORGS: {
@@ -31,24 +31,24 @@ export const DEFAULT_COUNTRY = "IN";
 
 export const API_ROUTES = {
   auth: {
-    login: "/api/auth/loginUser",
+    login: "/auth/loginUser",
   },
   admin: {
-    getOrganisations: "/api/admin/getOrganisations",
-    createOrganisation: "/api/admin/createOrganisation",
-    updateOrganisation: "/api/admin/updateOrganisation",
-    getAdminUsers: "/api/admin/getAdminUsers",
-    createAdminUser: "/api/admin/createAdminUser",
-    updateAdminUser: "/api/admin/updateAdminUser",
-    resetAdminUserPassword: "/api/admin/resetAdminUserPassword",
-    getAdminRoles: "/api/admin/getAdminRoles",
-    getOrgMandiMappings: "/api/admin/getOrgMandiMappings",
-    createOrgMandiMapping: "/api/admin/createOrgMandiMapping",
-    updateOrgMandiMapping: "/api/admin/updateOrgMandiMapping",
+    getOrganisations: "/admin/getOrganisations",
+    createOrganisation: "/admin/createOrganisation",
+    updateOrganisation: "/admin/updateOrganisation",
+    getAdminUsers: "/admin/getAdminUsers",
+    createAdminUser: "/admin/createAdminUser",
+    updateAdminUser: "/admin/updateAdminUser",
+    resetAdminUserPassword: "/admin/resetAdminUserPassword",
+    getAdminRoles: "/admin/getAdminRoles",
+    getOrgMandiMappings: "/admin/getOrgMandiMappings",
+    createOrgMandiMapping: "/admin/createOrgMandiMapping",
+    updateOrgMandiMapping: "/admin/updateOrgMandiMapping",
   },
   masters: {
-    getMandiCoverage: "/api/masters/getMandiCoverage",
-    getMandis: "/api/masters/getMandis",
+    getMandiCoverage: "/masters/getMandiCoverage",
+    getMandis: "/masters/getMandis",
   },
 };
 

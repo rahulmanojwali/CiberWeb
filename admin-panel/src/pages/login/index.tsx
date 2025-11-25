@@ -129,17 +129,29 @@ login(
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2 }}>
-      <Card sx={{ width: 420, maxWidth: "100%", boxShadow: "0 12px 32px rgba(0,0,0,0.12)" }}>
+    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: { xs: 1.5, sm: 2 } }}>
+      <Card
+        sx={{
+          width: { xs: "100%", sm: 420 },
+          maxWidth: 480,
+          boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+          borderRadius: 2,
+        }}
+      >
         <CardContent>
           <Stack component="form" onSubmit={onSubmit} spacing={2}>
             <Stack alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
               <Box
                 component="img"
-          src={BRAND_ASSETS.logo}
+                src={BRAND_ASSETS.logo}
 
                 alt="CiberMandi"
-                sx={{ height: 54, width: "auto", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}
+                sx={{
+                  height: "auto",
+                  width: "100%",
+                  maxWidth: 160,
+                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
+                }}
               />
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {t("app.title")}

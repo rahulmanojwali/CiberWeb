@@ -21,3 +21,4 @@ pnpm-debug.log*
 .eslintcache
 .parcel-cache
 .turbo/
+.env.development

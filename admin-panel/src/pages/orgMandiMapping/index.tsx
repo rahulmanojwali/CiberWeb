@@ -17,9 +17,10 @@ import {
   TextField,
   Typography,
   Snackbar,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
-  DataGrid,
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid";
@@ -28,6 +29,8 @@ import { useTranslation } from "react-i18next";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
 import type { RoleSlug } from "../../config/menuConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
+import { PageContainer } from "../../components/PageContainer";
+import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 
 type Scope = "EXCLUSIVE" | "SHARED";
@@ -115,6 +118,8 @@ function currentUsername(): string | null {
 }
 
 export const OrgMandiMapping: React.FC = () => {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const role = getCurrentRole();
@@ -507,15 +512,30 @@ export const OrgMandiMapping: React.FC = () => {
   });
 
   return (
-    <Box p={2}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+    <PageContainer>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+      >
         <Typography variant="h5">Org–Mandi Mapping</Typography>
-        <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={!isSuper}>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={handleOpenCreate}
+          disabled={!isSuper}
+          sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
+        >
           Add Mapping
         </Button>
       </Stack>
 
-      <Stack direction="row" spacing={2} mb={2} flexWrap="wrap">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        flexWrap="wrap"
+      >
         {isSuper ? (
           <TextField
             select
@@ -523,7 +543,7 @@ export const OrgMandiMapping: React.FC = () => {
             label="Organisation"
             value={filters.org_id}
             onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: { xs: "100%", md: 200 } }}
           >
             <MenuItem value="">All</MenuItem>
             {orgOptions.map((o) => (
@@ -539,7 +559,7 @@ export const OrgMandiMapping: React.FC = () => {
           label="State"
           value={filters.state_code}
           onChange={(e) => handleFilterChange("state_code", e.target.value)}
-          sx={{ minWidth: 160 }}
+          sx={{ minWidth: { xs: "100%", md: 160 } }}
         >
           <MenuItem value="">All</MenuItem>
           {stateOptions.map((s) => (
@@ -554,7 +574,7 @@ export const OrgMandiMapping: React.FC = () => {
           label="District"
           value={filters.district_id}
           onChange={(e) => handleFilterChange("district_id", e.target.value)}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: "100%", md: 200 } }}
           disabled={!filters.state_code}
         >
           <MenuItem value="">All</MenuItem>
@@ -572,13 +592,19 @@ export const OrgMandiMapping: React.FC = () => {
           label="Active"
           value={filters.is_active}
           onChange={(e) => setFilters((f) => ({ ...f, is_active: e.target.value as any }))}
-          sx={{ minWidth: 140 }}
+          sx={{ minWidth: { xs: "100%", md: 140 } }}
         >
           <MenuItem value="ALL">All</MenuItem>
           <MenuItem value="Y">Active</MenuItem>
           <MenuItem value="N">Inactive</MenuItem>
         </TextField>
-        <Button variant="outlined" size="small" onClick={loadMappings} disabled={loading}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={loadMappings}
+          disabled={loading}
+          sx={{ width: { xs: "100%", md: "auto" } }}
+        >
           Refresh
         </Button>
       </Stack>
@@ -589,17 +615,22 @@ export const OrgMandiMapping: React.FC = () => {
         </Alert>
       ) : null}
 
-      <Box height={520}>
-        <DataGrid
-          rows={filteredRows}
-          columns={columns}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          loading={loading}
-        />
-      </Box>
+      <ResponsiveDataGrid
+        rows={filteredRows}
+        columns={columns}
+        pageSizeOptions={[10, 25, 50]}
+        disableRowSelectionOnClick
+        loading={loading}
+        minWidth={980}
+      />
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isSmallScreen}
+      >
         <DialogTitle>{isEditMode ? "Edit Mapping" : "Add Mapping"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
@@ -736,6 +767,6 @@ export const OrgMandiMapping: React.FC = () => {
           {toast.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageContainer>
   );
 };

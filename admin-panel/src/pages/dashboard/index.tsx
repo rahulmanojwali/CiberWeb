@@ -1,4 +1,5 @@
-import { Box, Card, CardContent, Stack, Typography } from "@mui/material";
+import { Card, CardContent, Stack, Typography } from "@mui/material";
+import { PageContainer } from "../../components/PageContainer";
 
 export const Dashboard: React.FC = () => {
   const cards = [
@@ -9,13 +10,17 @@ export const Dashboard: React.FC = () => {
   ];
 
   return (
-    <Box p={2}>
+    <PageContainer>
       <Typography variant="h5" gutterBottom>
         Super Admin Dashboard
       </Typography>
-      <Stack direction="row" flexWrap="wrap" gap={2}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        flexWrap="wrap"
+        gap={2}
+      >
         {cards.map((c) => (
-          <Card key={c.title} sx={{ minWidth: 220 }}>
+          <Card key={c.title} sx={{ flex: "1 1 220px", minWidth: 220 }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary">
                 {c.title}
@@ -30,6 +35,6 @@ export const Dashboard: React.FC = () => {
           </Card>
         ))}
       </Stack>
-    </Box>
+    </PageContainer>
   );
 };

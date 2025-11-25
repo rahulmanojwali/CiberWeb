@@ -16,12 +16,13 @@ import {
   Switch,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import Checkbox from "@mui/material/Checkbox";
 import ListItemText from "@mui/material/ListItemText";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
-  DataGrid,
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid";
@@ -31,6 +32,8 @@ import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
+import { PageContainer } from "../../components/PageContainer";
+import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 
 type RoleSlug = "SUPER_ADMIN" | "ORG_ADMIN" | "MANDI_ADMIN" | "AUDITOR" | "ADMIN";
@@ -107,6 +110,8 @@ async function buildBody(items: any) {
 }
 
 const AdminUsersList: React.FC = () => {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const role = getCurrentRole();
@@ -535,8 +540,13 @@ const AdminUsersList: React.FC = () => {
   });
 
   return (
-    <Box p={2}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+    <PageContainer>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+      >
         <Typography variant="h5">{t("adminUsers.title")}</Typography>
         <Stack direction="row" spacing={1}>
           <IconButton size="small" onClick={loadUsers} title={t("common.refresh")}>
@@ -548,13 +558,17 @@ const AdminUsersList: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Stack direction="row" spacing={2} mb={2} flexWrap="wrap">
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        flexWrap="wrap"
+      >
         <TextField
           size="small"
           label={t("adminUsers.filters.search")}
           value={filters.search}
           onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-          sx={{ minWidth: 240 }}
+          sx={{ minWidth: { xs: "100%", md: 240 } }}
         />
         <TextField
           select
@@ -562,7 +576,7 @@ const AdminUsersList: React.FC = () => {
           label={t("adminUsers.filters.organisation")}
           value={filters.org_id}
           onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: "100%", md: 200 } }}
         >
           <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
           {orgOptions.map((o) => (
@@ -577,7 +591,7 @@ const AdminUsersList: React.FC = () => {
           label={t("adminUsers.filters.role")}
           value={filters.role_code}
           onChange={(e) => setFilters((f) => ({ ...f, role_code: e.target.value }))}
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: { xs: "100%", md: 180 } }}
         >
           <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
           {roleOptions.map((r) => (
@@ -592,7 +606,7 @@ const AdminUsersList: React.FC = () => {
           label={t("adminUsers.filters.status")}
           value={filters.is_active}
           onChange={(e) => setFilters((f) => ({ ...f, is_active: e.target.value as any }))}
-          sx={{ minWidth: 140 }}
+          sx={{ minWidth: { xs: "100%", md: 140 } }}
         >
           <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
           <MenuItem value="Y">{t("adminUsers.filters.active")}</MenuItem>
@@ -606,17 +620,22 @@ const AdminUsersList: React.FC = () => {
         </Alert>
       ) : null}
 
-      <Box height={520}>
-        <DataGrid
-          rows={filteredRows.map((u) => ({ id: u.username, ...u }))}
-          columns={columns}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          loading={loading}
-        />
-      </Box>
+      <ResponsiveDataGrid
+        rows={filteredRows.map((u) => ({ id: u.username, ...u }))}
+        columns={columns}
+        pageSizeOptions={[10, 25, 50]}
+        disableRowSelectionOnClick
+        loading={loading}
+        minWidth={900}
+      />
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isSmallScreen}
+      >
         <DialogTitle>{isEditMode ? t("adminUsers.dialog.editTitle") : t("adminUsers.dialog.createTitle")}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
@@ -723,7 +742,11 @@ const AdminUsersList: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={resetDialog.open} onClose={() => setResetDialog({ open: false, username: "", temp: null })}>
+      <Dialog
+        open={resetDialog.open}
+        onClose={() => setResetDialog({ open: false, username: "", temp: null })}
+        fullScreen={isSmallScreen}
+      >
         <DialogTitle>{t("adminUsers.resetDialog.title")}</DialogTitle>
         <DialogContent dividers>
           {resetDialog.temp ? (
@@ -763,7 +786,7 @@ const AdminUsersList: React.FC = () => {
           {toast.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageContainer>
   );
 };
 

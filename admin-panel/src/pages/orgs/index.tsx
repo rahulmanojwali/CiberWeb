@@ -14,9 +14,10 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
-  DataGrid,
   type GridColDef,
   type GridRenderCellParams,
 } from "@mui/x-data-grid";
@@ -25,6 +26,8 @@ import axios from "axios";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
 import type { RoleSlug } from "../../config/menuConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
+import { PageContainer } from "../../components/PageContainer";
+import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -79,6 +82,8 @@ function currentUsername(): string | null {
 }
 
 export const Orgs: React.FC = () => {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const role = getCurrentRole();
   const isSuper = role === "SUPER_ADMIN";
   const isOrgAdmin = role === "ORG_ADMIN";
@@ -351,20 +356,36 @@ export const Orgs: React.FC = () => {
   });
 
   return (
-    <Box p={2}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+    <PageContainer>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+      >
         <Typography variant="h5">Organisations</Typography>
-        <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={!isSuper}>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={handleOpenCreate}
+          disabled={!isSuper}
+          sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
+        >
           Add Organisation
         </Button>
       </Stack>
 
-      <Stack direction="row" spacing={2} mb={2}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        alignItems={{ xs: "stretch", md: "center" }}
+      >
         <TextField
           label="Search code/name"
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          fullWidth
         />
         <TextField
           select
@@ -372,13 +393,19 @@ export const Orgs: React.FC = () => {
           label="Status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as any)}
-          sx={{ width: 180 }}
+          sx={{ width: { xs: "100%", md: 180 } }}
         >
           <MenuItem value="ALL">All</MenuItem>
           <MenuItem value="ACTIVE">Active</MenuItem>
           <MenuItem value="INACTIVE">Inactive</MenuItem>
         </TextField>
-        <Button variant="outlined" size="small" onClick={loadOrgs} disabled={loading}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={loadOrgs}
+          disabled={loading}
+          sx={{ width: { xs: "100%", md: "auto" } }}
+        >
           Refresh
         </Button>
       </Stack>
@@ -389,17 +416,22 @@ export const Orgs: React.FC = () => {
         </Alert>
       ) : null}
 
-      <Box height={500}>
-        <DataGrid
-          rows={filteredRows}
-          columns={columns}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          loading={loading}
-        />
-      </Box>
+      <ResponsiveDataGrid
+        rows={filteredRows}
+        columns={columns}
+        pageSizeOptions={[10, 25, 50]}
+        disableRowSelectionOnClick
+        loading={loading}
+        minWidth={760}
+      />
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isSmallScreen}
+      >
         <DialogTitle>{isEditMode ? "Edit Organisation" : "Add Organisation"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
@@ -506,6 +538,6 @@ export const Orgs: React.FC = () => {
           {toast.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageContainer>
   );
 };

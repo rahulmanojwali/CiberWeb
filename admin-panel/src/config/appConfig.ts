@@ -57,11 +57,9 @@ export const BRAND_COLORS = {
   primaryDark: "#1B6B3D",
 };
 
-import Logo from "../../logo_transparent.png";
-
 export const BRAND_ASSETS = {
-  // Bundled asset so it survives hashing and serves from /admin correctly
-  logo: Logo,
+  // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
+  logo: `${import.meta.env.BASE_URL}logo_transparent.png`,
 };
 
 export const COLLECTIONS = {

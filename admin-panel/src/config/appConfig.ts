@@ -59,10 +59,15 @@ export const BRAND_COLORS = {
   primaryDark: "#1B6B3D",
 };
 
+// export const BRAND_ASSETS = {
+//   // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
+//   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
+// };
+
 export const BRAND_ASSETS = {
-  // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
-  logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
+  logo: "/admin/logo_transparent.png",
 };
+
 
 export const COLLECTIONS = {
   adminUsers: "cm_admin_users",

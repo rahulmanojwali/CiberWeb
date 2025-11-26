@@ -40,6 +40,16 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 
+const ORG_ADMIN_ALLOWED_ROLES = new Set([
+  "ORG_VIEWER",
+  "MANDI_ADMIN",
+  "MANDI_MANAGER",
+  "AUCTIONEER",
+  "GATE_OPERATOR",
+  "WEIGHBRIDGE_OPERATOR",
+  "VIEWER",
+]);
+
 type RoleSlug = "SUPER_ADMIN" | "ORG_ADMIN" | "MANDI_ADMIN" | "AUDITOR" | "ADMIN";
 
 type AdminUser = {
@@ -156,11 +166,15 @@ const AdminUsersList: React.FC = () => {
           dedup.set(normalized, { role_code: normalized, role_name: r.role_name, scope: r.role_scope || r.scope });
         }
       });
-      setRoleOptions(Array.from(dedup.values()));
+      let options = Array.from(dedup.values());
+      if (orgAdmin && !isSuper) {
+        options = options.filter((opt) => ORG_ADMIN_ALLOWED_ROLES.has(opt.role_code));
+      }
+      setRoleOptions(options);
     } catch {
       /* ignore */
     }
-  }, [headers, language]);
+  }, [headers, language, isSuper, orgAdmin]);
 
   const loadOrgs = React.useCallback(async () => {
     const username = currentUsername();
@@ -251,7 +265,8 @@ const AdminUsersList: React.FC = () => {
       if (orgAdmin && scope.orgCode) {
         if (!user) return true;
         const userOrg = (user as any).org_code || (user as any).orgCode || "";
-        return userOrg === scope.orgCode;
+        const allowedRolesOnly = (user.roles || []).every((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
+        return userOrg === scope.orgCode && allowedRolesOnly;
       }
       return false;
     },
@@ -315,6 +330,14 @@ const AdminUsersList: React.FC = () => {
       target: { value },
     } = event;
     const roles = typeof value === "string" ? value.split(",") : (value as string[]);
+    // Enforce allowed roles for org admins
+    if (orgAdmin && !isSuper) {
+      const invalid = roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
+      if (invalid.length) {
+        setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
+        return;
+      }
+    }
     setForm((prev) => ({
       ...prev,
       roles,
@@ -400,6 +423,14 @@ const AdminUsersList: React.FC = () => {
           role_codes: form.roles,
           is_active: form.is_active ? "Y" : "N",
         };
+        if (orgAdmin && !isSuper) {
+          const invalid = form.roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
+          if (invalid.length) {
+            setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
+            setLoading(false);
+            return;
+          }
+        }
         if (form.org_id) payload.org_id = form.org_id;
         if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
         const body = await buildBody(payload);
@@ -423,6 +454,14 @@ const AdminUsersList: React.FC = () => {
           !isSuper && scope.orgCode
             ? form.org_id || (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
             : form.org_id;
+        if (orgAdmin && !isSuper) {
+          const invalid = form.roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
+          if (invalid.length) {
+            setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
+            setLoading(false);
+            return;
+          }
+        }
         const payload: any = {
           api: API_TAGS.ADMIN_USERS.create,
           username,

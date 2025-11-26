@@ -30,11 +30,11 @@ import {
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
-import type { RoleSlug } from "../../config/menuConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
+import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 
 type Scope = "EXCLUSIVE" | "SHARED";
 type YesNo = "Y" | "N";
@@ -85,31 +85,6 @@ interface MandiOption {
   mandi_slug?: string | null;
 }
 
-function getCurrentRole(): RoleSlug | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const role =
-      parsed?.roles_enabled?.primary ||
-      parsed?.usertype ||
-      parsed?.role;
-    let normalized = typeof role === "string" ? role.toUpperCase() : null;
-    if (normalized === "ADMIN") normalized = "SUPER_ADMIN";
-    if (
-      normalized === "SUPER_ADMIN" ||
-      normalized === "ORG_ADMIN" ||
-      normalized === "MANDI_ADMIN" ||
-      normalized === "AUDITOR"
-    ) {
-      return normalized as RoleSlug;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -125,11 +100,11 @@ export const OrgMandiMapping: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const role = getCurrentRole();
-  const isSuper = role === "SUPER_ADMIN";
-  const isOrgAdmin = role === "ORG_ADMIN";
-  const isAuditor = role === "AUDITOR";
-  const isReadOnly = !isSuper;
+  const scope = getUserScope("OrgMandiPage");
+  const role = scope.role;
+  const isSuper = isSuperAdmin(role);
+  const orgAdmin = isOrgAdmin(role);
+  const isReadOnly = isReadOnlyRole(role) || (!isSuper && !orgAdmin);
 
   const [rows, setRows] = React.useState<MappingRow[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -191,20 +166,25 @@ export const OrgMandiMapping: React.FC = () => {
       const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.getOrganisations}`, body, { headers });
       const resp = data?.response || {};
       if (String(resp.responsecode) !== "0") return;
-      const orgs: OrgOption[] = (resp?.data?.organisations || []).map((o: any) => ({
+      let orgs: OrgOption[] = (resp?.data?.organisations || []).map((o: any) => ({
         _id: o._id,
         org_code: o.org_code,
         org_name: o.org_name,
       }));
+      if (!isSuper && scope.orgCode) {
+        orgs = orgs.filter((o) => o.org_code === scope.orgCode);
+      }
       setOrgOptions(orgs);
-      if (isOrgAdmin && orgs.length) {
-        const first = orgs[0];
-        setFilters((f) => ({ ...f, org_id: first._id }));
+      if (orgAdmin && scope.orgCode) {
+        const match = orgs.find((o) => o.org_code === scope.orgCode);
+        if (match) {
+          setFilters((f) => ({ ...f, org_id: match._id }));
+        }
       }
     } catch (e) {
       // ignore, handled elsewhere
     }
-  }, [buildBody, headers, isOrgAdmin, language]);
+  }, [buildBody, headers, isSuper, orgAdmin, scope.orgCode, language]);
 
   // --- Load coverage (states + districts) ---
   const loadCoverage = React.useCallback(async () => {
@@ -281,6 +261,7 @@ export const OrgMandiMapping: React.FC = () => {
         username,
         language,
       };
+      if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
       if (filters.state_code) payload.state_code = filters.state_code;
       if (filters.is_active === "Y" || filters.is_active === "N") payload.is_active = filters.is_active;
       if (filters.org_id) payload.org_id = filters.org_id;
@@ -293,7 +274,7 @@ export const OrgMandiMapping: React.FC = () => {
         setToast({ open: true, message: resp.description || "Failed to load mappings.", severity: "error" });
         return;
       }
-      const list: MappingRow[] = (resp?.data?.mappings || []).map((m: any) => ({
+      let list: MappingRow[] = (resp?.data?.mappings || []).map((m: any) => ({
         id: m._id,
         org_id: m.org_id,
         org_code: m.org_code,
@@ -311,6 +292,9 @@ export const OrgMandiMapping: React.FC = () => {
         updated_on: m.updated_on,
         updated_by: m.updated_by,
       }));
+      if (!isSuper && scope.orgCode) {
+        list = list.filter((m) => m.org_code === scope.orgCode);
+      }
       setRows(list);
     } catch (e: any) {
       setError(e?.message || "Network error while loading mappings.");
@@ -343,11 +327,16 @@ export const OrgMandiMapping: React.FC = () => {
   };
 
   const handleOpenCreate = () => {
-    if (!isSuper) return;
+    if (!(isSuper || (orgAdmin && scope.orgCode))) {
+      setToast({ open: true, message: "You are not authorized to create mappings.", severity: "error" });
+      return;
+    }
     setIsEditMode(false);
     setEditingId(null);
     setForm({
-      org_id: "",
+      org_id: orgAdmin && scope.orgCode
+        ? (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
+        : "",
       state_code: "",
       district_id: "",
       mandi_id: "",
@@ -365,7 +354,11 @@ export const OrgMandiMapping: React.FC = () => {
   };
 
   const handleOpenEdit = (row: MappingRow) => {
-    if (isReadOnly) return;
+    const orgScoped = orgAdmin && scope.orgCode && row.org_code === scope.orgCode;
+    if (!(isSuper || orgScoped)) {
+      setToast({ open: true, message: "You are not authorized to edit this mapping.", severity: "error" });
+      return;
+    }
     setIsEditMode(true);
     setEditingId(row.id);
     setForm({
@@ -395,6 +388,7 @@ export const OrgMandiMapping: React.FC = () => {
   const handleSubmit = async () => {
     if (isReadOnly) {
       setDialogOpen(false);
+      setToast({ open: true, message: "You are not authorized to modify mappings.", severity: "error" });
       return;
     }
     if (!form.org_id || !form.state_code || !form.district_id || !form.mandi_id) {
@@ -418,6 +412,7 @@ export const OrgMandiMapping: React.FC = () => {
           assignment_scope: form.assignment_scope,
           is_active: form.is_active ? "Y" : "N",
         };
+        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
         if (form.assignment_start) payload.assignment_start = form.assignment_start;
         if (form.assignment_end) payload.assignment_end = form.assignment_end;
         const body = await buildBody(payload);
@@ -442,6 +437,7 @@ export const OrgMandiMapping: React.FC = () => {
           is_active: form.is_active ? "Y" : "N",
           assignment_start: form.assignment_start || new Date().toISOString(),
         };
+        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
         if (form.assignment_end) payload.assignment_end = form.assignment_end;
         const body = await buildBody(payload);
         const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.createOrgMandiMapping}`, body, { headers });
@@ -488,20 +484,24 @@ export const OrgMandiMapping: React.FC = () => {
         sortable: false,
         filterable: false,
         flex: 0.7,
-        renderCell: (params: GridRenderCellParams<MappingRow>) =>
-          isReadOnly ? null : (
+        renderCell: (params: GridRenderCellParams<MappingRow>) => {
+          const orgScoped = orgAdmin && scope.orgCode && params.row.org_code === scope.orgCode;
+          const canEdit = isSuper || orgScoped;
+          if (!canEdit) return null;
+          return (
             <Button
               size="small"
               variant="outlined"
               onClick={() => handleOpenEdit(params.row as MappingRow)}
-              disabled={isReadOnly}
+              disabled={!canEdit}
             >
               Edit
             </Button>
-          ),
+          );
+        },
       },
     ],
-    [isReadOnly]
+    [isSuper, orgAdmin, scope.orgCode]
   );
 
   const filteredRows = rows.filter((r) => {

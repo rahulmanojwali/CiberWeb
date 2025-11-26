@@ -1,7 +1,16 @@
 import { Button, Stack, Typography } from "@mui/material";
 import { PageContainer } from "../../components/PageContainer";
+import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin, isMandiRole } from "../../utils/userScope";
 
 export const Mandis: React.FC = () => {
+  const scope = getUserScope("MandisPage");
+  const role = scope.role;
+  const canCreate =
+    isSuperAdmin(role) ||
+    (isOrgAdmin(role) && !!scope.orgCode) ||
+    isMandiRole(role);
+  const isReadOnly = isReadOnlyRole(role);
+
   return (
     <PageContainer>
       <Stack
@@ -11,7 +20,7 @@ export const Mandis: React.FC = () => {
         spacing={2}
       >
         <Typography variant="h5">Mandis</Typography>
-        <Button variant="contained" size="small">
+        <Button variant="contained" size="small" disabled={!canCreate || isReadOnly}>
           Add Mandi
         </Button>
       </Stack>

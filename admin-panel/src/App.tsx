@@ -1,4 +1,5 @@
-import { Authenticated, Refine } from "@refinedev/core";
+import React, { useEffect } from "react";
+import { Authenticated, Refine, useLogout } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import {
   ErrorComponent,
@@ -37,6 +38,21 @@ import { OrgMandiMapping } from "./pages/orgMandiMapping";
 import { Layout } from "./components/layout";
 
 import { CustomSider } from "./components/customSider";
+import { getUserRoleFromStorage } from "./utils/roles";
+
+const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { mutate: logout } = useLogout();
+
+  useEffect(() => {
+    const role = getUserRoleFromStorage("AppGuard");
+    if (!role) {
+      logout();
+      alert("Not authorized for admin console.");
+    }
+  }, [logout]);
+
+  return <>{children}</>;
+};
 
 
 
@@ -68,12 +84,14 @@ function App() {
 
 //strat 
  element={
-      <ThemedLayout
-        Header={Header}
-        Sider={CustomSider}
-      >
-        <Outlet />
-      </ThemedLayout>
+      <AdminRoleGuard>
+        <ThemedLayout
+          Header={Header}
+          Sider={CustomSider}
+        >
+          <Outlet />
+        </ThemedLayout>
+      </AdminRoleGuard>
     }
 //end
 

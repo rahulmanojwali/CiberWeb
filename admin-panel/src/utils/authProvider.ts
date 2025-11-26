@@ -10,6 +10,7 @@ import {
   DEFAULT_COUNTRY,
   DEFAULT_LANGUAGE,
 } from "../config/appConfig";
+import { ROLE_MAP } from "./roles";
 
 // Allowed admin roles for this console (must match RoleSlug)
 const ADMIN_ROLES = new Set([
@@ -30,9 +31,22 @@ const resolveAdminRole = (value: unknown): string | null => {
   const upper = value.toUpperCase().trim();
   const normalized = upper.replace(/[\s-]+/g, "_");
   const cleaned = normalized.replace(/[^A-Z_]/g, "");
+  const compressed = cleaned.replace(/_/g, "");
+
+  // Direct allow-list match
   if (ADMIN_ROLES.has(upper)) return upper;
   if (ADMIN_ROLES.has(normalized)) return normalized;
   if (ADMIN_ROLES.has(cleaned)) return cleaned;
+  if (ADMIN_ROLES.has(compressed)) return compressed;
+
+  // ROLE_MAP fallbacks (e.g., ORGADMIN → ORG_ADMIN)
+  const mapped =
+    ROLE_MAP[upper] ??
+    ROLE_MAP[normalized] ??
+    ROLE_MAP[cleaned] ??
+    ROLE_MAP[compressed];
+  if (mapped && ADMIN_ROLES.has(mapped)) return mapped;
+
   return null;
 };
 

@@ -63,6 +63,7 @@ import {
 
 
 
+
 const VALID_ROLES: RoleSlug[] = [
   "SUPER_ADMIN",
   "ORG_ADMIN",
@@ -87,7 +88,7 @@ function getUserRole(): RoleSlug | null {
 
     if (!role || typeof role !== "string") return null;
 
-    const normalized = role.toUpperCase().trim(); // e.g. "gate_operator" → "GATE_OPERATOR"
+    const normalized = role.toUpperCase().trim();
 
     if (VALID_ROLES.includes(normalized as RoleSlug)) {
       return normalized as RoleSlug;
@@ -98,6 +99,7 @@ function getUserRole(): RoleSlug | null {
     return null;
   }
 }
+
 
 
 

@@ -1,5 +1,7 @@
 // admin-panel/src/config/menuConfig.ts
 
+// admin-panel/src/config/menuConfig.ts
+
 import * as React from "react";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
@@ -11,7 +13,7 @@ import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 
-// 🔹 All roles we want to support in CiberMandi admin
+// 🔹 All CiberMandi admin roles we want to support in the panel
 export type RoleSlug =
   | "SUPER_ADMIN"
   | "ORG_ADMIN"
@@ -31,7 +33,7 @@ export type MenuItem = {
   roles: RoleSlug[]; // which roles can see this menu
 };
 
-// Helper: all roles (for items that everyone can see)
+// Helper: everyone among all roles
 const ALL_ROLES: RoleSlug[] = [
   "SUPER_ADMIN",
   "ORG_ADMIN",
@@ -46,7 +48,7 @@ const ALL_ROLES: RoleSlug[] = [
 ];
 
 export const menuItems: MenuItem[] = [
-  // Dashboard – everyone gets a dashboard
+  // 1) Dashboard – every role gets a dashboard
   {
     labelKey: "menu.dashboard",
     path: "/",
@@ -54,7 +56,8 @@ export const menuItems: MenuItem[] = [
     roles: ALL_ROLES,
   },
 
-  // Organisations – platform / org level only
+  // 2) Organisations – platform & org level; auditors & org_viewer can see
+  // NO mandi roles, gate, weighbridge, auctioneer, viewer.
   {
     labelKey: "menu.organisations",
     path: "/orgs",
@@ -62,7 +65,7 @@ export const menuItems: MenuItem[] = [
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
   },
 
-  // Org–Mandi mapping – platform / org level only
+  // 3) Org–Mandi mapping – platform & org level; auditors & org_viewer can see
   {
     labelKey: "menu.orgMandi",
     path: "/org-mandi-mapping",
@@ -70,7 +73,7 @@ export const menuItems: MenuItem[] = [
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
   },
 
-  // Mandis master – visible to platform + org + mandi managers
+  // 4) Mandis master – platform, org, mandi admins/managers; auditors & viewer can see
   {
     labelKey: "menu.mandis",
     path: "/mandis",
@@ -82,10 +85,11 @@ export const menuItems: MenuItem[] = [
       "MANDI_ADMIN",
       "MANDI_MANAGER",
       "AUDITOR",
+      "VIEWER",
     ],
   },
 
-  // Admin users – only people who can manage users
+  // 5) Admin users – ONLY superadmin + org admin
   {
     labelKey: "menu.adminUsers",
     path: "/admin-users",
@@ -93,29 +97,32 @@ export const menuItems: MenuItem[] = [
     roles: ["SUPER_ADMIN", "ORG_ADMIN"],
   },
 
-  // Trader approvals – core mandi operations
+  // 6) Trader approvals – platform, org & mandi-level ops (no auditors/viewers)
+  // Auctioneer can see, since closely linked to auction onboarding.
   {
     labelKey: "menu.traderApprovals",
     path: "/trader-approvals",
     icon: React.createElement(TaskAltOutlinedIcon),
-    roles: [
-      "SUPER_ADMIN",
-      "ORG_ADMIN",
-      "MANDI_ADMIN",
-      "MANDI_MANAGER",
-      "AUCTIONEER",
-    ],
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUCTIONEER"],
   },
 
-  // Reports – most roles can see some form of reporting
+  // 7) Reports – management / regulator views (NOT gate/weighbridge/auction-only users)
   {
     labelKey: "menu.reports",
     path: "/reports",
     icon: React.createElement(AssessmentOutlinedIcon),
-    roles: ALL_ROLES,
+    roles: [
+      "SUPER_ADMIN",
+      "ORG_ADMIN",
+      "ORG_VIEWER",
+      "MANDI_ADMIN",
+      "MANDI_MANAGER",
+      "AUDITOR",
+      "VIEWER",
+    ],
   },
 
-  // Mandi coverage – good for managers, viewers, auditors
+  // 8) Mandi coverage – mapping view; management + regulators + viewer
   {
     labelKey: "menu.mandiCoverage",
     path: "/mandi-coverage",
@@ -131,7 +138,7 @@ export const menuItems: MenuItem[] = [
     ],
   },
 
-  // Mandi prices – mainly mandi-related, but also useful for viewers
+  // 9) Mandi prices – price transparency; most roles except gate/weighbridge
   {
     labelKey: "menu.mandiPrices",
     path: "/mandi-prices",
@@ -139,30 +146,181 @@ export const menuItems: MenuItem[] = [
     roles: [
       "SUPER_ADMIN",
       "ORG_ADMIN",
+      "ORG_VIEWER",
       "MANDI_ADMIN",
       "MANDI_MANAGER",
+      "AUCTIONEER",
       "AUDITOR",
       "VIEWER",
     ],
   },
 ];
 
-// Filter helper used by Header + CustomSider
-// export function filterMenuByRole(role: RoleSlug | null) {
-//   if (!role) {
-//     // If for some reason we don't know the role, show a safe default –
-//     // you can change this to only VIEWER menus if you want.
-//     return menuItems;
-//   }
-//   return menuItems.filter((item) => item.roles.includes(role));
-// }
-
+// 🔹 Strict role-based filter used by Header + CustomSider
 export function filterMenuByRole(role: RoleSlug | null) {
-  // 👉 If role is missing or not resolved, treat as VIEWER (safest)
+  // If we don't know the role, safest is to treat them like a VIEWER
   const effectiveRole: RoleSlug = role ?? "VIEWER";
 
   return menuItems.filter((item) => item.roles.includes(effectiveRole));
 }
+
+
+
+// import * as React from "react";
+// import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+// import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
+// import StoreMallDirectoryOutlinedIcon from "@mui/icons-material/StoreMallDirectoryOutlined";
+// import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+// import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+// import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+// import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
+// import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+// import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
+
+// // 🔹 All roles we want to support in CiberMandi admin
+// export type RoleSlug =
+//   | "SUPER_ADMIN"
+//   | "ORG_ADMIN"
+//   | "ORG_VIEWER"
+//   | "MANDI_ADMIN"
+//   | "MANDI_MANAGER"
+//   | "AUCTIONEER"
+//   | "GATE_OPERATOR"
+//   | "WEIGHBRIDGE_OPERATOR"
+//   | "AUDITOR"
+//   | "VIEWER";
+
+// export type MenuItem = {
+//   labelKey: string;
+//   path: string;
+//   icon: React.ReactNode;
+//   roles: RoleSlug[]; // which roles can see this menu
+// };
+
+// // Helper: all roles (for items that everyone can see)
+// const ALL_ROLES: RoleSlug[] = [
+//   "SUPER_ADMIN",
+//   "ORG_ADMIN",
+//   "ORG_VIEWER",
+//   "MANDI_ADMIN",
+//   "MANDI_MANAGER",
+//   "AUCTIONEER",
+//   "GATE_OPERATOR",
+//   "WEIGHBRIDGE_OPERATOR",
+//   "AUDITOR",
+//   "VIEWER",
+// ];
+
+// export const menuItems: MenuItem[] = [
+//   // Dashboard – everyone gets a dashboard
+//   {
+//     labelKey: "menu.dashboard",
+//     path: "/",
+//     icon: React.createElement(DashboardOutlinedIcon),
+//     roles: ALL_ROLES,
+//   },
+
+//   // Organisations – platform / org level only
+//   {
+//     labelKey: "menu.organisations",
+//     path: "/orgs",
+//     icon: React.createElement(ApartmentOutlinedIcon),
+//     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//   },
+
+//   // Org–Mandi mapping – platform / org level only
+//   {
+//     labelKey: "menu.orgMandi",
+//     path: "/org-mandi-mapping",
+//     icon: React.createElement(HubOutlinedIcon),
+//     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//   },
+
+//   // Mandis master – visible to platform + org + mandi managers
+//   {
+//     labelKey: "menu.mandis",
+//     path: "/mandis",
+//     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//     roles: [
+//       "SUPER_ADMIN",
+//       "ORG_ADMIN",
+//       "ORG_VIEWER",
+//       "MANDI_ADMIN",
+//       "MANDI_MANAGER",
+//       "AUDITOR",
+//     ],
+//   },
+
+//   // Admin users – only people who can manage users
+//   {
+//     labelKey: "menu.adminUsers",
+//     path: "/admin-users",
+//     icon: React.createElement(GroupsOutlinedIcon),
+//     roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//   },
+
+//   // Trader approvals – core mandi operations
+//   {
+//     labelKey: "menu.traderApprovals",
+//     path: "/trader-approvals",
+//     icon: React.createElement(TaskAltOutlinedIcon),
+//     roles: [
+//       "SUPER_ADMIN",
+//       "ORG_ADMIN",
+//       "MANDI_ADMIN",
+//       "MANDI_MANAGER",
+//       "AUCTIONEER",
+//     ],
+//   },
+
+//   // Reports – most roles can see some form of reporting
+//   {
+//     labelKey: "menu.reports",
+//     path: "/reports",
+//     icon: React.createElement(AssessmentOutlinedIcon),
+//     roles: ALL_ROLES,
+//   },
+
+//   // Mandi coverage – good for managers, viewers, auditors
+//   {
+//     labelKey: "menu.mandiCoverage",
+//     path: "/mandi-coverage",
+//     icon: React.createElement(MapOutlinedIcon),
+//     roles: [
+//       "SUPER_ADMIN",
+//       "ORG_ADMIN",
+//       "ORG_VIEWER",
+//       "MANDI_ADMIN",
+//       "MANDI_MANAGER",
+//       "AUDITOR",
+//       "VIEWER",
+//     ],
+//   },
+
+//   // Mandi prices – mainly mandi-related, but also useful for viewers
+//   {
+//     labelKey: "menu.mandiPrices",
+//     path: "/mandi-prices",
+//     icon: React.createElement(PriceChangeOutlinedIcon),
+//     roles: [
+//       "SUPER_ADMIN",
+//       "ORG_ADMIN",
+//       "MANDI_ADMIN",
+//       "MANDI_MANAGER",
+//       "AUDITOR",
+//       "VIEWER",
+//     ],
+//   },
+// ];
+
+
+
+// export function filterMenuByRole(role: RoleSlug | null) {
+//   // 👉 If role is missing or not resolved, treat as VIEWER (safest)
+//   const effectiveRole: RoleSlug = role ?? "VIEWER";
+
+//   return menuItems.filter((item) => item.roles.includes(effectiveRole));
+// }
 
 
 // import * as React from "react";

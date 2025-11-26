@@ -5,34 +5,14 @@ import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { filterMenuByRole, RoleSlug } from "../config/menuConfig";
+import { filterMenuByRole } from "../config/menuConfig";
 import type { MenuItem } from "../config/menuConfig";
 import { BRAND_COLORS } from "../config/appConfig";
-
-function getUserRole(): RoleSlug | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const role = parsed?.roles_enabled?.primary || parsed?.usertype || parsed?.role;
-    const normalized = typeof role === "string" ? role.toUpperCase() : null;
-    if (
-      normalized === "SUPER_ADMIN" ||
-      normalized === "ORG_ADMIN" ||
-      normalized === "MANDI_ADMIN" ||
-      normalized === "AUDITOR"
-    ) {
-      return normalized as RoleSlug;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { getUserRoleFromStorage } from "../utils/roles";
 
 export const LeftSider: React.FC = () => {
   const location = useLocation();
-  const role = getUserRole();
+  const role = getUserRoleFromStorage("LeftSider");
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";

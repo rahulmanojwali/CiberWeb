@@ -27,124 +27,9 @@ import { BRAND_ASSETS } from "../config/appConfig";
 
 import {
   filterMenuByRole,
-  type RoleSlug,
   type MenuItem as NavMenuItem,
 } from "../config/menuConfig";
-
-
-const ROLE_MAP: Record<string, RoleSlug> = {
-  SUPERADMIN: "SUPER_ADMIN",
-  "SUPER_ADMIN": "SUPER_ADMIN",
-  "SUPER ADMIN": "SUPER_ADMIN",
-  ADMIN: "SUPER_ADMIN",
-
-  ORGADMIN: "ORG_ADMIN",
-  "ORG_ADMIN": "ORG_ADMIN",
-  "ORG ADMIN": "ORG_ADMIN",
-
-  ORGVIEWER: "ORG_VIEWER",
-  "ORG_VIEWER": "ORG_VIEWER",
-  "ORG VIEWER": "ORG_VIEWER",
-
-  MANDIADMIN: "MANDI_ADMIN",
-  "MANDI_ADMIN": "MANDI_ADMIN",
-  "MANDI ADMIN": "MANDI_ADMIN",
-
-  MANDIMANAGER: "MANDI_MANAGER",
-  "MANDI_MANAGER": "MANDI_MANAGER",
-  "MANDI MANAGER": "MANDI_MANAGER",
-
-  AUCTIONEER: "AUCTIONEER",
-
-  GATEOPERATOR: "GATE_OPERATOR",
-  "GATE_OPERATOR": "GATE_OPERATOR",
-  "GATE OPERATOR": "GATE_OPERATOR",
-
-  WEIGHBRIDGEOPERATOR: "WEIGHBRIDGE_OPERATOR",
-  "WEIGHBRIDGE_OPERATOR": "WEIGHBRIDGE_OPERATOR",
-  "WEIGHBRIDGE OPERATOR": "WEIGHBRIDGE_OPERATOR",
-
-  AUDITOR: "AUDITOR",
-  VIEWER: "VIEWER",
-};
-
-function getUserRole(): RoleSlug | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    console.log("[getUserRole/Header] raw cd_user:", raw);
-    if (!raw) return null;
-
-    const parsed: any = JSON.parse(raw);
-    console.log("[getUserRole/Header] parsed cd_user:", parsed);
-
-    const primaryCandidate: unknown =
-      parsed?.default_role_code ??
-      parsed?.default_role ??
-      parsed?.role ??
-      parsed?.role_code ??
-      parsed?.usertype ??
-      null;
-
-    console.log(
-      "[getUserRole/Header] primary role candidate:",
-      primaryCandidate,
-    );
-
-    const resolveFromString = (
-      value: string | null | undefined,
-    ): RoleSlug | null => {
-      if (!value) return null;
-
-      const normalized = value.toUpperCase().trim();
-      const cleaned = normalized.replace(/[^A-Z_]/g, "");
-
-      console.log(
-        "[getUserRole/Header] normalized:",
-        normalized,
-        "cleaned:",
-        cleaned,
-      );
-
-      const mapped =
-        ROLE_MAP[normalized] ??
-        ROLE_MAP[cleaned];
-
-      console.log("[getUserRole/Header] mapped role:", mapped);
-      return mapped ?? null;
-    };
-
-    if (typeof primaryCandidate === "string") {
-      const mapped = resolveFromString(primaryCandidate);
-      if (mapped) return mapped;
-    }
-
-    const rolesEnabled = parsed?.roles_enabled;
-    if (rolesEnabled && typeof rolesEnabled === "object") {
-      const firstEnabledKey = Object.keys(rolesEnabled).find(
-        (key) => rolesEnabled[key],
-      );
-      console.log(
-        "[getUserRole/Header] derived from roles_enabled:",
-        firstEnabledKey,
-      );
-      if (firstEnabledKey) {
-        const mapped = resolveFromString(firstEnabledKey);
-        if (mapped) return mapped;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error("[getUserRole/Header] failed to parse cd_user:", error);
-    return null;
-  }
-}
-
-
-
-
-
-
+import { getUserRoleFromStorage } from "../utils/roles";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -160,18 +45,16 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const role = getUserRoleFromStorage("CustomSider");
 
+  console.log("[CustomSider] resolved role from cd_user:", role);
 
- const location = useLocation();
-const role = getUserRole();
-
-console.log("[CustomSider] resolved role from cd_user:", role);
-
-const navItems = useMemo<NavMenuItem[]>(() => {
-  const items = filterMenuByRole(role);
-  console.log("[CustomSider] navItems for role", role, items);
-  return items;
-}, [role]);
+  const navItems = useMemo<NavMenuItem[]>(() => {
+    const items = filterMenuByRole(role);
+    console.log("[CustomSider] navItems for role", role, items);
+    return items;
+  }, [role]);
 
 
 

@@ -11,6 +11,31 @@ import {
   DEFAULT_LANGUAGE,
 } from "../config/appConfig";
 
+// Allowed admin roles for this console (must match RoleSlug)
+const ADMIN_ROLES = new Set([
+  "SUPER_ADMIN",
+  "ORG_ADMIN",
+  "ORG_VIEWER",
+  "MANDI_ADMIN",
+  "MANDI_MANAGER",
+  "AUCTIONEER",
+  "GATE_OPERATOR",
+  "WEIGHBRIDGE_OPERATOR",
+  "AUDITOR",
+  "VIEWER",
+]);
+
+const resolveAdminRole = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const upper = value.toUpperCase().trim();
+  const normalized = upper.replace(/[\s-]+/g, "_");
+  const cleaned = normalized.replace(/[^A-Z_]/g, "");
+  if (ADMIN_ROLES.has(upper)) return upper;
+  if (ADMIN_ROLES.has(normalized)) return normalized;
+  if (ADMIN_ROLES.has(cleaned)) return cleaned;
+  return null;
+};
+
 const BASE_URL = API_BASE_URL;
 const LOGIN_ROUTE = API_ROUTES.auth.login;
 const LANGUAGE = DEFAULT_LANGUAGE;
@@ -90,19 +115,38 @@ export const authProvider: any = {
       return { success: false, error: { name: "Login Failed", message } };
     }
 
-    const token = data?.response?.token || "";
+    const resp = data?.response || {};
+    const roleCandidate =
+      resp?.default_role_code ??
+      resp?.default_role ??
+      resp?.role ??
+      resp?.role_code ??
+      resp?.usertype ??
+      null;
+
+    const resolvedRole = resolveAdminRole(roleCandidate);
+    if (!resolvedRole) {
+      const message = "Not authorized for admin console. Please use the trader/farmer app.";
+      console.warn({ event: "login_rejected_non_admin", roleCandidate });
+      return { success: false, error: { name: "Unauthorized", message } };
+    }
+
+    const token = resp?.token || "";
     storage.setToken(token);
     storage.setUser({
-      username: data?.response?.username || username,
-      usertype: data?.response?.usertype || "seller",
+      username: resp?.username || username,
+      usertype: resolvedRole,
+      default_role_code: resolvedRole,
+      org_code: resp?.org_code || resp?.orgCode || null,
+      mandis: resp?.mandi_codes || resp?.mandis || [],
       language: LANGUAGE,
       country: country || COUNTRY_FALLBACK,
-      roles_enabled: data?.response?.roles_enabled || {},
-      roles_blocked: data?.response?.roles_blocked || {},
+      roles_enabled: resp?.roles_enabled || { [resolvedRole]: true },
+      roles_blocked: resp?.roles_blocked || {},
     });
 
     axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    console.info({ event: "login_success", username: data?.response?.username || username });
+    console.info({ event: "login_success", username: resp?.username || username, resolvedRole });
 
     return { success: true, redirectTo: "/" };
   } catch (e: any) {

@@ -66,6 +66,7 @@ export const Orgs: React.FC = () => {
   const isSuper = isSuperAdmin(role);
   const orgAdmin = isOrgAdmin(role);
   const isReadOnly = isReadOnlyRole(role);
+  const showCreateButton = role === "SUPER_ADMIN";
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -341,7 +342,7 @@ export const Orgs: React.FC = () => {
         spacing={2}
       >
         <Typography variant="h5">Organisations</Typography>
-        {isSuper && (
+        {showCreateButton && (
           <Button
             variant="contained"
             size="small"

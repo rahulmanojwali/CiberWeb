@@ -33,6 +33,20 @@ import {
 
 
 
+
+// const VALID_ROLES: RoleSlug[] = [
+//   "SUPER_ADMIN",
+//   "ORG_ADMIN",
+//   "ORG_VIEWER",
+//   "MANDI_ADMIN",
+//   "MANDI_MANAGER",
+//   "AUCTIONEER",
+//   "GATE_OPERATOR",
+//   "WEIGHBRIDGE_OPERATOR",
+//   "AUDITOR",
+//   "VIEWER",
+// ];
+
 // function getUserRole(): RoleSlug | null {
 //   try {
 //     const raw = localStorage.getItem("cd_user");
@@ -46,12 +60,7 @@ import {
 
 //     const normalized = role.toUpperCase().trim();
 
-//     if (
-//       normalized === "SUPER_ADMIN" ||
-//       normalized === "ORG_ADMIN" ||
-//       normalized === "MANDI_ADMIN" ||
-//       normalized === "AUDITOR"
-//     ) {
+//     if (VALID_ROLES.includes(normalized as RoleSlug)) {
 //       return normalized as RoleSlug;
 //     }
 
@@ -61,45 +70,67 @@ import {
 //   }
 // }
 
+const ROLE_MAP: Record<string, RoleSlug> = {
+  SUPERADMIN: "SUPER_ADMIN",
+  "SUPER_ADMIN": "SUPER_ADMIN",
+  "SUPER ADMIN": "SUPER_ADMIN",
 
+  ORGADMIN: "ORG_ADMIN",
+  "ORG_ADMIN": "ORG_ADMIN",
+  "ORG ADMIN": "ORG_ADMIN",
 
+  ORGVIEWER: "ORG_VIEWER",
+  "ORG_VIEWER": "ORG_VIEWER",
+  "ORG VIEWER": "ORG_VIEWER",
 
-const VALID_ROLES: RoleSlug[] = [
-  "SUPER_ADMIN",
-  "ORG_ADMIN",
-  "ORG_VIEWER",
-  "MANDI_ADMIN",
-  "MANDI_MANAGER",
-  "AUCTIONEER",
-  "GATE_OPERATOR",
-  "WEIGHBRIDGE_OPERATOR",
-  "AUDITOR",
-  "VIEWER",
-];
+  MANDIADMIN: "MANDI_ADMIN",
+  "MANDI_ADMIN": "MANDI_ADMIN",
+  "MANDI ADMIN": "MANDI_ADMIN",
+
+  MANDIMANAGER: "MANDI_MANAGER",
+  "MANDI_MANAGER": "MANDI_MANAGER",
+  "MANDI MANAGER": "MANDI_MANAGER",
+
+  GATEOPERATOR: "GATE_OPERATOR",
+  "GATE_OPERATOR": "GATE_OPERATOR",
+  "GATE OPERATOR": "GATE_OPERATOR",
+
+  WEIGHBRIDGEOPERATOR: "WEIGHBRIDGE_OPERATOR",
+  "WEIGHBRIDGE_OPERATOR": "WEIGHBRIDGE_OPERATOR",
+  "WEIGHBRIDGE OPERATOR": "WEIGHBRIDGE_OPERATOR",
+
+  AUCTIONEER: "AUCTIONEER",
+
+  AUDITOR: "AUDITOR",
+
+  VIEWER: "VIEWER",
+};
 
 function getUserRole(): RoleSlug | null {
   try {
     const raw = localStorage.getItem("cd_user");
     if (!raw) return null;
+
     const parsed = JSON.parse(raw);
 
-    const role: unknown =
+    const rawRole: unknown =
       parsed?.default_role_code ?? parsed?.role ?? parsed?.role_code;
 
-    if (!role || typeof role !== "string") return null;
+    if (!rawRole || typeof rawRole !== "string") return null;
 
-    const normalized = role.toUpperCase().trim();
+    const normalized = rawRole.trim().toUpperCase();          // e.g. "superadmin" → "SUPERADMIN"
+    const cleaned = normalized.replace(/[^A-Z]/g, "");        // remove spaces/underscores: "SUPER_ADMIN" → "SUPERADMIN"
 
-    if (VALID_ROLES.includes(normalized as RoleSlug)) {
-      return normalized as RoleSlug;
-    }
+    // Try exact match first (with spaces/underscores), then cleaned version
+    const mapped =
+      ROLE_MAP[normalized] ??
+      ROLE_MAP[cleaned];
 
-    return null;
+    return mapped ?? null;
   } catch {
     return null;
   }
 }
-
 
 
 

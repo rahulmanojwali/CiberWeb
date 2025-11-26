@@ -34,6 +34,12 @@ import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
 import { OrgMandiMapping } from "./pages/orgMandiMapping";
 
+import { Layout } from "./components/layout";
+
+import { CustomSider } from "./components/customSider";
+
+
+
 
 function App() {
   return (
@@ -43,33 +49,45 @@ function App() {
           <CssBaseline />
           <GlobalStyles styles={{ html: { WebkitFontSmoothing: "auto" } }} />
           <RefineSnackbarProvider>
-            <Refine
-              // keep simple-rest for now; we’ll swap to encrypted provider later
-              dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
-              notificationProvider={useNotificationProvider}
-              routerProvider={routerProvider}
-              authProvider={authProvider}
-              // resources are optional when you drive the menu yourself,
-              // but we still set the default landing below.
-              options={{
-                syncWithLocation: true,
-                warnWhenUnsavedChanges: true,
-                projectId: "CD-ADMIN-PANEL",
-              }}
-            >
+           <Refine
+  dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+  notificationProvider={useNotificationProvider}
+  routerProvider={routerProvider}
+  authProvider={authProvider}
+  options={{
+    syncWithLocation: true,
+    warnWhenUnsavedChanges: true,
+    projectId: "CD-ADMIN-PANEL",
+  }}
+
+>
+
               <Routes>
                 <Route
-                  element={
-                    <Authenticated
-                      key="authenticated-inner"
-                      fallback={<CatchAllNavigate to="/login" />}
-                    >
-                      {/* Title here avoids nested <a> hydration warning */}
-                      <ThemedLayout Header={Header} Sider={LeftSider} Title={() => null}>
-                        <Outlet />
-                      </ThemedLayout>
-                    </Authenticated>
-                  }
+                  // element={
+                  //   <Authenticated
+                  //     key="authenticated-inner"
+                  //     fallback={<CatchAllNavigate to="/login" />}
+                  //   >
+                  //     {/* Title here avoids nested <a> hydration warning */}
+                  //     <ThemedLayout Header={Header} Sider={LeftSider} Title={() => null}>
+                  //       <Outlet />
+                  //     </ThemedLayout>
+                  //   </Authenticated>
+                  // }
+
+//strat 
+ element={
+      <ThemedLayout
+        Header={Header}
+        Sider={CustomSider}
+      >
+        <Outlet />
+      </ThemedLayout>
+    }
+//end
+
+
                 >
              
                   <Route index element={<Navigate to="/" replace />} />

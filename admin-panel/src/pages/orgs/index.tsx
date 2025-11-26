@@ -27,10 +27,10 @@ import {
 import Snackbar from "@mui/material/Snackbar";
 import axios from "axios";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
-import type { RoleSlug } from "../../config/menuConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -48,32 +48,6 @@ interface OrgRow {
 
 type FormState = Omit<OrgRow, "id">;
 
-function getCurrentRole(): RoleSlug | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const role =
-      parsed?.roles_enabled?.primary ||
-      parsed?.usertype ||
-      parsed?.role;
-    let normalized = typeof role === "string" ? role.toUpperCase() : null;
-    // Temporary fallback: treat generic ADMIN as SUPER_ADMIN until backend returns role details
-    if (normalized === "ADMIN") normalized = "SUPER_ADMIN";
-    if (
-      normalized === "SUPER_ADMIN" ||
-      normalized === "ORG_ADMIN" ||
-      normalized === "MANDI_ADMIN" ||
-      normalized === "AUDITOR"
-    ) {
-      return normalized as RoleSlug;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -87,11 +61,11 @@ function currentUsername(): string | null {
 export const Orgs: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const role = getCurrentRole();
-  const isSuper = role === "SUPER_ADMIN";
-  const isOrgAdmin = role === "ORG_ADMIN";
-  const isAuditor = role === "AUDITOR";
-  const isReadOnly = isAuditor || role === "MANDI_ADMIN";
+  const scope = getUserScope("OrgsPage");
+  const role = scope.role;
+  const isSuper = isSuperAdmin(role);
+  const orgAdmin = isOrgAdmin(role);
+  const isReadOnly = isReadOnlyRole(role);
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -139,11 +113,15 @@ export const Orgs: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const body = await buildBody({
+      const items: any = {
         api: API_TAGS.ORGS.list,
         username,
         language: "en",
-      });
+      };
+      if (!isSuper && scope.orgCode) {
+        items.org_code = scope.orgCode;
+      }
+      const body = await buildBody(items);
       const { data } = await axios.post(
         `${API_BASE_URL}${API_ROUTES.admin.getOrganisations}`,
         body,
@@ -157,7 +135,7 @@ export const Orgs: React.FC = () => {
         return;
       }
       const list: any[] = resp?.data?.organisations || [];
-      const mapped: OrgRow[] = list.map((o) => ({
+      let mapped: OrgRow[] = list.map((o) => ({
         id: o._id || o.org_code,
         org_code: o.org_code,
         org_name: o.org_name,
@@ -168,6 +146,9 @@ export const Orgs: React.FC = () => {
         updated_on: o.updated_on,
         updated_by: o.updated_by,
       }));
+      if (!isSuper && scope.orgCode) {
+        mapped = mapped.filter((o) => o.org_code === scope.orgCode);
+      }
       setRows(mapped);
       setToast({ open: true, message: "Organisations refreshed.", severity: "success" });
     } catch (e: any) {
@@ -182,8 +163,16 @@ export const Orgs: React.FC = () => {
     loadOrgs();
   }, [loadOrgs]);
 
+  const canEditOrg = React.useCallback(
+    (row: OrgRow) => isSuper || (orgAdmin && scope.orgCode && row.org_code === scope.orgCode),
+    [isSuper, orgAdmin, scope.orgCode],
+  );
+
   const handleOpenCreate = () => {
-    if (!isSuper) return;
+    if (!isSuper) {
+      setToast({ open: true, message: "You are not authorized to create organisations.", severity: "error" });
+      return;
+    }
     setIsEditMode(false);
     setEditingId(null);
     setForm({
@@ -200,7 +189,10 @@ export const Orgs: React.FC = () => {
   };
 
   const handleOpenEdit = (row: OrgRow) => {
-    if (isReadOnly) return;
+    if (!canEditOrg(row)) {
+      setToast({ open: true, message: "You are not authorized to edit this organisation.", severity: "error" });
+      return;
+    }
     setIsEditMode(true);
     setEditingId(row.id);
     setForm({
@@ -237,6 +229,7 @@ export const Orgs: React.FC = () => {
   const handleSubmit = async () => {
     if (isReadOnly) {
       setDialogOpen(false);
+      setToast({ open: true, message: "You are not authorized to modify organisations.", severity: "error" });
       return;
     }
     if (!form.org_code.trim() || !form.org_name.trim()) {
@@ -252,6 +245,12 @@ export const Orgs: React.FC = () => {
       setLoading(true);
       setError(null);
       if (isEditMode && editingId) {
+        const isOrgAllowed = isSuper || (orgAdmin && scope.orgCode && form.org_code === scope.orgCode);
+        if (!isOrgAllowed) {
+          setToast({ open: true, message: "You are not authorized to edit this organisation.", severity: "error" });
+          setLoading(false);
+          return;
+        }
         const payload: any = {
           api: API_TAGS.ORGS.update,
           username,
@@ -259,9 +258,10 @@ export const Orgs: React.FC = () => {
           org_id: editingId,
           org_name: form.org_name,
         };
-        if (isSuper) {
-          payload.country = form.country;
-          payload.is_active = form.status === "ACTIVE" ? "Y" : "N";
+        payload.country = form.country;
+        payload.is_active = form.status === "ACTIVE" ? "Y" : "N";
+        if (!isSuper && scope.orgCode) {
+          payload.org_code = scope.orgCode;
         }
         const body = await buildBody(payload);
         const { data } = await axios.post(
@@ -281,7 +281,8 @@ export const Orgs: React.FC = () => {
         }
       } else {
         if (!isSuper) {
-          alert("Only SUPER_ADMIN can create organisations.");
+          setToast({ open: true, message: "Only SUPER_ADMIN can create organisations.", severity: "error" });
+          setLoading(false);
           return;
         }
         const payload = {
@@ -336,14 +337,14 @@ export const Orgs: React.FC = () => {
             size="small"
             variant="outlined"
             onClick={() => handleOpenEdit(params.row as OrgRow)}
-            disabled={isReadOnly}
+            disabled={isReadOnly || !canEditOrg(params.row)}
           >
             Edit
           </Button>
         ),
       },
     ],
-    [isReadOnly]
+    [isReadOnly, canEditOrg]
   );
 
   const filteredRows = rows.filter((r) => {

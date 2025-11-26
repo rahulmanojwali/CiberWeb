@@ -38,6 +38,7 @@ import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
+import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 
 type RoleSlug = "SUPER_ADMIN" | "ORG_ADMIN" | "MANDI_ADMIN" | "AUDITOR" | "ADMIN";
 
@@ -64,31 +65,6 @@ type RoleOption = {
 };
 
 type OrgOption = { _id: string; org_code: string; org_name: string };
-
-function getCurrentRole(): RoleSlug | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const role =
-      parsed?.roles_enabled?.primary ||
-      parsed?.usertype ||
-      parsed?.role;
-    let normalized = typeof role === "string" ? role.toUpperCase() : null;
-    if (normalized === "ADMIN") normalized = "SUPER_ADMIN";
-    if (
-      normalized === "SUPER_ADMIN" ||
-      normalized === "ORG_ADMIN" ||
-      normalized === "MANDI_ADMIN" ||
-      normalized === "AUDITOR"
-    ) {
-      return normalized as RoleSlug;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 function currentUsername(): string | null {
   try {
@@ -117,8 +93,11 @@ const AdminUsersList: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const role = getCurrentRole();
-  const isSuper = role === "SUPER_ADMIN";
+  const scope = getUserScope("AdminUsersPage");
+  const role = scope.role;
+  const isSuper = isSuperAdmin(role);
+  const orgAdmin = isOrgAdmin(role);
+  const isReadOnly = isReadOnlyRole(role);
   const [rows, setRows] = React.useState<AdminUser[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -191,11 +170,14 @@ const AdminUsersList: React.FC = () => {
       const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.getOrganisations}`, body, { headers });
       const resp = data?.response || {};
       if (String(resp.responsecode) !== "0") return;
-      const orgs: OrgOption[] = (resp?.data?.organisations || []).map((o: any) => ({
+      let orgs: OrgOption[] = (resp?.data?.organisations || []).map((o: any) => ({
         _id: o._id,
         org_code: o.org_code,
         org_name: o.org_name,
       }));
+      if (!isSuper && scope.orgCode) {
+        orgs = orgs.filter((o) => o.org_code === scope.orgCode);
+      }
       setOrgOptions(orgs);
     } catch {
       /* ignore */
@@ -218,6 +200,7 @@ const AdminUsersList: React.FC = () => {
         language,
         search: filters.search,
       };
+      if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
       if (filters.org_id) payload.org_id = filters.org_id;
       if (filters.role_code) payload.role_code = filters.role_code;
       if (filters.is_active === "Y" || filters.is_active === "N") payload.is_active = filters.is_active;
@@ -236,10 +219,13 @@ const AdminUsersList: React.FC = () => {
         // eslint-disable-next-line no-console
         console.log("[admin_users_load] users raw", resp?.data?.users);
       }
-      const normalized = (resp?.data?.users || []).map((u: any) => ({
+      let normalized = (resp?.data?.users || []).map((u: any) => ({
         ...u,
         is_active: String(u?.is_active || "Y").trim().toUpperCase(),
       }));
+      if (!isSuper && scope.orgCode) {
+        normalized = normalized.filter((u) => u.org_code === scope.orgCode || u.orgCode === scope.orgCode);
+      }
       setRows(normalized);
     } catch (e: any) {
       const msg = e?.message || t("adminUsers.messages.networkLoad");
@@ -259,8 +245,28 @@ const AdminUsersList: React.FC = () => {
     loadUsers();
   }, [loadUsers]);
 
+  const canManageUser = React.useCallback(
+    (user?: AdminUser | null) => {
+      if (isSuper) return true;
+      if (orgAdmin && scope.orgCode) {
+        if (!user) return true;
+        const userOrg = (user as any).org_code || (user as any).orgCode || "";
+        return userOrg === scope.orgCode;
+      }
+      return false;
+    },
+    [isSuper, orgAdmin, scope.orgCode],
+  );
+
   const handleOpenCreate = () => {
-    if (!isSuper) return;
+    if (!canManageUser(null)) {
+      setToast({ open: true, message: "You are not authorized to create users.", severity: "error" });
+      return;
+    }
+    const defaultOrgId =
+      (!isSuper && scope.orgCode
+        ? (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
+        : "");
     setIsEditMode(false);
     setEditingUser(null);
     setForm({
@@ -268,7 +274,7 @@ const AdminUsersList: React.FC = () => {
       full_name: "",
       email: "",
       mobile: "",
-      org_id: "",
+      org_id: defaultOrgId,
       roles: [],
       is_active: true,
       password: "",
@@ -277,7 +283,10 @@ const AdminUsersList: React.FC = () => {
   };
 
   const handleOpenEdit = (user: AdminUser) => {
-    if (!isSuper) return;
+    if (!canManageUser(user)) {
+      setToast({ open: true, message: "You are not authorized to edit this user.", severity: "error" });
+      return;
+    }
     const orgId = (user as any).org_id || (user as any).orgId || "";
     setIsEditMode(true);
     setEditingUser(user);
@@ -316,8 +325,9 @@ const AdminUsersList: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!isSuper) {
+    if (isReadOnly) {
       setDialogOpen(false);
+      setToast({ open: true, message: "You are not authorized to modify users.", severity: "error" });
       return;
     }
     const username = currentUsername();
@@ -374,6 +384,11 @@ const AdminUsersList: React.FC = () => {
       setLoading(true);
       setError(null);
       if (isEditMode && editingUser) {
+        if (!canManageUser(editingUser)) {
+          setToast({ open: true, message: "You are not authorized to edit this user.", severity: "error" });
+          setLoading(false);
+          return;
+        }
         const payload: any = {
           api: API_TAGS.ADMIN_USERS.update,
           username,
@@ -386,6 +401,7 @@ const AdminUsersList: React.FC = () => {
           is_active: form.is_active ? "Y" : "N",
         };
         if (form.org_id) payload.org_id = form.org_id;
+        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
         const body = await buildBody(payload);
         const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.updateAdminUser}`, body, { headers });
         const resp = data?.response || {};
@@ -398,6 +414,15 @@ const AdminUsersList: React.FC = () => {
           setDialogOpen(false);
         }
       } else {
+        if (!canManageUser(null)) {
+          setToast({ open: true, message: "You are not authorized to create users.", severity: "error" });
+          setLoading(false);
+          return;
+        }
+        const enforcedOrgId =
+          !isSuper && scope.orgCode
+            ? form.org_id || (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
+            : form.org_id;
         const payload: any = {
           api: API_TAGS.ADMIN_USERS.create,
           username,
@@ -409,7 +434,8 @@ const AdminUsersList: React.FC = () => {
           role_codes: form.roles,
           password: form.password,
         };
-        if (form.org_id) payload.org_id = form.org_id;
+        if (enforcedOrgId) payload.org_id = enforcedOrgId;
+        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
         const body = await buildBody(payload);
         const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.createAdminUser}`, body, { headers });
         const resp = data?.response || {};
@@ -500,7 +526,7 @@ const AdminUsersList: React.FC = () => {
         sortable: false,
         filterable: false,
         renderCell: (params: GridRenderCellParams<AdminUser>) =>
-          !isSuper ? null : (
+          (isReadOnly || !canManageUser(params.row)) ? null : (
             <Stack direction="row" spacing={1}>
               <Button
                 size="small"
@@ -520,7 +546,7 @@ const AdminUsersList: React.FC = () => {
           ),
       },
     ],
-    [isSuper, t]
+    [isReadOnly, canManageUser, t]
   );
 
   const filteredRows = rows.filter((u) => {
@@ -555,7 +581,7 @@ const AdminUsersList: React.FC = () => {
           <IconButton size="small" onClick={loadUsers} title={t("common.refresh")}>
             <RefreshIcon />
           </IconButton>
-          <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={!isSuper}>
+          <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={isReadOnly || !canManageUser(null)}>
             {t("adminUsers.actions.new")}
           </Button>
         </Stack>

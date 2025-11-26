@@ -98,12 +98,11 @@ export const menuItems: MenuItem[] = [
   },
 
   // 6) Trader approvals – platform, org & mandi-level ops (no auditors/viewers)
-  // Auctioneer can see, since closely linked to auction onboarding.
   {
     labelKey: "menu.traderApprovals",
     path: "/trader-approvals",
     icon: React.createElement(TaskAltOutlinedIcon),
-    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUCTIONEER"],
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
   },
 
   // 7) Reports – management / regulator views (NOT gate/weighbridge/auction-only users)
@@ -117,6 +116,9 @@ export const menuItems: MenuItem[] = [
       "ORG_VIEWER",
       "MANDI_ADMIN",
       "MANDI_MANAGER",
+      "AUCTIONEER",
+      "GATE_OPERATOR",
+      "WEIGHBRIDGE_OPERATOR",
       "AUDITOR",
       "VIEWER",
     ],

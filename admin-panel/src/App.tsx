@@ -64,17 +64,7 @@ function App() {
 
               <Routes>
                 <Route
-                  // element={
-                  //   <Authenticated
-                  //     key="authenticated-inner"
-                  //     fallback={<CatchAllNavigate to="/login" />}
-                  //   >
-                  //     {/* Title here avoids nested <a> hydration warning */}
-                  //     <ThemedLayout Header={Header} Sider={LeftSider} Title={() => null}>
-                  //       <Outlet />
-                  //     </ThemedLayout>
-                  //   </Authenticated>
-                  // }
+            
 
 //strat 
  element={

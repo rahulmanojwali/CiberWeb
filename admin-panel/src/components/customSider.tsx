@@ -8,7 +8,6 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
 
 import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -20,6 +19,7 @@ import Divider from "@mui/material/Divider";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { BRAND_ASSETS } from "../config/appConfig";
+
 import {
   filterMenuByRole,
   type RoleSlug,
@@ -57,7 +57,7 @@ function getUserRole(): RoleSlug | null {
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down("md"));
-   const { t } = useTranslation();   // 👈 add this
+  const { t } = useTranslation();
 
   // 👉 Hide sider completely on mobile; drawer handles navigation there
   if (isSmall) {
@@ -107,7 +107,9 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             CiberMandi Admin
           </Typography>
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            Control room for mandis
+            {t("layout.sider.tagline", {
+              defaultValue: "Control room for mandis",
+            })}
           </Typography>
         </Box>
       </Box>
@@ -117,6 +119,13 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         <List disablePadding>
           {navItems.map((item) => {
             const active = location.pathname === item.path;
+
+            const anyItem = item as any;
+            const labelKey: string | undefined = anyItem.labelKey;
+            const label: string =
+              anyItem.label ??
+              anyItem.title ??
+              (labelKey ? t(labelKey, { defaultValue: labelKey }) : "");
 
             return (
               <ListItem key={item.path} disablePadding>
@@ -145,14 +154,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                       {item.icon}
                     </ListItemIcon>
                   )}
-                  <ListItemText
-                     primaryTypographyProps={{
-    noWrap: true,
-  }}
-                    
-                    // If you want i18n:
-                    // primary={t(item.labelKey)}
-                  />
+
+                  <ListItemText primary={label} />
                 </ListItemButton>
               </ListItem>
             );
@@ -164,12 +167,9 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       <Divider />
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-        {t("layout.sider.tagline", {
-    defaultValue: "Control room for mandis",
-  })}
+          © {new Date().getFullYear()} CiberMandi
         </Typography>
       </Box>
     </Box>
   );
 };
-

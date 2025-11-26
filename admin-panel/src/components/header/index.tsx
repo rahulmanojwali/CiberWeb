@@ -28,7 +28,10 @@ import { useTheme } from "@mui/material/styles";
 import { useGetIdentity, useLogout } from "@refinedev/core";
 import { RefineThemedLayoutHeaderProps } from "@refinedev/mui";
 
-import React, { useContext, useMemo, useState } from "react";
+// import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useMemo, useState, useEffect } from "react";
+
+
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -94,6 +97,10 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     themeParam.breakpoints.down("md"),
   );
   
+   // 👇 Override browser tab title when header is mounted
+  useEffect(() => {
+    document.title = "CiberMandi Admin Console";
+  }, []);
 
   const navigate = useNavigate();
   const location = useLocation();

@@ -170,7 +170,7 @@ export const Orgs: React.FC = () => {
 
   const handleOpenCreate = () => {
     if (!isSuper) {
-      setToast({ open: true, message: "You are not authorized to create organisations.", severity: "error" });
+      setToast({ open: true, message: "Only SUPER_ADMIN can create organisations.", severity: "error" });
       return;
     }
     setIsEditMode(false);
@@ -280,36 +280,9 @@ export const Orgs: React.FC = () => {
           setDialogOpen(false);
         }
       } else {
-        if (!isSuper) {
-          setToast({ open: true, message: "Only SUPER_ADMIN can create organisations.", severity: "error" });
-          setLoading(false);
-          return;
-        }
-        const payload = {
-          api: API_TAGS.ORGS.create,
-          username,
-          language: "en",
-          org_code: form.org_code.toUpperCase(),
-          org_name: form.org_name,
-          country: form.country,
-          is_active: form.status === "ACTIVE" ? "Y" : "N",
-        };
-        const body = await buildBody(payload);
-        const { data } = await axios.post(
-          `${API_BASE_URL}${API_ROUTES.admin.createOrganisation}`,
-          body,
-          { headers }
-        );
-        const resp = data?.response || {};
-        const code = String(resp.responsecode ?? "");
-        if (code !== "0") {
-          setError(resp.description || "Create failed.");
-          setToast({ open: true, message: resp.description || "Create failed.", severity: "error" });
-        } else {
-          await loadOrgs();
-          setToast({ open: true, message: "Organisation created.", severity: "success" });
-          setDialogOpen(false);
-        }
+        setToast({ open: true, message: "Only SUPER_ADMIN can create organisations.", severity: "error" });
+        setLoading(false);
+        return;
       }
     } catch (e: any) {
       setError(e?.message || "Network error.");
@@ -368,15 +341,16 @@ export const Orgs: React.FC = () => {
         spacing={2}
       >
         <Typography variant="h5">Organisations</Typography>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={handleOpenCreate}
-          disabled={!isSuper}
-          sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
-        >
-          Add Organisation
-        </Button>
+        {isSuper && (
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleOpenCreate}
+            sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
+          >
+            Add Organisation
+          </Button>
+        )}
       </Stack>
 
       <Stack

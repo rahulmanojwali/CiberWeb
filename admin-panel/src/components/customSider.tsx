@@ -5,6 +5,7 @@ import {
 
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTranslation } from "react-i18next";
 
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -56,6 +57,7 @@ function getUserRole(): RoleSlug | null {
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down("md"));
+   const { t } = useTranslation();   // 👈 add this
 
   // 👉 Hide sider completely on mobile; drawer handles navigation there
   if (isSmall) {
@@ -144,7 +146,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     </ListItemIcon>
                   )}
                   <ListItemText
-                    primary={item.labelKey}
+                     primaryTypographyProps={{
+    noWrap: true,
+  }}
+                    
                     // If you want i18n:
                     // primary={t(item.labelKey)}
                   />
@@ -159,32 +164,12 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       <Divider />
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          © {new Date().getFullYear()} CiberMandi
+        {t("layout.sider.tagline", {
+    defaultValue: "Control room for mandis",
+  })}
         </Typography>
       </Box>
     </Box>
   );
 };
 
-
-// import React from "react";
-// import {
-//   ThemedSider,
-//   RefineThemedLayoutSiderProps,
-// } from "@refinedev/mui";
-
-// import { useTheme } from "@mui/material/styles";
-// import useMediaQuery from "@mui/material/useMediaQuery";
-
-// export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = (props) => {
-//   const theme = useTheme();
-//   const isSmall = useMediaQuery(theme.breakpoints.down("md"));
-
-//   // 👉 Hide vertical sidebar on mobile
-//   if (isSmall) {
-//     return null;
-//   }
-
-//   // 👉 Show normal sidebar on desktop
-//   return <ThemedSider {...props} />;
-// };

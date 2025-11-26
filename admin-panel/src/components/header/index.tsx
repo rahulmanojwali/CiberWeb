@@ -93,6 +93,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const isSmall = useMediaQuery((themeParam: any) =>
     themeParam.breakpoints.down("md"),
   );
+  
 
   const navigate = useNavigate();
   const location = useLocation();

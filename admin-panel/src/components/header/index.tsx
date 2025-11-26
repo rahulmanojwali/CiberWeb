@@ -42,11 +42,14 @@ import {
   SUPPORTED_LANGUAGES,
   normalizeLanguageCode,
 } from "../../config/languages";
+
+
 import {
   filterMenuByRole,
   type RoleSlug,
   type MenuItem as NavMenuItem,
 } from "../../config/menuConfig";
+
 
 // Height of the mobile AppBar (toolbar)
 const APPBAR_MOBILE_HEIGHT = 56;
@@ -112,11 +115,17 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const role = getUserRole();
-  const navItems = useMemo<NavMenuItem[]>(
-    () => filterMenuByRole(role),
-    [role],
-  );
+const role = getUserRole();
+console.log("[Header] resolved role from cd_user:", role);
+
+const navItems: NavMenuItem[] = useMemo(() => {
+  const items = filterMenuByRole(role);
+  console.log("[Header] navItems for role", role, items);
+  return items;
+}, [role]);
+
+
+
 
   const handleLanguageChange = (event: any) => {
     const next = event.target.value;

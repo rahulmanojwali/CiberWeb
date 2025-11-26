@@ -157,9 +157,17 @@ export const menuItems: MenuItem[] = [
 ];
 
 // 🔹 Strict role-based filter used by Header + CustomSider
+// Central role-based filter used by Header + CustomSider
 export function filterMenuByRole(role: RoleSlug | null) {
   // If we don't know the role, safest is to treat them like a VIEWER
   const effectiveRole: RoleSlug = role ?? "VIEWER";
+
+  console.log(
+    "[menuConfig/filterMenuByRole] input role:",
+    role,
+    "→ effective role:",
+    effectiveRole,
+  );
 
   return menuItems.filter((item) => item.roles.includes(effectiveRole));
 }

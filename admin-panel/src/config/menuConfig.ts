@@ -148,14 +148,22 @@ export const menuItems: MenuItem[] = [
 ];
 
 // Filter helper used by Header + CustomSider
+// export function filterMenuByRole(role: RoleSlug | null) {
+//   if (!role) {
+//     // If for some reason we don't know the role, show a safe default –
+//     // you can change this to only VIEWER menus if you want.
+//     return menuItems;
+//   }
+//   return menuItems.filter((item) => item.roles.includes(role));
+// }
+
 export function filterMenuByRole(role: RoleSlug | null) {
-  if (!role) {
-    // If for some reason we don't know the role, show a safe default –
-    // you can change this to only VIEWER menus if you want.
-    return menuItems;
-  }
-  return menuItems.filter((item) => item.roles.includes(role));
+  // 👉 If role is missing or not resolved, treat as VIEWER (safest)
+  const effectiveRole: RoleSlug = role ?? "VIEWER";
+
+  return menuItems.filter((item) => item.roles.includes(effectiveRole));
 }
+
 
 // import * as React from "react";
 // import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";

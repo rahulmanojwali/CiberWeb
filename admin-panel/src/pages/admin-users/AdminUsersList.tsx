@@ -47,6 +47,7 @@ import {
   fetchOrganisations,
   fetchOrgMandis,
 } from "../../services/adminUsersApi";
+import type { RoleSlug } from "../../config/menuConfig";
 
 const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "ORG_VIEWER",
@@ -94,7 +95,7 @@ const AdminUsersList: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const scope = getUserScope("AdminUsersPage");
-  const effectiveRole = scope.role || uiConfig.role || null;
+  const effectiveRole = (scope.role || uiConfig.role || null) as RoleSlug | null;
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
   const isSuper = isSuperAdmin(effectiveRole);
   const orgAdmin = isOrgAdmin(effectiveRole);
@@ -128,7 +129,7 @@ const AdminUsersList: React.FC = () => {
     [uiConfig.resources, isSuper, orgAdmin],
   );
   const isReadOnly = useMemo(
-    () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(role)),
+    () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(effectiveRole)),
     [uiConfig.resources, canUpdateUserAction, effectiveRole],
   );
 

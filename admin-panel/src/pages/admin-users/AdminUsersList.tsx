@@ -94,10 +94,10 @@ const AdminUsersList: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const scope = getUserScope("AdminUsersPage");
+  const effectiveRole = scope.role || uiConfig.role || null;
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const role = scope.role;
-  const isSuper = isSuperAdmin(role);
-  const orgAdmin = isOrgAdmin(role);
+  const isSuper = isSuperAdmin(effectiveRole);
+  const orgAdmin = isOrgAdmin(effectiveRole);
 
   const canCreateUser = useMemo(
     () =>
@@ -129,7 +129,7 @@ const AdminUsersList: React.FC = () => {
   );
   const isReadOnly = useMemo(
     () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(role)),
-    [uiConfig.resources, canUpdateUserAction, role],
+    [uiConfig.resources, canUpdateUserAction, effectiveRole],
   );
 
   const [rows, setRows] = useState<AdminUser[]>([]);
@@ -246,7 +246,7 @@ const AdminUsersList: React.FC = () => {
     setError(null);
     try {
       const filtersPayload: any = {};
-      const orgCodeFilter = filters.org_code || scopeOrgCode || "";
+      const orgCodeFilter = !isSuper ? scopeOrgCode || filters.org_code || "" : filters.org_code || "";
       if (orgCodeFilter) filtersPayload.org_code = orgCodeFilter;
       if (filters.role_slug) filtersPayload.role_slug = filters.role_slug;
       if (filters.status === "ACTIVE") filtersPayload.status = "ACTIVE";
@@ -261,18 +261,21 @@ const AdminUsersList: React.FC = () => {
         return;
       }
 
-      const normalized: AdminUser[] = (res?.data?.items || []).map((u: any) => ({
-        username: u.username,
-        display_name: u.display_name ?? null,
-        email: u.email ?? null,
-        mobile: u.mobile ?? null,
-        role_slug: u.role_slug,
-        org_code: u.org_code ?? null,
-        mandi_codes: u.mandi_codes || [],
-        is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
-        last_login_on: u.last_login_on || null,
-        created_on: u.created_on || null,
-      }));
+      const normalized: AdminUser[] = (res?.data?.items || []).map((u: any) => {
+        const roleSlug = u.role_slug || u.role_code || (Array.isArray(u.roles) ? u.roles[0] : null) || "";
+        return {
+          username: u.username,
+          display_name: u.display_name ?? u.full_name ?? null,
+          email: u.email ?? null,
+          mobile: u.mobile ?? null,
+          role_slug: roleSlug,
+          org_code: u.org_code ?? u.orgCode ?? null,
+          mandi_codes: u.mandi_codes || u.mandiCodes || [],
+          is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
+          last_login_on: u.last_login_on || null,
+          created_on: u.created_on || null,
+        };
+      });
 
       setRows(normalized);
     } catch (e: any) {
@@ -615,7 +618,7 @@ const AdminUsersList: React.FC = () => {
     ],
   );
 
-  const orgFilterDisabled = !isSuper && !!scopeOrgCode;
+  const orgFilterDisabled = !isSuper;
 
   return (
     <PageContainer>

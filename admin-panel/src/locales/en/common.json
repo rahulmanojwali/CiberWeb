@@ -79,6 +79,7 @@
   },
   "adminUsers": {
     "title": "Admin Users",
+    "subtitle": "Manage admin access by organisation, role, and mandi scope.",
     "actions": {
       "new": "New Admin User",
       "edit": "Edit",
@@ -107,6 +108,10 @@
       "lastLogin": "Last Login",
       "updatedOn": "Updated On",
       "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
     },
     "dialog": {
       "createTitle": "Create Admin User",

@@ -1,0 +1,511 @@
+[{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5a"
+  },
+  "perm_code": "MANDI_SETUP_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Read Mandi Setup"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5b"
+  },
+  "perm_code": "PRICE_BENCHMARK_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Read Price Benchmarks"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5c"
+  },
+  "perm_code": "LOT_GRADES_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Read Lot Grades"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5d"
+  },
+  "perm_code": "GATE_DEVICE_CONFIG_EDIT",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Edit Gate Device Config"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5e"
+  },
+  "perm_code": "AUCTION_POLICY_EDIT",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Edit Auction Policy"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b5f"
+  },
+  "perm_code": "PRICE_BENCHMARK_EDIT",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Edit Price Benchmarks"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e10e17c4ffbddffb4b60"
+  },
+  "perm_code": "LOT_GRADES_EDIT",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Edit Lot Grades"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:21:18.252Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75af"
+  },
+  "perm_code": "GATE_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Gate: Read",
+    "hi": "Gate: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b0"
+  },
+  "perm_code": "GATE_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Gate: Create/Update",
+    "hi": "Gate: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b1"
+  },
+  "perm_code": "GATE_DEVICE_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Devices: Read",
+    "hi": "Devices: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b2"
+  },
+  "perm_code": "GATE_DEVICE_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Devices: Create/Update",
+    "hi": "Devices: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b3"
+  },
+  "perm_code": "GATE_REASON_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Gate Reasons: Read",
+    "hi": "Gate Reasons: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b4"
+  },
+  "perm_code": "GATE_REASON_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Gate Reasons: Create/Update",
+    "hi": "Gate Reasons: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b5"
+  },
+  "perm_code": "WEIGH_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Weighbridge: Read",
+    "hi": "Weighbridge: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b6"
+  },
+  "perm_code": "WEIGH_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Weighbridge: Record/Update Weighment",
+    "hi": "Weighbridge: Record/Update Weighment"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b7"
+  },
+  "perm_code": "AUCTION_CONFIG_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Auction Config: Read",
+    "hi": "Auction Config: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b8"
+  },
+  "perm_code": "AUCTION_CONFIG_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Auction Config: Create/Update",
+    "hi": "Auction Config: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75b9"
+  },
+  "perm_code": "PRICE_BENCHMARK_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Price Benchmarks: Create/Update",
+    "hi": "Price Benchmarks: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75ba"
+  },
+  "perm_code": "LOT_GRADE_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Lot Grades: Read",
+    "hi": "Lot Grades: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75bb"
+  },
+  "perm_code": "LOT_GRADE_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Lot Grades: Create/Update",
+    "hi": "Lot Grades: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75bc"
+  },
+  "perm_code": "ADMIN_USER_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Admin Users: Read",
+    "hi": "Admin Users: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75bd"
+  },
+  "perm_code": "ADMIN_USER_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Admin Users: Create/Update",
+    "hi": "Admin Users: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75be"
+  },
+  "perm_code": "ROLE_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Roles: Read",
+    "hi": "Roles: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75bf"
+  },
+  "perm_code": "ROLE_WRITE",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Roles: Create/Update",
+    "hi": "Roles: Create/Update"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c0"
+  },
+  "perm_code": "PERMISSION_READ",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Permissions: Read",
+    "hi": "Permissions: Read"
+  },
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+}]

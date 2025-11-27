@@ -1,0 +1,274 @@
+[{
+  "_id": {
+    "$oid": "6913e14717c4ffbddffb4cfe"
+  },
+  "role_code": "SUPERADMIN",
+  "role_scope": "GLOBAL",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "SUPERADMIN"
+  },
+  "permissions": [
+    "*"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e14717c4ffbddffb4cff"
+  },
+  "role_code": "AUDITOR",
+  "role_scope": "GLOBAL",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "AUDITOR"
+  },
+  "permissions": [
+    "MANDI_SETUP_READ",
+    "PRICE_BENCHMARK_READ",
+    "LOT_GRADES_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e14717c4ffbddffb4d00"
+  },
+  "role_code": "ORG_ADMIN",
+  "role_scope": "ORG",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "ORG ADMIN"
+  },
+  "permissions": [
+    "MANDI_SETUP_READ",
+    "GATE_DEVICE_CONFIG_EDIT",
+    "AUCTION_POLICY_EDIT",
+    "PRICE_BENCHMARK_EDIT",
+    "LOT_GRADES_EDIT",
+    "PRICE_BENCHMARK_READ",
+    "LOT_GRADES_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e14717c4ffbddffb4d01"
+  },
+  "role_code": "ORG_VIEWER",
+  "role_scope": "ORG",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "ORG VIEWER"
+  },
+  "permissions": [
+    "MANDI_SETUP_READ",
+    "PRICE_BENCHMARK_READ",
+    "LOT_GRADES_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:22:14.777Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c2"
+  },
+  "role_scope": "GLOBAL",
+  "role_code": "SUPER_ADMIN",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Super Admin",
+    "hi": "सुपर एडमिन"
+  },
+  "permissions": [
+    "*"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c3"
+  },
+  "role_scope": "ORG",
+  "role_code": "MANDI_MANAGER",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Mandi Manager",
+    "hi": "मंडी प्रबंधक"
+  },
+  "permissions": [
+    "GATE_READ",
+    "GATE_WRITE",
+    "GATE_DEVICE_READ",
+    "GATE_DEVICE_WRITE",
+    "WEIGH_READ",
+    "AUCTION_CONFIG_READ",
+    "PRICE_BENCHMARK_READ",
+    "LOT_GRADE_READ",
+    "MANDI_SETUP_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c4"
+  },
+  "role_scope": "ORG",
+  "role_code": "GATE_OPERATOR",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Gate Operator",
+    "hi": "गेट ऑपरेटर"
+  },
+  "permissions": [
+    "GATE_READ",
+    "GATE_WRITE",
+    "GATE_REASON_READ",
+    "GATE_DEVICE_READ",
+    "MANDI_SETUP_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c5"
+  },
+  "role_scope": "ORG",
+  "role_code": "WEIGHBRIDGE_OPERATOR",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Weighbridge Operator",
+    "hi": "वेटब्रिज ऑपरेटर"
+  },
+  "permissions": [
+    "WEIGH_READ",
+    "WEIGH_WRITE",
+    "GATE_READ",
+    "GATE_DEVICE_READ",
+    "MANDI_SETUP_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c6"
+  },
+  "role_scope": "ORG",
+  "role_code": "AUCTIONEER",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Auctioneer",
+    "hi": "नीलामीकर्ता"
+  },
+  "permissions": [
+    "AUCTION_CONFIG_READ",
+    "MANDI_SETUP_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75c7"
+  },
+  "role_scope": "ORG",
+  "role_code": "VIEWER",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "description": null,
+  "is_active": "Y",
+  "name_i18n": {
+    "en": "Viewer",
+    "hi": "दर्शक"
+  },
+  "permissions": [
+    "GATE_READ",
+    "WEIGH_READ",
+    "AUCTION_CONFIG_READ",
+    "PRICE_BENCHMARK_READ",
+    "LOT_GRADE_READ",
+    "MANDI_SETUP_READ"
+  ],
+  "updated_by": "system",
+  "updated_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "version": 1
+}]

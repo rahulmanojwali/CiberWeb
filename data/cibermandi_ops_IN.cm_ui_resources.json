@@ -1,0 +1,722 @@
+[{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc09175"
+  },
+  "resource_key": "organisations.menu",
+  "screen": "Organisations",
+  "element": "Organisations menu item",
+  "action_code": "VIEW",
+  "ui_type": "menu",
+  "route": "/orgs",
+  "parent_resource_key": null,
+  "order": 20,
+  "icon_key": "org",
+  "is_active": true,
+  "i18n_label_key": "menu.organisations",
+  "metadata": {
+    "group": "main_sidebar"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc09176"
+  },
+  "resource_key": "organisations.list",
+  "screen": "Organisations",
+  "element": "Organisations list table",
+  "action_code": "VIEW",
+  "ui_type": "table",
+  "route": "/orgs",
+  "parent_resource_key": "organisations.menu",
+  "order": 21,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.organisations.list",
+  "metadata": {
+    "description": "Main organisations listing grid"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc09177"
+  },
+  "resource_key": "organisations.detail",
+  "screen": "Organisations",
+  "element": "Organisation detail view",
+  "action_code": "VIEW_DETAIL",
+  "ui_type": "widget",
+  "route": "/orgs/:id",
+  "parent_resource_key": "organisations.list",
+  "order": 22,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.organisations.detail",
+  "metadata": {
+    "description": "Organisation profile/detail page"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc09178"
+  },
+  "resource_key": "organisations.create",
+  "screen": "Organisations",
+  "element": "Add organisation (button + create screen)",
+  "action_code": "CREATE",
+  "ui_type": "button",
+  "route": "/orgs/create",
+  "parent_resource_key": "organisations.list",
+  "order": 23,
+  "icon_key": "add",
+  "is_active": true,
+  "i18n_label_key": "button.organisations.add",
+  "metadata": {
+    "description": "Shows Add Organisation button and allows create form"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc09179"
+  },
+  "resource_key": "organisations.edit",
+  "screen": "Organisations",
+  "element": "Edit organisation",
+  "action_code": "UPDATE",
+  "ui_type": "button",
+  "route": "/orgs/:id/edit",
+  "parent_resource_key": "organisations.detail",
+  "order": 24,
+  "icon_key": "edit",
+  "is_active": true,
+  "i18n_label_key": "button.organisations.edit",
+  "metadata": {
+    "description": "Allows editing organisation details"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927331fb7b94adc7dc0917a"
+  },
+  "resource_key": "organisations.deactivate",
+  "screen": "Organisations",
+  "element": "Deactivate organisation",
+  "action_code": "DEACTIVATE",
+  "ui_type": "button",
+  "route": "/orgs/:id/deactivate",
+  "parent_resource_key": "organisations.detail",
+  "order": 25,
+  "icon_key": "block",
+  "is_active": true,
+  "i18n_label_key": "button.organisations.deactivate",
+  "metadata": {
+    "description": "Soft deactivate/disable an organisation"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b84"
+  },
+  "resource_key": "mandis.menu",
+  "screen": "Mandis",
+  "element": "Mandis menu item",
+  "action_code": "VIEW",
+  "ui_type": "menu",
+  "route": "/mandis",
+  "parent_resource_key": null,
+  "order": 50,
+  "icon_key": "mandi",
+  "is_active": true,
+  "i18n_label_key": "menu.mandis",
+  "metadata": {
+    "group": "main_sidebar"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b85"
+  },
+  "resource_key": "mandis.list",
+  "screen": "Mandis",
+  "element": "Mandis list",
+  "action_code": "VIEW",
+  "ui_type": "table",
+  "route": "/mandis",
+  "parent_resource_key": "mandis.menu",
+  "order": 51,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.mandis.list",
+  "metadata": {
+    "description": "Mandis listing grid"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b86"
+  },
+  "resource_key": "mandis.detail",
+  "screen": "Mandis",
+  "element": "Mandis detail view",
+  "action_code": "VIEW_DETAIL",
+  "ui_type": "widget",
+  "route": "/mandis/:id",
+  "parent_resource_key": "mandis.menu",
+  "order": 52,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.mandis.detail",
+  "metadata": {
+    "description": "Detail view of mandi"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b87"
+  },
+  "resource_key": "mandis.create",
+  "screen": "Mandis",
+  "element": "Create Mandi button",
+  "action_code": "CREATE",
+  "ui_type": "button",
+  "route": "/mandis/create",
+  "parent_resource_key": "mandis.menu",
+  "order": 53,
+  "icon_key": "add",
+  "is_active": true,
+  "i18n_label_key": "screen.mandis.create",
+  "metadata": {
+    "description": "Create new mandi"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b88"
+  },
+  "resource_key": "mandis.edit",
+  "screen": "Mandis",
+  "element": "Edit Mandi button",
+  "action_code": "UPDATE",
+  "ui_type": "button",
+  "route": "/mandis/:id/edit",
+  "parent_resource_key": "mandis.menu",
+  "order": 54,
+  "icon_key": "edit",
+  "is_active": true,
+  "i18n_label_key": "screen.mandis.edit",
+  "metadata": {
+    "description": "Edit mandi details"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e84dcededad509fb4b89"
+  },
+  "resource_key": "mandis.deactivate",
+  "screen": "Mandis",
+  "element": "Deactivate Mandi button",
+  "action_code": "DEACTIVATE",
+  "ui_type": "button",
+  "route": "/mandis/:id/deactivate",
+  "parent_resource_key": "mandis.menu",
+  "order": 55,
+  "icon_key": "deactivate",
+  "is_active": true,
+  "i18n_label_key": "screen.mandis.deactivate",
+  "metadata": {
+    "description": "Deactivate mandi"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e852cededad509fb4b90"
+  },
+  "resource_key": "reports.menu",
+  "screen": "Reports",
+  "element": "Reports menu item",
+  "action_code": "VIEW",
+  "ui_type": "menu",
+  "route": "/reports",
+  "parent_resource_key": null,
+  "order": 70,
+  "icon_key": "reports",
+  "is_active": true,
+  "i18n_label_key": "menu.reports",
+  "metadata": {
+    "group": "main_sidebar"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e852cededad509fb4b91"
+  },
+  "resource_key": "reports.view",
+  "screen": "Reports",
+  "element": "Reports main view",
+  "action_code": "VIEW",
+  "ui_type": "widget",
+  "route": "/reports",
+  "parent_resource_key": "reports.menu",
+  "order": 71,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.reports.view",
+  "metadata": {
+    "description": "Reports dashboard"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea46576"
+  },
+  "resource_key": "admin_users.menu",
+  "screen": "Admin Users",
+  "element": "Admin Users menu item",
+  "action_code": "VIEW",
+  "ui_type": "menu",
+  "route": "/admin-users",
+  "parent_resource_key": null,
+  "order": 30,
+  "icon_key": "admin_users",
+  "is_active": true,
+  "i18n_label_key": "menu.admin_users",
+  "metadata": {
+    "group": "main_sidebar"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea46577"
+  },
+  "resource_key": "admin_users.list",
+  "screen": "Admin Users",
+  "element": "Admin Users list table",
+  "action_code": "VIEW",
+  "ui_type": "table",
+  "route": "/admin-users",
+  "parent_resource_key": "admin_users.menu",
+  "order": 31,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.list",
+  "metadata": {
+    "description": "Admin users listing grid"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea46578"
+  },
+  "resource_key": "admin_users.detail",
+  "screen": "Admin Users",
+  "element": "Admin Users detail view",
+  "action_code": "VIEW_DETAIL",
+  "ui_type": "widget",
+  "route": "/admin-users/:id",
+  "parent_resource_key": "admin_users.menu",
+  "order": 32,
+  "icon_key": null,
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.detail",
+  "metadata": {
+    "description": "Admin user detail drawer/page"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea46579"
+  },
+  "resource_key": "admin_users.create",
+  "screen": "Admin Users",
+  "element": "Create Admin User button",
+  "action_code": "CREATE",
+  "ui_type": "button",
+  "route": "/admin-users/create",
+  "parent_resource_key": "admin_users.menu",
+  "order": 33,
+  "icon_key": "add",
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.create",
+  "metadata": {
+    "description": "Open create admin user form"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea4657a"
+  },
+  "resource_key": "admin_users.edit",
+  "screen": "Admin Users",
+  "element": "Edit Admin User button",
+  "action_code": "UPDATE",
+  "ui_type": "button",
+  "route": "/admin-users/:id/edit",
+  "parent_resource_key": "admin_users.menu",
+  "order": 34,
+  "icon_key": "edit",
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.edit",
+  "metadata": {
+    "description": "Open edit admin user form"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea4657b"
+  },
+  "resource_key": "admin_users.deactivate",
+  "screen": "Admin Users",
+  "element": "Deactivate Admin User button",
+  "action_code": "DEACTIVATE",
+  "ui_type": "button",
+  "route": "/admin-users/:id/deactivate",
+  "parent_resource_key": "admin_users.menu",
+  "order": 35,
+  "icon_key": "deactivate",
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.deactivate",
+  "metadata": {
+    "description": "Deactivate admin user account"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927e9726a8d2bd68ea4657c"
+  },
+  "resource_key": "admin_users.reset_password",
+  "screen": "Admin Users",
+  "element": "Reset Admin User Password button",
+  "action_code": "RESET_PASSWORD",
+  "ui_type": "button",
+  "route": "/admin-users/:id/reset-password",
+  "parent_resource_key": "admin_users.menu",
+  "order": 36,
+  "icon_key": "reset",
+  "is_active": true,
+  "i18n_label_key": "screen.admin_users.reset_password",
+  "metadata": {
+    "description": "Trigger password reset for admin user"
+  }
+},
+{
+  "_id": {
+    "$oid": "6927eab417c4ffbddfa8c5df"
+  },
+  "resource_key": "org_mandi.menu",
+  "action_code": "VIEW",
+  "element": "Org–Mandi menu item",
+  "i18n_label_key": "menu.org_mandi",
+  "icon_key": "org_mandi",
+  "is_active": true,
+  "metadata": {
+    "group": "main_sidebar"
+  },
+  "order": 40,
+  "parent_resource_key": null,
+  "route": "/org-mandi",
+  "screen": "Org–Mandi Mapping",
+  "ui_type": "menu"
+},
+{
+  "_id": {
+    "$oid": "6927eab517c4ffbddfa8c5e3"
+  },
+  "resource_key": "org_mandi.list",
+  "action_code": "VIEW",
+  "element": "Org–Mandi mapping list",
+  "i18n_label_key": "screen.org_mandi.list",
+  "icon_key": null,
+  "is_active": true,
+  "metadata": {
+    "description": "List of org–mandi mappings"
+  },
+  "order": 41,
+  "parent_resource_key": "org_mandi.menu",
+  "route": "/org-mandi",
+  "screen": "Org–Mandi Mapping",
+  "ui_type": "table"
+},
+{
+  "_id": {
+    "$oid": "6927eab717c4ffbddfa8c5e6"
+  },
+  "resource_key": "org_mandi.create",
+  "action_code": "CREATE",
+  "element": "Create Org–Mandi mapping button",
+  "i18n_label_key": "screen.org_mandi.create",
+  "icon_key": "add",
+  "is_active": true,
+  "metadata": {
+    "description": "Link mandi to organisation"
+  },
+  "order": 42,
+  "parent_resource_key": "org_mandi.menu",
+  "route": "/org-mandi/create",
+  "screen": "Org–Mandi Mapping",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eab817c4ffbddfa8c649"
+  },
+  "resource_key": "org_mandi.delete",
+  "action_code": "DELETE",
+  "element": "Delete Org–Mandi mapping button",
+  "i18n_label_key": "screen.org_mandi.delete",
+  "icon_key": "delete",
+  "is_active": true,
+  "metadata": {
+    "description": "Unlink mandi from organisation"
+  },
+  "order": 43,
+  "parent_resource_key": "org_mandi.menu",
+  "route": "/org-mandi/:id/delete",
+  "screen": "Org–Mandi Mapping",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eac417c4ffbddfa8c6d8"
+  },
+  "resource_key": "trader_approvals.menu",
+  "action_code": "VIEW",
+  "element": "Trader Approvals menu item",
+  "i18n_label_key": "menu.trader_approvals",
+  "icon_key": "trader_approvals",
+  "is_active": true,
+  "metadata": {
+    "group": "main_sidebar"
+  },
+  "order": 60,
+  "parent_resource_key": null,
+  "route": "/trader-approvals",
+  "screen": "Trader Approvals",
+  "ui_type": "menu"
+},
+{
+  "_id": {
+    "$oid": "6927eac517c4ffbddfa8c6da"
+  },
+  "resource_key": "trader_approvals.list",
+  "action_code": "VIEW",
+  "element": "Trader approvals list",
+  "i18n_label_key": "screen.trader_approvals.list",
+  "icon_key": null,
+  "is_active": true,
+  "metadata": {
+    "description": "Trader approval requests list"
+  },
+  "order": 61,
+  "parent_resource_key": "trader_approvals.menu",
+  "route": "/trader-approvals",
+  "screen": "Trader Approvals",
+  "ui_type": "table"
+},
+{
+  "_id": {
+    "$oid": "6927eac617c4ffbddfa8c6de"
+  },
+  "resource_key": "trader_approvals.detail",
+  "action_code": "VIEW_DETAIL",
+  "element": "Trader approval detail",
+  "i18n_label_key": "screen.trader_approvals.detail",
+  "icon_key": null,
+  "is_active": true,
+  "metadata": {
+    "description": "Trader approval detail"
+  },
+  "order": 62,
+  "parent_resource_key": "trader_approvals.menu",
+  "route": "/trader-approvals/:id",
+  "screen": "Trader Approvals",
+  "ui_type": "widget"
+},
+{
+  "_id": {
+    "$oid": "6927eac717c4ffbddfa8c6e0"
+  },
+  "resource_key": "trader_approvals.approve",
+  "action_code": "APPROVE",
+  "element": "Approve trader button",
+  "i18n_label_key": "screen.trader_approvals.approve",
+  "icon_key": "approve",
+  "is_active": true,
+  "metadata": {
+    "description": "Approve trader application"
+  },
+  "order": 63,
+  "parent_resource_key": "trader_approvals.menu",
+  "route": "/trader-approvals/:id/approve",
+  "screen": "Trader Approvals",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eac817c4ffbddfa8c6e3"
+  },
+  "resource_key": "trader_approvals.reject",
+  "action_code": "REJECT",
+  "element": "Reject trader button",
+  "i18n_label_key": "screen.trader_approvals.reject",
+  "icon_key": "reject",
+  "is_active": true,
+  "metadata": {
+    "description": "Reject trader application"
+  },
+  "order": 64,
+  "parent_resource_key": "trader_approvals.menu",
+  "route": "/trader-approvals/:id/reject",
+  "screen": "Trader Approvals",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eac917c4ffbddfa8c6e6"
+  },
+  "resource_key": "trader_approvals.request_more_info",
+  "action_code": "REQUEST_MORE_INFO",
+  "element": "Request more info button",
+  "i18n_label_key": "screen.trader_approvals.request_more_info",
+  "icon_key": "info",
+  "is_active": true,
+  "metadata": {
+    "description": "Request additional details from applicant"
+  },
+  "order": 65,
+  "parent_resource_key": "trader_approvals.menu",
+  "route": "/trader-approvals/:id/request-more-info",
+  "screen": "Trader Approvals",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eafb17c4ffbddfa8c952"
+  },
+  "resource_key": "mandi_coverage.menu",
+  "action_code": "VIEW",
+  "element": "Mandi Coverage menu item",
+  "i18n_label_key": "menu.mandi_coverage",
+  "icon_key": "mandi_coverage",
+  "is_active": true,
+  "metadata": {
+    "group": "main_sidebar"
+  },
+  "order": 80,
+  "parent_resource_key": null,
+  "route": "/mandi-coverage",
+  "screen": "Mandi Coverage",
+  "ui_type": "menu"
+},
+{
+  "_id": {
+    "$oid": "6927eafc17c4ffbddfa8c955"
+  },
+  "resource_key": "mandi_coverage.view",
+  "action_code": "VIEW",
+  "element": "Mandi coverage map/view",
+  "i18n_label_key": "screen.mandi_coverage.view",
+  "icon_key": null,
+  "is_active": true,
+  "metadata": {
+    "description": "Coverage map and stats"
+  },
+  "order": 81,
+  "parent_resource_key": "mandi_coverage.menu",
+  "route": "/mandi-coverage",
+  "screen": "Mandi Coverage",
+  "ui_type": "widget"
+},
+{
+  "_id": {
+    "$oid": "6927eb0517c4ffbddfa8c9d0"
+  },
+  "resource_key": "mandi_prices.menu",
+  "action_code": "VIEW",
+  "element": "Mandi Prices menu item",
+  "i18n_label_key": "menu.mandi_prices",
+  "icon_key": "mandi_prices",
+  "is_active": true,
+  "metadata": {
+    "group": "main_sidebar"
+  },
+  "order": 90,
+  "parent_resource_key": null,
+  "route": "/mandi-prices",
+  "screen": "Mandi Prices",
+  "ui_type": "menu"
+},
+{
+  "_id": {
+    "$oid": "6927eb0517c4ffbddfa8c9d5"
+  },
+  "resource_key": "mandi_prices.list",
+  "action_code": "VIEW",
+  "element": "Mandi prices list",
+  "i18n_label_key": "screen.mandi_prices.list",
+  "icon_key": null,
+  "is_active": true,
+  "metadata": {
+    "description": "Mandi prices listing grid"
+  },
+  "order": 91,
+  "parent_resource_key": "mandi_prices.menu",
+  "route": "/mandi-prices",
+  "screen": "Mandi Prices",
+  "ui_type": "table"
+},
+{
+  "_id": {
+    "$oid": "6927eb0617c4ffbddfa8c9d8"
+  },
+  "resource_key": "mandi_prices.create",
+  "action_code": "CREATE",
+  "element": "Create price entry button",
+  "i18n_label_key": "screen.mandi_prices.create",
+  "icon_key": "add",
+  "is_active": true,
+  "metadata": {
+    "description": "Create mandi price entry"
+  },
+  "order": 92,
+  "parent_resource_key": "mandi_prices.menu",
+  "route": "/mandi-prices/create",
+  "screen": "Mandi Prices",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eb0717c4ffbddfa8c9ff"
+  },
+  "resource_key": "mandi_prices.edit",
+  "action_code": "UPDATE",
+  "element": "Edit price entry button",
+  "i18n_label_key": "screen.mandi_prices.edit",
+  "icon_key": "edit",
+  "is_active": true,
+  "metadata": {
+    "description": "Edit mandi price entry"
+  },
+  "order": 93,
+  "parent_resource_key": "mandi_prices.menu",
+  "route": "/mandi-prices/:id/edit",
+  "screen": "Mandi Prices",
+  "ui_type": "button"
+},
+{
+  "_id": {
+    "$oid": "6927eb0817c4ffbddfa8ca4d"
+  },
+  "resource_key": "mandi_prices.bulk_upload",
+  "action_code": "BULK_UPLOAD",
+  "element": "Bulk upload prices button",
+  "i18n_label_key": "screen.mandi_prices.bulk_upload",
+  "icon_key": "upload",
+  "is_active": true,
+  "metadata": {
+    "description": "Bulk upload mandi prices via file"
+  },
+  "order": 94,
+  "parent_resource_key": "mandi_prices.menu",
+  "route": "/mandi-prices/bulk-upload",
+  "screen": "Mandi Prices",
+  "ui_type": "button"
+}]

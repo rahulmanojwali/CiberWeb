@@ -432,7 +432,7 @@ const AdminUsersList: React.FC = () => {
           role_slug: form.role_slug,
           org_code: form.org_code || null,
           mandi_codes: form.mandi_codes,
-          is_active: form.is_active ? "Y" : "N",
+          is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
         };
         const res = await updateAdminUser({ username, language, payload });
         const resp = res?.response || {};
@@ -471,7 +471,7 @@ const AdminUsersList: React.FC = () => {
           role_slug: form.role_slug,
           org_code: form.org_code || null,
           mandi_codes: form.mandi_codes,
-          is_active: form.is_active ? "Y" : "N",
+          is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
         };
         const res = await createAdminUser({ username, language, payload });
         const resp = res?.response || {};
@@ -532,7 +532,7 @@ const AdminUsersList: React.FC = () => {
     }
   };
 
-  const columns = useMemo<GridColDef[]>(
+  const columns = useMemo<GridColDef<AdminUser>[]>(
     () => [
       { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.9 },
       { field: "display_name", headerName: t("adminUsers.columns.fullName"), flex: 1 },
@@ -540,14 +540,16 @@ const AdminUsersList: React.FC = () => {
         field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
-        valueFormatter: (params) => params.value?.replace(/_/g, " "),
+        valueFormatter: (params: GridRenderCellParams<string, AdminUser>) =>
+          params.value ? params.value.replace(/_/g, " ") : "",
       },
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
       {
         field: "mandi_codes",
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
-        valueGetter: (params) => (params.row.mandi_codes || []).join(", "),
+        valueGetter: (params: GridRenderCellParams<string[], AdminUser>) =>
+          (params.row.mandi_codes || []).join(", "),
       },
       {
         field: "is_active",
@@ -779,7 +781,7 @@ const AdminUsersList: React.FC = () => {
                 label={t("adminUsers.dialog.roles")}
                 select
                 value={form.role_slug}
-                onChange={handleRolesChange}
+                onChange={(e) => handleRolesChange(e as unknown as SelectChangeEvent<string>)}
                 fullWidth
               >
                 {roleOptions.map((role) => (
@@ -799,7 +801,7 @@ const AdminUsersList: React.FC = () => {
                   renderValue: (selected) => (selected as string[]).join(", "),
                 }}
                 value={form.mandi_codes}
-                onChange={handleMandiChange}
+                onChange={(e) => handleMandiChange(e as unknown as SelectChangeEvent<string[]>)}
                 fullWidth
                 disabled={!form.org_code}
               >

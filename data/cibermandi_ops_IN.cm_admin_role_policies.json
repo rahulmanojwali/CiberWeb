@@ -1,0 +1,1683 @@
+[{
+  "_id": {
+    "$oid": "6927332cb7b94adc7dc0917b"
+  },
+  "role_slug": "SUPER_ADMIN",
+  "scope": {
+    "org_level": "GLOBAL",
+    "mandi_level": "ALL_MANDIS"
+  },
+  "permissions": [
+    {
+      "resource_key": "organisations.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "organisations.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "organisations.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ]
+    },
+    {
+      "resource_key": "organisations.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "organisations.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "organisations.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "org_mandi.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "org_mandi.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "org_mandi.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "org_mandi.delete",
+      "actions": [
+        "DELETE"
+      ]
+    },
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ]
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "admin_users.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "admin_users.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "admin_users.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ]
+    },
+    {
+      "resource_key": "admin_users.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "admin_users.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "admin_users.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "admin_users.reset_password",
+      "actions": [
+        "RESET_PASSWORD"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [
+        "APPROVE"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [
+        "REJECT"
+      ]
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [
+        "REQUEST_MORE_INFO"
+      ]
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [
+        "BULK_UPLOAD"
+      ]
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273338b7b94adc7dc0917c"
+  },
+  "role_slug": "ORG_ADMIN",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_ORG_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "organisations.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Show Organisations in menu for ORG_ADMIN"
+    },
+    {
+      "resource_key": "organisations.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view list, backend scopes to own org"
+    },
+    {
+      "resource_key": "organisations.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view detail for own organisation"
+    },
+    {
+      "resource_key": "organisations.create",
+      "actions": [],
+      "notes": "NO create permission; Add Org must be hidden for ORG_ADMIN"
+    },
+    {
+      "resource_key": "organisations.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit only own organisation (enforced via scope)"
+    },
+    {
+      "resource_key": "organisations.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "Can deactivate only own organisation (enforced via scope)"
+    },
+    {
+      "resource_key": "org_mandi.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Show Org–Mandi menu"
+    },
+    {
+      "resource_key": "org_mandi.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mappings for own org"
+    },
+    {
+      "resource_key": "org_mandi.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can link mandis to own org"
+    },
+    {
+      "resource_key": "org_mandi.delete",
+      "actions": [
+        "DELETE"
+      ],
+      "notes": "Can unlink mandis from own org"
+    },
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Show Mandis in sidebar"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis under own org"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view detailed mandi profile (own org mandis only)"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can create mandis for own org"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit mandis under own org"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "Can deactivate mandis under own org"
+    },
+    {
+      "resource_key": "admin_users.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Admin Users menu visible for ORG_ADMIN"
+    },
+    {
+      "resource_key": "admin_users.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view admin users in own org"
+    },
+    {
+      "resource_key": "admin_users.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view admin user details in own org"
+    },
+    {
+      "resource_key": "admin_users.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can create admin users in own org (limited roles, enforced in backend)"
+    },
+    {
+      "resource_key": "admin_users.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit admin users in own org"
+    },
+    {
+      "resource_key": "admin_users.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "Can deactivate admin users in own org"
+    },
+    {
+      "resource_key": "admin_users.reset_password",
+      "actions": [
+        "RESET_PASSWORD"
+      ],
+      "notes": "Can reset passwords for admin users in own org"
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader Approvals menu visible"
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view trader approvals for own org/mandis"
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view trader approval detail"
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [
+        "APPROVE"
+      ],
+      "notes": "Can approve trader applications within org/mandi scope"
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [
+        "REJECT"
+      ],
+      "notes": "Can reject trader applications within scope"
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [
+        "REQUEST_MORE_INFO"
+      ],
+      "notes": "Can request more info from trader within scope"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for own org"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for own org mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see mandi prices list (own org mandis)"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create; mandi-level roles handle price entry"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit; mandi-level roles handle price editing"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload; mandi-level roles only"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273341b7b94adc7dc0917d"
+  },
+  "role_slug": "ORG_VIEWER",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_ORG_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "organisations.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Menu visible"
+    },
+    {
+      "resource_key": "organisations.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see list of organisations (own org only)"
+    },
+    {
+      "resource_key": "organisations.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view organisation details (own org only)"
+    },
+    {
+      "resource_key": "organisations.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "organisations.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "organisations.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "org_mandi.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Org–Mandi menu visible"
+    },
+    {
+      "resource_key": "org_mandi.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mappings for own org"
+    },
+    {
+      "resource_key": "org_mandi.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "org_mandi.delete",
+      "actions": [],
+      "notes": "No delete"
+    },
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis under own org"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details (own org mandis)"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader Approvals menu visible"
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view trader approvals for own org/mandis"
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view trader approval detail"
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [],
+      "notes": "No approve rights"
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [],
+      "notes": "No reject rights"
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [],
+      "notes": "No request more info"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for own org"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for own org mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see mandi prices list (own org mandis)"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "6927334eb7b94adc7dc0917e"
+  },
+  "role_slug": "MANDI_ADMIN",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for mandi admin"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis assigned to this mandi admin"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details for assigned mandis"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "By default, no create; can be enabled later if needed"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can update basic details of assigned mandis"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate by default; keep this for org/super admin"
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader Approvals menu visible"
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view trader approvals for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view trader approval details"
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [
+        "APPROVE"
+      ],
+      "notes": "Can approve trader applications for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [
+        "REJECT"
+      ],
+      "notes": "Can reject trader applications for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [
+        "REQUEST_MORE_INFO"
+      ],
+      "notes": "Can request more info from traders"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see prices for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can create price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [
+        "BULK_UPLOAD"
+      ],
+      "notes": "Can bulk upload mandi prices for assigned mandis"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273355b7b94adc7dc0917f"
+  },
+  "role_slug": "MANDI_MANAGER",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for mandi manager"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis assigned to this mandi manager"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details for assigned mandis"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create; structural control stays with admin"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit; metadata changes by MANDI_ADMIN/ORG_ADMIN"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader Approvals menu visible"
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view trader approvals for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view trader approval details"
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [
+        "APPROVE"
+      ],
+      "notes": "Can approve trader applications for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [
+        "REJECT"
+      ],
+      "notes": "Can reject trader applications for assigned mandis"
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [
+        "REQUEST_MORE_INFO"
+      ],
+      "notes": "Can request more info from traders"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see prices for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can create price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload; reserved for MANDI_ADMIN"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "6927335bb7b94adc7dc09180"
+  },
+  "role_slug": "AUCTIONEER",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for auctioneer"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis assigned to this auctioneer"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details for assigned mandis"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see prices for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "Can create price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Can edit price entries for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload; reserved for MANDI_ADMIN"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273361b7b94adc7dc09181"
+  },
+  "role_slug": "GATE_OPERATOR",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for gate operator"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view list of mandis assigned to this gate operator"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details for assigned mandis"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see mandi prices list for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273369b7b94adc7dc09182"
+  },
+  "role_slug": "WEIGHBRIDGE_OPERATOR",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for weighbridge operator"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis assigned to this weighbridge operator"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details for assigned mandis"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see mandi prices list for assigned mandis"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273372b7b94adc7dc09183"
+  },
+  "role_slug": "AUDITOR",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_ORG_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "organisations.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Menu visible"
+    },
+    {
+      "resource_key": "organisations.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see list (own org only)"
+    },
+    {
+      "resource_key": "organisations.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can see org detail"
+    },
+    {
+      "resource_key": "organisations.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "organisations.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "organisations.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "org_mandi.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Org–Mandi menu visible"
+    },
+    {
+      "resource_key": "org_mandi.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mappings"
+    },
+    {
+      "resource_key": "org_mandi.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "org_mandi.delete",
+      "actions": [],
+      "notes": "No delete"
+    },
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis for org"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "admin_users.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Admin Users menu visible"
+    },
+    {
+      "resource_key": "admin_users.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view admin users in org"
+    },
+    {
+      "resource_key": "admin_users.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view admin user details"
+    },
+    {
+      "resource_key": "admin_users.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "admin_users.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "admin_users.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "admin_users.reset_password",
+      "actions": [],
+      "notes": "No reset password"
+    },
+    {
+      "resource_key": "trader_approvals.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader Approvals menu visible"
+    },
+    {
+      "resource_key": "trader_approvals.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view trader approvals"
+    },
+    {
+      "resource_key": "trader_approvals.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view trader approval detail"
+    },
+    {
+      "resource_key": "trader_approvals.approve",
+      "actions": [],
+      "notes": "No approve"
+    },
+    {
+      "resource_key": "trader_approvals.reject",
+      "actions": [],
+      "notes": "No reject"
+    },
+    {
+      "resource_key": "trader_approvals.request_more_info",
+      "actions": [],
+      "notes": "No request more info"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for org"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view prices list"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload"
+    }
+  ]
+},
+{
+  "_id": {
+    "$oid": "69273382b7b94adc7dc09184"
+  },
+  "role_slug": "VIEWER",
+  "scope": {
+    "org_level": "OWN_ORG_ONLY",
+    "mandi_level": "OWN_ORG_MANDIS_ONLY"
+  },
+  "permissions": [
+    {
+      "resource_key": "mandis.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandis menu visible for viewer"
+    },
+    {
+      "resource_key": "mandis.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandis under own org"
+    },
+    {
+      "resource_key": "mandis.detail",
+      "actions": [
+        "VIEW_DETAIL"
+      ],
+      "notes": "Can view mandi details"
+    },
+    {
+      "resource_key": "mandis.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandis.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandis.deactivate",
+      "actions": [],
+      "notes": "No deactivate"
+    },
+    {
+      "resource_key": "reports.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Reports menu visible"
+    },
+    {
+      "resource_key": "reports.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view reports for own org/mandis"
+    },
+    {
+      "resource_key": "mandi_coverage.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Coverage menu visible"
+    },
+    {
+      "resource_key": "mandi_coverage.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view coverage"
+    },
+    {
+      "resource_key": "mandi_prices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi Prices menu visible"
+    },
+    {
+      "resource_key": "mandi_prices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view mandi prices list"
+    },
+    {
+      "resource_key": "mandi_prices.create",
+      "actions": [],
+      "notes": "No create"
+    },
+    {
+      "resource_key": "mandi_prices.edit",
+      "actions": [],
+      "notes": "No edit"
+    },
+    {
+      "resource_key": "mandi_prices.bulk_upload",
+      "actions": [],
+      "notes": "No bulk upload"
+    }
+  ]
+}]

@@ -1,0 +1,198 @@
+[{
+  "_id": {
+    "$oid": "6913e15917c4ffbddffb4d7e"
+  },
+  "username": "superadmin",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:33.646Z"
+  },
+  "email": "sa@example.com",
+  "is_active": "Y",
+  "mobile": "9999999999",
+  "password_hash": "$2b$10$QlyXUG1WwoSOIF/Sjhaz6.J4hDguj6W4SAaJTO3a7rgGF8Y7/XZdy",
+  "updated_by": "ADMIN_LOGIN",
+  "updated_on": {
+    "$date": "2025-11-22T09:19:53.560Z"
+  },
+  "version": 1,
+  "last_login_on": {
+    "$date": "2025-11-22T09:19:53.560Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6913e15917c4ffbddffb4d7f"
+  },
+  "username": "orgadmin_agri",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:22:33.646Z"
+  },
+  "email": "oa.agri@example.com",
+  "is_active": "Y",
+  "mobile": "8888888888",
+  "password_hash": "$2b$10$QlyXUG1WwoSOIF/Sjhaz6.J4hDguj6W4SAaJTO3a7rgGF8Y7/XZdy",
+  "updated_by": "MANUAL_SET",
+  "updated_on": {
+    "$date": "2025-11-22T09:03:02.959Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6913e76c17c4ffbddffb75ca"
+  },
+  "username": "orgadmin",
+  "created_by": "system",
+  "created_on": {
+    "$date": "2025-11-12T01:48:28.080Z"
+  },
+  "display_name": "Org Admin",
+  "email": "orgadmin@example.com",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-18T13:10:06.974Z"
+  },
+  "mobile": "9871648856",
+  "password_hash": "$2b$10$QlyXUG1WwoSOIF/Sjhaz6.J4hDguj6W4SAaJTO3a7rgGF8Y7/XZdy",
+  "updated_by": "superadmin",
+  "updated_on": {
+    "$date": "2025-11-22T23:28:22.007Z"
+  },
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6921d3c9a7c3bdb4450abfb1"
+  },
+  "username": "rahulwali",
+  "email": "rahulwail@gmailg.com",
+  "mobile": "9871648858",
+  "password_hash": "$2b$10$gujRYDz9hgg5eztk8n9pZ.VkVK/NPBcdLw82uAVV7hqKGwI6cfnzS",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T04:30:44.114Z"
+  },
+  "created_on": {
+    "$date": "2025-11-22T15:16:25.601Z"
+  },
+  "created_by": "superadmin",
+  "updated_on": {
+    "$date": "2025-11-27T04:30:44.114Z"
+  },
+  "updated_by": "ADMIN_LOGIN",
+  "version": 1,
+  "display_name": "manoj ji"
+},
+{
+  "_id": {
+    "$oid": "6921d60805eae23170be7ee7"
+  },
+  "username": "himnishwali",
+  "display_name": "himnish wali",
+  "email": "himnishwali@gmail.com",
+  "mobile": "9871648857",
+  "password_hash": "$2b$10$tlSuk9B5.RHfc18uwHzNgOnTL0.PRFU0kKgAETvt5QaQYNl6yPifu",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T04:55:03.566Z"
+  },
+  "created_on": {
+    "$date": "2025-11-22T15:26:00.787Z"
+  },
+  "created_by": "superadmin",
+  "updated_on": {
+    "$date": "2025-11-27T04:55:03.566Z"
+  },
+  "updated_by": "ADMIN_LOGIN",
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6921e559a69abb187b5e97c7"
+  },
+  "username": "manoj",
+  "display_name": "manoj kumar",
+  "email": "manoj@gmail.com",
+  "mobile": "99871648856",
+  "password_hash": "$2b$10$1cbrBguvjzuS0HALgkK/DOALPyFbbNa66jOBpp30JfvUKxT2ZY/s6",
+  "is_active": "Y",
+  "last_login_on": null,
+  "created_on": {
+    "$date": "2025-11-22T16:31:21.709Z"
+  },
+  "created_by": "superadmin",
+  "updated_on": {
+    "$date": "2025-11-22T16:57:32.267Z"
+  },
+  "updated_by": "superadmin",
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "6921e8b151e537d08a3412a7"
+  },
+  "username": "rajkumar",
+  "display_name": "raj kumar",
+  "email": "rajkumar@gmail.com",
+  "mobile": "9871648845",
+  "password_hash": "$2b$10$SsUErxqH4YQ6hONaQwxusOivX78CrIJRbeOhANN3zq4euyoZ1iCXe",
+  "is_active": "Y",
+  "last_login_on": null,
+  "created_on": {
+    "$date": "2025-11-22T16:45:37.394Z"
+  },
+  "created_by": "superadmin",
+  "updated_on": {
+    "$date": "2025-11-22T23:28:42.842Z"
+  },
+  "updated_by": "superadmin",
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "69267fa0b0208badb5c6e628"
+  },
+  "username": "auctioneer",
+  "display_name": "Gitikka Ganju",
+  "email": "auctioneer@gmail.com",
+  "mobile": "9871648848",
+  "password_hash": "$2b$10$42poEMHParvixJsyqVLzt.Vk3uqF0mqXT9L5v9kNNavsQt6uhPxN2",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-26T04:19:07.773Z"
+  },
+  "created_on": {
+    "$date": "2025-11-26T04:18:40.982Z"
+  },
+  "created_by": "rahulwali",
+  "updated_on": {
+    "$date": "2025-11-26T04:19:07.773Z"
+  },
+  "updated_by": "ADMIN_LOGIN",
+  "version": 1
+},
+{
+  "_id": {
+    "$oid": "69268067b0208badb5c6e62a"
+  },
+  "username": "gate",
+  "display_name": "Gate Operator",
+  "email": "gate@gmail.com",
+  "mobile": "9871648838",
+  "password_hash": "$2b$10$UCJDkpOkRF.WaSIyAIq/oeVOSs7WLpMyXqhHSAba45Ez6ef8xwHHi",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-26T04:22:16.998Z"
+  },
+  "created_on": {
+    "$date": "2025-11-26T04:21:59.096Z"
+  },
+  "created_by": "rahulwali",
+  "updated_on": {
+    "$date": "2025-11-26T04:22:16.998Z"
+  },
+  "updated_by": "ADMIN_LOGIN",
+  "version": 1
+}]

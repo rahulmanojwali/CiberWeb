@@ -26,7 +26,7 @@ import Checkbox from "@mui/material/Checkbox";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   type GridColDef,
-  type GridRenderCellParams,
+  type GridValueGetterParams,
 } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import LockResetIcon from "@mui/icons-material/LockReset";
@@ -540,7 +540,7 @@ const AdminUsersList: React.FC = () => {
         field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
-        valueGetter: (params: GridRenderCellParams<string, AdminUser>) => {
+        valueGetter: (params: GridValueGetterParams<AdminUser, string>) => {
           const value = params.row.role_slug || "";
           return value ? value.replace(/_/g, " ") : "";
         },
@@ -550,7 +550,7 @@ const AdminUsersList: React.FC = () => {
         field: "mandi_codes",
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
-        valueGetter: (params: GridRenderCellParams<string[], AdminUser>) => {
+        valueGetter: (params: GridValueGetterParams<AdminUser, string[]>) => {
           return (params.row.mandi_codes || []).join(", ");
         },
       },

@@ -103,6 +103,7 @@
       "mobile": "Mobile",
       "orgCode": "Org Code",
       "orgName": "Org Name",
+      "mandis": "Mandis",
       "roles": "Roles",
       "status": "Status",
       "lastLogin": "Last Login",

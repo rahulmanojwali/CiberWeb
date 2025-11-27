@@ -66,6 +66,20 @@
       "active": "सक्रिय",
       "inactive": "निष्क्रिय"
     },
+    "columns": {
+      "username": "उपयोगकर्ता नाम",
+      "fullName": "पूरा नाम",
+      "email": "ईमेल",
+      "mobile": "मोबाइल",
+      "orgCode": "संगठन कोड",
+      "orgName": "संगठन नाम",
+      "mandis": "मंडी",
+      "roles": "भूमिकाएँ",
+      "status": "स्थिति",
+      "lastLogin": "अंतिम लॉगिन",
+      "updatedOn": "अपडेटेड ऑन",
+      "actions": "कार्रवाई"
+    },
     "dialog": {
       "createTitle": "एडमिन उपयोगकर्ता बनाएँ",
       "editTitle": "एडमिन उपयोगकर्ता संपादित करें",

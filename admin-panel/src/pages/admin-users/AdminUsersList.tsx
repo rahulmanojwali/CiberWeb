@@ -49,6 +49,26 @@ import {
 } from "../../services/adminUsersApi";
 import type { RoleSlug } from "../../config/menuConfig";
 
+const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
+  if (!value) return null;
+  const upper = value.replace(/[\s-]/g, "_").toUpperCase();
+  const map: Record<string, RoleSlug> = {
+    SUPERADMIN: "SUPER_ADMIN",
+    SUPER_ADMIN: "SUPER_ADMIN",
+    ORGADMIN: "ORG_ADMIN",
+    ORG_ADMIN: "ORG_ADMIN",
+    ORG_VIEWER: "ORG_VIEWER",
+    MANDI_ADMIN: "MANDI_ADMIN",
+    MANDI_MANAGER: "MANDI_MANAGER",
+    AUCTIONEER: "AUCTIONEER",
+    GATE_OPERATOR: "GATE_OPERATOR",
+    WEIGHBRIDGE_OPERATOR: "WEIGHBRIDGE_OPERATOR",
+    AUDITOR: "AUDITOR",
+    VIEWER: "VIEWER",
+  };
+  return map[upper] || null;
+};
+
 const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "ORG_VIEWER",
   "MANDI_ADMIN",
@@ -95,7 +115,7 @@ const AdminUsersList: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const scope = getUserScope("AdminUsersPage");
-  const effectiveRole = (scope.role || uiConfig.role || null) as RoleSlug | null;
+  const effectiveRole = normalizeRoleSlug(scope.role || uiConfig.role || null);
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
   const isSuper = isSuperAdmin(effectiveRole);
   const orgAdmin = isOrgAdmin(effectiveRole);
@@ -263,13 +283,15 @@ const AdminUsersList: React.FC = () => {
       }
 
       const normalized: AdminUser[] = (res?.data?.items || []).map((u: any) => {
-        const roleSlug = u.role_slug || u.role_code || (Array.isArray(u.roles) ? u.roles[0] : null) || "";
+        const roleSlug = normalizeRoleSlug(
+          u.role_slug || u.role_code || (Array.isArray(u.roles) ? u.roles[0] : null) || "",
+        );
         return {
           username: u.username,
           display_name: u.display_name ?? u.full_name ?? null,
           email: u.email ?? null,
           mobile: u.mobile ?? null,
-          role_slug: roleSlug,
+          role_slug: roleSlug || "",
           org_code: u.org_code ?? u.orgCode ?? null,
           mandi_codes: u.mandi_codes || u.mandiCodes || [],
           is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",

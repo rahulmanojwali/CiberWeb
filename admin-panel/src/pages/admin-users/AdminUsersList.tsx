@@ -21,6 +21,13 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+
+import { IconButton, Tooltip } from "@mui/material";
+import EditIcon from "@mui/icons-material/EditOutlined";
+import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircleOutline";
+
+
 import ListItemText from "@mui/material/ListItemText";
 import Checkbox from "@mui/material/Checkbox";
 import type { SelectChangeEvent } from "@mui/material/Select";
@@ -186,42 +193,56 @@ const AdminUsersList: React.FC = () => {
   const handleToast = (message: string, severity: ToastState["severity"]) =>
     setToast({ open: true, message, severity });
 
-  const loadRoles = useCallback(async () => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const res = await fetchAdminRoles({ username, language });
-      const resp = res?.response || {};
-      if (String(resp.responsecode) !== "0") return;
-      let roles: string[] = (res?.data?.roles || []).map((r: any) => r.role_slug).filter(Boolean);
-      roles = Array.from(new Set(roles));
-      if (orgAdmin && !isSuper) {
-        roles = roles.filter((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
-      }
-      setRoleOptions(roles);
-    } catch (e) {
-      console.error("[admin_users] loadRoles", e);
-    }
-  }, [language, orgAdmin, isSuper]);
-
-  // const loadOrgs = useCallback(async () => {
+  // const loadRoles = useCallback(async () => {
   //   const username = currentUsername();
   //   if (!username) return;
   //   try {
-  //     const res = await fetchOrganisations({ username, language });
+  //     const res = await fetchAdminRoles({ username, language });
   //     const resp = res?.response || {};
   //     if (String(resp.responsecode) !== "0") return;
-  //     let orgs: OrgOption[] = (res?.data?.organisations || []).map((o: any) => ({
-  //       _id: o._id,
-  //       org_code: o.org_code,
-  //       org_name: o.org_name,
-  //     }));
-  //     if (!isSuper && scopeOrgCode) orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
-  //     setOrgOptions(orgs);
+  //     let roles: string[] = (res?.data?.roles || []).map((r: any) => r.role_slug).filter(Boolean);
+  //     roles = Array.from(new Set(roles));
+  //     if (orgAdmin && !isSuper) {
+  //       roles = roles.filter((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
+  //     }
+  //     setRoleOptions(roles);
   //   } catch (e) {
-  //     console.error("[admin_users] loadOrgs", e);
+  //     console.error("[admin_users] loadRoles", e);
   //   }
-  // }, [language, isSuper, scopeOrgCode]);
+  // }, [language, orgAdmin, isSuper]);
+
+const loadRoles = useCallback(async () => {
+  const username = currentUsername();
+  if (!username) return;
+  try {
+    const res = await fetchAdminRoles({ username, language });
+    const resp = res?.response || {};
+    if (String(resp.responsecode) !== "0") return;
+
+    let roles: string[] = (res?.data?.roles || [])
+      .map((r: any) => r.role_slug)
+      .filter(Boolean);
+
+    // Unique
+    roles = Array.from(new Set(roles));
+
+    // Never show SUPER_ADMIN unless you *are* SUPER_ADMIN
+    if (!isSuper) {
+      roles = roles.filter((r) => r !== "SUPER_ADMIN");
+    }
+
+    // ORG_ADMIN can only assign a limited subset
+    if (orgAdmin) {
+      roles = roles.filter((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
+    }
+
+    setRoleOptions(roles);
+  } catch (e) {
+    console.error("[admin_users] loadRoles", e);
+  }
+}, [language, orgAdmin, isSuper]);
+
+
 
 
 const loadOrgs = useCallback(async () => {
@@ -598,21 +619,49 @@ const loadOrgs = useCallback(async () => {
     () => [
       { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.9 },
       { field: "display_name", headerName: t("adminUsers.columns.fullName"), flex: 1 },
-      {
-        field: "role_slug",
-        headerName: t("adminUsers.columns.roles"),
-        flex: 0.9,
-        valueGetter: (params: any) => {
-          const row = params?.row || {};
-          const raw =
-            row.role_slug ||
-            row.roleSlug ||
-            row.role_code ||
-            (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "");
-          const displayRole = raw ? raw.replace(/_/g, " ") : "";
-          return displayRole;
-        },
-      },
+    
+       
+       
+       
+      //   field: "role_slug",
+      //   headerName: t("adminUsers.columns.roles"),
+      //   flex: 0.9,
+      //   valueGetter: (params: any) => {
+      //     const row = params?.row || {};
+      //     const raw =
+      //       row.role_slug ||
+      //       row.roleSlug ||
+      //       row.role_code ||
+      //       (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "");
+      //     const displayRole = raw ? raw.replace(/_/g, " ") : "";
+      //     return displayRole;
+      //   },
+      // },
+
+{
+  field: "role_slug",
+  headerName: t("adminUsers.columns.roles"),
+  flex: 0.9,
+  renderCell: (params: any) => {
+    const row = params?.row || {};
+    const raw =
+      row.role_slug ||
+      row.roleSlug ||
+      row.role_code ||
+      row.role ||                    // extra safety
+      row.admin_role ||              // extra safety
+      (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "") ||
+      (row.role && typeof row.role === "object"
+        ? row.role.slug || row.role.role_slug || row.role.code
+        : "");
+
+    const displayRole = raw ? String(raw).replace(/_/g, " ") : "";
+    return <span>{displayRole}</span>;
+  },
+},
+
+
+
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
       {
         field: "mandi_codes",
@@ -636,41 +685,66 @@ const loadOrgs = useCallback(async () => {
           />
         ),
       },
-      {
-        field: "actions",
-        headerName: t("adminUsers.columns.actions"),
-        sortable: false,
-        width: 280,
-        renderCell: (params: any) => (
-          <Stack direction="row" spacing={1}>
-            {canUpdateUserAction && (
-              <Button size="small" variant="outlined" onClick={() => handleOpenEdit(params.row)}>
-                {t("adminUsers.actions.edit")}
-              </Button>
-            )}
-            {canDeactivateUserAction && (
-              <Button
-                size="small"
-                variant="text"
-                color="error"
-                onClick={() => handleDeactivate(params.row)}
-              >
-                {t("adminUsers.actions.deactivate")}
-              </Button>
-            )}
-            {canResetPasswordAction && (
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<LockResetIcon />}
-                onClick={() => handleResetPassword(params.row)}
-              >
-                {t("adminUsers.actions.reset")}
-              </Button>
-            )}
-          </Stack>
-        ),
-      },
+      
+{
+  field: "actions",
+  headerName: t("adminUsers.columns.actions"),
+  sortable: false,
+  width: 220,
+  renderCell: (params: any) => {
+    const row = params.row as AdminUser;
+    const isActive = row.is_active === "Y";
+
+    return (
+      <Stack direction="row" spacing={0.5}>
+        {canUpdateUserAction && (
+          <Tooltip title={t("adminUsers.actions.edit")}>
+            <IconButton size="small" onClick={() => handleOpenEdit(row)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {canDeactivateUserAction && (
+          <Tooltip
+            title={
+              isActive
+                ? t("adminUsers.actions.deactivate")
+                : t("adminUsers.actions.activate")
+            }
+          >
+            <IconButton
+              size="small"
+              color={isActive ? "error" : "success"}
+              onClick={() => handleDeactivate(row)}
+            >
+              {isActive ? (
+                <BlockIcon fontSize="small" />
+              ) : (
+                <CheckCircleIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {canResetPasswordAction && (
+          <Tooltip title={t("adminUsers.actions.reset")}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleResetPassword(row)}
+            >
+              <LockResetIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Stack>
+    );
+  },
+},
+
+
+
     ],
     [
       canDeactivateUserAction,

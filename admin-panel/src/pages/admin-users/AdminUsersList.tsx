@@ -540,9 +540,9 @@ const AdminUsersList: React.FC = () => {
         field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
-        valueFormatter: (params: GridRenderCellParams<string, AdminUser>) => {
-          const val = (params.value as string) || "";
-          return val ? val.replace(/_/g, " ") : "";
+        valueGetter: (params: GridRenderCellParams<string, AdminUser>) => {
+          const value = params.row.role_slug || "";
+          return value ? value.replace(/_/g, " ") : "";
         },
       },
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
@@ -551,8 +551,7 @@ const AdminUsersList: React.FC = () => {
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
         valueGetter: (params: GridRenderCellParams<string[], AdminUser>) => {
-          const row = params.row as AdminUser;
-          return (row.mandi_codes || []).join(", ");
+          return (params.row.mandi_codes || []).join(", ");
         },
       },
       {

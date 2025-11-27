@@ -39,6 +39,8 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
+import { can } from "../../utils/adminUiConfig";
 
 const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "ORG_VIEWER",
@@ -104,11 +106,28 @@ const AdminUsersList: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
+  const uiConfig = useAdminUiConfig();
   const scope = getUserScope("AdminUsersPage");
+  const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
   const role = scope.role;
   const isSuper = isSuperAdmin(role);
   const orgAdmin = isOrgAdmin(role);
-  const isReadOnly = isReadOnlyRole(role);
+  const canCreateUser = React.useMemo(
+    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.create", "CREATE") : isSuper),
+    [uiConfig.resources, isSuper],
+  );
+  const canUpdateUserAction = React.useMemo(
+    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.edit", "UPDATE") : isSuper || orgAdmin),
+    [uiConfig.resources, isSuper, orgAdmin],
+  );
+  const canDeactivateUserAction = React.useMemo(
+    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.deactivate", "DEACTIVATE") : isSuper),
+    [uiConfig.resources, isSuper],
+  );
+  const isReadOnly = React.useMemo(
+    () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(role)),
+    [uiConfig.resources, canUpdateUserAction, role],
+  );
   const [rows, setRows] = React.useState<AdminUser[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -190,14 +209,14 @@ const AdminUsersList: React.FC = () => {
         org_code: o.org_code,
         org_name: o.org_name,
       }));
-      if (!isSuper && scope.orgCode) {
-        orgs = orgs.filter((o) => o.org_code === scope.orgCode);
+      if (!isSuper && scopeOrgCode) {
+        orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
       }
       setOrgOptions(orgs);
     } catch {
       /* ignore */
     }
-  }, [headers, language]);
+  }, [headers, language, isSuper, scopeOrgCode]);
 
   const loadUsers = React.useCallback(async () => {
     const username = currentUsername();
@@ -215,7 +234,7 @@ const AdminUsersList: React.FC = () => {
         language,
         search: filters.search,
       };
-      if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
+      if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
       if (filters.org_id) payload.org_id = filters.org_id;
       if (filters.role_code) payload.role_code = filters.role_code;
       if (filters.is_active === "Y" || filters.is_active === "N") payload.is_active = filters.is_active;
@@ -238,9 +257,9 @@ const AdminUsersList: React.FC = () => {
         ...u,
         is_active: String(u?.is_active || "Y").trim().toUpperCase(),
       }));
-      if (!isSuper && scope.orgCode) {
+      if (!isSuper && scopeOrgCode) {
         normalized = normalized.filter(
-          (u: AdminUser) => u.org_code === scope.orgCode || u.orgCode === scope.orgCode,
+          (u: AdminUser) => u.org_code === scopeOrgCode || u.orgCode === scopeOrgCode,
         );
       }
       setRows(normalized);
@@ -251,7 +270,7 @@ const AdminUsersList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.is_active, filters.org_id, filters.role_code, filters.search, headers, language, t]);
+  }, [filters.is_active, filters.org_id, filters.role_code, filters.search, headers, language, t, isSuper, scopeOrgCode]);
 
   React.useEffect(() => {
     loadRoles();
@@ -264,26 +283,27 @@ const AdminUsersList: React.FC = () => {
 
   const canManageUser = React.useCallback(
     (user?: AdminUser | null) => {
+      if (!canUpdateUserAction) return false;
       if (isSuper) return true;
-      if (orgAdmin && scope.orgCode) {
+      if (orgAdmin && scopeOrgCode) {
         if (!user) return true;
         const userOrg = (user as any).org_code || (user as any).orgCode || "";
         const allowedRolesOnly = (user.roles || []).every((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
-        return userOrg === scope.orgCode && allowedRolesOnly;
+        return userOrg === scopeOrgCode && allowedRolesOnly;
       }
       return false;
     },
-    [isSuper, orgAdmin, scope.orgCode],
+    [canUpdateUserAction, isSuper, orgAdmin, scopeOrgCode],
   );
 
   const handleOpenCreate = () => {
-    if (!canManageUser(null)) {
+    if (!canCreateUser) {
       setToast({ open: true, message: "You are not authorized to create users.", severity: "error" });
       return;
     }
     const defaultOrgId =
-      (!isSuper && scope.orgCode
-        ? (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
+      (!isSuper && scopeOrgCode
+        ? (orgOptions.find((o) => o.org_code === scopeOrgCode)?._id || "")
         : "");
     setIsEditMode(false);
     setEditingUser(null);
@@ -435,7 +455,7 @@ const AdminUsersList: React.FC = () => {
           }
         }
         if (form.org_id) payload.org_id = form.org_id;
-        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
+        if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
         const body = await buildBody(payload);
         const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.updateAdminUser}`, body, { headers });
         const resp = data?.response || {};
@@ -454,8 +474,8 @@ const AdminUsersList: React.FC = () => {
           return;
         }
         const enforcedOrgId =
-          !isSuper && scope.orgCode
-            ? form.org_id || (orgOptions.find((o) => o.org_code === scope.orgCode)?._id || "")
+          !isSuper && scopeOrgCode
+            ? form.org_id || (orgOptions.find((o) => o.org_code === scopeOrgCode)?._id || "")
             : form.org_id;
         if (orgAdmin && !isSuper) {
           const invalid = form.roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
@@ -477,7 +497,7 @@ const AdminUsersList: React.FC = () => {
           password: form.password,
         };
         if (enforcedOrgId) payload.org_id = enforcedOrgId;
-        if (!isSuper && scope.orgCode) payload.org_code = scope.orgCode;
+        if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
         const body = await buildBody(payload);
         const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.createAdminUser}`, body, { headers });
         const resp = data?.response || {};
@@ -492,6 +512,47 @@ const AdminUsersList: React.FC = () => {
       }
     } catch (e: any) {
       setToast({ open: true, message: e?.message || t("adminUsers.messages.networkError"), severity: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivate = async (user: AdminUser) => {
+    if (!canDeactivateUserAction) {
+      setToast({ open: true, message: "You are not authorized to deactivate users.", severity: "error" });
+      return;
+    }
+    if (!user?.username) return;
+    if (!window.confirm(`Deactivate user ${user.username}?`)) return;
+
+    const username = currentUsername();
+    if (!username) {
+      setToast({ open: true, message: "No admin session found.", severity: "error" });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const payload: any = {
+        api: API_TAGS.ADMIN_USERS.update,
+        username,
+        language,
+        target_username: user.username,
+        is_active: "N",
+      };
+      if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
+      const body = await buildBody(payload);
+      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.updateAdminUser}`, body, { headers });
+      const resp = data?.response || {};
+      const code = String(resp.responsecode ?? "");
+      if (code !== "0") {
+        setToast({ open: true, message: resp.description || "Failed to deactivate user.", severity: "error" });
+      } else {
+        setToast({ open: true, message: "User deactivated.", severity: "success" });
+        await loadUsers();
+      }
+    } catch (e: any) {
+      setToast({ open: true, message: e?.message || "Network error while deactivating.", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -568,14 +629,24 @@ const AdminUsersList: React.FC = () => {
         sortable: false,
         filterable: false,
         renderCell: (params: GridRenderCellParams<AdminUser>) =>
-          (isReadOnly || !canManageUser(params.row)) ? null : (
+          isReadOnly ? null : (
             <Stack direction="row" spacing={1}>
               <Button
                 size="small"
                 variant="outlined"
                 onClick={() => handleOpenEdit(params.row)}
+                disabled={!canManageUser(params.row)}
               >
                 {t("adminUsers.actions.edit")}
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                disabled={!canDeactivateUserAction || params.row.is_active === "N"}
+                onClick={() => handleDeactivate(params.row)}
+              >
+                {t("adminUsers.actions.deactivate")}
               </Button>
               <IconButton
                 size="small"
@@ -588,7 +659,7 @@ const AdminUsersList: React.FC = () => {
           ),
       },
     ],
-    [isReadOnly, canManageUser, t]
+    [isReadOnly, canManageUser, canDeactivateUserAction, handleDeactivate, t]
   );
 
   const filteredRows = rows.filter((u) => {
@@ -623,7 +694,7 @@ const AdminUsersList: React.FC = () => {
           <IconButton size="small" onClick={loadUsers} title={t("common.refresh")}>
             <RefreshIcon />
           </IconButton>
-          <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={isReadOnly || !canManageUser(null)}>
+          <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={isReadOnly || !canCreateUser}>
             {t("adminUsers.actions.new")}
           </Button>
         </Stack>

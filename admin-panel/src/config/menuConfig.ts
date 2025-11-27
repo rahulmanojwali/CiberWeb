@@ -28,6 +28,7 @@ export type RoleSlug =
   | "VIEWER";
 
 export type MenuItem = {
+  key?: string;
   labelKey: string;
   path: string;
   icon: React.ReactNode;
@@ -100,6 +101,9 @@ export const menuItems: MenuItem[] = [
     path: "/admin-users",
     icon: React.createElement(GroupsOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    key: "adminUsers",
+    resourceKey: "adminUsers.menu",
+    requiredAction: "VIEW",
   },
 
   // 6) Trader approvals – platform, org & mandi-level ops (no auditors/viewers)

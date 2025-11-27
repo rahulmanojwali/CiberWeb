@@ -102,7 +102,7 @@ export const menuItems: MenuItem[] = [
     icon: React.createElement(GroupsOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN"],
     key: "adminUsers",
-    resourceKey: "adminUsers.menu",
+    resourceKey: "admin_users.menu",
     requiredAction: "VIEW",
   },
 

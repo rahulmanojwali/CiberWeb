@@ -1,5 +1,6 @@
-// export const API_BASE_URL = "/api";
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+// Prefer explicit API origin; fallback to env or relative /api for local dev
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://mandiapi.ciberdukaan.com" || "/api";
 
 
 export const API_TAGS = {
@@ -12,6 +13,7 @@ export const API_TAGS = {
     list: "getAdminUsers",
     create: "createAdminUser",
     update: "updateAdminUser",
+    deactivate: "deactivateAdminUser",
     reset: "resetAdminUserPassword",
     listRoles: "getAdminRoles",
     listOrgs: "get_Organisations21",
@@ -45,6 +47,7 @@ export const API_ROUTES = {
     getAdminUsers: "/admin/getAdminUsers",
     createAdminUser: "/admin/createAdminUser",
     updateAdminUser: "/admin/updateAdminUser",
+    deactivateAdminUser: "/admin/deactivateAdminUser",
     resetAdminUserPassword: "/admin/resetAdminUserPassword",
     getAdminRoles: "/admin/getAdminRoles",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",

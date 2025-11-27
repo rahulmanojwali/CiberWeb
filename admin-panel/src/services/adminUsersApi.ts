@@ -68,6 +68,25 @@ export async function fetchOrganisations({
   return postEncrypted(API_ROUTES.admin.getOrganisations, items);
 }
 
+export async function fetchOrgMandis({
+  username,
+  org_id,
+  language = DEFAULT_LANGUAGE,
+}: {
+  username: string;
+  org_id?: string;
+  language?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ORG_MANDI.listMappings,
+    username,
+    language,
+    is_active: "Y",
+  };
+  if (org_id) items.org_id = org_id;
+  return postEncrypted(API_ROUTES.admin.getOrgMandiMappings, items);
+}
+
 export async function createAdminUser({
   username,
   language = DEFAULT_LANGUAGE,
@@ -75,7 +94,17 @@ export async function createAdminUser({
 }: {
   username: string;
   language?: string;
-  payload: Record<string, any>;
+  payload: {
+    new_username: string;
+    password: string;
+    display_name?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+    role_slug: string;
+    org_code?: string | null;
+    mandi_codes?: string[];
+    is_active?: "Y" | "N";
+  };
 }) {
   const items = {
     api: API_TAGS.ADMIN_USERS.create,
@@ -93,7 +122,16 @@ export async function updateAdminUser({
 }: {
   username: string;
   language?: string;
-  payload: Record<string, any>;
+  payload: {
+    target_username: string;
+    display_name?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+    role_slug?: string | null;
+    org_code?: string | null;
+    mandi_codes?: string[];
+    is_active?: "Y" | "N";
+  };
 }) {
   const items = {
     api: API_TAGS.ADMIN_USERS.update,
@@ -107,18 +145,38 @@ export async function updateAdminUser({
 export async function deactivateAdminUser({
   username,
   language = DEFAULT_LANGUAGE,
-  payload,
+  target_username,
 }: {
   username: string;
   language?: string;
-  payload: Record<string, any>;
+  target_username: string;
 }) {
   const items = {
-    api: API_TAGS.ADMIN_USERS.update,
+    api: API_TAGS.ADMIN_USERS.deactivate,
     username,
     language,
-    is_active: "N",
-    ...payload,
+    target_username,
   };
-  return postEncrypted(API_ROUTES.admin.updateAdminUser, items);
+  return postEncrypted(API_ROUTES.admin.deactivateAdminUser, items);
+}
+
+export async function resetAdminUserPassword({
+  username,
+  language = DEFAULT_LANGUAGE,
+  target_username,
+  new_password,
+}: {
+  username: string;
+  language?: string;
+  target_username: string;
+  new_password?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_USERS.reset,
+    username,
+    language,
+    target_username,
+  };
+  if (new_password) items.new_password = new_password;
+  return postEncrypted(API_ROUTES.admin.resetAdminUserPassword, items);
 }

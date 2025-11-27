@@ -1,0 +1,5304 @@
+========================================
+COLLECTION: cm_admin_role_policies
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'role_slug',
+      'scope',
+      'permissions'
+    ],
+    additionalProperties: true,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      role_slug: {
+        bsonType: 'string',
+        description: 'Canonical role slug',
+        enum: [
+          'SUPER_ADMIN',
+          'ORG_ADMIN',
+          'ORG_VIEWER',
+          'MANDI_ADMIN',
+          'MANDI_MANAGER',
+          'AUCTIONEER',
+          'GATE_OPERATOR',
+          'WEIGHBRIDGE_OPERATOR',
+          'AUDITOR',
+          'VIEWER'
+        ]
+      },
+      scope: {
+        bsonType: 'object',
+        required: [
+          'org_level',
+          'mandi_level'
+        ],
+        additionalProperties: false,
+        properties: {
+          org_level: {
+            bsonType: 'string',
+            enum: [
+              'GLOBAL',
+              'OWN_ORG_ONLY',
+              'NONE'
+            ],
+            description: 'Org scoping'
+          },
+          mandi_level: {
+            bsonType: 'string',
+            enum: [
+              'ALL_MANDIS',
+              'OWN_ORG_MANDIS_ONLY',
+              'OWN_MANDIS_ONLY',
+              'NONE'
+            ],
+            description: 'Mandi scoping'
+          }
+        }
+      },
+      permissions: {
+        bsonType: 'array',
+        minItems: 0,
+        items: {
+          bsonType: 'object',
+          required: [
+            'resource_key',
+            'actions'
+          ],
+          additionalProperties: true,
+          properties: {
+            resource_key: {
+              bsonType: 'string',
+              description: 'Matches cm_ui_resources.resource_key',
+              pattern: '^[a-z0-9_.-]+$'
+            },
+            actions: {
+              bsonType: 'array',
+              description: 'List of allowed action codes for this role on this resource',
+              items: {
+                bsonType: 'string',
+                pattern: '^[A-Z0-9_]+$'
+              }
+            },
+            allowed_target_roles: {
+              bsonType: [
+                'array',
+                'null'
+              ],
+              description: 'For admin user management; allowed role_slugs for targets',
+              items: {
+                bsonType: 'string',
+                enum: [
+                  'SUPER_ADMIN',
+                  'ORG_ADMIN',
+                  'ORG_VIEWER',
+                  'MANDI_ADMIN',
+                  'MANDI_MANAGER',
+                  'AUCTIONEER',
+                  'GATE_OPERATOR',
+                  'WEIGHBRIDGE_OPERATOR',
+                  'AUDITOR',
+                  'VIEWER'
+                ]
+              }
+            },
+            notes: {
+              bsonType: [
+                'string',
+                'null'
+              ],
+              description: 'Optional human readable note'
+            }
+          }
+        }
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_commodity_products_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'mandi_id',
+      'product_id',
+      'is_active',
+      'country',
+      'trade_type'
+    ],
+    additionalProperties: true,
+    oneOf: [
+      {
+        required: [
+          'commodity_id'
+        ]
+      },
+      {
+        required: [
+          'commdity_id'
+        ]
+      }
+    ],
+    properties: {
+      relationship_id: {
+        bsonType: [
+          'int',
+          'long',
+          'string',
+          'null'
+        ]
+      },
+      mandi_id: {
+        bsonType: 'int'
+      },
+      commodity_id: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      commdity_id: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      product_id: {
+        bsonType: 'int'
+      },
+      country: {
+        bsonType: 'string',
+        enum: [
+          'IN'
+        ]
+      },
+      state_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      trade_type: {
+        bsonType: 'string',
+        enum: [
+          'PROCUREMENT',
+          'SALES',
+          'BOTH'
+        ]
+      },
+      days_csv: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      season_months_csv: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      source: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      verified_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      remarks: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      active: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'Y',
+          'N',
+          null
+        ]
+      },
+      is_active: {
+        bsonType: 'bool'
+      },
+      created_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: weighbridge_device_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'device_code',
+      'device_type',
+      'name_i18n',
+      'model',
+      'serial_no',
+      'capacity_tonnes',
+      'accuracy_kg',
+      'io_capabilities',
+      'is_calibrated_on',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      device_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{3,40}$'
+      },
+      device_type: {
+        enum: [
+          'WEIGHBRIDGE_CONSOLE',
+          'QR_SCANNER',
+          'RFID_READER',
+          'GPS_TRACKER'
+        ]
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      model: {
+        bsonType: 'string'
+      },
+      serial_no: {
+        bsonType: 'string'
+      },
+      capacity_tonnes: {
+        bsonType: [
+          'double',
+          'decimal'
+        ],
+        minimum: 0.1
+      },
+      accuracy_kg: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      io_capabilities: {
+        bsonType: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          enum: [
+            'QR',
+            'RFID',
+            'GPS',
+            'PRINTER',
+            'DISPLAY',
+            'API'
+          ]
+        }
+      },
+      is_calibrated_on: {
+        bsonType: 'date'
+      },
+      calibration_due_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      ip_addr: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      location_hint: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: gate_vehicle_types_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'vehicle_type_code',
+      'name_i18n',
+      'is_allowed',
+      'requires_permit',
+      'version',
+      'created_on',
+      'updated_on'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      vehicle_type_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_.-]{1,32}$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          },
+          bn: {
+            bsonType: 'string'
+          },
+          ta: {
+            bsonType: 'string'
+          },
+          te: {
+            bsonType: 'string'
+          },
+          mr: {
+            bsonType: 'string'
+          },
+          kn: {
+            bsonType: 'string'
+          },
+          ml: {
+            bsonType: 'string'
+          },
+          pa: {
+            bsonType: 'string'
+          },
+          gu: {
+            bsonType: 'string'
+          },
+          or: {
+            bsonType: 'string'
+          }
+        }
+      },
+      aliases: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'string'
+        }
+      },
+      axle_count: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      max_gvw_tonnes: {
+        bsonType: [
+          'double',
+          'int',
+          'null'
+        ]
+      },
+      max_dims_m: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          length: {
+            bsonType: [
+              'double',
+              'int',
+              'null'
+            ]
+          },
+          width: {
+            bsonType: [
+              'double',
+              'int',
+              'null'
+            ]
+          },
+          height: {
+            bsonType: [
+              'double',
+              'int',
+              'null'
+            ]
+          }
+        }
+      },
+      is_allowed: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      requires_permit: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_org_mandis
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'assignment_scope',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      mandi_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      state_code: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[A-Z]{2}$'
+      },
+      country: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        minLength: 2,
+        maxLength: 2
+      },
+      assignment_scope: {
+        enum: [
+          'EXCLUSIVE',
+          'SHARED'
+        ]
+      },
+      assignment_start: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      assignment_end: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_sessions
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'session_code',
+      'session_date',
+      'method_code',
+      'rounds_enabled',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      session_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{4,40}$'
+      },
+      session_date: {
+        bsonType: 'date'
+      },
+      method_code: {
+        enum: [
+          'OPEN_OUTCRY',
+          'E_AUCTION'
+        ]
+      },
+      rounds_enabled: {
+        bsonType: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          enum: [
+            'PREVIEW',
+            'ROUND1',
+            'ROUND2',
+            'FINAL'
+          ]
+        }
+      },
+      status: {
+        enum: [
+          'PLANNED',
+          'LIVE',
+          'PAUSED',
+          'CLOSED',
+          'CANCELLED'
+        ]
+      },
+      notes: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_states
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'state_id',
+      'code',
+      'slug',
+      'name_i18n',
+      'status',
+      'created_on'
+    ],
+    properties: {
+      state_id: {
+        bsonType: 'int'
+      },
+      code: {
+        bsonType: 'string',
+        pattern: '^[A-Z]{2}$'
+      },
+      slug: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9-]+$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en',
+          'hi'
+        ],
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          }
+        },
+        additionalProperties: true
+      },
+      status: {
+        enum: [
+          'ACTIVE',
+          'INACTIVE',
+          'ARCHIVED'
+        ]
+      },
+      deleted: {
+        bsonType: 'object',
+        properties: {
+          flag: {
+            enum: [
+              'Y',
+              'N'
+            ]
+          },
+          at: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          by: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        },
+        additionalProperties: false
+      },
+      created_on: {
+        bsonType: 'string'
+      },
+      updated_on: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      }
+    },
+    additionalProperties: true
+  }
+}
+========================================
+COLLECTION: cm_mandi_gates
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'name_i18n',
+      'is_entry_only',
+      'is_exit_only',
+      'is_weighbridge',
+      'allowed_vehicle_codes',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_entry_only: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_exit_only: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_weighbridge: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      allowed_vehicle_codes: {
+        bsonType: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          bsonType: 'string',
+          pattern: '^[a-z0-9_\\-]{2,40}$'
+        }
+      },
+      device_refs: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'device_type',
+            'code'
+          ],
+          additionalProperties: false,
+          properties: {
+            device_type: {
+              enum: [
+                'QR_SCANNER',
+                'NFC',
+                'CAMERA',
+                'BOOM_BARRIER',
+                'WEIGHBRIDGE_CONSOLE'
+              ]
+            },
+            code: {
+              bsonType: 'string'
+            }
+          }
+        }
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_methods_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'org_id',
+      'method_code',
+      'name_i18n',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      method_code: {
+        enum: [
+          'OPEN_OUTCRY',
+          'E_AUCTION'
+        ]
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandis_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'mandi_id',
+      'country',
+      'name_i18n',
+      'is_active',
+      'pincode',
+      'state_code',
+      'district_name_en',
+      'address_line'
+    ],
+    additionalProperties: true,
+    oneOf: [
+      {
+        required: [
+          'mandi_slug'
+        ]
+      },
+      {
+        required: [
+          'slug'
+        ]
+      }
+    ],
+    properties: {
+      mandi_id: {
+        bsonType: 'int'
+      },
+      country: {
+        bsonType: 'string',
+        enum: [
+          'IN'
+        ]
+      },
+      mandi_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en'
+        ],
+        additionalProperties: true,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          bn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ta: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          te: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          mr: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          kn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ml: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          pa: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          gu: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          or: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          as: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        }
+      },
+      state_code: {
+        bsonType: 'string'
+      },
+      district_id: {
+        bsonType: [
+          'int',
+          'long',
+          'string',
+          'null'
+        ]
+      },
+      district_name_en: {
+        bsonType: 'string'
+      },
+      address_line: {
+        bsonType: 'string'
+      },
+      pincode: {
+        bsonType: 'string',
+        pattern: '^[0-9]{6}$'
+      },
+      contact_number: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      location: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        required: [
+          'type',
+          'coordinates'
+        ],
+        properties: {
+          type: {
+            enum: [
+              'Point'
+            ]
+          },
+          coordinates: {
+            bsonType: 'array',
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              bsonType: 'double'
+            }
+          }
+        }
+      },
+      source: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      remarks: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      verified_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      active: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'Y',
+          'N',
+          null
+        ]
+      },
+      is_active: {
+        bsonType: 'bool'
+      },
+      created_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_hours_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'mandi_id',
+      'country',
+      'state_code',
+      'district_id',
+      'timezone',
+      'open_days',
+      'day_hours',
+      'effective_from',
+      'is_active',
+      'created_on',
+      'updated_on',
+      'version'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      country: {
+        bsonType: 'string',
+        minLength: 2,
+        maxLength: 2
+      },
+      state_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z]{2}$'
+      },
+      district_id: {
+        bsonType: 'objectId'
+      },
+      timezone: {
+        bsonType: 'string',
+        pattern: '^[A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?$'
+      },
+      open_days: {
+        bsonType: 'array',
+        uniqueItems: true,
+        minItems: 1,
+        items: {
+          enum: [
+            'MON',
+            'TUE',
+            'WED',
+            'THU',
+            'FRI',
+            'SAT',
+            'SUN'
+          ]
+        }
+      },
+      day_hours: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'object',
+          required: [
+            'day',
+            'windows'
+          ],
+          additionalProperties: false,
+          properties: {
+            day: {
+              enum: [
+                'MON',
+                'TUE',
+                'WED',
+                'THU',
+                'FRI',
+                'SAT',
+                'SUN'
+              ]
+            },
+            windows: {
+              bsonType: 'array',
+              minItems: 1,
+              items: {
+                bsonType: 'object',
+                required: [
+                  'open_time',
+                  'close_time'
+                ],
+                additionalProperties: false,
+                properties: {
+                  open_time: {
+                    bsonType: 'string',
+                    pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+                  },
+                  close_time: {
+                    bsonType: 'string',
+                    pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+                  },
+                  note: {
+                    bsonType: 'string'
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      special_closures: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'date',
+            'reason'
+          ],
+          additionalProperties: false,
+          properties: {
+            date: {
+              bsonType: 'date'
+            },
+            reason: {
+              bsonType: 'string'
+            }
+          }
+        }
+      },
+      festival_closures: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'festival_slug'
+          ],
+          additionalProperties: false,
+          properties: {
+            festival_slug: {
+              bsonType: 'string'
+            },
+            approx_dates: {
+              bsonType: 'array',
+              items: {
+                bsonType: 'date'
+              }
+            },
+            note: {
+              bsonType: 'string'
+            }
+          }
+        }
+      },
+      seasonal_variation: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'from',
+            'to',
+            'open_days',
+            'day_hours'
+          ],
+          additionalProperties: false,
+          properties: {
+            from: {
+              bsonType: 'date'
+            },
+            to: {
+              bsonType: 'date'
+            },
+            open_days: {
+              bsonType: 'array',
+              uniqueItems: true,
+              minItems: 1,
+              items: {
+                enum: [
+                  'MON',
+                  'TUE',
+                  'WED',
+                  'THU',
+                  'FRI',
+                  'SAT',
+                  'SUN'
+                ]
+              }
+            },
+            day_hours: {
+              bsonType: 'array',
+              minItems: 1,
+              items: {
+                bsonType: 'object',
+                required: [
+                  'day',
+                  'windows'
+                ],
+                additionalProperties: false,
+                properties: {
+                  day: {
+                    enum: [
+                      'MON',
+                      'TUE',
+                      'WED',
+                      'THU',
+                      'FRI',
+                      'SAT',
+                      'SUN'
+                    ]
+                  },
+                  windows: {
+                    bsonType: 'array',
+                    minItems: 1,
+                    items: {
+                      bsonType: 'object',
+                      required: [
+                        'open_time',
+                        'close_time'
+                      ],
+                      additionalProperties: false,
+                      properties: {
+                        open_time: {
+                          bsonType: 'string',
+                          pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+                        },
+                        close_time: {
+                          bsonType: 'string',
+                          pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+                        },
+                        note: {
+                          bsonType: 'string'
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            note: {
+              bsonType: 'string'
+            }
+          }
+        }
+      },
+      effective_from: {
+        bsonType: 'date'
+      },
+      effective_to: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: lot_quality_grades_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'org_id',
+      'grade_code',
+      'grade_rank',
+      'name_i18n',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG',
+          'MANDI'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      country: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      state_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      district_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      mandi_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      commodity_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      product_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      commodity_name_en: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      product_name_en: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      grade_code: {
+        enum: [
+          'A',
+          'B',
+          'C',
+          'REJECT'
+        ]
+      },
+      grade_rank: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      color_hex: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^#?[0-9A-Fa-f]{6}$'
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_facilities_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'facility_code',
+      'name_i18n',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      facility_code: {
+        enum: [
+          'WEIGHBRIDGE',
+          'WAREHOUSE',
+          'PARKING',
+          'COLD_STORAGE',
+          'AUCTION_HALL',
+          'ADMIN_OFFICE',
+          'RESTROOMS',
+          'DRINKING_WATER',
+          'LAB',
+          'CANTEEN',
+          'BANK_KIOSK',
+          'INPUT_SHOPS',
+          'FIRST_AID'
+        ]
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      icon_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: settlements
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'settlement_code',
+      'party_role',
+      'party_code',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      settlement_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{6,48}$'
+      },
+      party_role: {
+        enum: [
+          'FARMER',
+          'TRADER',
+          'TRANSPORTER',
+          'OTHER'
+        ]
+      },
+      party_code: {
+        bsonType: 'string'
+      },
+      currency: {
+        bsonType: 'string',
+        minLength: 3,
+        maxLength: 3
+      },
+      total_amount: {
+        bsonType: [
+          'decimal',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'OPEN',
+          'PARTIAL',
+          'PAID',
+          'CANCELLED'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_orgs
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_code',
+      'org_name',
+      'is_active',
+      'created_on',
+      'updated_on'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{2,40}$'
+      },
+      org_name: {
+        bsonType: 'string'
+      },
+      country: {
+        bsonType: 'string',
+        minLength: 2,
+        maxLength: 2
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_price_benchmarks_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'org_id',
+      'benchmark_type',
+      'currency',
+      'unit_code',
+      'price_per_unit',
+      'effective_from',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG',
+          'MANDI'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      country: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      state_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      district_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      mandi_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      commodity_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      product_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      commodity_name_en: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      product_name_en: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      benchmark_type: {
+        enum: [
+          'MSP',
+          'ARR',
+          'REF'
+        ]
+      },
+      crop_year: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      source: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      currency: {
+        enum: [
+          'INR'
+        ]
+      },
+      unit_code: {
+        bsonType: 'string'
+      },
+      price_per_unit: {
+        bsonType: [
+          'double',
+          'decimal'
+        ],
+        minimum: 0.01
+      },
+      note: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      effective_from: {
+        bsonType: 'date'
+      },
+      effective_to: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_facilities
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'facility_code',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      facility_code: {
+        enum: [
+          'WEIGHBRIDGE',
+          'WAREHOUSE',
+          'PARKING',
+          'COLD_STORAGE',
+          'AUCTION_HALL',
+          'ADMIN_OFFICE',
+          'RESTROOMS',
+          'DRINKING_WATER',
+          'LAB',
+          'CANTEEN',
+          'BANK_KIOSK',
+          'INPUT_SHOPS',
+          'FIRST_AID'
+        ]
+      },
+      name_override: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      capacity_num: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 0
+      },
+      capacity_unit: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      geo_point: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        properties: {
+          lat: {
+            bsonType: 'double'
+          },
+          lng: {
+            bsonType: 'double'
+          }
+        }
+      },
+      gate_code_hint: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      notes: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_lots
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'session_id',
+      'lot_code',
+      'commodity_name_en',
+      'product_name_en',
+      'estimated_qty_kg',
+      'start_price_per_qtl',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      session_id: {
+        bsonType: 'objectId'
+      },
+      lot_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{3,40}$'
+      },
+      commodity_id: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      product_id: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      commodity_name_en: {
+        bsonType: 'string'
+      },
+      product_name_en: {
+        bsonType: 'string'
+      },
+      grade_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      estimated_qty_kg: {
+        bsonType: 'double',
+        minimum: 0.01
+      },
+      start_price_per_qtl: {
+        bsonType: 'decimal'
+      },
+      reserve_price_per_qtl: {
+        bsonType: [
+          'decimal',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'QUEUED',
+          'LIVE',
+          'SOLD',
+          'UNSOLD',
+          'WITHDRAWN'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_otps
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'username',
+      'country',
+      'purpose',
+      'otp',
+      'is_used',
+      'attempts',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by',
+      'expires_on'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      username: {
+        bsonType: 'string',
+        pattern: '^[0-9]{8,15}$'
+      },
+      country: {
+        bsonType: 'string',
+        pattern: '^[A-Z]{2}$'
+      },
+      purpose: {
+        bsonType: 'string',
+        pattern: '^[A-Z_]{3,64}$'
+      },
+      otp: {
+        bsonType: 'string',
+        pattern: '^[0-9]{4,8}$'
+      },
+      is_used: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      attempts: {
+        bsonType: 'int',
+        minimum: 0
+      },
+      channel: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      },
+      expires_on: {
+        bsonType: 'date'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_gate_devices
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'device_code',
+      'device_type',
+      'capability_set',
+      'is_primary',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      device_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{3,40}$'
+      },
+      device_type: {
+        enum: [
+          'WEIGHBRIDGE_CONSOLE',
+          'QR_SCANNER',
+          'RFID_READER',
+          'GPS_TRACKER'
+        ]
+      },
+      capability_set: {
+        bsonType: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          enum: [
+            'QR',
+            'RFID',
+            'GPS',
+            'PRINTER',
+            'DISPLAY',
+            'API'
+          ]
+        }
+      },
+      is_primary: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: gate_movements_log
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'token_id',
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'step',
+      'ts',
+      'actor',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      token_id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      step: {
+        enum: [
+          'SCAN',
+          'VERIFY',
+          'ENTRY',
+          'YARD_IN',
+          'WB_IN',
+          'WB_OUT',
+          'EXIT',
+          'CANCEL'
+        ]
+      },
+      ts: {
+        bsonType: 'date'
+      },
+      details: {
+        bsonType: [
+          'object',
+          'null'
+        ]
+      },
+      actor: {
+        bsonType: 'string'
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_rounds_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'org_id',
+      'round_code',
+      'name_i18n',
+      'display_order',
+      'is_final',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      round_code: {
+        enum: [
+          'PREVIEW',
+          'ROUND1',
+          'ROUND2',
+          'FINAL'
+        ]
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      display_order: {
+        bsonType: 'int',
+        minimum: 0
+      },
+      duration_minutes: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      is_final: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_units_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'unit_code',
+      'dimension',
+      'base_unit',
+      'factor_to_base',
+      'decimals',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      unit_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_.-]{1,32}$'
+      },
+      unit_name_i18n: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          },
+          bn: {
+            bsonType: 'string'
+          },
+          ta: {
+            bsonType: 'string'
+          },
+          te: {
+            bsonType: 'string'
+          },
+          mr: {
+            bsonType: 'string'
+          },
+          kn: {
+            bsonType: 'string'
+          },
+          ml: {
+            bsonType: 'string'
+          },
+          pa: {
+            bsonType: 'string'
+          },
+          gu: {
+            bsonType: 'string'
+          },
+          or: {
+            bsonType: 'string'
+          }
+        }
+      },
+      aliases: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'string'
+        }
+      },
+      dimension: {
+        enum: [
+          'MASS',
+          'VOLUME',
+          'COUNT',
+          'AREA',
+          'LENGTH'
+        ]
+      },
+      base_unit: {
+        bsonType: 'string'
+      },
+      factor_to_base: {
+        bsonType: [
+          'double',
+          'int',
+          'decimal'
+        ],
+        description: '1 <unit_code> == factor_to_base * <base_unit>'
+      },
+      decimals: {
+        bsonType: 'int',
+        minimum: 0,
+        maximum: 9
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_screens_ref
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'screen_code',
+      'module_slug',
+      'category',
+      'display_name_i18n',
+      'icon_key',
+      'allowed_roles',
+      'status',
+      'created_on'
+    ],
+    properties: {
+      screen_code: {
+        bsonType: 'string',
+        description: 'Internal unique code for the screen',
+        pattern: '^[A-Z0-9_]+$'
+      },
+      module_slug: {
+        bsonType: 'string',
+        description: 'Slug-style key',
+        pattern: '^[a-z0-9_-]+$'
+      },
+      category: {
+        bsonType: 'string',
+        description: 'Grouping, e.g. FARMER_DASHBOARD, TRADER_DASHBOARD'
+      },
+      display_name_i18n: {
+        bsonType: 'object',
+        description: 'Map: lang_code -> title',
+        minProperties: 1,
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      subtitle_i18n: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        description: 'Optional subtitles per language',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      icon_key: {
+        bsonType: 'string',
+        description: 'Android/Web icon reference'
+      },
+      android_action_code: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        description: 'Code used in app switch-case to open Activity'
+      },
+      web_route: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      tv_mode_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      allowed_roles: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'string',
+          enum: [
+            'FARMER',
+            'TRADER',
+            'AGENT',
+            'ADMIN',
+            'GATE',
+            'WEIGHBRIDGE'
+          ]
+        }
+      },
+      status: {
+        bsonType: 'string',
+        enum: [
+          'ACTIVE',
+          'INACTIVE'
+        ]
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_farmer_soil_profiles
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'username',
+      'country',
+      'locations',
+      'created_on'
+    ],
+    properties: {
+      username: {
+        bsonType: 'string'
+      },
+      country: {
+        bsonType: 'string'
+      },
+      locations: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'object',
+          required: [
+            'location_id',
+            'lat',
+            'lon',
+            'state_code',
+            'last_checked_on'
+          ],
+          properties: {
+            location_id: {
+              bsonType: 'string'
+            },
+            lat: {
+              bsonType: 'double'
+            },
+            lon: {
+              bsonType: 'double'
+            },
+            village: {
+              bsonType: [
+                'string',
+                'null'
+              ]
+            },
+            district: {
+              bsonType: [
+                'string',
+                'null'
+              ]
+            },
+            state_code: {
+              bsonType: 'string'
+            },
+            soil_type: {
+              bsonType: [
+                'string',
+                'null'
+              ]
+            },
+            organic_carbon: {
+              bsonType: [
+                'double',
+                'null'
+              ]
+            },
+            ph: {
+              bsonType: [
+                'double',
+                'null'
+              ]
+            },
+            recommended_crops: {
+              bsonType: 'array',
+              items: {
+                bsonType: 'object',
+                required: [
+                  'crop_slug',
+                  'priority'
+                ],
+                properties: {
+                  crop_slug: {
+                    bsonType: 'string'
+                  },
+                  display_name_i18n: {
+                    bsonType: [
+                      'object',
+                      'null'
+                    ],
+                    additionalProperties: {
+                      bsonType: 'string'
+                    }
+                  },
+                  priority: {
+                    bsonType: 'int',
+                    minimum: 1
+                  }
+                }
+              }
+            },
+            source: {
+              bsonType: 'string'
+            },
+            last_checked_on: {
+              bsonType: 'date'
+            }
+          }
+        }
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: gate_entry_reasons_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'reason_code',
+      'name_i18n',
+      'category',
+      'requires_documents',
+      'version',
+      'created_on',
+      'updated_on'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      reason_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_.-]{1,48}$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          },
+          bn: {
+            bsonType: 'string'
+          },
+          ta: {
+            bsonType: 'string'
+          },
+          te: {
+            bsonType: 'string'
+          },
+          mr: {
+            bsonType: 'string'
+          },
+          kn: {
+            bsonType: 'string'
+          },
+          ml: {
+            bsonType: 'string'
+          },
+          pa: {
+            bsonType: 'string'
+          },
+          gu: {
+            bsonType: 'string'
+          },
+          or: {
+            bsonType: 'string'
+          }
+        }
+      },
+      aliases: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'string'
+        }
+      },
+      category: {
+        enum: [
+          'FARMER',
+          'TRADER',
+          'TRANSPORT',
+          'SERVICE',
+          'ADMIN',
+          'OTHER'
+        ]
+      },
+      requires_documents: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'string'
+        }
+      },
+      needs_vehicle_check: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      needs_weight_check: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_commodities_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'commodity_id',
+      'name_i18n',
+      'is_active'
+    ],
+    additionalProperties: true,
+    oneOf: [
+      {
+        required: [
+          'commodity_slug'
+        ]
+      },
+      {
+        required: [
+          'slug'
+        ]
+      }
+    ],
+    properties: {
+      commodity_id: {
+        bsonType: 'int'
+      },
+      slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      commodity_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en'
+        ],
+        additionalProperties: true,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          bn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ta: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          te: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          mr: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          kn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ml: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          pa: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          gu: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          or: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          as: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        }
+      },
+      is_active: {
+        bsonType: 'bool'
+      },
+      active: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'Y',
+          'N',
+          null
+        ]
+      },
+      country: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      commodity_group: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      season_months_csv: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      source: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      remarks: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      created_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_dashboard_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'role',
+      'layout_code',
+      'sections',
+      'status',
+      'created_on'
+    ],
+    properties: {
+      role: {
+        bsonType: 'string',
+        enum: [
+          'FARMER',
+          'TRADER',
+          'AGENT',
+          'ADMIN',
+          'GATE',
+          'WEIGHBRIDGE'
+        ]
+      },
+      layout_code: {
+        bsonType: 'string',
+        description: 'Versioned layout name'
+      },
+      state_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      mandi_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      sections: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'object',
+          required: [
+            'section_code',
+            'section_type',
+            'order'
+          ],
+          properties: {
+            section_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]+$'
+            },
+            section_type: {
+              bsonType: 'string',
+              enum: [
+                'HEADER',
+                'LIVE_BIDS_SUMMARY',
+                'LIVE_PRICE_TICKER',
+                'SUMMARY',
+                'WEATHER',
+                'ARRIVAL_DEMAND',
+                'SOIL_RECOMMENDATION',
+                'GRID_CARDS',
+                'LIST'
+              ]
+            },
+            order: {
+              bsonType: 'int',
+              minimum: 1
+            },
+            title_i18n: {
+              bsonType: [
+                'object',
+                'null'
+              ],
+              additionalProperties: {
+                bsonType: 'string'
+              }
+            },
+            config: {
+              bsonType: [
+                'object',
+                'null'
+              ]
+            },
+            cards: {
+              bsonType: 'array',
+              items: {
+                bsonType: 'object',
+                required: [
+                  'screen_code',
+                  'order'
+                ],
+                properties: {
+                  screen_code: {
+                    bsonType: 'string'
+                  },
+                  order: {
+                    bsonType: 'int',
+                    minimum: 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      status: {
+        bsonType: 'string',
+        enum: [
+          'ACTIVE',
+          'INACTIVE'
+        ]
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_ui_resources
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'resource_key',
+      'screen',
+      'element',
+      'action_code',
+      'ui_type',
+      'is_active'
+    ],
+    additionalProperties: true,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      resource_key: {
+        bsonType: 'string',
+        description: "Unique logical key like 'organisations.create'",
+        pattern: '^[a-z0-9_.-]+$'
+      },
+      screen: {
+        bsonType: 'string',
+        description: 'Screen/group name in any base language (e.g. English)'
+      },
+      element: {
+        bsonType: 'string',
+        description: 'Element name on the screen in base language'
+      },
+      action_code: {
+        bsonType: 'string',
+        description: 'Action code in UPPER_SNAKE_CASE',
+        pattern: '^[A-Z0-9_]+$'
+      },
+      ui_type: {
+        bsonType: 'string',
+        enum: [
+          'menu',
+          'button',
+          'dialog',
+          'table',
+          'widget',
+          'tab'
+        ],
+        description: 'UI element type'
+      },
+      route: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        description: 'Route for navigation items (starts with /)',
+        pattern: '^/.*'
+      },
+      parent_resource_key: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        description: 'Parent resource key for nesting'
+      },
+      order: {
+        bsonType: [
+          'int',
+          'long',
+          'double'
+        ],
+        description: 'Sort order on screen'
+      },
+      icon_key: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        description: 'Frontend icon identifier'
+      },
+      is_active: {
+        bsonType: 'bool',
+        description: 'Soft-enable/disable this resource'
+      },
+      label_i18n: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        description: 'Per-language labels for this element',
+        additionalProperties: {
+          bsonType: 'string'
+        },
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          },
+          bn: {
+            bsonType: 'string'
+          },
+          te: {
+            bsonType: 'string'
+          },
+          ta: {
+            bsonType: 'string'
+          },
+          kn: {
+            bsonType: 'string'
+          },
+          ml: {
+            bsonType: 'string'
+          },
+          mr: {
+            bsonType: 'string'
+          },
+          gu: {
+            bsonType: 'string'
+          },
+          pa: {
+            bsonType: 'string'
+          },
+          or: {
+            bsonType: 'string'
+          },
+          as: {
+            bsonType: 'string'
+          }
+        }
+      },
+      description_i18n: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        description: 'Optional per-language help/tooltip text',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      i18n_label_key: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        description: 'Translation key (if using external i18n files)'
+      },
+      metadata: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        description: 'Extra configurable fields; structure is flexible'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_subdistricts
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'subdistrict_id',
+      'district_id',
+      'state_id',
+      'slug',
+      'name_i18n',
+      'status',
+      'created_on'
+    ],
+    properties: {
+      subdistrict_id: {
+        bsonType: 'int'
+      },
+      district_id: {
+        bsonType: 'int'
+      },
+      state_id: {
+        bsonType: 'int'
+      },
+      code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      slug: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9-]+$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en',
+          'hi'
+        ],
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          }
+        },
+        additionalProperties: true
+      },
+      status: {
+        enum: [
+          'ACTIVE',
+          'INACTIVE',
+          'ARCHIVED'
+        ]
+      },
+      deleted: {
+        bsonType: 'object',
+        properties: {
+          flag: {
+            enum: [
+              'Y',
+              'N'
+            ]
+          },
+          at: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          by: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        },
+        additionalProperties: false
+      },
+      created_on: {
+        bsonType: 'string'
+      },
+      updated_on: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      }
+    },
+    additionalProperties: true
+  }
+}
+========================================
+COLLECTION: gate_entry_tokens
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'token_code',
+      'reason_code',
+      'vehicle_type_code',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      token_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{6,40}$'
+      },
+      reason_code: {
+        bsonType: 'string'
+      },
+      vehicle_type_code: {
+        bsonType: 'string'
+      },
+      vehicle_no: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      party_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      extra_data: {
+        bsonType: [
+          'object',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'CREATED',
+          'SCANNED',
+          'VERIFIED',
+          'IN_YARD',
+          'WEIGH_IN',
+          'WEIGH_OUT',
+          'EXITED',
+          'CANCELLED'
+        ]
+      },
+      status_note: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      }
+    }
+  }
+}
+========================================
+COLLECTION: payments
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'payment_code',
+      'settlement_id',
+      'amount',
+      'method',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      payment_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{6,48}$'
+      },
+      settlement_id: {
+        bsonType: 'objectId'
+      },
+      amount: {
+        bsonType: 'decimal'
+      },
+      currency: {
+        bsonType: 'string',
+        minLength: 3,
+        maxLength: 3
+      },
+      method: {
+        enum: [
+          'UPI',
+          'BANK_TRANSFER',
+          'CASH',
+          'OTHER'
+        ]
+      },
+      upi_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      bank_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'PENDING',
+          'SUCCESS',
+          'FAILED',
+          'REFUNDED'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: weighment_tickets
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'device_code',
+      'token_id',
+      'ticket_code',
+      'gross_weight_kg',
+      'tare_weight_kg',
+      'net_weight_kg',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string'
+      },
+      device_code: {
+        bsonType: 'string'
+      },
+      token_id: {
+        bsonType: 'objectId'
+      },
+      ticket_code: {
+        bsonType: 'string'
+      },
+      gross_weight_kg: {
+        bsonType: [
+          'double',
+          'decimal'
+        ],
+        minimum: 0
+      },
+      tare_weight_kg: {
+        bsonType: [
+          'double',
+          'decimal'
+        ],
+        minimum: 0
+      },
+      net_weight_kg: {
+        bsonType: [
+          'double',
+          'decimal'
+        ],
+        minimum: 0
+      },
+      remarks: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'DRAFT',
+          'FINAL',
+          'CANCELLED'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: gate_pass_tokens
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'token_code',
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'reason_code',
+      'device_code',
+      'token_type',
+      'format',
+      'payload_hash',
+      'issued_at',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      token_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9:_-]{10,64}$'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      reason_code: {
+        bsonType: 'string'
+      },
+      device_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{3,40}$'
+      },
+      token_type: {
+        enum: [
+          'ENTRY',
+          'EXIT',
+          'WB_TICKET'
+        ]
+      },
+      format: {
+        bsonType: 'string'
+      },
+      payload_hash: {
+        bsonType: 'string'
+      },
+      issued_at: {
+        bsonType: 'date'
+      },
+      expires_at: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'ACTIVE',
+          'USED',
+          'EXPIRED',
+          'VOID'
+        ]
+      },
+      meta: {
+        bsonType: [
+          'object',
+          'null'
+        ],
+        additionalProperties: true
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_bids
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'session_id',
+      'lot_id',
+      'bid_amount_per_qtl',
+      'bidder_code',
+      'round_code',
+      'ts',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      session_id: {
+        bsonType: 'objectId'
+      },
+      lot_id: {
+        bsonType: 'objectId'
+      },
+      bidder_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{3,40}$'
+      },
+      round_code: {
+        enum: [
+          'PREVIEW',
+          'ROUND1',
+          'ROUND2',
+          'FINAL'
+        ]
+      },
+      bid_amount_per_qtl: {
+        bsonType: 'decimal'
+      },
+      ts: {
+        bsonType: 'date'
+      },
+      is_valid: {
+        enum: [
+          'Y',
+          'N'
+        ],
+        description: 'reject illegal/late bids'
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_roles_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'role_scope',
+      'role_code',
+      'name_i18n',
+      'permissions',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      role_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      role_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      permissions: {
+        bsonType: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: {
+          bsonType: 'string',
+          pattern: '^[A-Z0-9_*]{1,64}$'
+        }
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_setup_snapshots
+VALIDATOR: <none>
+========================================
+COLLECTION: cm_commodity_products_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'product_id',
+      'commodity_id',
+      'name_i18n',
+      'is_active'
+    ],
+    additionalProperties: true,
+    oneOf: [
+      {
+        required: [
+          'product_slug'
+        ]
+      },
+      {
+        required: [
+          'slug'
+        ]
+      }
+    ],
+    properties: {
+      product_id: {
+        bsonType: 'int'
+      },
+      commodity_id: {
+        bsonType: 'int'
+      },
+      slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      product_slug: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en'
+        ],
+        additionalProperties: true,
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          bn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ta: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          te: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          mr: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          kn: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          ml: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          pa: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          gu: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          or: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          as: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        }
+      },
+      unit: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      aliases: {
+        bsonType: [
+          'array',
+          'null'
+        ],
+        items: {
+          bsonType: 'string'
+        }
+      },
+      is_active: {
+        bsonType: 'bool'
+      },
+      active: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'Y',
+          'N',
+          null
+        ]
+      },
+      country: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      source: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      remarks: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      created_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      },
+      updated_on: {
+        bsonType: [
+          'date',
+          'string',
+          'null'
+        ]
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_admin_users
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'username',
+      'password_hash',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      username: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9._-]{3,64}$'
+      },
+      email: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      mobile: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      password_hash: {
+        bsonType: 'string'
+      },
+      display_name: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      last_login_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: auction_results
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'session_id',
+      'lot_id',
+      'final_round_code',
+      'final_price_per_qtl',
+      'winner_code',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      session_id: {
+        bsonType: 'objectId'
+      },
+      lot_id: {
+        bsonType: 'objectId'
+      },
+      winner_code: {
+        bsonType: 'string'
+      },
+      final_round_code: {
+        enum: [
+          'ROUND1',
+          'ROUND2',
+          'FINAL'
+        ]
+      },
+      final_price_per_qtl: {
+        bsonType: 'decimal'
+      },
+      status: {
+        enum: [
+          'CONFIRMED',
+          'CANCELLED'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_permissions_masters
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'perm_code',
+      'name_i18n',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      perm_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_user_roles
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'user_id',
+      'role_scope',
+      'role_code',
+      'org_id',
+      'effective_from',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      user_id: {
+        bsonType: 'objectId'
+      },
+      role_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      role_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      effective_from: {
+        bsonType: 'date'
+      },
+      effective_to: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_districts
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'district_id',
+      'state_id',
+      'slug',
+      'name_i18n',
+      'status',
+      'created_on'
+    ],
+    properties: {
+      district_id: {
+        bsonType: 'int'
+      },
+      state_id: {
+        bsonType: 'int'
+      },
+      code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      slug: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9-]+$'
+      },
+      name_i18n: {
+        bsonType: 'object',
+        required: [
+          'en',
+          'hi'
+        ],
+        properties: {
+          en: {
+            bsonType: 'string'
+          },
+          hi: {
+            bsonType: 'string'
+          }
+        },
+        additionalProperties: true
+      },
+      status: {
+        enum: [
+          'ACTIVE',
+          'INACTIVE',
+          'ARCHIVED'
+        ]
+      },
+      deleted: {
+        bsonType: 'object',
+        properties: {
+          flag: {
+            enum: [
+              'Y',
+              'N'
+            ]
+          },
+          at: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          },
+          by: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        },
+        additionalProperties: false
+      },
+      created_on: {
+        bsonType: 'string'
+      },
+      updated_on: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      }
+    },
+    additionalProperties: true
+  }
+}
+========================================
+COLLECTION: settlement_lines
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'settlement_id',
+      'org_id',
+      'mandi_id',
+      'line_no',
+      'line_type',
+      'amount',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      settlement_id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      line_no: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      line_type: {
+        enum: [
+          'LOT',
+          'WEIGHMENT',
+          'FEE',
+          'OTHER'
+        ]
+      },
+      lot_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      ticket_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      amount: {
+        bsonType: 'decimal'
+      },
+      narration: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_users
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'username',
+      'password_hash',
+      'country',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: true,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      username: {
+        bsonType: 'string',
+        pattern: '^[0-9]{8,15}$'
+      },
+      mobile: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[0-9]{8,15}$'
+      },
+      country: {
+        bsonType: 'string',
+        pattern: '^[A-Z]{2}$'
+      },
+      password_hash: {
+        bsonType: 'string'
+      },
+      display_name: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      email: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      default_role_code: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      org_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      mandi_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_auction_policies
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'method_code',
+      'rounds',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      method_code: {
+        enum: [
+          'OPEN_OUTCRY',
+          'E_AUCTION'
+        ]
+      },
+      rounds: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'object',
+          required: [
+            'round_code',
+            'display_order'
+          ],
+          additionalProperties: false,
+          properties: {
+            round_code: {
+              enum: [
+                'PREVIEW',
+                'ROUND1',
+                'ROUND2',
+                'FINAL'
+              ]
+            },
+            duration_minutes: {
+              bsonType: [
+                'int',
+                'null'
+              ],
+              minimum: 1
+            },
+            display_order: {
+              bsonType: 'int',
+              minimum: 0
+            }
+          }
+        }
+      },
+      day_windows: {
+        bsonType: [
+          'array',
+          'null'
+        ],
+        items: {
+          bsonType: 'object',
+          required: [
+            'day',
+            'start_time',
+            'end_time'
+          ],
+          additionalProperties: false,
+          properties: {
+            day: {
+              enum: [
+                'MON',
+                'TUE',
+                'WED',
+                'THU',
+                'FRI',
+                'SAT',
+                'SUN'
+              ]
+            },
+            start_time: {
+              bsonType: 'string',
+              pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+            },
+            end_time: {
+              bsonType: 'string',
+              pattern: '^([01]\\d|2[0-3]):[0-5]\\d$'
+            }
+          }
+        }
+      },
+      notes: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: gate_device_configs
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'gate_code',
+      'device_code',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      gate_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{2,32}$'
+      },
+      device_code: {
+        bsonType: 'string',
+        pattern: '^[a-z0-9_-]{3,40}$'
+      },
+      qr_format: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      qr_payload_template: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      rfid_protocol: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      rfid_freq_mhz: {
+        bsonType: [
+          'double',
+          'null'
+        ]
+      },
+      rfid_power_dbm: {
+        bsonType: [
+          'int',
+          'null'
+        ]
+      },
+      gps_poll_secs: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      gps_min_accuracy_m: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      printer_make: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      printer_model: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      display_cols: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      display_rows: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      api_endpoints: {
+        bsonType: [
+          'array',
+          'null'
+        ],
+        items: {
+          bsonType: 'string'
+        },
+        uniqueItems: true
+      },
+      notes: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}

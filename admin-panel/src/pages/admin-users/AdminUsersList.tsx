@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   MenuItem,
   Snackbar,
   Stack,
@@ -22,8 +21,8 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import Checkbox from "@mui/material/Checkbox";
 import ListItemText from "@mui/material/ListItemText";
+import Checkbox from "@mui/material/Checkbox";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   type GridColDef,
@@ -31,16 +30,24 @@ import {
 } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import LockResetIcon from "@mui/icons-material/LockReset";
-import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
-import axios from "axios";
 import { useTranslation } from "react-i18next";
-import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
+
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import {
+  createAdminUser,
+  updateAdminUser,
+  deactivateAdminUser,
+  resetAdminUserPassword,
+  fetchAdminUsers,
+  fetchAdminRoles,
+  fetchOrganisations,
+  fetchOrgMandis,
+} from "../../services/adminUsersApi";
 
 const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "ORG_VIEWER",
@@ -49,35 +56,27 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "AUCTIONEER",
   "GATE_OPERATOR",
   "WEIGHBRIDGE_OPERATOR",
+  "AUDITOR",
   "VIEWER",
 ]);
 
-type RoleSlug = "SUPER_ADMIN" | "ORG_ADMIN" | "MANDI_ADMIN" | "AUDITOR" | "ADMIN";
-
-type AdminUser = {
+export type AdminUser = {
   username: string;
-  full_name: string | null;
+  display_name: string | null;
   email: string | null;
   mobile: string | null;
-  org_id: string | null;
+  role_slug: string;
   org_code: string | null;
-  orgCode?: string | null; // occasionally returned in camelCase
-  org_name: string | null;
-  roles: string[];
-  is_active: string;
+  mandi_codes?: string[];
+  is_active: "Y" | "N";
   last_login_on?: string | null;
   created_on?: string | null;
-  updated_on?: string | null;
 };
 
-type RoleOption = {
-  role_code: string;
-  role_name?: string;
-  scope?: string;
-  role_scope?: string;
-};
+type OrgOption = { _id?: string; org_code: string; org_name?: string | null };
+type MandiOption = { mandi_id: number; mandi_name?: string | null; mandi_slug?: string | null };
 
-type OrgOption = { _id: string; org_code: string; org_name: string };
+type ToastState = { open: boolean; message: string; severity: "success" | "error" | "info" };
 
 function currentUsername(): string | null {
   try {
@@ -87,18 +86,6 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
-}
-
-function buildHeaders() {
-  const token = localStorage.getItem("cd_token");
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
-
-async function buildBody(items: any) {
-  const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
-  return { encryptedData };
 }
 
 const AdminUsersList: React.FC = () => {
@@ -112,113 +99,144 @@ const AdminUsersList: React.FC = () => {
   const role = scope.role;
   const isSuper = isSuperAdmin(role);
   const orgAdmin = isOrgAdmin(role);
-  const canCreateUser = React.useMemo(
-    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.create", "CREATE") : isSuper),
-    [uiConfig.resources, isSuper],
-  );
-  const canUpdateUserAction = React.useMemo(
-    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.edit", "UPDATE") : isSuper || orgAdmin),
+
+  const canCreateUser = useMemo(
+    () =>
+      uiConfig.resources.length
+        ? can(uiConfig.resources, "admin_users.create", "CREATE")
+        : isSuper || orgAdmin,
     [uiConfig.resources, isSuper, orgAdmin],
   );
-  const canDeactivateUserAction = React.useMemo(
-    () => (uiConfig.resources.length ? can(uiConfig.resources, "adminUsers.deactivate", "DEACTIVATE") : isSuper),
+  const canUpdateUserAction = useMemo(
+    () =>
+      uiConfig.resources.length
+        ? can(uiConfig.resources, "admin_users.edit", "UPDATE")
+        : isSuper || orgAdmin,
+    [uiConfig.resources, isSuper, orgAdmin],
+  );
+  const canDeactivateUserAction = useMemo(
+    () =>
+      uiConfig.resources.length
+        ? can(uiConfig.resources, "admin_users.deactivate", "DEACTIVATE")
+        : isSuper,
     [uiConfig.resources, isSuper],
   );
-  const isReadOnly = React.useMemo(
+  const canResetPasswordAction = useMemo(
+    () =>
+      uiConfig.resources.length
+        ? can(uiConfig.resources, "admin_users.reset_password", "RESET_PASSWORD")
+        : isSuper || orgAdmin,
+    [uiConfig.resources, isSuper, orgAdmin],
+  );
+  const isReadOnly = useMemo(
     () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(role)),
     [uiConfig.resources, canUpdateUserAction, role],
   );
-  const [rows, setRows] = React.useState<AdminUser[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [toast, setToast] = React.useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
-    open: false,
-    message: "",
-    severity: "info",
+
+  const [rows, setRows] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState>({ open: false, message: "", severity: "info" });
+
+  const [filters, setFilters] = useState({
+    org_code: scopeOrgCode || "",
+    role_slug: "",
+    status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE",
   });
 
-  const [filters, setFilters] = React.useState({
-    search: "",
-    org_id: "",
-    role_code: "",
-    is_active: "ALL" as "ALL" | "Y" | "N",
-  });
+  const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
 
-  const [orgOptions, setOrgOptions] = React.useState<OrgOption[]>([]);
-  const [roleOptions, setRoleOptions] = React.useState<RoleOption[]>([]);
-  const [roleSelectOpen, setRoleSelectOpen] = React.useState(false);
-
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [isEditMode, setIsEditMode] = React.useState(false);
-  const [editingUser, setEditingUser] = React.useState<AdminUser | null>(null);
-  const [form, setForm] = React.useState({
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [form, setForm] = useState({
     username: "",
-    full_name: "",
+    password: "",
+    display_name: "",
     email: "",
     mobile: "",
-    org_id: "",
-    roles: [] as string[],
+    org_code: scopeOrgCode || "",
+    role_slug: "",
+    mandi_codes: [] as string[],
     is_active: true,
-    password: "",
   });
 
-  const [resetDialog, setResetDialog] = React.useState<{ open: boolean; username: string; temp?: string | null }>({
-    open: false,
-    username: "",
-    temp: null,
-  });
+  const handleToast = (message: string, severity: ToastState["severity"]) =>
+    setToast({ open: true, message, severity });
 
-  const headers = React.useMemo(() => buildHeaders(), []);
-
-  const loadRoles = React.useCallback(async () => {
+  const loadRoles = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     try {
-      const body = await buildBody({ api: API_TAGS.ADMIN_USERS.listRoles, username, language });
-      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.getAdminRoles}`, body, { headers });
-      const resp = data?.response || {};
+      const res = await fetchAdminRoles({ username, language });
+      const resp = res?.response || {};
       if (String(resp.responsecode) !== "0") return;
-      const dedup = new Map<string, RoleOption>();
-      (resp?.data?.roles || []).forEach((r: any) => {
-        const raw = String(r.role_code || "").trim().toUpperCase();
-        const normalized = raw === "SUPER_ADMIN" ? "SUPERADMIN" : raw;
-        if (!dedup.has(normalized)) {
-          dedup.set(normalized, { role_code: normalized, role_name: r.role_name, scope: r.role_scope || r.scope });
-        }
-      });
-      let options = Array.from(dedup.values());
+      let roles: string[] = (res?.data?.roles || []).map((r: any) => r.role_slug).filter(Boolean);
+      roles = Array.from(new Set(roles));
       if (orgAdmin && !isSuper) {
-        options = options.filter((opt) => ORG_ADMIN_ALLOWED_ROLES.has(opt.role_code));
+        roles = roles.filter((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
       }
-      setRoleOptions(options);
-    } catch {
-      /* ignore */
+      setRoleOptions(roles);
+    } catch (e) {
+      console.error("[admin_users] loadRoles", e);
     }
-  }, [headers, language, isSuper, orgAdmin]);
+  }, [language, orgAdmin, isSuper]);
 
-  const loadOrgs = React.useCallback(async () => {
+  const loadOrgs = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     try {
-      const body = await buildBody({ api: API_TAGS.ADMIN_USERS.listOrgs, username, language });
-      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.getOrganisations}`, body, { headers });
-      const resp = data?.response || {};
+      const res = await fetchOrganisations({ username, language });
+      const resp = res?.response || {};
       if (String(resp.responsecode) !== "0") return;
-      let orgs: OrgOption[] = (resp?.data?.organisations || []).map((o: any) => ({
+      let orgs: OrgOption[] = (res?.data?.organisations || []).map((o: any) => ({
         _id: o._id,
         org_code: o.org_code,
         org_name: o.org_name,
       }));
-      if (!isSuper && scopeOrgCode) {
-        orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
-      }
+      if (!isSuper && scopeOrgCode) orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
       setOrgOptions(orgs);
-    } catch {
-      /* ignore */
+    } catch (e) {
+      console.error("[admin_users] loadOrgs", e);
     }
-  }, [headers, language, isSuper, scopeOrgCode]);
+  }, [language, isSuper, scopeOrgCode]);
 
-  const loadUsers = React.useCallback(async () => {
+  const loadMandis = useCallback(
+    async (org_code?: string | null) => {
+      const username = currentUsername();
+      if (!username || !org_code) {
+        setMandiOptions([]);
+        return;
+      }
+      const targetOrg = orgOptions.find((o) => o.org_code === org_code);
+      if (!targetOrg?._id) {
+        setMandiOptions([]);
+        return;
+      }
+      try {
+        const res = await fetchOrgMandis({ username, org_id: targetOrg._id, language });
+        const resp = res?.response || {};
+        if (String(resp.responsecode) !== "0") {
+          setMandiOptions([]);
+          return;
+        }
+        const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({
+          mandi_id: Number(m.mandi_id),
+          mandi_name: m.mandi_name,
+          mandi_slug: m.mandi_slug,
+        }));
+        setMandiOptions(mandis);
+      } catch (e) {
+        console.error("[admin_users] loadMandis", e);
+        setMandiOptions([]);
+      }
+    },
+    [language, orgOptions],
+  );
+
+  const loadUsers = useCallback(async () => {
     const username = currentUsername();
     if (!username) {
       const sessionMessage = t("adminUsers.messages.validation_missing_user");
@@ -228,67 +246,62 @@ const AdminUsersList: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const payload: any = {
-        api: API_TAGS.ADMIN_USERS.list,
-        username,
-        language,
-        search: filters.search,
-      };
-      if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
-      if (filters.org_id) payload.org_id = filters.org_id;
-      if (filters.role_code) payload.role_code = filters.role_code;
-      if (filters.is_active === "Y" || filters.is_active === "N") payload.is_active = filters.is_active;
-      const body = await buildBody(payload);
-      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.getAdminUsers}`, body, { headers });
-      const resp = data?.response || {};
-      const code = String(resp.responsecode ?? "");
-      if (code !== "0") {
+      const filtersPayload: any = {};
+      const orgCodeFilter = filters.org_code || scopeOrgCode || "";
+      if (orgCodeFilter) filtersPayload.org_code = orgCodeFilter;
+      if (filters.role_slug) filtersPayload.role_slug = filters.role_slug;
+      if (filters.status === "ACTIVE") filtersPayload.status = "ACTIVE";
+      if (filters.status === "INACTIVE") filtersPayload.status = "INACTIVE";
+
+      const res = await fetchAdminUsers({ username, language, filters: filtersPayload });
+      const resp = res?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
         const msg = resp.description || t("adminUsers.messages.loadFailed");
         setError(msg);
-        setToast({ open: true, message: msg, severity: "error" });
+        handleToast(msg, "error");
         return;
       }
-      // Debug: inspect raw payload from API for is_active/org mapping
-      if (typeof window !== "undefined") {
-        // eslint-disable-next-line no-console
-        console.log("[admin_users_load] users raw", resp?.data?.users);
-      }
-      let normalized: AdminUser[] = (resp?.data?.users || []).map((u: any) => ({
-        ...u,
-        is_active: String(u?.is_active || "Y").trim().toUpperCase(),
+
+      const normalized: AdminUser[] = (res?.data?.items || []).map((u: any) => ({
+        username: u.username,
+        display_name: u.display_name ?? null,
+        email: u.email ?? null,
+        mobile: u.mobile ?? null,
+        role_slug: u.role_slug,
+        org_code: u.org_code ?? null,
+        mandi_codes: u.mandi_codes || [],
+        is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
+        last_login_on: u.last_login_on || null,
+        created_on: u.created_on || null,
       }));
-      if (!isSuper && scopeOrgCode) {
-        normalized = normalized.filter(
-          (u: AdminUser) => u.org_code === scopeOrgCode || u.orgCode === scopeOrgCode,
-        );
-      }
+
       setRows(normalized);
     } catch (e: any) {
       const msg = e?.message || t("adminUsers.messages.networkLoad");
       setError(msg);
-      setToast({ open: true, message: msg, severity: "error" });
+      handleToast(msg, "error");
     } finally {
       setLoading(false);
     }
-  }, [filters.is_active, filters.org_id, filters.role_code, filters.search, headers, language, t, isSuper, scopeOrgCode]);
+  }, [filters.org_code, filters.role_slug, filters.status, language, scopeOrgCode, t]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadRoles();
     loadOrgs();
   }, [loadRoles, loadOrgs]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
-  const canManageUser = React.useCallback(
+  const canManageUser = useCallback(
     (user?: AdminUser | null) => {
       if (!canUpdateUserAction) return false;
       if (isSuper) return true;
       if (orgAdmin && scopeOrgCode) {
         if (!user) return true;
-        const userOrg = (user as any).org_code || (user as any).orgCode || "";
-        const allowedRolesOnly = (user.roles || []).every((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
+        const userOrg = user.org_code || "";
+        const allowedRolesOnly = ORG_ADMIN_ALLOWED_ROLES.has(user.role_slug);
         return userOrg === scopeOrgCode && allowedRolesOnly;
       }
       return false;
@@ -296,48 +309,52 @@ const AdminUsersList: React.FC = () => {
     [canUpdateUserAction, isSuper, orgAdmin, scopeOrgCode],
   );
 
-  const handleOpenCreate = () => {
-    if (!canCreateUser) {
-      setToast({ open: true, message: "You are not authorized to create users.", severity: "error" });
-      return;
-    }
-    const defaultOrgId =
-      (!isSuper && scopeOrgCode
-        ? (orgOptions.find((o) => o.org_code === scopeOrgCode)?._id || "")
-        : "");
-    setIsEditMode(false);
-    setEditingUser(null);
+  const resetForm = (orgCode?: string) => {
     setForm({
       username: "",
-      full_name: "",
+      password: "",
+      display_name: "",
       email: "",
       mobile: "",
-      org_id: defaultOrgId,
-      roles: [],
+      org_code: orgCode || "",
+      role_slug: roleOptions[0] || "",
+      mandi_codes: [],
       is_active: true,
-      password: "",
     });
+  };
+
+  const handleOpenCreate = () => {
+    if (!canCreateUser) {
+      handleToast("You are not authorized to create users.", "error");
+      return;
+    }
+    const enforcedOrg = !isSuper ? scopeOrgCode || "" : "";
+    resetForm(enforcedOrg);
+    if (enforcedOrg) loadMandis(enforcedOrg);
+    setIsEditMode(false);
+    setEditingUser(null);
     setDialogOpen(true);
   };
 
   const handleOpenEdit = (user: AdminUser) => {
     if (!canManageUser(user)) {
-      setToast({ open: true, message: "You are not authorized to edit this user.", severity: "error" });
+      handleToast("You are not authorized to edit this user.", "error");
       return;
     }
-    const orgId = (user as any).org_id || (user as any).orgId || "";
     setIsEditMode(true);
     setEditingUser(user);
     setForm({
       username: user.username,
-      full_name: user.full_name || "",
+      password: "",
+      display_name: user.display_name || "",
       email: user.email || "",
       mobile: user.mobile || "",
-      org_id: orgId,
-      roles: user.roles || [],
+      org_code: user.org_code || scopeOrgCode || "",
+      role_slug: user.role_slug,
+      mandi_codes: user.mandi_codes || [],
       is_active: user.is_active === "Y",
-      password: "",
     });
+    if (user.org_code) loadMandis(user.org_code);
     setDialogOpen(true);
   };
 
@@ -348,645 +365,471 @@ const AdminUsersList: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleRolesChange = (event: SelectChangeEvent<string[]>) => {
-    const {
-      target: { value },
-    } = event;
-    const roles = typeof value === "string" ? value.split(",") : (value as string[]);
-    // Enforce allowed roles for org admins
-    if (orgAdmin && !isSuper) {
-      const invalid = roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
-      if (invalid.length) {
-        setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
-        return;
-      }
+  const handleRolesChange = (event: SelectChangeEvent<string>) => {
+    const value = event.target.value as string;
+    if (orgAdmin && !isSuper && !ORG_ADMIN_ALLOWED_ROLES.has(value)) {
+      handleToast("You cannot assign that role.", "error");
+      return;
     }
-    setForm((prev) => ({
-      ...prev,
-      roles,
-      // if SUPERADMIN chosen, clear org
-      org_id: roles.includes("SUPERADMIN") ? "" : prev.org_id,
-    }));
-    setRoleSelectOpen(false);
+    setForm((prev) => ({ ...prev, role_slug: value }));
+  };
+
+  const handleOrgChange = async (value: string) => {
+    setForm((prev) => ({ ...prev, org_code: value, mandi_codes: [] }));
+    await loadMandis(value || null);
+  };
+
+  const handleMandiChange = (event: SelectChangeEvent<string[]>) => {
+    const { value } = event.target;
+    const mandis = typeof value === "string" ? value.split(",") : value;
+    setForm((prev) => ({ ...prev, mandi_codes: mandis }));
   };
 
   const handleSubmit = async () => {
     if (isReadOnly) {
       setDialogOpen(false);
-      setToast({ open: true, message: "You are not authorized to modify users.", severity: "error" });
+      handleToast("You are not authorized to modify users.", "error");
       return;
     }
     const username = currentUsername();
     if (!username) {
-      setToast({ open: true, message: t("adminUsers.messages.noSession"), severity: "error" });
+      handleToast(t("adminUsers.messages.noSession"), "error");
       return;
     }
-    if (!form.username.trim() && !isEditMode) {
-      setToast({ open: true, message: t("adminUsers.messages.usernameRequired"), severity: "error" });
-      return;
-    }
-    const sanitizedUsername = form.username.trim().toLowerCase().replace(/\s+/g, "_");
-    const usernamePattern = /^[a-z0-9._-]{3,64}$/;
-    if (!usernamePattern.test(sanitizedUsername) && !isEditMode) {
-      setToast({
-        open: true,
-        message: t("adminUsers.messages.usernameInvalid"),
-        severity: "error",
-      });
-      return;
-    }
-    if (!form.full_name.trim()) {
-      setToast({ open: true, message: t("adminUsers.messages.fullNameRequired"), severity: "error" });
+    if (!form.display_name.trim()) {
+      handleToast(t("adminUsers.messages.fullNameRequired"), "error");
       return;
     }
     if (!form.mobile.trim()) {
-      setToast({ open: true, message: t("adminUsers.messages.mobileRequired"), severity: "error" });
+      handleToast(t("adminUsers.messages.mobileRequired"), "error");
       return;
     }
     const mobilePattern = /^\d{8,15}$/;
     if (!mobilePattern.test(form.mobile.trim())) {
-      setToast({ open: true, message: t("adminUsers.messages.mobileInvalid"), severity: "error" });
+      handleToast(t("adminUsers.messages.mobileInvalid"), "error");
       return;
     }
-    if (!form.roles.length) {
-      setToast({ open: true, message: t("adminUsers.messages.rolesRequired"), severity: "error" });
+    if (!form.role_slug) {
+      handleToast(t("adminUsers.messages.rolesRequired"), "error");
       return;
     }
-    const selectedScopes = form.roles.map((code) => {
-      const r = roleOptions.find((opt) => opt.role_code === code);
-      return (r?.scope || r?.role_scope || "GLOBAL").toUpperCase();
-    });
-    const hasSuper = form.roles.includes("SUPERADMIN");
-    const needsOrg = selectedScopes.some((s) => s === "ORG");
-    if (hasSuper && form.org_id) {
-      setToast({ open: true, message: t("adminUsers.messages.superOrgConflict"), severity: "error" });
-      return;
+    if (!isSuper && orgAdmin && scopeOrgCode) {
+      if (form.org_code !== scopeOrgCode) {
+        handleToast("You cannot assign another organisation.", "error");
+        return;
+      }
     }
-    if (needsOrg && !hasSuper && !form.org_id) {
-      setToast({ open: true, message: t("adminUsers.messages.orgRequired"), severity: "error" });
-      return;
-    }
+
     try {
       setLoading(true);
       setError(null);
       if (isEditMode && editingUser) {
-        if (!canManageUser(editingUser)) {
-          setToast({ open: true, message: "You are not authorized to edit this user.", severity: "error" });
-          setLoading(false);
-          return;
-        }
-        const payload: any = {
-          api: API_TAGS.ADMIN_USERS.update,
-          username,
-          language,
+        const payload = {
           target_username: editingUser.username,
-          full_name: form.full_name,
+          display_name: form.display_name,
           email: form.email,
           mobile: form.mobile,
-          role_codes: form.roles,
+          role_slug: form.role_slug,
+          org_code: form.org_code || null,
+          mandi_codes: form.mandi_codes,
           is_active: form.is_active ? "Y" : "N",
         };
-        if (orgAdmin && !isSuper) {
-          const invalid = form.roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
-          if (invalid.length) {
-            setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
-            setLoading(false);
-            return;
-          }
-        }
-        if (form.org_id) payload.org_id = form.org_id;
-        if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
-        const body = await buildBody(payload);
-        const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.updateAdminUser}`, body, { headers });
-        const resp = data?.response || {};
+        const res = await updateAdminUser({ username, language, payload });
+        const resp = res?.response || {};
         const code = String(resp.responsecode ?? "");
         if (code !== "0") {
-          setToast({ open: true, message: resp.description || t("adminUsers.messages.updateFailed"), severity: "error" });
+          handleToast(resp.description || t("adminUsers.messages.updateFailed"), "error");
         } else {
-          setToast({ open: true, message: t("adminUsers.messages.updateSuccess"), severity: "success" });
+          handleToast(t("adminUsers.messages.updateSuccess"), "success");
           await loadUsers();
           setDialogOpen(false);
         }
       } else {
-        if (!canManageUser(null)) {
-          setToast({ open: true, message: "You are not authorized to create users.", severity: "error" });
+        if (!form.username.trim()) {
+          handleToast(t("adminUsers.messages.usernameRequired"), "error");
           setLoading(false);
           return;
         }
-        const enforcedOrgId =
-          !isSuper && scopeOrgCode
-            ? form.org_id || (orgOptions.find((o) => o.org_code === scopeOrgCode)?._id || "")
-            : form.org_id;
-        if (orgAdmin && !isSuper) {
-          const invalid = form.roles.filter((r) => !ORG_ADMIN_ALLOWED_ROLES.has(r));
-          if (invalid.length) {
-            setToast({ open: true, message: "You cannot assign that role.", severity: "error" });
-            setLoading(false);
-            return;
-          }
+        const usernamePattern = /^[a-z0-9._-]{3,64}$/;
+        const sanitizedUsername = form.username.trim().toLowerCase();
+        if (!usernamePattern.test(sanitizedUsername)) {
+          handleToast(t("adminUsers.messages.usernameInvalid"), "error");
+          setLoading(false);
+          return;
         }
-        const payload: any = {
-          api: API_TAGS.ADMIN_USERS.create,
-          username,
-          language,
+        if (!form.password.trim()) {
+          handleToast(t("adminUsers.messages.passwordRequired"), "error");
+          setLoading(false);
+          return;
+        }
+        const payload = {
           new_username: sanitizedUsername,
-          full_name: form.full_name,
+          password: form.password,
+          display_name: form.display_name,
           email: form.email,
           mobile: form.mobile,
-          role_codes: form.roles,
-          password: form.password,
+          role_slug: form.role_slug,
+          org_code: form.org_code || null,
+          mandi_codes: form.mandi_codes,
+          is_active: form.is_active ? "Y" : "N",
         };
-        if (enforcedOrgId) payload.org_id = enforcedOrgId;
-        if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
-        const body = await buildBody(payload);
-        const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.createAdminUser}`, body, { headers });
-        const resp = data?.response || {};
+        const res = await createAdminUser({ username, language, payload });
+        const resp = res?.response || {};
         const code = String(resp.responsecode ?? "");
         if (code !== "0") {
-          setToast({ open: true, message: resp.description || t("adminUsers.messages.createFailed"), severity: "error" });
+          handleToast(resp.description || t("adminUsers.messages.createFailed"), "error");
         } else {
-          setToast({ open: true, message: t("adminUsers.messages.createSuccess"), severity: "success" });
+          handleToast(t("adminUsers.messages.createSuccess"), "success");
           await loadUsers();
           setDialogOpen(false);
         }
       }
     } catch (e: any) {
-      setToast({ open: true, message: e?.message || t("adminUsers.messages.networkError"), severity: "error" });
+      handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeactivate = async (user: AdminUser) => {
-    if (!canDeactivateUserAction) {
-      setToast({ open: true, message: "You are not authorized to deactivate users.", severity: "error" });
-      return;
-    }
-    if (!user?.username) return;
-    if (!window.confirm(`Deactivate user ${user.username}?`)) return;
-
-    const username = currentUsername();
-    if (!username) {
-      setToast({ open: true, message: "No admin session found.", severity: "error" });
-      return;
-    }
-
+    if (!canDeactivateUserAction) return;
     try {
       setLoading(true);
-      const payload: any = {
-        api: API_TAGS.ADMIN_USERS.update,
-        username,
-        language,
-        target_username: user.username,
-        is_active: "N",
-      };
-      if (!isSuper && scopeOrgCode) payload.org_code = scopeOrgCode;
-      const body = await buildBody(payload);
-      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.updateAdminUser}`, body, { headers });
-      const resp = data?.response || {};
-      const code = String(resp.responsecode ?? "");
-      if (code !== "0") {
-        setToast({ open: true, message: resp.description || "Failed to deactivate user.", severity: "error" });
+      const username = currentUsername();
+      if (!username) return;
+      const res = await deactivateAdminUser({ username, language, target_username: user.username });
+      const resp = res?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
+        handleToast(resp.description || t("adminUsers.messages.updateFailed"), "error");
       } else {
-        setToast({ open: true, message: "User deactivated.", severity: "success" });
+        handleToast(t("adminUsers.messages.updateSuccess"), "success");
         await loadUsers();
       }
     } catch (e: any) {
-      setToast({ open: true, message: e?.message || "Network error while deactivating.", severity: "error" });
+      handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!isSuper || !resetDialog.username) {
-      setResetDialog({ open: false, username: "", temp: null });
-      return;
-    }
-    const username = currentUsername();
-    if (!username) return;
+  const handleResetPassword = async (user: AdminUser) => {
+    if (!canResetPasswordAction) return;
     try {
       setLoading(true);
-      const payload = {
-        api: API_TAGS.ADMIN_USERS.reset,
-        username,
-        language,
-        target_username: resetDialog.username,
-      };
-      const body = await buildBody(payload);
-      const { data } = await axios.post(`${API_BASE_URL}${API_ROUTES.admin.resetAdminUserPassword}`, body, { headers });
-      const resp = data?.response || {};
-      const code = String(resp.responsecode ?? "");
-      if (code !== "0") {
-        setToast({ open: true, message: resp.description || t("adminUsers.messages.resetFailed"), severity: "error" });
+      const username = currentUsername();
+      if (!username) return;
+      const res = await resetAdminUserPassword({ username, language, target_username: user.username });
+      const resp = res?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
+        handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
       } else {
-        setResetDialog((prev) => ({ ...prev, temp: resp?.data?.temp_password || "" }));
-        setToast({ open: true, message: t("adminUsers.messages.resetSuccess"), severity: "success" });
+        handleToast(t("adminUsers.messages.resetSuccess"), "success");
       }
     } catch (e: any) {
-      setToast({ open: true, message: e?.message || t("adminUsers.messages.networkError"), severity: "error" });
+      handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const columns = React.useMemo<GridColDef<AdminUser>[]>(
+  const columns = useMemo<GridColDef[]>(
     () => [
-      { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.8 },
-      { field: "full_name", headerName: t("adminUsers.columns.fullName"), flex: 1 },
-      { field: "email", headerName: t("adminUsers.columns.email"), flex: 1 },
-      { field: "mobile", headerName: t("adminUsers.columns.mobile"), flex: 0.8 },
-      { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
-      { field: "org_name", headerName: t("adminUsers.columns.orgName"), flex: 1 },
+      { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.9 },
+      { field: "display_name", headerName: t("adminUsers.columns.fullName"), flex: 1 },
       {
-        field: "roles",
+        field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
-        flex: 1.2,
-        renderCell: (params: GridRenderCellParams<AdminUser>) => (
-          <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
-            {(params.row.roles || []).map((r) => (
-              <Chip key={r} size="small" label={r} />
-            ))}
-          </Stack>
-        ),
+        flex: 0.9,
+        valueFormatter: (params) => params.value?.replace(/_/g, " "),
+      },
+      { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
+      {
+        field: "mandi_codes",
+        headerName: t("adminUsers.columns.mandis"),
+        flex: 1,
+        valueGetter: (params) => (params.row.mandi_codes || []).join(", "),
       },
       {
         field: "is_active",
         headerName: t("adminUsers.columns.status"),
         flex: 0.6,
-        valueGetter: ((params: any) => {
-          const raw = params?.row?.is_active;
-          const val = typeof raw === "string" ? raw.trim().toUpperCase() : raw === true ? "Y" : "N";
-          return val === "Y" ? t("common.active") : t("common.inactive");
-        }) as any,
+        renderCell: (params: GridRenderCellParams) => (
+          <Chip
+            label={params.value === "Y" ? t("adminUsers.status.active") : t("adminUsers.status.inactive")}
+            color={params.value === "Y" ? "success" : "default"}
+            size="small"
+          />
+        ),
       },
-      { field: "last_login_on", headerName: t("adminUsers.columns.lastLogin"), flex: 0.9 },
-      { field: "updated_on", headerName: t("adminUsers.columns.updatedOn"), flex: 0.9 },
       {
         field: "actions",
         headerName: t("adminUsers.columns.actions"),
-        flex: 0.8,
         sortable: false,
-        filterable: false,
-        renderCell: (params: GridRenderCellParams<AdminUser>) =>
-          isReadOnly ? null : (
-            <Stack direction="row" spacing={1}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => handleOpenEdit(params.row)}
-                disabled={!canManageUser(params.row)}
-              >
+        width: 280,
+        renderCell: (params: GridRenderCellParams<AdminUser>) => (
+          <Stack direction="row" spacing={1}>
+            {canUpdateUserAction && (
+              <Button size="small" variant="outlined" onClick={() => handleOpenEdit(params.row)}>
                 {t("adminUsers.actions.edit")}
               </Button>
+            )}
+            {canDeactivateUserAction && (
               <Button
                 size="small"
+                variant="text"
                 color="error"
-                variant="outlined"
-                disabled={!canDeactivateUserAction || params.row.is_active === "N"}
                 onClick={() => handleDeactivate(params.row)}
               >
                 {t("adminUsers.actions.deactivate")}
               </Button>
-              <IconButton
+            )}
+            {canResetPasswordAction && (
+              <Button
                 size="small"
-                onClick={() => setResetDialog({ open: true, username: params.row.username, temp: null })}
-                title={t("adminUsers.actions.reset")}
+                variant="outlined"
+                startIcon={<LockResetIcon />}
+                onClick={() => handleResetPassword(params.row)}
               >
-                <LockResetIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          ),
+                {t("adminUsers.actions.reset")}
+              </Button>
+            )}
+          </Stack>
+        ),
       },
     ],
-    [isReadOnly, canManageUser, canDeactivateUserAction, handleDeactivate, t]
+    [
+      canDeactivateUserAction,
+      canResetPasswordAction,
+      canUpdateUserAction,
+      handleDeactivate,
+      handleOpenEdit,
+      handleResetPassword,
+      t,
+    ],
   );
 
-  const filteredRows = rows.filter((u) => {
-    if (filters.is_active === "Y" && u.is_active !== "Y") return false;
-    if (filters.is_active === "N" && u.is_active !== "N") return false;
-    if (filters.org_id && u.org_id !== filters.org_id) return false;
-    if (filters.role_code) {
-      const match = (u.roles || []).some((r) => r === filters.role_code);
-      if (!match) return false;
-    }
-    if (filters.search.trim()) {
-      const q = filters.search.trim().toLowerCase();
-      const hit =
-        u.username.toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q) ||
-        (u.mobile || "").toLowerCase().includes(q);
-      if (!hit) return false;
-    }
-    return true;
-  });
+  const orgFilterDisabled = !isSuper && !!scopeOrgCode;
 
   return (
     <PageContainer>
       <Stack
         direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
         alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
         spacing={2}
       >
-        <Typography variant="h5">{t("adminUsers.title")}</Typography>
+        <Box>
+          <Typography variant="h5">{t("adminUsers.title")}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("adminUsers.subtitle")}
+          </Typography>
+        </Box>
         <Stack direction="row" spacing={1}>
-          <IconButton size="small" onClick={loadUsers} title={t("common.refresh")}>
-            <RefreshIcon />
-          </IconButton>
-          <Button variant="contained" size="small" onClick={handleOpenCreate} disabled={isReadOnly || !canCreateUser}>
-            {t("adminUsers.actions.new")}
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadUsers}>
+            {t("common.refresh")}
           </Button>
-        </Stack>
-      </Stack>
-
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        flexWrap="wrap"
-      >
-        <TextField
-          size="small"
-          label={t("adminUsers.filters.search")}
-          value={filters.search}
-          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-          sx={{ minWidth: { xs: "100%", md: 240 } }}
-        />
-        <TextField
-          select
-          size="small"
-          label={t("adminUsers.filters.organisation")}
-          value={filters.org_id}
-          onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-          sx={{ minWidth: { xs: "100%", md: 200 } }}
-        >
-          <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-          {orgOptions.map((o) => (
-            <MenuItem key={o._id} value={o._id}>
-              {o.org_code} — {o.org_name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label={t("adminUsers.filters.role")}
-          value={filters.role_code}
-          onChange={(e) => setFilters((f) => ({ ...f, role_code: e.target.value }))}
-          sx={{ minWidth: { xs: "100%", md: 180 } }}
-        >
-          <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-          {roleOptions.map((r) => (
-            <MenuItem key={r.role_code} value={r.role_code}>
-              {r.role_code}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          label={t("adminUsers.filters.status")}
-          value={filters.is_active}
-          onChange={(e) => setFilters((f) => ({ ...f, is_active: e.target.value as any }))}
-          sx={{ minWidth: { xs: "100%", md: 140 } }}
-        >
-          <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
-          <MenuItem value="Y">{t("adminUsers.filters.active")}</MenuItem>
-          <MenuItem value="N">{t("adminUsers.filters.inactive")}</MenuItem>
-        </TextField>
-      </Stack>
-
-      {error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      ) : null}
-
-      {isSmallScreen ? (
-        <Stack spacing={1.5}>
-          {filteredRows.map((user) => (
-            <Card key={user.username} variant="outlined">
-              <CardContent>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="flex-start"
-                  spacing={1}
-                >
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      {user.username}
-                    </Typography>
-                    <Typography variant="h6">
-                      {user.full_name || "—"}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {user.email || user.mobile || "No contact info"}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={user.is_active === "N" ? "INACTIVE" : "ACTIVE"}
-                    color={user.is_active === "N" ? "default" : "success"}
-                    size="small"
-                  />
-                </Stack>
-                <Divider sx={{ my: 1.2 }} />
-                <Stack spacing={0.5}>
-                  <Typography variant="caption" color="text.secondary">
-                    Org: {user.org_code || user.org_name || "—"}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Roles: {(user.roles || []).join(", ") || "—"}
-                  </Typography>
-                  {user.last_login_on && (
-                    <Typography variant="caption" color="text.secondary">
-                      Last login: {user.last_login_on}
-                    </Typography>
-                  )}
-                </Stack>
-                <Stack
-                  direction="row"
-                  justifyContent="flex-end"
-                  spacing={1}
-                  mt={1.5}
-                >
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleOpenEdit(user)}
-                  >
-                    {t("common.edit")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() =>
-                      setResetDialog({ open: true, username: user.username })
-                    }
-                  >
-                    {t("adminUsers.actions.resetPassword")}
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-          {!filteredRows.length && (
-            <Typography variant="body2" color="text.secondary">
-              {t("common.no_results")}
-            </Typography>
+          {canCreateUser && (
+            <Button variant="contained" onClick={handleOpenCreate}>
+              {t("adminUsers.actions.new")}
+            </Button>
           )}
         </Stack>
+      </Stack>
+
+      <Card>
+        <CardContent>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", md: "center" }}
+          >
+            <TextField
+              label={t("adminUsers.filters.organisation")}
+              select
+              value={filters.org_code || ""}
+              onChange={(e) => setFilters((prev) => ({ ...prev, org_code: e.target.value }))}
+              disabled={orgFilterDisabled}
+              fullWidth
+            >
+              <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
+              {orgOptions.map((org) => (
+                <MenuItem key={org.org_code} value={org.org_code}>
+                  {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              label={t("adminUsers.filters.role")}
+              select
+              value={filters.role_slug}
+              onChange={(e) => setFilters((prev) => ({ ...prev, role_slug: e.target.value }))}
+              fullWidth
+            >
+              <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
+              {roleOptions.map((role) => (
+                <MenuItem key={role} value={role}>
+                  {role.replace(/_/g, " ")}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              label={t("adminUsers.filters.status")}
+              select
+              value={filters.status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as any }))}
+              fullWidth
+            >
+              <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
+              <MenuItem value="ACTIVE">{t("adminUsers.filters.active")}</MenuItem>
+              <MenuItem value="INACTIVE">{t("adminUsers.filters.inactive")}</MenuItem>
+            </TextField>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {error && <Alert severity="error">{error}</Alert>}
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
       ) : (
         <ResponsiveDataGrid
-          rows={filteredRows.map((u) => ({ id: u.username, ...u }))}
+          rows={rows}
           columns={columns}
+          getRowId={(row) => row.username}
           pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          loading={loading}
-          minWidth={900}
+          autoHeight
         />
       )}
 
-      <Dialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        fullWidth
-        maxWidth="sm"
-        fullScreen={isSmallScreen}
-      >
+      <Dialog fullScreen={isSmallScreen} open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{isEditMode ? t("adminUsers.dialog.editTitle") : t("adminUsers.dialog.createTitle")}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              label={t("adminUsers.dialog.username")}
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              fullWidth
-              required
-              disabled={isEditMode}
-            />
-            <TextField
-              label={t("adminUsers.dialog.fullName")}
-              name="full_name"
-              value={form.full_name}
-              onChange={handleChange}
-              fullWidth
-              required
-            />
-            <TextField
-              label={t("adminUsers.dialog.email")}
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              fullWidth
-            />
-            <TextField
-              label={t("adminUsers.dialog.mobile")}
-              name="mobile"
-              value={form.mobile}
-              onChange={handleChange}
-              fullWidth
-            />
-            <TextField
-              select
-              label={t("adminUsers.dialog.organisation")}
-              name="org_id"
-              value={form.org_id}
-              onChange={handleChange}
-              fullWidth
-              helperText={t("adminUsers.dialog.orgHelper")}
-              disabled={form.roles.includes("SUPERADMIN")}
-            >
-              <MenuItem value="">{t("common.none")}</MenuItem>
-              {orgOptions.map((o) => (
-                <MenuItem key={o._id} value={o._id}>
-                  {o.org_code} — {o.org_name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label={t("adminUsers.dialog.roles")}
-              value={form.roles}
-              onChange={(event) =>
-                handleRolesChange(event as SelectChangeEvent<string[]>)
-              }
-              SelectProps={{
-                multiple: true,
-                renderValue: (selected) => (selected as string[]).join(", "),
-                open: roleSelectOpen,
-                onOpen: () => setRoleSelectOpen(true),
-                onClose: () => setRoleSelectOpen(false),
-              }}
-              fullWidth
-              helperText={t("adminUsers.dialog.rolesHelper")}
-            >
-              {roleOptions.map((r) => (
-                <MenuItem key={r.role_code} value={r.role_code}>
-                  <Checkbox checked={form.roles.indexOf(r.role_code) > -1} />
-                  <ListItemText primary={r.role_code} />
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {!isEditMode && (
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} divider={<Divider flexItem />}> 
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
               <TextField
-                label={t("adminUsers.dialog.password")}
-                name="password"
-                type="password"
-                value={form.password}
+                label={t("adminUsers.dialog.username")}
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                fullWidth
+                disabled={isEditMode}
+                required
+              />
+              {!isEditMode && (
+                <TextField
+                  label={t("adminUsers.dialog.password")}
+                  name="password"
+                  type="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  fullWidth
+                  required
+                />
+              )}
+            </Stack>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                label={t("adminUsers.dialog.fullName")}
+                name="display_name"
+                value={form.display_name}
                 onChange={handleChange}
                 fullWidth
                 required
               />
-            )}
-
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography>{t("adminUsers.dialog.status")}</Typography>
-              <Switch
-                checked={form.is_active}
-                onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+              <TextField
+                label={t("adminUsers.dialog.email")}
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                fullWidth
               />
-              <Typography>{form.is_active ? t("adminUsers.dialog.active") : t("adminUsers.dialog.inactive")}</Typography>
+              <TextField
+                label={t("adminUsers.dialog.mobile")}
+                name="mobile"
+                value={form.mobile}
+                onChange={handleChange}
+                fullWidth
+              />
+            </Stack>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                label={t("adminUsers.dialog.organisation")}
+                select
+                value={form.org_code}
+                onChange={(e) => handleOrgChange(e.target.value)}
+                disabled={!isSuper}
+                fullWidth
+              >
+                <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
+                {orgOptions.map((org) => (
+                  <MenuItem key={org.org_code} value={org.org_code}>
+                    {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                label={t("adminUsers.dialog.roles")}
+                select
+                value={form.role_slug}
+                onChange={handleRolesChange}
+                fullWidth
+              >
+                {roleOptions.map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {role.replace(/_/g, " ")}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                label={t("adminUsers.dialog.mandis")}
+                select
+                SelectProps={{
+                  multiple: true,
+                  renderValue: (selected) => (selected as string[]).join(", "),
+                }}
+                value={form.mandi_codes}
+                onChange={handleMandiChange}
+                fullWidth
+                disabled={!form.org_code}
+              >
+                {mandiOptions.map((m) => {
+                  const code = String(m.mandi_id);
+                  return (
+                    <MenuItem key={code} value={code}>
+                      <Checkbox checked={form.mandi_codes.indexOf(code) > -1} />
+                      <ListItemText primary={m.mandi_name || m.mandi_slug || code} />
+                    </MenuItem>
+                  );
+                })}
+              </TextField>
+
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography>{t("adminUsers.dialog.status")}</Typography>
+                <Switch
+                  checked={form.is_active}
+                  onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                />
+                <Typography>{form.is_active ? t("adminUsers.dialog.active") : t("adminUsers.dialog.inactive")}</Typography>
+              </Stack>
             </Stack>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>{t("adminUsers.dialog.cancel")}</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <CircularProgress size={18} /> : t("adminUsers.dialog.save")}
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={resetDialog.open}
-        onClose={() => setResetDialog({ open: false, username: "", temp: null })}
-        fullScreen={isSmallScreen}
-      >
-        <DialogTitle>{t("adminUsers.resetDialog.title")}</DialogTitle>
-        <DialogContent dividers>
-          {resetDialog.temp ? (
-            <Typography>
-              {t("adminUsers.resetDialog.temp", {
-                username: resetDialog.username,
-                password: resetDialog.temp,
-              })}
-            </Typography>
-          ) : (
-            <Typography>
-              {t("adminUsers.resetDialog.prompt", { username: resetDialog.username })}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setResetDialog({ open: false, username: "", temp: null })}>{t("adminUsers.resetDialog.close")}</Button>
-          {!resetDialog.temp ? (
-            <Button onClick={handleResetPassword} variant="contained" disabled={loading}>
-              {loading ? <CircularProgress size={18} /> : t("adminUsers.actions.generate")}
-            </Button>
-          ) : null}
         </DialogActions>
       </Dialog>
 
@@ -994,11 +837,10 @@ const AdminUsersList: React.FC = () => {
         open={toast.open}
         autoHideDuration={4000}
         onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
-          severity={toast.severity}
           onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+          severity={toast.severity}
           sx={{ width: "100%" }}
         >
           {toast.message}

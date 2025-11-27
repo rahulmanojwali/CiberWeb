@@ -204,24 +204,61 @@ const AdminUsersList: React.FC = () => {
     }
   }, [language, orgAdmin, isSuper]);
 
-  const loadOrgs = useCallback(async () => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const res = await fetchOrganisations({ username, language });
-      const resp = res?.response || {};
-      if (String(resp.responsecode) !== "0") return;
-      let orgs: OrgOption[] = (res?.data?.organisations || []).map((o: any) => ({
-        _id: o._id,
-        org_code: o.org_code,
-        org_name: o.org_name,
-      }));
-      if (!isSuper && scopeOrgCode) orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
-      setOrgOptions(orgs);
-    } catch (e) {
-      console.error("[admin_users] loadOrgs", e);
+  // const loadOrgs = useCallback(async () => {
+  //   const username = currentUsername();
+  //   if (!username) return;
+  //   try {
+  //     const res = await fetchOrganisations({ username, language });
+  //     const resp = res?.response || {};
+  //     if (String(resp.responsecode) !== "0") return;
+  //     let orgs: OrgOption[] = (res?.data?.organisations || []).map((o: any) => ({
+  //       _id: o._id,
+  //       org_code: o.org_code,
+  //       org_name: o.org_name,
+  //     }));
+  //     if (!isSuper && scopeOrgCode) orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
+  //     setOrgOptions(orgs);
+  //   } catch (e) {
+  //     console.error("[admin_users] loadOrgs", e);
+  //   }
+  // }, [language, isSuper, scopeOrgCode]);
+
+
+const loadOrgs = useCallback(async () => {
+  const username = currentUsername();
+  if (!username) return;
+
+  try {
+    const res = await fetchOrganisations({ username, language });
+    const resp = res?.response || {};
+    if (String(resp.responsecode) !== "0") return;
+
+    // 🔴 OLD (only handled: { data: { organisations } })
+    // let orgs: OrgOption[] = (res?.data?.organisations || []).map((o: any) => ({
+
+    // ✅ NEW: handle both { data: { organisations } } and { response: { data: { organisations } } }
+    const orgPayload =
+      res?.data?.organisations ||          // case 1: top-level data (future consistent shape)
+      resp?.data?.organisations || [];     // case 2: data nested under response (your current API)
+
+    let orgs: OrgOption[] = orgPayload.map((o: any) => ({
+      _id: o._id,
+      org_code: o.org_code,
+      org_name: o.org_name,
+    }));
+
+    if (!isSuper && scopeOrgCode) {
+      orgs = orgs.filter((o) => o.org_code === scopeOrgCode);
     }
-  }, [language, isSuper, scopeOrgCode]);
+
+    setOrgOptions(orgs);
+  } catch (e) {
+    console.error("[admin_users] loadOrgs", e);
+  }
+}, [language, isSuper, scopeOrgCode]);
+
+
+
 
   const loadMandis = useCallback(
     async (org_code?: string | null) => {

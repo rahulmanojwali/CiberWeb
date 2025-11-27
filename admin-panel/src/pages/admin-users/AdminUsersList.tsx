@@ -532,7 +532,7 @@ const AdminUsersList: React.FC = () => {
     }
   };
 
-  const columns = useMemo<GridColDef[]>(
+  const columns: GridColDef<AdminUser>[] = useMemo(
     () => [
       { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.9 },
       { field: "display_name", headerName: t("adminUsers.columns.fullName"), flex: 1 },
@@ -540,7 +540,7 @@ const AdminUsersList: React.FC = () => {
         field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
-        valueFormatter: (params) => {
+        valueFormatter: (params: GridRenderCellParams<string, AdminUser>) => {
           const val = (params.value as string) || "";
           return val ? val.replace(/_/g, " ") : "";
         },
@@ -550,7 +550,7 @@ const AdminUsersList: React.FC = () => {
         field: "mandi_codes",
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
-        valueGetter: (params) => {
+        valueGetter: (params: GridRenderCellParams<string[], AdminUser>) => {
           const row = params.row as AdminUser;
           return (row.mandi_codes || []).join(", ");
         },

@@ -283,9 +283,9 @@ const AdminUsersList: React.FC = () => {
       }
 
       const normalized: AdminUser[] = (res?.data?.items || []).map((u: any) => {
-        const roleSlug = normalizeRoleSlug(
-          u.role_slug || u.role_code || (Array.isArray(u.roles) ? u.roles[0] : null) || "",
-        );
+        const rawRole =
+          u.role_slug || u.role_code || (Array.isArray(u.roles) ? u.roles[0] : null) || "";
+        const roleSlug = normalizeRoleSlug(rawRole) || rawRole || "";
         return {
           username: u.username,
           display_name: u.display_name ?? u.full_name ?? null,
@@ -572,8 +572,8 @@ const AdminUsersList: React.FC = () => {
             row.roleSlug ||
             row.role_code ||
             (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "");
-          const normalized = normalizeRoleSlug(raw) || raw || "";
-          return normalized ? normalized.replace(/_/g, " ") : "";
+          const displayRole = raw ? raw.replace(/_/g, " ") : "";
+          return displayRole;
         },
       },
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },

@@ -82,6 +82,14 @@ type ApiResponse = {
     blocked?: boolean;
     blocked_reason?: string;
     fallback_roles?: string[];
+    default_role_code?: string;
+    default_role?: string;
+    role?: string;
+    role_code?: string;
+    org_code?: string | null;
+    orgCode?: string | null;
+    mandi_codes?: string[];
+    mandis?: string[];
   };
   [k: string]: any;
 };

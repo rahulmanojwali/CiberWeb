@@ -59,6 +59,7 @@ type AdminUser = {
   mobile: string | null;
   org_id: string | null;
   org_code: string | null;
+  orgCode?: string | null; // occasionally returned in camelCase
   org_name: string | null;
   roles: string[];
   is_active: string;
@@ -233,12 +234,14 @@ const AdminUsersList: React.FC = () => {
         // eslint-disable-next-line no-console
         console.log("[admin_users_load] users raw", resp?.data?.users);
       }
-      let normalized = (resp?.data?.users || []).map((u: any) => ({
+      let normalized: AdminUser[] = (resp?.data?.users || []).map((u: any) => ({
         ...u,
         is_active: String(u?.is_active || "Y").trim().toUpperCase(),
       }));
       if (!isSuper && scope.orgCode) {
-        normalized = normalized.filter((u) => u.org_code === scope.orgCode || u.orgCode === scope.orgCode);
+        normalized = normalized.filter(
+          (u: AdminUser) => u.org_code === scope.orgCode || u.orgCode === scope.orgCode,
+        );
       }
       setRows(normalized);
     } catch (e: any) {

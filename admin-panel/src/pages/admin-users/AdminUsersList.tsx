@@ -26,7 +26,6 @@ import Checkbox from "@mui/material/Checkbox";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   type GridColDef,
-  type GridValueGetterParams,
 } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import LockResetIcon from "@mui/icons-material/LockReset";
@@ -540,7 +539,7 @@ const AdminUsersList: React.FC = () => {
         field: "role_slug",
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
-        valueGetter: (params: GridValueGetterParams<AdminUser, string>) => {
+        valueGetter: (params: any) => {
           const value = params.row.role_slug || "";
           return value ? value.replace(/_/g, " ") : "";
         },
@@ -550,7 +549,7 @@ const AdminUsersList: React.FC = () => {
         field: "mandi_codes",
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
-        valueGetter: (params: GridValueGetterParams<AdminUser, string[]>) => {
+        valueGetter: (params: any) => {
           return (params.row.mandi_codes || []).join(", ");
         },
       },
@@ -558,7 +557,7 @@ const AdminUsersList: React.FC = () => {
         field: "is_active",
         headerName: t("adminUsers.columns.status"),
         flex: 0.6,
-        renderCell: (params: GridRenderCellParams) => (
+        renderCell: (params: any) => (
           <Chip
             label={params.value === "Y" ? t("adminUsers.status.active") : t("adminUsers.status.inactive")}
             color={params.value === "Y" ? "success" : "default"}
@@ -571,7 +570,7 @@ const AdminUsersList: React.FC = () => {
         headerName: t("adminUsers.columns.actions"),
         sortable: false,
         width: 280,
-        renderCell: (params: GridRenderCellParams<AdminUser>) => (
+        renderCell: (params: any) => (
           <Stack direction="row" spacing={1}>
             {canUpdateUserAction && (
               <Button size="small" variant="outlined" onClick={() => handleOpenEdit(params.row)}>

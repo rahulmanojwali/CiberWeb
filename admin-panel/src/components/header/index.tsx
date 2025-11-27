@@ -45,10 +45,11 @@ import {
 
 
 import {
-  filterMenuByRole,
+  filterMenuByResources,
   type MenuItem as NavMenuItem,
 } from "../../config/menuConfig";
 import { getUserRoleFromStorage } from "../../utils/roles";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 
 
 // Height of the mobile AppBar (toolbar)
@@ -84,17 +85,19 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const currentLanguage = normalizeLanguageCode(
     i18n.language || DEFAULT_LANGUAGE,
   );
+  const { resources, role: configRole } = useAdminUiConfig();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-const role = getUserRoleFromStorage("Header");
-console.log("[Header] resolved role from cd_user:", role);
+  const role = getUserRoleFromStorage("Header");
+  const effectiveRole = (configRole as any) || role;
+  console.log("[Header] resolved role from cd_user:", role, "config role:", configRole);
 
-const navItems: NavMenuItem[] = useMemo(() => {
-  const items = filterMenuByRole(role);
-  console.log("[Header] navItems for role", role, items);
-  return items;
-}, [role]);
+  const navItems: NavMenuItem[] = useMemo(() => {
+    const items = filterMenuByResources(resources, effectiveRole);
+    console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
+    return items;
+  }, [effectiveRole, resources]);
 
 
 

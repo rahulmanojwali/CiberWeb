@@ -39,6 +39,7 @@ import { Layout } from "./components/layout";
 
 import { CustomSider } from "./components/customSider";
 import { getUserRoleFromStorage } from "./utils/roles";
+import { AdminUiConfigProvider } from "./contexts/admin-ui-config";
 
 const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mutate: logout } = useLogout();
@@ -85,12 +86,14 @@ function App() {
 //strat 
  element={
       <AdminRoleGuard>
-        <ThemedLayout
-          Header={Header}
-          Sider={CustomSider}
-        >
-          <Outlet />
-        </ThemedLayout>
+        <AdminUiConfigProvider>
+          <ThemedLayout
+            Header={Header}
+            Sider={CustomSider}
+          >
+            <Outlet />
+          </ThemedLayout>
+        </AdminUiConfigProvider>
       </AdminRoleGuard>
     }
 //end

@@ -26,10 +26,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { BRAND_ASSETS } from "../config/appConfig";
 
 import {
-  filterMenuByRole,
+  filterMenuByResources,
   type MenuItem as NavMenuItem,
 } from "../config/menuConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
+import { useAdminUiConfig } from "../contexts/admin-ui-config";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -46,15 +47,17 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const role = getUserRoleFromStorage("CustomSider");
+  const { resources, role: configRole } = useAdminUiConfig();
+  const storageRole = getUserRoleFromStorage("CustomSider");
+  const effectiveRole = (configRole as any) || storageRole;
 
-  console.log("[CustomSider] resolved role from cd_user:", role);
+  console.log("[CustomSider] resolved role from cd_user:", storageRole, "config role:", configRole);
 
   const navItems = useMemo<NavMenuItem[]>(() => {
-    const items = filterMenuByRole(role);
-    console.log("[CustomSider] navItems for role", role, items);
+    const items = filterMenuByResources(resources, effectiveRole);
+    console.log("[CustomSider] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
     return items;
-  }, [role]);
+  }, [effectiveRole, resources]);
 
 
 

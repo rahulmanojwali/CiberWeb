@@ -12,6 +12,7 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
+import { can, type UiResource } from "../utils/adminUiConfig";
 
 // 🔹 All CiberMandi admin roles we want to support in the panel
 export type RoleSlug =
@@ -31,6 +32,8 @@ export type MenuItem = {
   path: string;
   icon: React.ReactNode;
   roles: RoleSlug[]; // which roles can see this menu
+  resourceKey?: string;
+  requiredAction?: string;
 };
 
 // Helper: everyone among all roles
@@ -63,6 +66,8 @@ export const menuItems: MenuItem[] = [
     path: "/orgs",
     icon: React.createElement(ApartmentOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "organisations.menu",
+    requiredAction: "VIEW",
   },
 
   // 3) Org–Mandi mapping – platform & org level; auditors & org_viewer can see
@@ -179,6 +184,23 @@ export function filterMenuByRole(role: RoleSlug | null) {
   );
 
   return menuItems.filter((item) => item.roles.includes(effectiveRole));
+}
+
+// 🔹 Preferred filter when backend UI config is available
+export function filterMenuByResources(
+  resources: UiResource[] | undefined,
+  fallbackRole: RoleSlug | null,
+) {
+  const hasResources = Array.isArray(resources) && resources.length > 0;
+  if (!hasResources) {
+    return filterMenuByRole(fallbackRole);
+  }
+
+  return menuItems.filter((item) => {
+    if (!item.resourceKey) return true; // no mapping yet, keep visible
+    const action = item.requiredAction || "VIEW";
+    return can(resources, item.resourceKey, action);
+  });
 }
 
 

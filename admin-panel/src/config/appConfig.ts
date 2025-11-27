@@ -26,6 +26,9 @@ export const API_TAGS = {
   AUTH: {
     loginApiTag: "loginusr_Api",
   },
+  ADMIN_UI_CONFIG: {
+    getAdminUiConfig: "get_Admin_Ui_Config27",
+  },
 };
 
 export const DEFAULT_LANGUAGE = "en";
@@ -47,6 +50,7 @@ export const API_ROUTES = {
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",
+    getAdminUiConfig: "/admin/getAdminUiConfig",
   },
   masters: {
     getMandiCoverage: "/masters/getMandiCoverage",

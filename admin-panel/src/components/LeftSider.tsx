@@ -5,14 +5,17 @@ import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { filterMenuByRole } from "../config/menuConfig";
+import { filterMenuByResources } from "../config/menuConfig";
 import type { MenuItem } from "../config/menuConfig";
 import { BRAND_COLORS } from "../config/appConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
+import { useAdminUiConfig } from "../contexts/admin-ui-config";
 
 export const LeftSider: React.FC = () => {
   const location = useLocation();
+  const { resources, role: configRole } = useAdminUiConfig();
   const role = getUserRoleFromStorage("LeftSider");
+  const effectiveRole = (configRole as any) || role;
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";
@@ -22,7 +25,10 @@ export const LeftSider: React.FC = () => {
       ? theme.mixins.toolbar.minHeight
       : 64;
 
-  const items = useMemo<MenuItem[]>(() => filterMenuByRole(role), [role]);
+  const items = useMemo<MenuItem[]>(
+    () => filterMenuByResources(resources, effectiveRole),
+    [effectiveRole, resources],
+  );
 
   return (
     <Box

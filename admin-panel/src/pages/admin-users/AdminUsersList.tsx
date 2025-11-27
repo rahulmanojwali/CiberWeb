@@ -540,7 +540,8 @@ const AdminUsersList: React.FC = () => {
         headerName: t("adminUsers.columns.roles"),
         flex: 0.9,
         valueGetter: (params: any) => {
-          const value = params.row.role_slug || "";
+          const row = params?.row || {};
+          const value = row.role_slug || row.roleSlug || "";
           return value ? value.replace(/_/g, " ") : "";
         },
       },
@@ -550,7 +551,9 @@ const AdminUsersList: React.FC = () => {
         headerName: t("adminUsers.columns.mandis"),
         flex: 1,
         valueGetter: (params: any) => {
-          return (params.row.mandi_codes || []).join(", ");
+          const row = params?.row || {};
+          const codes = row.mandi_codes || row.mandiCodes || [];
+          return Array.isArray(codes) ? codes.join(", ") : "";
         },
       },
       {

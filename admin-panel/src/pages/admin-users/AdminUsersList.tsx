@@ -567,8 +567,13 @@ const AdminUsersList: React.FC = () => {
         flex: 0.9,
         valueGetter: (params: any) => {
           const row = params?.row || {};
-          const value = row.role_slug || row.roleSlug || "";
-          return value ? value.replace(/_/g, " ") : "";
+          const raw =
+            row.role_slug ||
+            row.roleSlug ||
+            row.role_code ||
+            (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "");
+          const normalized = normalizeRoleSlug(raw) || raw || "";
+          return normalized ? normalized.replace(/_/g, " ") : "";
         },
       },
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },

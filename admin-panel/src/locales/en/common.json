@@ -83,6 +83,7 @@
     "actions": {
       "new": "New Admin User",
       "edit": "Edit",
+      "deactivate": "Deactivate",
       "reset": "Reset Password",
       "generate": "Generate",
       "refresh": "Refresh"

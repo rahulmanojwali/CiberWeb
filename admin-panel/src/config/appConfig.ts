@@ -1,6 +1,7 @@
 // Prefer explicit API origin; fallback to env or relative /api for local dev
+// Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://mandiapi.ciberdukaan.com" || "/api";
+  import.meta.env.VITE_API_BASE_URL || "https://mandiapi.ciberdukaan.com/api" || "/api";
 
 
 export const API_TAGS = {

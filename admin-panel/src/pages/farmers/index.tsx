@@ -86,7 +86,7 @@ export const Farmers: React.FC = () => {
         field: "created_on",
         headerName: "Created On",
         width: 180,
-        valueFormatter: (p) => formatDate(p.value),
+        valueFormatter: (value) => formatDate(value),
       },
       {
         field: "actions",

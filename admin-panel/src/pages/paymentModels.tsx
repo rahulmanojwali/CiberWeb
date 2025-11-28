@@ -171,8 +171,6 @@ export const PaymentModels: React.FC = () => {
           columns={columns}
           rows={gridRows}
           loading={loading}
-          hideFooterRowCount
-          hideFooterSelectedRowCount
         />
       </Box>
     </PageContainer>

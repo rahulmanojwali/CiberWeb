@@ -79,7 +79,7 @@ export const GateMovements: React.FC = () => {
         field: "event_time",
         headerName: "Timestamp",
         width: 200,
-        valueFormatter: (p) => formatDate(p.value),
+        valueFormatter: (value) => formatDate(value),
       },
     ],
     [],

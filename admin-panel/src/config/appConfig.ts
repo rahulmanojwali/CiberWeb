@@ -184,6 +184,9 @@ export const API_TAGS = {
     getPaymentsLog: "getPaymentsLog",
     getPaymentDetail: "getPaymentDetail",
   },
+  DASHBOARD: {
+    getDashboardSummary: "getDashboardSummary",
+  },
   AUTH: {
     loginApiTag: "loginusr_Api",
   },

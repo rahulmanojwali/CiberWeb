@@ -153,8 +153,6 @@ export const MandiPaymentSettings: React.FC = () => {
           ]}
           rows={feeRows}
           loading={loading}
-          hideFooterRowCount
-          hideFooterSelectedRowCount
         />
         <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
           Custom fees
@@ -167,8 +165,6 @@ export const MandiPaymentSettings: React.FC = () => {
           ]}
           rows={customFeeRows}
           loading={loading}
-          hideFooterRowCount
-          hideFooterSelectedRowCount
         />
       </Box>
     </PageContainer>

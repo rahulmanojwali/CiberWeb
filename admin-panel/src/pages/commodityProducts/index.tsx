@@ -86,7 +86,7 @@ export const CommodityProducts: React.FC = () => {
         field: "is_active",
         headerName: "Active",
         width: 100,
-        valueFormatter: (p) => (p.value ? "Y" : "N"),
+        valueFormatter: (value) => (value ? "Y" : "N"),
       },
       {
         field: "actions",

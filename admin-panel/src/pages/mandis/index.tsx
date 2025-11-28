@@ -79,7 +79,7 @@ export const Mandis: React.FC = () => {
         field: "is_active",
         headerName: "Active",
         width: 110,
-        valueFormatter: (params) => (params.value ? "Y" : "N"),
+        valueFormatter: (value) => (value ? "Y" : "N"),
       },
       {
         field: "actions",

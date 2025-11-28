@@ -139,8 +139,6 @@ export const OrgPaymentSettings: React.FC = () => {
           columns={columns}
           rows={feeRows}
           loading={loading}
-          hideFooterRowCount
-          hideFooterSelectedRowCount
         />
       </Box>
     </PageContainer>

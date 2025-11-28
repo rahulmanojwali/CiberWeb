@@ -201,8 +201,6 @@ export const PaymentsLog: React.FC = () => {
             columns={columns}
             rows={rows}
             loading={loading}
-            hideFooterRowCount
-            hideFooterSelectedRowCount
             onRowClick={(params) => openDetail(params.row.id)}
           />
         </Box>

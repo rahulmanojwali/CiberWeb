@@ -144,8 +144,6 @@ export const RoleCustomFees: React.FC = () => {
             columns={columns}
             rows={gridRows}
             loading={loading}
-            hideFooterRowCount
-            hideFooterSelectedRowCount
           />
         </Box>
       </Stack>

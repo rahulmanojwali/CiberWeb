@@ -234,8 +234,6 @@ export const SubscriptionsPage: React.FC = () => {
             columns={columns}
             rows={rows}
             loading={loading}
-            hideFooterRowCount
-            hideFooterSelectedRowCount
             onRowClick={(params) => canEdit && openDialog(params.row)}
           />
         </Box>

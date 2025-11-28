@@ -85,7 +85,7 @@ export const AuctionPolicies: React.FC = () => {
 
   const columns = useMemo<GridColDef<PolicyRow>[]>(
     () => [
-      { field: "org_id", headerName: "Org", width: 160, valueGetter: (p) => p.row.org_code || p.value },
+      { field: "org_id", headerName: "Org", width: 160, valueGetter: (value, row) => row.org_code || value },
       { field: "mandi_id", headerName: "Mandi", width: 120 },
       { field: "method_code", headerName: "Method", width: 140 },
       { field: "rounds", headerName: "Rounds", flex: 1 },

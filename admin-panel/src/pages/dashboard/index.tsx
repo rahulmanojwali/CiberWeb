@@ -62,15 +62,46 @@ export const Dashboard: React.FC = () => {
   const alerts = summary?.alerts ?? [];
   const quickLinks = summary?.quickLinks ?? [];
 
-  const renderCard = (title: string, content: any) => (
-    <Card sx={{ flex: "1 1 230px", minWidth: 230, bgcolor: "#f4fbf6" }} key={title}>
+  const summaryCardList = [
+    {
+      title: "Today's Trade Value",
+      content: {
+        primary: `${cards.todayTradeValue?.total_amount?.toLocaleString("en-IN") || "—"} ${cards.todayTradeValue?.currency || "INR"}`,
+        secondary: `Lots: ${cards.todayTradeValue?.lots_count || 0} | Price vs MSP: ${cards.todayTradeValue?.price_vs_msp_percent?.toFixed(2)}%`
+      }
+    },
+    {
+      title: "Live Auctions",
+      content: {
+        primary: `${cards.liveAuctions?.count || 0} auctions`,
+        secondary: `Mandis: ${cards.liveAuctions?.mandis_count || 0}`
+      }
+    },
+    {
+      title: "Settlements",
+      content: {
+        primary: `Outstanding: ${cards.settlements?.total_outstanding?.toLocaleString("en-IN") || 0}`,
+        secondary: `Overdue: ${cards.settlements?.total_overdue?.toLocaleString("en-IN") || 0}`
+      }
+    },
+    {
+      title: "Subscriptions",
+      content: {
+        primary: `MRR ₹${cards.subscriptions?.mrr?.toLocaleString("en-IN") || 0}`,
+        secondary: `ARR ₹${cards.subscriptions?.arr?.toLocaleString("en-IN") || 0}`
+      }
+    },
+  ];
+
+  const renderCard = (card: { title: string; content: { primary: string; secondary: string } }) => (
+    <Card sx={{ flex: "1 1 230px", minWidth: 230, bgcolor: "#f4fbf6" }} key={card.title}>
       <CardContent>
         <Typography variant="subtitle2" color="text.secondary">
-          {title}
+          {card.title}
         </Typography>
-        <Typography variant="h6">{content.primary}</Typography>
+        <Typography variant="h6">{card.content.primary}</Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
-          {content.secondary}
+          {card.content.secondary}
         </Typography>
       </CardContent>
     </Card>
@@ -124,36 +155,7 @@ export const Dashboard: React.FC = () => {
             </Box>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              {[
-                {
-                  title: "Today's Trade Value",
-                  content: {
-                    primary: `${cards.todayTradeValue?.total_amount?.toLocaleString("en-IN") || "—"} ${cards.todayTradeValue?.currency || "INR"}`,
-                    secondary: `Lots: ${cards.todayTradeValue?.lots_count || 0} | Price vs MSP: ${cards.todayTradeValue?.price_vs_msp_percent?.toFixed(2)}%`
-                  }
-                },
-                {
-                  title: "Live Auctions",
-                  content: {
-                    primary: `${cards.liveAuctions?.count || 0} auctions`,
-                    secondary: `Mandis: ${cards.liveAuctions?.mandis_count || 0}`
-                  }
-                },
-                {
-                  title: "Settlements",
-                  content: {
-                    primary: `Outstanding: ${cards.settlements?.total_outstanding?.toLocaleString("en-IN") || 0}`,
-                    secondary: `Overdue: ${cards.settlements?.total_overdue?.toLocaleString("en-IN") || 0}`
-                  }
-                },
-                {
-                  title: "Subscriptions",
-                  content: {
-                    primary: `MRR ₹${cards.subscriptions?.mrr?.toLocaleString("en-IN") || 0}`,
-                    secondary: `ARR ₹${cards.subscriptions?.arr?.toLocaleString("en-IN") || 0}`
-                  }
-                },
-              ].map(renderCard)}
+              {summaryCardList.map(renderCard)}
             </Stack>
 
             <Grid container spacing={2}>

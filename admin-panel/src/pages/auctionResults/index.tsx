@@ -91,7 +91,7 @@ export const AuctionResults: React.FC = () => {
         field: "result_time",
         headerName: "Timestamp",
         width: 180,
-        valueFormatter: (p) => formatDate(p.value),
+        valueFormatter: (value) => formatDate(value),
       },
     ],
     [],

@@ -34,6 +34,11 @@ import { MandiCoverage } from "./pages/mandiCoverage";
 import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
 import { OrgMandiMapping } from "./pages/orgMandiMapping";
+import { Commodities } from "./pages/commodities";
+import { CommodityProducts } from "./pages/commodityProducts";
+import { MandiFacilities } from "./pages/mandiFacilities";
+import { MandiGates } from "./pages/mandiGates";
+import { MandiHoursTemplates } from "./pages/mandiHoursTemplates";
 
 import { Layout } from "./components/layout";
 
@@ -110,6 +115,12 @@ function App() {
                   <Route path="/mandi-coverage" element={<MandiCoverage />} />
                   <Route path="/mandi-prices" element={<MandiPrices />} />
                   <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
+                  <Route path="/org-mandi" element={<OrgMandiMapping />} />
+                  <Route path="/commodities" element={<Commodities />} />
+                  <Route path="/commodity-products" element={<CommodityProducts />} />
+                  <Route path="/mandi-facilities" element={<MandiFacilities />} />
+                  <Route path="/mandi-gates" element={<MandiGates />} />
+                  <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports" element={<Reports />} />
 

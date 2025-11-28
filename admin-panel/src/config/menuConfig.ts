@@ -74,7 +74,7 @@ export const menuItems: MenuItem[] = [
   // 3) Org–Mandi mapping – platform & org level; auditors & org_viewer can see
   {
     labelKey: "menu.orgMandi",
-    path: "/org-mandi-mapping",
+    path: "/org-mandi",
     icon: React.createElement(HubOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
   },
@@ -93,6 +93,38 @@ export const menuItems: MenuItem[] = [
       "AUDITOR",
       "VIEWER",
     ],
+  },
+
+  // --- Mandi module submenus ---
+  {
+    labelKey: "menu.commodities",
+    path: "/commodities",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+  },
+  {
+    labelKey: "menu.commodityProducts",
+    path: "/commodity-products",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+  },
+  {
+    labelKey: "menu.mandiFacilitiesMasters",
+    path: "/mandi-facilities",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+  },
+  {
+    labelKey: "menu.mandiGates",
+    path: "/mandi-gates",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+  },
+  {
+    labelKey: "menu.mandiHoursTemplates",
+    path: "/mandi-hours-templates",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "AUDITOR", "ORG_VIEWER"],
   },
 
   // 5) Admin users – ONLY superadmin + org admin

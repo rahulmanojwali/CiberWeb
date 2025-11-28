@@ -12,6 +12,9 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
+import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
+import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
+import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import { can, type UiResource } from "../utils/adminUiConfig";
 
 // 🔹 All CiberMandi admin roles we want to support in the panel
@@ -77,6 +80,8 @@ export const menuItems: MenuItem[] = [
     path: "/org-mandi",
     icon: React.createElement(HubOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "org_mandi_mappings.menu",
+    requiredAction: "VIEW",
   },
 
   // 4) Mandis master – platform, org, mandi admins/managers; auditors & viewer can see
@@ -93,6 +98,8 @@ export const menuItems: MenuItem[] = [
       "AUDITOR",
       "VIEWER",
     ],
+    resourceKey: "mandis.menu",
+    requiredAction: "VIEW",
   },
 
   // --- Mandi module submenus ---
@@ -101,30 +108,124 @@ export const menuItems: MenuItem[] = [
     path: "/commodities",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "commodities.menu",
+    requiredAction: "VIEW",
   },
   {
     labelKey: "menu.commodityProducts",
     path: "/commodity-products",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "commodity_products.menu",
+    requiredAction: "VIEW",
   },
   {
     labelKey: "menu.mandiFacilitiesMasters",
     path: "/mandi-facilities",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+    resourceKey: "mandi_facilities.menu",
+    requiredAction: "VIEW",
   },
   {
     labelKey: "menu.mandiGates",
     path: "/mandi-gates",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+    resourceKey: "mandi_gates.menu",
+    requiredAction: "VIEW",
   },
   {
     labelKey: "menu.mandiHoursTemplates",
     path: "/mandi-hours-templates",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "AUDITOR", "ORG_VIEWER"],
+    resourceKey: "mandi_hours.menu",
+    requiredAction: "VIEW",
+  },
+
+  // Auctions & Policies
+  {
+    labelKey: "menu.auctionMethods",
+    path: "/auction-methods",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    resourceKey: "auction_methods_masters.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.auctionRounds",
+    path: "/auction-rounds",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    resourceKey: "auction_rounds_masters.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.auctionPolicies",
+    path: "/auction-policies",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    resourceKey: "cm_mandi_auction_policies.menu",
+    requiredAction: "VIEW",
+  },
+
+  // Gate & Yard Masters
+  {
+    labelKey: "menu.gateEntryReasons",
+    path: "/gate-entry-reasons",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "gate_entry_reasons_masters.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.gateVehicleTypes",
+    path: "/gate-vehicle-types",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "gate_vehicle_types_masters.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.gateDevices",
+    path: "/gate-devices",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "cm_gate_devices.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.gateDeviceConfigs",
+    path: "/gate-device-configs",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "gate_device_configs.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.gateTokens",
+    path: "/gate-tokens",
+    icon: React.createElement(QrCodeScannerOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "gate_pass_tokens.view",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.weighmentTickets",
+    path: "/weighment-tickets",
+    icon: React.createElement(ScaleOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "weighment_tickets.view",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.gateMovements",
+    path: "/gate-movements",
+    icon: React.createElement(TimelineOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "gate_movements_log.view",
+    requiredAction: "VIEW",
   },
 
   // 5) Admin users – ONLY superadmin + org admin
@@ -143,7 +244,9 @@ export const menuItems: MenuItem[] = [
     labelKey: "menu.traderApprovals",
     path: "/trader-approvals",
     icon: React.createElement(TaskAltOutlinedIcon),
-    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    resourceKey: "trader_approvals.menu",
+    requiredAction: "VIEW",
   },
 
   // 7) Reports – management / regulator views (NOT gate/weighbridge/auction-only users)

@@ -48,7 +48,10 @@
     "traderApprovals": "Trader Approvals",
     "reports": "Reports",
     "mandiCoverage": "Mandi Coverage",
-    "mandiPrices": "Mandi Price Entry"
+    "mandiPrices": "Mandi Price Entry",
+    "gateTokens": "Gate Tokens",
+    "weighmentTickets": "Weighment Tickets",
+    "gateMovements": "Gate Movements"
   },
   "header": {
     "sign_out": "Sign Out",

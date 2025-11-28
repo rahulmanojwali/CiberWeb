@@ -45,7 +45,10 @@
     "traderApprovals": "ट्रेडर स्वीकृति",
     "reports": "रिपोर्ट्स",
     "mandiCoverage": "मंडी कवरेज",
-    "mandiPrices": "मंडी मूल्य प्रविष्टि"
+    "mandiPrices": "मंडी मूल्य प्रविष्टि",
+    "gateTokens": "गेट टोकन",
+    "weighmentTickets": "वज़न टिकट",
+    "gateMovements": "गेट मूवमेंट लॉग"
   },
   "adminUsers": {
     "title": "एडमिन उपयोगकर्ता",

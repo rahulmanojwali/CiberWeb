@@ -22,22 +22,11 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import {
-  fetchCommodities,
-  createCommodity,
-  updateCommodity,
-  deactivateCommodity,
-} from "../../services/mandiApi";
-
-type CommodityRow = {
-  commodity_id: number;
-  name: string;
-  is_active: boolean;
-};
-
-const defaultForm = {
-  name_en: "",
-  is_active: true,
-};
+  fetchGateEntryReasons,
+  createGateEntryReason,
+  updateGateEntryReason,
+  deactivateGateEntryReason,
+} from "../../services/gateApi";
 
 function currentUsername(): string | null {
   try {
@@ -49,39 +38,43 @@ function currentUsername(): string | null {
   }
 }
 
-export const Commodities: React.FC = () => {
+type ReasonRow = {
+  reason_code: string;
+  name: string;
+  is_active: string;
+};
+
+const defaultForm = { reason_code: "", name_en: "", description: "", is_active: "Y" };
+
+export const GateEntryReasons: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
-  const [rows, setRows] = useState<CommodityRow[]>([]);
+
+  const [rows, setRows] = useState<ReasonRow[]>([]);
+  const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
+  const [editCode, setEditCode] = useState<string | null>(null);
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "commodities.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "commodities.edit", "UPDATE"), [uiConfig.resources]);
+  const canCreate = useMemo(() => can(uiConfig.resources, "gate_entry_reasons_masters.create", "CREATE"), [uiConfig.resources]);
+  const canEdit = useMemo(() => can(uiConfig.resources, "gate_entry_reasons_masters.edit", "UPDATE"), [uiConfig.resources]);
   const canDeactivate = useMemo(
-    () => can(uiConfig.resources, "commodities.deactivate", "DEACTIVATE"),
+    () => can(uiConfig.resources, "gate_entry_reasons_masters.deactivate", "DEACTIVATE"),
     [uiConfig.resources],
   );
 
-  const columns = useMemo<GridColDef<CommodityRow>[]>(
+  const columns = useMemo<GridColDef<ReasonRow>[]>(
     () => [
-      { field: "commodity_id", headerName: "ID", width: 100 },
+      { field: "reason_code", headerName: "Code", width: 140 },
       { field: "name", headerName: "Name", flex: 1 },
-      {
-        field: "is_active",
-        headerName: "Active",
-        width: 110,
-        valueFormatter: (p) => (p.value ? "Y" : "N"),
-      },
+      { field: "is_active", headerName: "Active", width: 100 },
       {
         field: "actions",
         headerName: "Actions",
-        width: 160,
+        width: 180,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (
@@ -94,7 +87,7 @@ export const Commodities: React.FC = () => {
                 size="small"
                 color="error"
                 startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.commodity_id)}
+                onClick={() => handleDeactivate(params.row.reason_code)}
               >
                 Deactivate
               </Button>
@@ -111,19 +104,13 @@ export const Commodities: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
-      const resp = await fetchCommodities({
+      const resp = await fetchGateEntryReasons({
         username,
         language,
-        filters: { is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" },
+        filters: { is_active: status === "ALL" ? undefined : status },
       });
-      const list = resp?.data?.commodities || [];
-      setRows(
-        list.map((c: any) => ({
-          commodity_id: c.commodity_id,
-          name: c?.name_i18n?.en || c.slug || String(c.commodity_id),
-          is_active: Boolean(c.is_active),
-        })),
-      );
+      const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
+      setRows(list.map((r: any) => ({ reason_code: r.reason_code, name: r.name_en || r.reason_code, is_active: r.is_active })));
     } finally {
       setLoading(false);
     }
@@ -131,59 +118,63 @@ export const Commodities: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, statusFilter]);
+  }, [status, language]);
 
   const openCreate = () => {
     setIsEdit(false);
-    setSelectedId(null);
+    setEditCode(null);
     setForm(defaultForm);
     setDialogOpen(true);
   };
 
-  const openEdit = (row: CommodityRow) => {
+  const openEdit = (row: ReasonRow) => {
     setIsEdit(true);
-    setSelectedId(row.commodity_id);
-    setForm({ name_en: row.name, is_active: row.is_active });
+    setEditCode(row.reason_code);
+    setForm({ reason_code: row.reason_code, name_en: row.name, description: "", is_active: row.is_active });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
-    const payload: any = { name_i18n: { en: form.name_en }, is_active: form.is_active };
-    if (isEdit && selectedId) {
-      payload.commodity_id = selectedId;
-      await updateCommodity({ username, language, payload });
+    const payload: any = {
+      reason_code: form.reason_code,
+      name_en: form.name_en,
+      description: form.description || undefined,
+      is_active: form.is_active,
+    };
+    if (isEdit && editCode) {
+      await updateGateEntryReason({ username, language, payload });
     } else {
-      await createCommodity({ username, language, payload });
+      await createGateEntryReason({ username, language, payload });
     }
     setDialogOpen(false);
     await loadData();
   };
 
-  const handleDeactivate = async (commodity_id: number) => {
+  const handleDeactivate = async (reason_code: string) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateCommodity({ username, language, commodity_id });
+    await deactivateGateEntryReason({ username, language, reason_code });
     await loadData();
   };
 
   return (
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.commodities", { defaultValue: "Commodities" })}</Typography>
+        <Typography variant="h5">{t("menu.gateEntryReasons", { defaultValue: "Gate Entry Reasons" })}</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             select
             label="Status"
             size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as any)}
             sx={{ width: 140 }}
           >
             <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="INACTIVE">Inactive</MenuItem>
+            <MenuItem value="Y">Active</MenuItem>
+            <MenuItem value="N">Inactive</MenuItem>
           </TextField>
           {canCreate && (
             <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
@@ -194,12 +185,19 @@ export const Commodities: React.FC = () => {
       </Stack>
 
       <Box sx={{ height: 520 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.commodity_id} />
+        <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.reason_code} />
       </Box>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{isEdit ? "Edit Commodity" : "Create Commodity"}</DialogTitle>
+        <DialogTitle>{isEdit ? "Edit Reason" : "Create Reason"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Reason Code"
+            value={form.reason_code}
+            onChange={(e) => setForm((f) => ({ ...f, reason_code: e.target.value }))}
+            fullWidth
+            disabled={isEdit}
+          />
           <TextField
             label="Name (EN)"
             value={form.name_en}
@@ -207,10 +205,16 @@ export const Commodities: React.FC = () => {
             fullWidth
           />
           <TextField
+            label="Description"
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            fullWidth
+          />
+          <TextField
             select
             label="Active"
-            value={form.is_active ? "Y" : "N"}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+            value={form.is_active}
+            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
             fullWidth
           >
             <MenuItem value="Y">Yes</MenuItem>

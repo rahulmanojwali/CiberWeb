@@ -235,6 +235,240 @@
       "actions": [
         "BULK_UPLOAD"
       ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -505,6 +739,240 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload; mandi-level roles only"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -706,6 +1174,114 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -861,6 +1437,150 @@
         "BULK_UPLOAD"
       ],
       "notes": "Can bulk upload mandi prices for assigned mandis"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ]
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -1226,6 +1946,114 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -1331,6 +2159,24 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload"
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_entry_tokens.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },
@@ -1573,6 +2419,18 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload"
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ]
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ]
     }
   ]
 },

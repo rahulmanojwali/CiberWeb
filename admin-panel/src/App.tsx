@@ -39,6 +39,16 @@ import { CommodityProducts } from "./pages/commodityProducts";
 import { MandiFacilities } from "./pages/mandiFacilities";
 import { MandiGates } from "./pages/mandiGates";
 import { MandiHoursTemplates } from "./pages/mandiHoursTemplates";
+import { GateEntryReasons } from "./pages/gateEntryReasons";
+import { GateVehicleTypes } from "./pages/gateVehicleTypes";
+import { AuctionMethods } from "./pages/auctionMethods";
+import { AuctionRounds } from "./pages/auctionRounds";
+import { AuctionPolicies } from "./pages/auctionPolicies";
+import { GateDevices } from "./pages/gateDevices";
+import { GateDeviceConfigs } from "./pages/gateDeviceConfigs";
+import { GateTokens } from "./pages/gateTokens";
+import { WeighmentTickets } from "./pages/weighmentTickets";
+import { GateMovements } from "./pages/gateMovements";
 
 import { Layout } from "./components/layout";
 
@@ -121,6 +131,16 @@ function App() {
                   <Route path="/mandi-facilities" element={<MandiFacilities />} />
                   <Route path="/mandi-gates" element={<MandiGates />} />
                   <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />
+                  <Route path="/gate-entry-reasons" element={<GateEntryReasons />} />
+                  <Route path="/gate-vehicle-types" element={<GateVehicleTypes />} />
+                  <Route path="/auction-methods" element={<AuctionMethods />} />
+                  <Route path="/auction-rounds" element={<AuctionRounds />} />
+                  <Route path="/auction-policies" element={<AuctionPolicies />} />
+                  <Route path="/gate-devices" element={<GateDevices />} />
+                  <Route path="/gate-device-configs" element={<GateDeviceConfigs />} />
+                  <Route path="/gate-tokens" element={<GateTokens />} />
+                  <Route path="/weighment-tickets" element={<WeighmentTickets />} />
+                  <Route path="/gate-movements" element={<GateMovements />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports" element={<Reports />} />
 

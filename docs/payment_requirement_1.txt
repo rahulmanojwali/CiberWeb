@@ -1,0 +1,234 @@
+2.1 Wire API tags + resources
+
+Files to touch:
+
+json/api_verifications.json
+
+cibermandi_ops_IN.cm_ui_resources (via seed script / mongo shell)
+
+cibermandi_ops_IN.cm_admin_role_policies (via seed script)
+
+Tasks:
+
+In json/api_verifications.json, add a new group:
+
+"paymentConfigApis": [
+  "getPaymentModels",
+  "upsertPaymentModel",
+  "getOrgPaymentSettings",
+  "updateOrgPaymentSettings",
+  "getMandiPaymentSettings",
+  "updateMandiPaymentSettings",
+  "getCommodityPaymentSettings",
+  "upsertCommodityPaymentSettings",
+  "getPaymentModeRules",
+  "upsertPaymentModeRules",
+  "getCustomFeeTemplates",
+  "upsertCustomFeeTemplate",
+  "getRoleCustomFees",
+  "upsertRoleCustomFee",
+  "previewEffectiveFees"
+]
+
+
+In cm_ui_resources, seed resource keys (no need to wire to UI yet, just exist):
+
+payment_models.menu, payment_models.list, payment_models.create, payment_models.update
+
+org_payment_settings.menu/list/update
+
+mandi_payment_settings.menu/list/update
+
+commodity_payment_settings.menu/list/update
+
+payment_mode_rules.menu/list/update
+
+custom_fee_templates.menu/list/update
+
+role_custom_fees.menu/list/update
+
+fees_preview.view (for a “Preview effective fees” tool later)
+
+In cm_admin_role_policies:
+
+Grant SUPER_ADMIN full actions on all above.
+
+Grant ORG_ADMIN: list/update for org + mandi + commodity + role_custom_fees, view models.
+
+Grant MANDI_MANAGER: view-only or limited update for mandi + commodity + role_custom_fees (as per your preference).
+
+Codex: follow the same JSON structure and conventions used for existing modules (e.g. mandi masters, auction masters).
+
+2.2 Create backend route file: paymentConfig.js
+
+File: src/routes/admin/paymentConfig.js
+
+Pattern: identical pipeline to other admin routes:
+
+extractDecryptedItems(req) / AES decrypt
+
+validate items.api ∈ paymentConfigApis
+
+checkUserExists (cm_admin_users)
+
+authorizeAdminAction with the right resource key
+
+use db_ops connection (not billing DB)
+
+respond with { response: { responsecode, description, data? } }
+
+cleanup via cleanupHandler({ db, client, tunnelStream })
+
+Handlers to implement (no business magic, just CRUD):
+
+getPaymentModels
+
+Query cm_payment_models with filters:
+
+org_scope, org_id, mandi_id, is_active
+
+pagination + sort by created_on desc
+
+Return list.
+
+upsertPaymentModel
+
+items contains model_code, scope, fees[], is_active.
+
+Upsert by (scope.org_scope, scope.org_id, scope.mandi_id, model_code).
+
+Increment version when updating.
+
+Set created_by/updated_by from admin username.
+
+getOrgPaymentSettings
+
+Input: org_id.
+
+Find cm_org_payment_settings by org_id (latest version / is_active).
+
+Return single doc or null.
+
+updateOrgPaymentSettings
+
+Input: org_id + fee_overrides + subscription_override + is_active.
+
+If exists:
+
+update fields and version++.
+
+Else:
+
+insert new, version=1.
+
+Audit fields from admin username.
+
+getMandiPaymentSettings
+
+Input: org_id, mandi_id.
+
+Return unique doc from cm_mandi_payment_settings.
+
+updateMandiPaymentSettings
+
+Input: org_id, mandi_id + fee_overrides, custom_fees[], subscription_active, is_active.
+
+Upsert by (org_id, mandi_id).
+
+getCommodityPaymentSettings
+
+Input: org_id, mandi_id, optional commodity_id, product_id.
+
+Filter cm_commodity_payment_settings with those values.
+
+Return array.
+
+upsertCommodityPaymentSettings
+
+Input: one record or array of records each with org_id, mandi_id, commodity_id, product_id, fees[].
+
+For each, upsert by (org_id, mandi_id, commodity_id, product_id), bump version.
+
+getPaymentModeRules
+
+Input: org_scope (GLOBAL or ORG), optional org_id.
+
+Query cm_payment_mode_rules accordingly.
+
+upsertPaymentModeRules
+
+Input: org_scope, org_id, mode_code, rules[], is_allowed, is_active.
+
+Upsert by (org_scope, org_id, mode_code).
+
+getCustomFeeTemplates
+
+Return all from cm_custom_fee_templates (with optional filter is_active).
+
+upsertCustomFeeTemplate
+
+Input: custom_fee_code, label_i18n, visibility[], mode_allowed[], is_active.
+
+Upsert by custom_fee_code.
+
+getRoleCustomFees
+
+Input: org_id, optional mandi_id.
+
+Filter cm_role_custom_fees by those keys.
+
+upsertRoleCustomFee
+
+Input: org_id, mandi_id, custom_fee_code, label, mode, values, is_active.
+
+Upsert by (org_id, mandi_id, custom_fee_code).
+
+Bonus testing endpoint: previewEffectiveFees
+
+Input: org_id, mandi_id, commodity_id, optional product_id, fee_codes[], payment_mode.
+
+This is where you start using the new paymentFeeResolver:
+
+Call resolveFees({ orgId, mandiId, commodityId, productId, feeCodes, paymentMode }).
+
+Return the normalized effective fee set.
+
+Only SUPER_ADMIN/ORG_ADMIN should see this (for debugging & tuning models).
+
+2.3 Minimal testing plan Codex should follow
+
+Even if you don’t run tests right now, Codex should at least:
+
+Check that all new APIs correctly go through:
+
+api_verifications.json tag group paymentConfigApis.
+
+checkUserExists (only cm_admin_users).
+
+authorizeAdminAction with the right resource key.
+
+Use Postman / VS Code REST to:
+
+Call getPaymentModels and upsertPaymentModel with a dummy model.
+
+Call updateOrgPaymentSettings, then getOrgPaymentSettings.
+
+Call previewEffectiveFees with some dummy IDs and confirm paymentFeeResolver output is returned.
+
+Next task: Implement Phase 2 – Payment Config APIs
+Create src/routes/admin/paymentConfig.js, add paymentConfigApis in json/api_verifications.json, seed cm_ui_resources and cm_admin_role_policies for new resource keys, and implement all CRUD handlers for:
+
+Payment models
+
+Org payment settings
+
+Mandi payment settings
+
+Commodity fee settings
+
+Payment mode rules
+
+Custom fee templates
+
+Role custom fees
+Plus a previewEffectiveFees API that calls paymentFeeResolver.resolveFees(...).

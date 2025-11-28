@@ -1,0 +1,354 @@
+Run the seed script once against cibermandi_ops_IN:
+
+node scripts/seedPaymentConfigResources.js
+
+
+With Postman / REST client, using a SUPER_ADMIN token:
+
+Call upsertPaymentModel with a simple model (GLOBAL scope, 1–2 fee codes).
+
+Call getPaymentModels and confirm it comes back.
+
+Call previewEffectiveFees with:
+
+org_id & mandi_id of a real mandi
+
+some dummy commodity_id
+
+fee_codes: ["MARKET_FEE","COMMISSION"]
+
+payment_mode: "UPI"
+
+Confirm it hits paymentFeeResolver and returns a structured fees[] + payment_mode_mdr.
+
+Once this looks sane, move on.
+
+1️⃣ Phase 3 – Admin-panel UI for Payment Config
+
+Goal: Super Admin / Org Admin / Mandi Manager can configure fees from the React admin-panel.
+
+1.1 Add menu + routes
+
+File: admin-panel/src/config/menuConfig.ts (or equivalent)
+
+Tasks for Codex:
+
+Under parent “Payments & Settlements” (create if not present), add child menu items:
+
+Payment Models – route /payment-models
+
+Visible if can("payment_models.menu", "VIEW")
+
+Org Payment Settings – /org-payment-settings
+
+Mandi Payment Settings – /mandi-payment-settings
+
+Commodity Fee Settings – /commodity-fees
+
+Payment Mode Rules – /payment-modes
+
+Custom Fee Templates – /custom-fees
+
+Role Custom Fees – /role-custom-fees
+
+Wire each to a page component via React Router (or whatever routing you use in admin-panel).
+
+1.2 Create API client: paymentConfigApi.ts
+
+File: admin-panel/src/services/paymentConfigApi.ts
+
+Tasks:
+
+Create AES-backed helpers mapping 1:1 to backend routes:
+
+getPaymentModels, upsertPaymentModel
+
+getOrgPaymentSettings, updateOrgPaymentSettings
+
+getMandiPaymentSettings, updateMandiPaymentSettings
+
+getCommodityPaymentSettings, upsertCommodityPaymentSettings
+
+getPaymentModeRules, upsertPaymentModeRules
+
+getCustomFeeTemplates, upsertCustomFeeTemplate
+
+getRoleCustomFees, upsertRoleCustomFee
+
+previewEffectiveFees
+
+Each should:
+
+Set items.api to the correct API tag (from paymentConfigApis).
+
+Wrap in AES encrypt/decrypt just like existing auctionMastersApi / mandiMastersApi.
+
+1.3 Implement pages (can be simple first pass)
+
+1. Payment Models page (/payment-models)
+
+Table (DataGrid):
+
+Columns: model_code, org_scope, org/mandi, is_active, version, created_on.
+
+Top filters:
+
+org selector (optional), mandi selector (optional), active flag.
+
+“Add / Edit Model” dialog:
+
+Edit model_code, scope (GLOBAL/ORG/MANDI), currency, is_active.
+
+Fee list: simple rows for now (fee_code, mode, percent, fixed).
+
+2. Org Payment Settings (/org-payment-settings)
+
+Filter: org selector.
+
+Fetch getOrgPaymentSettings.
+
+Form:
+
+Fee overrides (list; each row: fee_code, mode: DEFAULT/NONE/%/fixed/hybrid, values).
+
+Subscription override: enabled, base_amount, billing_cycle, max_discount_percent.
+
+Save → updateOrgPaymentSettings.
+
+3. Mandi Payment Settings (/mandi-payment-settings)
+
+Filters: org selector + mandi selector.
+
+Fetch getMandiPaymentSettings.
+
+Form:
+
+Fee overrides (like org).
+
+Custom fee list: multi-select from getCustomFeeTemplates.
+
+subscription_active toggle.
+
+Save → updateMandiPaymentSettings.
+
+4. Commodity Fee Settings (/commodity-fees)
+
+Filters: org, mandi, commodity.
+
+List of entries from getCommodityPaymentSettings.
+
+Drawer/dialog to add/edit fees for one commodity (and optional product_id).
+
+Save via upsertCommodityPaymentSettings.
+
+5. Payment Mode Rules (/payment-modes)
+
+Filters: scope = GLOBAL/ORG, org selector.
+
+List of cm_payment_mode_rules.
+
+Edit MDR:
+
+For each mode_code (UPI, CARD, BANK_TRANSFER, CASH):
+
+rule_type=MDR, mode, percent, fixed, min/max.
+
+Save via upsertPaymentModeRules.
+
+6. Custom Fee Templates (/custom-fees)
+
+List: custom_fee_code, label (English), visibility, is_active.
+
+Add/Edit dialog:
+
+label_i18n (maybe only EN for now)
+
+visibility array
+
+allowed_modes
+
+is_active
+
+Save via upsertCustomFeeTemplate.
+
+7. Role Custom Fees (/role-custom-fees)
+
+Filters: org, mandi.
+
+List: custom_fee_code, label, mode, values, is_active.
+
+Add/Edit dialog:
+
+choose from templates or free entry
+
+mode + values
+
+Save via upsertRoleCustomFee.
+
+For all pages: respect role gating via can(resourceKey, "VIEW") / "UPDATE".
+
+2️⃣ Phase 4 – Subscription engine APIs (billing DB)
+
+Once Payment Config UI is in place, the next backend piece is subscriptions + invoices + payments_log.
+
+Give Codex this next:
+
+4.1 New route: src/routes/admin/subscriptions.js
+
+Use billing DB helper (getBillingDb) + standard AES admin pipeline.
+
+4.2 API tags
+
+In json/api_verifications.json add:
+
+"subscriptionApis": [
+  "getSubscriptions",
+  "upsertSubscription",
+  "getSubscriptionInvoices",
+  "getSubscriptionInvoiceDetail",
+  "recordSubscriptionPayment"
+]
+
+4.3 Handlers (requirements)
+
+getSubscriptions
+
+Query cm_subscription_records (billing DB) with filters:
+
+subject_type, org_id, mandi_id, party_code, payer_username, status.
+
+Return paginated list.
+
+upsertSubscription
+
+Input:
+
+subject_type (ORG/MANDI/TRADER/FPO)
+
+org_id, mandi_id (optional for ORG)
+
+party_code, payer_username (for trader/FPO)
+
+billing_cycle, amount_base, max_discount_percent, status, next_due_on.
+
+Upsert by (subject_type + org_id + mandi_id + party_code).
+
+Update version, audit fields.
+
+getSubscriptionInvoices
+
+Query cm_subscription_invoices with filters:
+
+org_id (via join from subscriptions if needed), subject_type, payment_status, date range.
+
+Return list.
+
+getSubscriptionInvoiceDetail
+
+Input: invoice_id.
+
+Return:
+
+Invoice doc.
+
+All cm_payments_log rows where source="SUBSCRIPTION" and link_collection="cm_subscription_invoices" and link_id=invoice_id.
+
+recordSubscriptionPayment
+
+Input:
+
+invoice_id, amount, method, payment_ref, payer_username.
+
+Behaviour:
+
+Insert row in cm_payments_log:
+
+org_id, mandi_id (derived from subscription)
+
+payer_username, party_code
+
+source="SUBSCRIPTION", link_collection="cm_subscription_invoices", link_id.
+
+Recompute invoice payment_status and paid_on:
+
+sum of all SUCCESS entries vs invoice amount.
+
+Set to PENDING/PARTIAL/PAID.
+
+3️⃣ Phase 5 – Admin-panel UI for Subscriptions & Payments Log
+
+After Codex finishes Phase 4, give this:
+
+5.1 Service: subscriptionsApi.ts
+
+In admin-panel/src/services/subscriptionsApi.ts:
+
+getSubscriptions
+
+upsertSubscription
+
+getSubscriptionInvoices
+
+getSubscriptionInvoiceDetail
+
+recordSubscriptionPayment
+
+5.2 Pages
+
+1. Subscriptions list (/subscriptions)
+
+Filters:
+
+subject_type (ORG/MANDI/TRADER/FPO)
+
+org, mandi
+
+status
+
+payer_username
+
+Grid columns:
+
+subject_type, org, mandi, party_code, payer_username, billing_cycle, amount_base, status, next_due_on.
+
+Add/Edit dialog:
+
+all fields needed for upsert.
+
+2. Subscription invoices (/subscription-invoices)
+
+Filters:
+
+subject_type, org, payment_status, date range.
+
+Grid columns:
+
+invoice_code, subject, amount_gross, payment_status, due_date, paid_on.
+
+Row click → detail drawer:
+
+Show invoice fields.
+
+Show payments table (from getSubscriptionInvoiceDetail).
+
+“Record payment” form (calls recordSubscriptionPayment).
+
+3. Payments log viewer (optional but useful)
+
+Simple read-only page bound to future getPaymentsLog API (can be Phase 6):
+
+Filters: source (SUBSCRIPTION/SETTLEMENT), org, mandi, payer_username, date range.
+
+Grid: payment_code, source, link_id, amount, method, status, ts.
+
+How to proceed now
+
+For Codex, immediate next:
+
+Implement Phase 3 – Admin-panel UI for Payment Config:
+
+Add “Payments & Settlements” menu with 7 config pages.
+
+Implement paymentConfigApi.ts.
+
+Build basic pages for payment models, org/mandi/commodity settings, payment modes, custom fee templates, role custom fees, all wired to backend APIs and using can() for role gating.

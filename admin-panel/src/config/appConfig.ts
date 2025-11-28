@@ -88,12 +88,33 @@ export const API_TAGS = {
     update: "updateMandiAuctionPolicy",
     deactivate: "deactivateMandiAuctionPolicy",
   },
+  AUCTION_OPS: {
+    SESSIONS: {
+      list: "getAuctionSessions",
+    },
+    LOTS: {
+      list: "getAuctionLots",
+    },
+    RESULTS: {
+      list: "getAuctionResults",
+    },
+  },
   TRADER_APPROVALS: {
     list: "getTraderApprovals",
     detail: "getTraderApprovalDetail",
     approve: "approveTrader",
     reject: "rejectTrader",
     requestMoreInfo: "requestMoreInfoTrader",
+  },
+  PARTY_MASTERS: {
+    traders: {
+      list: "getTraders",
+      update: "updateTraderStatus",
+    },
+    farmers: {
+      list: "getFarmers",
+      update: "updateFarmerStatus",
+    },
   },
   GATE_ENTRY_REASONS: {
     list: "getGateEntryReasons",
@@ -131,16 +152,84 @@ export const API_TAGS = {
   WEIGHMENT_TICKETS: {
     list: "getWeighmentTickets",
   },
+  PAYMENT_CONFIG: {
+    getPaymentModels: "getPaymentModels",
+    upsertPaymentModel: "upsertPaymentModel",
+    getOrgPaymentSettings: "getOrgPaymentSettings",
+    updateOrgPaymentSettings: "updateOrgPaymentSettings",
+    getMandiPaymentSettings: "getMandiPaymentSettings",
+    updateMandiPaymentSettings: "updateMandiPaymentSettings",
+    getCommodityPaymentSettings: "getCommodityPaymentSettings",
+    upsertCommodityPaymentSettings: "upsertCommodityPaymentSettings",
+    getPaymentModeRules: "getPaymentModeRules",
+    upsertPaymentModeRules: "upsertPaymentModeRules",
+    getCustomFeeTemplates: "getCustomFeeTemplates",
+    upsertCustomFeeTemplate: "upsertCustomFeeTemplate",
+    getRoleCustomFees: "getRoleCustomFees",
+    upsertRoleCustomFee: "upsertRoleCustomFee",
+    previewEffectiveFees: "previewEffectiveFees",
+  },
+  SUBSCRIPTIONS: {
+    getSubscriptions: "getSubscriptions",
+    upsertSubscription: "upsertSubscription",
+    getSubscriptionInvoices: "getSubscriptionInvoices",
+    getSubscriptionInvoiceDetail: "getSubscriptionInvoiceDetail",
+    recordSubscriptionPayment: "recordSubscriptionPayment",
+  },
+  SETTLEMENTS: {
+    getSettlements: "getSettlements",
+    getSettlementDetail: "getSettlementDetail",
+  },
+  PAYMENTS_LOG: {
+    getPaymentsLog: "getPaymentsLog",
+    getPaymentDetail: "getPaymentDetail",
+  },
   AUTH: {
     loginApiTag: "loginusr_Api",
   },
   ADMIN_UI_CONFIG: {
     getAdminUiConfig: "get_Admin_Ui_Config27",
   },
-};
+} as const;
 
 export const DEFAULT_LANGUAGE = "en";
 export const DEFAULT_COUNTRY = "IN";
+
+const PAYMENT_CONFIG_ROUTES = {
+  getPaymentModels: "/admin/getPaymentModels",
+  upsertPaymentModel: "/admin/upsertPaymentModel",
+  getOrgPaymentSettings: "/admin/getOrgPaymentSettings",
+  updateOrgPaymentSettings: "/admin/updateOrgPaymentSettings",
+  getMandiPaymentSettings: "/admin/getMandiPaymentSettings",
+  updateMandiPaymentSettings: "/admin/updateMandiPaymentSettings",
+  getCommodityPaymentSettings: "/admin/getCommodityPaymentSettings",
+  upsertCommodityPaymentSettings: "/admin/upsertCommodityPaymentSettings",
+  getPaymentModeRules: "/admin/getPaymentModeRules",
+  upsertPaymentModeRules: "/admin/upsertPaymentModeRules",
+  getCustomFeeTemplates: "/admin/getCustomFeeTemplates",
+  upsertCustomFeeTemplate: "/admin/upsertCustomFeeTemplate",
+  getRoleCustomFees: "/admin/getRoleCustomFees",
+  upsertRoleCustomFee: "/admin/upsertRoleCustomFee",
+  previewEffectiveFees: "/admin/previewEffectiveFees",
+} as const;
+
+const SUBSCRIPTION_ROUTES = {
+  getSubscriptions: "/admin/getSubscriptions",
+  upsertSubscription: "/admin/upsertSubscription",
+  getSubscriptionInvoices: "/admin/getSubscriptionInvoices",
+  getSubscriptionInvoiceDetail: "/admin/getSubscriptionInvoiceDetail",
+  recordSubscriptionPayment: "/admin/recordSubscriptionPayment",
+} as const;
+
+const SETTLEMENT_ROUTES = {
+  getSettlements: "/admin/getSettlements",
+  getSettlementDetail: "/admin/getSettlementDetail",
+} as const;
+
+const PAYMENTS_LOG_ROUTES = {
+  getPaymentsLog: "/admin/getPaymentsLog",
+  getPaymentDetail: "/admin/getPaymentDetail",
+} as const;
 
 export const API_ROUTES = {
   auth: {
@@ -227,12 +316,24 @@ export const API_ROUTES = {
     getGateMovements: "/admin/getGateMovements",
     getWeighmentTickets: "/admin/getWeighmentTickets",
     getAdminUiConfig: "/admin/getAdminUiConfig",
+    getTraders: "/admin/getTraders",
+    updateTraderStatus: "/admin/updateTraderStatus",
+    getFarmers: "/admin/getFarmers",
+    updateFarmerStatus: "/admin/updateFarmerStatus",
+    getAuctionSessions: "/admin/getAuctionSessions",
+    getAuctionLots: "/admin/getAuctionLots",
+    getAuctionResults: "/admin/getAuctionResults",
+    ...SUBSCRIPTION_ROUTES,
+    ...SETTLEMENT_ROUTES,
+    ...PAYMENTS_LOG_ROUTES,
+    paymentConfig: PAYMENT_CONFIG_ROUTES,
+    ...PAYMENT_CONFIG_ROUTES,
   },
   masters: {
     getMandiCoverage: "/masters/getMandiCoverage",
     getMandis: "/masters/getMandis",
   },
-};
+} as const;
 
 export const BRAND_COLORS = {
   primary: "#2FA652",

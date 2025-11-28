@@ -1,0 +1,391 @@
+========================================
+COLLECTION: cm_subscription_invoices
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'subscription_id',
+      'invoice_code',
+      'period_start',
+      'period_end',
+      'amount_gross',
+      'currency',
+      'status',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      subscription_id: {
+        bsonType: 'objectId'
+      },
+      invoice_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{6,48}$'
+      },
+      period_start: {
+        bsonType: 'date'
+      },
+      period_end: {
+        bsonType: 'date'
+      },
+      amount_base: {
+        bsonType: [
+          'decimal',
+          'double'
+        ]
+      },
+      discount_amount: {
+        bsonType: [
+          'decimal',
+          'double',
+          'null'
+        ]
+      },
+      amount_gross: {
+        bsonType: [
+          'decimal',
+          'double'
+        ]
+      },
+      currency: {
+        bsonType: 'string',
+        minLength: 3,
+        maxLength: 3
+      },
+      payment_status: {
+        enum: [
+          'PENDING',
+          'PARTIAL',
+          'PAID',
+          'CANCELLED'
+        ]
+      },
+      payment_mode: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[A-Z0-9_]{0,32}$'
+      },
+      payment_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      paid_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      reconciliation_status: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'NOT_REQUIRED',
+          'PENDING',
+          'MATCHED',
+          'MISMATCHED',
+          null
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_payments_log
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'payment_code',
+      'org_id',
+      'amount',
+      'currency',
+      'method',
+      'status',
+      'ts',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      payment_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_-]{6,64}$'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      payer_username: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[0-9]{8,15}$'
+      },
+      party_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      source: {
+        enum: [
+          'SUBSCRIPTION',
+          'SETTLEMENT',
+          'OTHER'
+        ]
+      },
+      link_collection: {
+        bsonType: 'string'
+      },
+      link_id: {
+        bsonType: 'objectId'
+      },
+      amount: {
+        bsonType: [
+          'decimal',
+          'double'
+        ]
+      },
+      currency: {
+        bsonType: 'string',
+        minLength: 3,
+        maxLength: 3
+      },
+      method: {
+        enum: [
+          'UPI',
+          'CARD',
+          'BANK_TRANSFER',
+          'CASH',
+          'OTHER'
+        ]
+      },
+      upi_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      bank_ref: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'PENDING',
+          'SUCCESS',
+          'FAILED',
+          'REFUNDED'
+        ]
+      },
+      ts: {
+        bsonType: 'date'
+      },
+      extra_data: {
+        bsonType: [
+          'object',
+          'null'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_subscription_records
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'subject_type',
+      'org_id',
+      'status',
+      'billing_cycle',
+      'amount_base',
+      'currency',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      subject_type: {
+        enum: [
+          'ORG',
+          'MANDI',
+          'TRADER',
+          'FPO'
+        ]
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      party_code: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      payer_username: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[0-9]{8,15}$'
+      },
+      model_code: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      billing_cycle: {
+        bsonType: 'string',
+        enum: [
+          'MONTHLY',
+          'QUARTERLY',
+          'YEARLY'
+        ]
+      },
+      amount_base: {
+        bsonType: [
+          'decimal',
+          'double'
+        ]
+      },
+      currency: {
+        bsonType: 'string',
+        minLength: 3,
+        maxLength: 3
+      },
+      max_discount_percent: {
+        bsonType: [
+          'double',
+          'decimal',
+          'null'
+        ]
+      },
+      status: {
+        enum: [
+          'ACTIVE',
+          'SUSPENDED',
+          'CANCELLED'
+        ]
+      },
+      next_due_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      last_paid_on: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      auto_disable_on_overdue: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        enum: [
+          'Y',
+          'N',
+          null
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}

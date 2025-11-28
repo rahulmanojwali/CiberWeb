@@ -1,0 +1,420 @@
+After that: Phase 6 – Settlements Viewer (Payments & Settlements)
+
+Prep Codex mentally for next chunk (don’t give it yet, but this is what’s coming):
+
+Backend route src/routes/admin/settlements.js:
+
+getSettlements: list from cibermandi_market_IN.settlements with filters (org, mandi, party, date), joined to payments and/or cm_payments_log to show paid/balance.
+
+getSettlementDetail: header + settlement_lines + payments (market payments + billing cm_payments_log with source="SETTLEMENT").
+
+Adminpanel:
+
+Service settlementsApi.ts.
+
+Page /settlements under Payments & Settlements, read-only for now.
+
+TL;DR – What you tell Codex now
+
+Task: Implement Subscriptions UI (Phase 5).
+
+Add subscriptionsApi.ts with AES-backed helpers for getSubscriptions, upsertSubscription, getSubscriptionInvoices, getSubscriptionInvoiceDetail, recordSubscriptionPayment.
+
+Extend menuConfig/App routes to add /subscriptions and /subscription-invoices under Payments & Settlements with proper can() gating.
+
+Build Subscriptions page (filters + grid + add/edit drawer).
+
+Build Subscription Invoices page (filters + grid + detail drawer + “Record payment” form).
+
+Smoke test with a SUPER_ADMIN account.
+
+Once you paste back Codex’s “done” summary for that, we’ll do the Settlements viewer plan.
+
+You said:
+response from codex 
+ChatGPT said:
+
+Cool, I’ll assume Codex finished the Subscriptions UI chunk and you’re asking “ok, ab kya?” again 😄
+
+Let’s move to the next logical piece in Payments & Settlements:
+
+Phase 6 – Settlements Viewer (mandi bills)
+
+Phase 7 – Payments Log Viewer (optional but very useful)
+
+I’ll write this as a clean Codex brief, no code, just what to build.
+
+Phase 6 – Settlements Viewer (Backend + Admin UI)
+6.0 Context (what we’re sitting on)
+
+Existing DB (from your validators):
+
+cibermandi_market_IN.settlements – header per settlement
+
+cibermandi_market_IN.settlement_lines – line-items
+
+cibermandi_market_IN.payments – payment records for that settlement
+
+New DB:
+
+cibermandi_billing_IN.cm_payments_log – platform-level payment log
+
+We’ll use this with source = "SETTLEMENT", link_collection = "settlements", link_id = settlement_id.
+
+Goal: An admin “Bills & Settlements” viewer where:
+
+Org / Mandi admins can filter settlements.
+
+See total, paid, and balance.
+
+Open detail to see lines + all payments (from both payments and cm_payments_log).
+
+6.1 Backend: new route src/routes/admin/settlements.js
+
+Pattern: Same AES admin pipeline as other routes.
+
+Add API tag group in json/api_verifications.json:
+
+"settlementsApis": [
+  "getSettlements",
+  "getSettlementDetail"
+]
+
+
+Resource keys (seed via script like others):
+
+settlements.menu
+
+settlements.list
+
+settlements.view
+
+Role policy:
+
+SUPER_ADMIN: full (menu + list + view).
+
+ORG_ADMIN: list + view, scoped to their org’s mandis.
+
+MANDI_MANAGER / MANDI_OPERATOR: list + view, scoped to their mandi.
+
+AUDITOR / ORG_VIEWER: list + view (read-only).
+
+Route file: src/routes/admin/settlements.js
+
+Use:
+
+getOpsDb() / existing ops helper for org/mandi lookup if needed.
+
+getMarketDb() (whatever you already use for cibermandi_market_IN).
+
+getBillingDb() for pulling matching entries from cm_payments_log.
+
+Handler 1: POST /api/admin/getSettlements
+
+Input (items):
+
+api: "getSettlements"
+
+Filters (all optional, but enforce scope from authorizeAdminAction):
+
+org_id
+
+mandi_id
+
+party_role (FARMER/TRADER/TRANSPORTER/OTHER)
+
+party_code
+
+status (e.g., OPEN/CLOSED/SETTLED – match your settlements schema)
+
+Date range: from_date, to_date (apply on settlement’s date field, e.g. settlement_date).
+
+Pagination: page, pageSize
+
+Behaviour:
+
+Query cibermandi_market_IN.settlements with filters + role scope.
+
+For each settlement in the page:
+
+Compute paid_amount and balance:
+
+Option A (lightweight now): just use the settlements header if it already stores paid_amount and balance. Then later we can enrich from payments.
+
+Option B (better, if affordable):
+
+Sum from cibermandi_market_IN.payments where settlement_id and status="SUCCESS" (or similar).
+
+Optionally also include cm_payments_log where:
+
+source = "SETTLEMENT"
+
+link_collection = "settlements"
+
+link_id = settlement._id
+
+Combine to compute paid_amount and balance = total - paid_amount.
+
+Return:
+
+{
+  "response": {
+    "responsecode": "0",
+    "description": "...",
+    "data": {
+      "items": [
+        {
+          "_id": "...",
+          "settlement_code": "...",
+          "org_id": "...",
+          "mandi_id": 123,
+          "party_role": "TRADER",
+          "party_code": "TR123",
+          "total_amount": 12345.67,
+          "paid_amount": 10000.00,
+          "balance_amount": 2345.67,
+          "status": "OPEN",
+          "settlement_date": "2025-11-28T..."
+        }
+      ],
+      "pagination": { "page": 1, "pageSize": 25, "total": 500 }
+    }
+  }
+}
+
+
+Codex can implement Option A first (use whatever settlements already has), then later integrate payments/cm_payments_log for more accurate paid/balance if needed.
+
+Handler 2: POST /api/admin/getSettlementDetail
+
+Input (items):
+
+api: "getSettlementDetail"
+
+settlement_id (string → ObjectId)
+
+Behaviour:
+
+Fetch settlement header from cibermandi_market_IN.settlements.
+
+Fetch all lines from cibermandi_market_IN.settlement_lines where settlement_id.
+
+Fetch “core” payments from cibermandi_market_IN.payments with that settlement_id.
+
+Fetch additional logs from cibermandi_billing_IN.cm_payments_log where:
+
+{
+  source: "SETTLEMENT",
+  link_collection: "settlements",
+  link_id: settlement_id
+}
+
+
+Return:
+
+{
+  "response": {
+    "responsecode": "0",
+    "description": "...",
+    "data": {
+      "header": { /* settlement doc */ },
+      "lines": [ /* settlement_lines */ ],
+      "payments_core": [ /* payments from market DB */ ],
+      "payments_log": [ /* cm_payments_log entries */ ]
+    }
+  }
+}
+
+
+No write operations here – pure viewer.
+
+6.2 Admin-panel: Settlements viewer
+
+Service: admin-panel/src/services/settlementsApi.ts
+
+AES-backed wrappers:
+
+getSettlements(filters)
+
+getSettlementDetail(settlementId)
+
+Map tags via items.api (from settlementsApis group) and use /api/admin/settlements route.
+
+Page: admin-panel/src/pages/settlements.tsx
+
+Menu & routing:
+
+In menuConfig.ts, under Payments & Settlements, add:
+
+"Settlements" → route /settlements, gated by can("settlements.menu", "VIEW").
+
+In App.tsx, route /settlements → SettlementsPage.
+
+UI behaviour:
+
+Filter strip at top:
+
+Org selector (like other admin pages).
+
+Mandi selector (dependent on org).
+
+Date range picker.
+
+Party role dropdown (FARMER/TRADER/etc.).
+
+Party code / payer mobile search box.
+
+Status dropdown.
+
+DataGrid:
+
+Columns:
+
+Settlement code
+
+Org / Mandi name
+
+Party role
+
+Party code (or short name)
+
+Total amount
+
+Paid amount
+
+Balance
+
+Status
+
+Settlement date
+
+With pagination and server-side filtering.
+
+Row click → right-side drawer/modal:
+
+Use getSettlementDetail(settlement_id) and show:
+
+Header card:
+
+Org / Mandi
+
+Party role + code
+
+Date
+
+Total / Paid / Balance
+
+Status
+
+Lines table:
+
+For each settlement_lines row: lot ID, description, quantity, rate, amount, fee type, etc. (whatever fields you have).
+
+Payments section:
+
+Tab: “Core payments” (from payments).
+
+Tab: “Payment log” (from cm_payments_log for this settlement).
+
+Read-only for now; we are not editing settlements from here.
+
+Role gating:
+
+Only show page if can("settlements.list", "VIEW").
+
+All actions on page are read-only.
+
+Phase 7 – Payments Log Viewer (optional but recommended)
+
+Once Phase 6 is done, a small extra viewer on cm_payments_log makes life easier for ops.
+
+7.1 Backend: extend subscriptions.js or new paymentsLog.js
+
+Either:
+
+Add two handlers to subscriptions.js:
+
+getPaymentsLog
+
+getPaymentDetail
+
+or
+
+Create src/routes/admin/paymentsLog.js with paymentsLogApis group.
+(Your choice; second is cleaner.)
+
+If separate file:
+
+paymentsLogApis in json/api_verifications.json:
+
+getPaymentsLog, getPaymentDetail
+
+Resource keys:
+
+payments_log.menu, payments_log.list, payments_log.view
+
+Behaviour:
+
+getPaymentsLog:
+
+Filters:
+
+source (SUBSCRIPTION/SETTLEMENT/OTHER)
+
+org_id, mandi_id
+
+payer_username
+
+party_code
+
+method
+
+status
+
+date range on ts
+
+Returns paginated list of cm_payments_log.
+
+getPaymentDetail:
+
+Input: payment_id
+
+Returns the payment row + linked reference (invoice or settlement) by checking source + link_collection + link_id.
+
+7.2 Admin-panel: payments log page
+
+Service: admin-panel/src/services/paymentsLogApi.ts
+
+getPaymentsLog, getPaymentDetail.
+
+Page: admin-panel/src/pages/paymentsLog.tsx
+
+Menu item “Payments Log” → /payments-log under Payments & Settlements.
+
+Filters + grid similar to cm_payments_log columns:
+
+payment_code, source, org, mandi, payer_username, party_code, amount, method, status, ts.
+
+Row click → detail drawer showing payment + minimal linked info (e.g. invoice_code or settlement_code from backend response).
+
+Since subscriptions backend and (likely) UI are done, the next concrete step is:
+
+Implement Phase 6 – Settlements Viewer (backend + UI).
+
+Add settlementsApis in json/api_verifications.json.
+
+Create src/routes/admin/settlements.js with AES admin pipeline and two handlers:
+
+getSettlements (filtered list from cibermandi_market_IN.settlements, including total/paid/balance).
+
+getSettlementDetail (header + lines + payments_core + payments_log).
+
+Seed cm_ui_resources and cm_admin_role_policies for settlements.menu/list/view via a small script like the existing ones.
+
+Add settlementsApi.ts in admin-panel with AES helpers.
+
+Add /settlements route + menu entry under Payments & Settlements, gated by can("settlements.menu","VIEW").
+
+Build SettlementsPage with filters, grid, and a detail drawer as described.
+
+

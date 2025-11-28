@@ -30,6 +30,8 @@ import { Orgs } from "./pages/orgs";
 import { Mandis } from "./pages/mandis";
 import { AdminUsers } from "./pages/adminUsers";
 import { TraderApprovals } from "./pages/traderApprovals";
+import { Traders } from "./pages/traders";
+import { Farmers } from "./pages/farmers";
 import { MandiCoverage } from "./pages/mandiCoverage";
 import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
@@ -49,6 +51,21 @@ import { GateDeviceConfigs } from "./pages/gateDeviceConfigs";
 import { GateTokens } from "./pages/gateTokens";
 import { WeighmentTickets } from "./pages/weighmentTickets";
 import { GateMovements } from "./pages/gateMovements";
+import { AuctionSessions } from "./pages/auctionSessions";
+import { AuctionLots } from "./pages/auctionLots";
+import { AuctionResults } from "./pages/auctionResults";
+import { PaymentsLanding } from "./pages/paymentsLanding";
+import { PaymentModels } from "./pages/paymentModels";
+import { OrgPaymentSettings } from "./pages/orgPaymentSettings";
+import { MandiPaymentSettings } from "./pages/mandiPaymentSettings";
+import { CommodityFees } from "./pages/commodityFees";
+import { PaymentModes } from "./pages/paymentModes";
+import { CustomFees } from "./pages/customFees";
+import { RoleCustomFees } from "./pages/roleCustomFees";
+import { SubscriptionsPage } from "./pages/subscriptions";
+import { SubscriptionInvoices } from "./pages/subscriptionInvoices";
+import { SettlementsPage } from "./pages/settlements";
+import { PaymentsLog } from "./pages/paymentsLog";
 
 import { Layout } from "./components/layout";
 
@@ -122,8 +139,22 @@ function App() {
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />
                   <Route path="/trader-approvals" element={<TraderApprovals />} />
+                  <Route path="/traders" element={<Traders />} />
+                  <Route path="/farmers" element={<Farmers />} />
                   <Route path="/mandi-coverage" element={<MandiCoverage />} />
                   <Route path="/mandi-prices" element={<MandiPrices />} />
+                  <Route path="/payments-settlements" element={<PaymentsLanding />} />
+                  <Route path="/payment-models" element={<PaymentModels />} />
+                  <Route path="/org-payment-settings" element={<OrgPaymentSettings />} />
+                  <Route path="/mandi-payment-settings" element={<MandiPaymentSettings />} />
+                  <Route path="/commodity-fees" element={<CommodityFees />} />
+                  <Route path="/payment-modes" element={<PaymentModes />} />
+                  <Route path="/custom-fees" element={<CustomFees />} />
+                  <Route path="/role-custom-fees" element={<RoleCustomFees />} />
+                  <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                  <Route path="/subscription-invoices" element={<SubscriptionInvoices />} />
+                  <Route path="/settlements" element={<SettlementsPage />} />
+                  <Route path="/payments-log" element={<PaymentsLog />} />
                   <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
                   <Route path="/org-mandi" element={<OrgMandiMapping />} />
                   <Route path="/commodities" element={<Commodities />} />
@@ -141,6 +172,9 @@ function App() {
                   <Route path="/gate-tokens" element={<GateTokens />} />
                   <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                   <Route path="/gate-movements" element={<GateMovements />} />
+                  <Route path="/auction-sessions" element={<AuctionSessions />} />
+                  <Route path="/auction-lots" element={<AuctionLots />} />
+                  <Route path="/auction-results" element={<AuctionResults />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports" element={<Reports />} />
 

@@ -1853,6 +1853,111 @@ VALIDATOR:
   }
 }
 ========================================
+COLLECTION: cm_commodity_payment_settings
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'commodity_id',
+      'fees',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      commodity_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      product_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      fees: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'fee_code',
+            'mode'
+          ],
+          additionalProperties: false,
+          properties: {
+            fee_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,64}$'
+            },
+            mode: {
+              enum: [
+                'NONE',
+                'PERCENT',
+                'FIXED',
+                'HYBRID'
+              ]
+            },
+            percent_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            fixed_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            }
+          }
+        }
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
 COLLECTION: cm_orgs
 VALIDATOR:
 {
@@ -2271,6 +2376,244 @@ VALIDATOR:
           'SOLD',
           'UNSOLD',
           'WITHDRAWN'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_mandi_payment_settings
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'fee_overrides',
+      'custom_fees',
+      'subscription_active',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      fee_overrides: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'fee_code',
+            'mode'
+          ],
+          additionalProperties: false,
+          properties: {
+            fee_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,64}$'
+            },
+            mode: {
+              enum: [
+                'DEFAULT',
+                'NONE',
+                'PERCENT',
+                'FIXED',
+                'HYBRID'
+              ]
+            },
+            percent_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            fixed_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            }
+          }
+        }
+      },
+      custom_fees: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'custom_fee_code',
+            'is_active'
+          ],
+          additionalProperties: false,
+          properties: {
+            custom_fee_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,64}$'
+            },
+            label: {
+              bsonType: [
+                'string',
+                'null'
+              ]
+            },
+            is_active: {
+              enum: [
+                'Y',
+                'N'
+              ]
+            }
+          }
+        }
+      },
+      subscription_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      effective_from: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      effective_to: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_role_custom_fees
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'mandi_id',
+      'custom_fee_code',
+      'label',
+      'mode',
+      'values',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      mandi_id: {
+        bsonType: [
+          'int',
+          'null'
+        ],
+        minimum: 1
+      },
+      custom_fee_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      label: {
+        bsonType: 'string'
+      },
+      mode: {
+        enum: [
+          'NONE',
+          'PERCENT',
+          'FIXED',
+          'HYBRID'
+        ]
+      },
+      values: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          percent_value: {
+            bsonType: [
+              'double',
+              'decimal',
+              'null'
+            ]
+          },
+          fixed_value: {
+            bsonType: [
+              'double',
+              'decimal',
+              'null'
+            ]
+          }
+        }
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
         ]
       },
       version: {
@@ -3314,6 +3657,130 @@ VALIDATOR:
   }
 }
 ========================================
+COLLECTION: cm_payment_mode_rules
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_scope',
+      'org_id',
+      'mode_code',
+      'rules',
+      'is_allowed',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_scope: {
+        enum: [
+          'GLOBAL',
+          'ORG'
+        ]
+      },
+      org_id: {
+        bsonType: [
+          'objectId',
+          'null'
+        ]
+      },
+      mode_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,32}$'
+      },
+      rules: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'rule_type',
+            'mode'
+          ],
+          additionalProperties: false,
+          properties: {
+            rule_type: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,32}$'
+            },
+            mode: {
+              enum: [
+                'NONE',
+                'PERCENT',
+                'FIXED',
+                'HYBRID'
+              ]
+            },
+            percent_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            fixed_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            min_amount: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            max_amount: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            }
+          }
+        }
+      },
+      is_allowed: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
 COLLECTION: cm_dashboard_masters
 VALIDATOR:
 {
@@ -4182,6 +4649,148 @@ VALIDATOR:
   }
 }
 ========================================
+COLLECTION: cm_org_payment_settings
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'org_id',
+      'country',
+      'fee_overrides',
+      'subscription_override',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      org_id: {
+        bsonType: 'objectId'
+      },
+      country: {
+        bsonType: 'string',
+        minLength: 2,
+        maxLength: 2
+      },
+      model_code: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      fee_overrides: {
+        bsonType: 'array',
+        items: {
+          bsonType: 'object',
+          required: [
+            'fee_code',
+            'mode'
+          ],
+          additionalProperties: false,
+          properties: {
+            fee_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,64}$'
+            },
+            mode: {
+              enum: [
+                'DEFAULT',
+                'NONE',
+                'PERCENT',
+                'FIXED',
+                'HYBRID'
+              ]
+            },
+            percent_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            fixed_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            }
+          }
+        }
+      },
+      subscription_override: {
+        bsonType: 'object',
+        additionalProperties: false,
+        properties: {
+          enabled: {
+            enum: [
+              'Y',
+              'N'
+            ]
+          },
+          base_amount: {
+            bsonType: [
+              'double',
+              'decimal',
+              'null'
+            ]
+          },
+          discount_allowed: {
+            enum: [
+              'Y',
+              'N'
+            ]
+          },
+          max_discount_percent: {
+            bsonType: [
+              'double',
+              'decimal',
+              'null'
+            ]
+          },
+          billing_cycle: {
+            bsonType: [
+              'string',
+              'null'
+            ],
+            pattern: '^[A-Z0-9_]{0,32}$'
+          }
+        }
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
 COLLECTION: cm_roles_masters
 VALIDATOR:
 {
@@ -4606,6 +5215,91 @@ VALIDATOR:
   }
 }
 ========================================
+COLLECTION: cm_custom_fee_templates
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'custom_fee_code',
+      'label_i18n',
+      'visibility',
+      'mode_allowed',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      custom_fee_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      label_i18n: {
+        bsonType: 'object',
+        additionalProperties: {
+          bsonType: 'string'
+        }
+      },
+      visibility: {
+        bsonType: 'array',
+        items: {
+          enum: [
+            'ORG',
+            'MANDI',
+            'COMMODITY'
+          ]
+        }
+      },
+      mode_allowed: {
+        bsonType: 'array',
+        items: {
+          enum: [
+            'PERCENT',
+            'FIXED',
+            'HYBRID',
+            'NONE'
+          ]
+        }
+      },
+      notes: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
 COLLECTION: cm_permissions_masters
 VALIDATOR:
 {
@@ -4641,6 +5335,198 @@ VALIDATOR:
           'string',
           'null'
         ]
+      },
+      is_active: {
+        enum: [
+          'Y',
+          'N'
+        ]
+      },
+      version: {
+        bsonType: 'int',
+        minimum: 1
+      },
+      created_on: {
+        bsonType: 'date'
+      },
+      updated_on: {
+        bsonType: 'date'
+      },
+      created_by: {
+        bsonType: 'string'
+      },
+      updated_by: {
+        bsonType: 'string'
+      }
+    }
+  }
+}
+========================================
+COLLECTION: cm_payment_models
+VALIDATOR:
+{
+  '$jsonSchema': {
+    bsonType: 'object',
+    required: [
+      'model_code',
+      'scope',
+      'fees',
+      'is_active',
+      'version',
+      'created_on',
+      'updated_on',
+      'created_by',
+      'updated_by'
+    ],
+    additionalProperties: false,
+    properties: {
+      _id: {
+        bsonType: 'objectId'
+      },
+      model_code: {
+        bsonType: 'string',
+        pattern: '^[A-Z0-9_]{3,64}$'
+      },
+      scope: {
+        bsonType: 'object',
+        required: [
+          'org_scope'
+        ],
+        additionalProperties: false,
+        properties: {
+          org_scope: {
+            enum: [
+              'GLOBAL',
+              'ORG',
+              'MANDI'
+            ]
+          },
+          org_id: {
+            bsonType: [
+              'objectId',
+              'null'
+            ]
+          },
+          mandi_id: {
+            bsonType: [
+              'int',
+              'null'
+            ],
+            minimum: 1
+          },
+          country: {
+            bsonType: [
+              'string',
+              'null'
+            ],
+            minLength: 2,
+            maxLength: 2
+          },
+          state_code: {
+            bsonType: [
+              'string',
+              'null'
+            ]
+          }
+        }
+      },
+      description: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      fees: {
+        bsonType: 'array',
+        minItems: 1,
+        items: {
+          bsonType: 'object',
+          required: [
+            'fee_code',
+            'mode'
+          ],
+          additionalProperties: false,
+          properties: {
+            fee_code: {
+              bsonType: 'string',
+              pattern: '^[A-Z0-9_]{3,64}$'
+            },
+            label: {
+              bsonType: [
+                'string',
+                'null'
+              ]
+            },
+            mode: {
+              enum: [
+                'NONE',
+                'PERCENT',
+                'FIXED',
+                'HYBRID'
+              ]
+            },
+            percent_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            fixed_value: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            min_amount: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            max_amount: {
+              bsonType: [
+                'double',
+                'decimal',
+                'null'
+              ]
+            },
+            applies_to: {
+              bsonType: [
+                'string',
+                'null'
+              ],
+              pattern: '^[A-Z0-9_]{0,64}$'
+            },
+            is_taxable: {
+              bsonType: [
+                'string',
+                'null'
+              ],
+              enum: [
+                'Y',
+                'N',
+                null
+              ]
+            },
+            metadata: {
+              bsonType: [
+                'object',
+                'null'
+              ]
+            }
+          }
+        }
+      },
+      currency: {
+        bsonType: [
+          'string',
+          'null'
+        ],
+        minLength: 3,
+        maxLength: 3
       },
       is_active: {
         enum: [

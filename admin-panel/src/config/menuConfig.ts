@@ -15,6 +15,13 @@ import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
 import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { can, type UiResource } from "../utils/adminUiConfig";
 
 // 🔹 All CiberMandi admin roles we want to support in the panel
@@ -169,6 +176,30 @@ export const menuItems: MenuItem[] = [
     resourceKey: "cm_mandi_auction_policies.menu",
     requiredAction: "VIEW",
   },
+  {
+    labelKey: "menu.auctionSessions",
+    path: "/auction-sessions",
+    icon: React.createElement(GavelOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+    resourceKey: "auction_sessions.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.auctionLots",
+    path: "/auction-lots",
+    icon: React.createElement(GavelOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+    resourceKey: "auction_lots.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.auctionResults",
+    path: "/auction-results",
+    icon: React.createElement(GavelOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+    resourceKey: "auction_results.menu",
+    requiredAction: "VIEW",
+  },
 
   // Gate & Yard Masters
   {
@@ -248,6 +279,22 @@ export const menuItems: MenuItem[] = [
     resourceKey: "trader_approvals.menu",
     requiredAction: "VIEW",
   },
+  {
+    labelKey: "menu.traders",
+    path: "/traders",
+    icon: React.createElement(BadgeOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "traders.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.farmers",
+    path: "/farmers",
+    icon: React.createElement(BadgeOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "ORG_VIEWER", "AUDITOR"],
+    resourceKey: "farmers.menu",
+    requiredAction: "VIEW",
+  },
 
   // 7) Reports – management / regulator views (NOT gate/weighbridge/auction-only users)
   {
@@ -299,6 +346,102 @@ export const menuItems: MenuItem[] = [
       "AUDITOR",
       "VIEWER",
     ],
+  },
+  {
+    labelKey: "menu.paymentsAndSettlements",
+    path: "/payments-settlements",
+    icon: React.createElement(PriceChangeOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "payment_models.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.paymentModels",
+    path: "/payment-models",
+    icon: React.createElement(AccountBalanceWalletOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "payment_models.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.orgPaymentSettings",
+    path: "/org-payment-settings",
+    icon: React.createElement(AccountBalanceOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "org_payment_settings.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.mandiPaymentSettings",
+    path: "/mandi-payment-settings",
+    icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "mandi_payment_settings.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.commodityFeeSettings",
+    path: "/commodity-fees",
+    icon: React.createElement(Inventory2OutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "commodity_payment_settings.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.paymentModes",
+    path: "/payment-modes",
+    icon: React.createElement(SettingsOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "payment_mode_rules.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.customFees",
+    path: "/custom-fees",
+    icon: React.createElement(ReceiptLongOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "custom_fee_templates.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.roleCustomFees",
+    path: "/role-custom-fees",
+    icon: React.createElement(GroupsOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "role_custom_fees.list",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.subscriptions",
+    path: "/subscriptions",
+    icon: React.createElement(AccountBalanceOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "subscriptions.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.subscriptionInvoices",
+    path: "/subscription-invoices",
+    icon: React.createElement(ReceiptLongOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "subscription_invoices.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.settlements",
+    path: "/settlements",
+    icon: React.createElement(AssessmentOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "settlements.menu",
+    requiredAction: "VIEW",
+  },
+  {
+    labelKey: "menu.paymentsLog",
+    path: "/payments-log",
+    icon: React.createElement(ReceiptLongOutlinedIcon),
+    roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    resourceKey: "payments_log.menu",
+    requiredAction: "VIEW",
   },
 ];
 

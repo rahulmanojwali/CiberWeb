@@ -24,4 +24,24 @@ mongosh --quiet --host 10.0.0.135 --port 27017 \
         print("VALIDATOR: <none>");
       }
     });
-  ' > /home/ubuntu/cibermandi_validators_dump.txt
+  ' > /home/ubuntu/cibermandi_ops_IN_Dump.txt
+
+
+=================
+
+
+mongosh --quiet --host 10.0.0.135 --port 27017 \
+  --authenticationDatabase admin -u admin -p cibermongose \
+  --eval '
+    db = db.getSiblingDB("cibermandi_billing_IN");
+    db.getCollectionInfos().forEach(function (info) {
+      print("========================================");
+      print("COLLECTION:", info.name);
+      if (info.options && info.options.validator) {
+        print("VALIDATOR:");
+        printjson(info.options.validator);
+      } else {
+        print("VALIDATOR: <none>");
+      }
+    });
+  ' > /home/ubuntu/cibermandi_billing_IN_Dump.txt

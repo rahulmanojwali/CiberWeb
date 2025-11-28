@@ -231,6 +231,10 @@ const PAYMENTS_LOG_ROUTES = {
   getPaymentDetail: "/admin/getPaymentDetail",
 } as const;
 
+const DASHBOARD_ROUTES = {
+  getDashboardSummary: "/admin/dashboard",
+} as const;
+
 export const API_ROUTES = {
   auth: {
     login: "/auth/loginUser",
@@ -326,6 +330,7 @@ export const API_ROUTES = {
     ...SUBSCRIPTION_ROUTES,
     ...SETTLEMENT_ROUTES,
     ...PAYMENTS_LOG_ROUTES,
+    ...DASHBOARD_ROUTES,
     paymentConfig: PAYMENT_CONFIG_ROUTES,
     ...PAYMENT_CONFIG_ROUTES,
   },

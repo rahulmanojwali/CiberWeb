@@ -68,6 +68,8 @@ export const menuItems: MenuItem[] = [
     path: "/",
     icon: React.createElement(DashboardOutlinedIcon),
     roles: ALL_ROLES,
+    resourceKey: "dashboard.menu",
+    requiredAction: "VIEW",
   },
 
   // 2) Organisations – platform & org level; auditors & org_viewer can see

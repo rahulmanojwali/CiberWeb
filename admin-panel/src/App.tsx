@@ -135,6 +135,7 @@ function App() {
              
                   <Route index element={<Navigate to="/" replace />} />
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/orgs" element={<Orgs />} />
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />

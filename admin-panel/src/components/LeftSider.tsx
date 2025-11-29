@@ -5,8 +5,10 @@ import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { filterMenuByResources } from "../config/menuConfig";
-import type { MenuItem } from "../config/menuConfig";
+import {
+  filterMenuByResources,
+  type MenuItem,
+} from "../config/menuConfig";
 import { BRAND_COLORS } from "../config/appConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
@@ -30,6 +32,21 @@ export const LeftSider: React.FC = () => {
     [effectiveRole, resources],
   );
 
+  const flattenMenu = (menuItems: MenuItem[]): MenuItem[] => {
+    const result: MenuItem[] = [];
+    menuItems.forEach((entry) => {
+      if (entry.path) {
+        result.push(entry);
+      }
+      if (entry.children) {
+        result.push(...flattenMenu(entry.children));
+      }
+    });
+    return result;
+  };
+
+  const navigableItems = useMemo(() => flattenMenu(items), [items]);
+
   return (
     <Box
       component="nav"
@@ -49,13 +66,13 @@ export const LeftSider: React.FC = () => {
       }}
     >
       <Box component="ul" sx={{ listStyle: "none", m: 0, p: 1 }}>
-        {items.map((item) => {
+        {navigableItems.map((item) => {
           const active = location.pathname === item.path;
           return (
             <ListItemButton
               key={item.path}
               component={NavLink}
-              to={item.path}
+              to={item.path!}
               sx={{
                 borderLeft: active ? `4px solid ${BRAND_COLORS.primary}` : "4px solid transparent",
                 borderRadius: 2,

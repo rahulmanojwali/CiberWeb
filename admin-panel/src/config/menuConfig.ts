@@ -362,7 +362,7 @@ export const menuItems: MenuItem[] = [
     path: "/payment-models",
     icon: React.createElement(AccountBalanceWalletOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "payment_models.list",
+    resourceKey: "payment_models.menu",
     requiredAction: "VIEW",
   },
   {
@@ -370,7 +370,7 @@ export const menuItems: MenuItem[] = [
     path: "/org-payment-settings",
     icon: React.createElement(AccountBalanceOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "org_payment_settings.list",
+    resourceKey: "org_payment_settings.menu",
     requiredAction: "VIEW",
   },
   {
@@ -378,7 +378,7 @@ export const menuItems: MenuItem[] = [
     path: "/mandi-payment-settings",
     icon: React.createElement(StoreMallDirectoryOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "mandi_payment_settings.list",
+    resourceKey: "mandi_payment_settings.menu",
     requiredAction: "VIEW",
   },
   {
@@ -386,7 +386,7 @@ export const menuItems: MenuItem[] = [
     path: "/commodity-fees",
     icon: React.createElement(Inventory2OutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "commodity_payment_settings.list",
+    resourceKey: "commodity_fees.menu",
     requiredAction: "VIEW",
   },
   {
@@ -394,7 +394,7 @@ export const menuItems: MenuItem[] = [
     path: "/payment-modes",
     icon: React.createElement(SettingsOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "payment_mode_rules.list",
+    resourceKey: "payment_modes.menu",
     requiredAction: "VIEW",
   },
   {
@@ -402,7 +402,7 @@ export const menuItems: MenuItem[] = [
     path: "/custom-fees",
     icon: React.createElement(ReceiptLongOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "custom_fee_templates.list",
+    resourceKey: "custom_fees.menu",
     requiredAction: "VIEW",
   },
   {
@@ -410,7 +410,7 @@ export const menuItems: MenuItem[] = [
     path: "/role-custom-fees",
     icon: React.createElement(GroupsOutlinedIcon),
     roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
-    resourceKey: "role_custom_fees.list",
+    resourceKey: "role_custom_fees.menu",
     requiredAction: "VIEW",
   },
   {

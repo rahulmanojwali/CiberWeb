@@ -3,6 +3,8 @@ import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 
 import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
@@ -17,6 +19,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Drawer from "@mui/material/Drawer";
+import Collapse from "@mui/material/Collapse";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -29,7 +32,7 @@ import { useGetIdentity, useLogout } from "@refinedev/core";
 import { RefineThemedLayoutHeaderProps } from "@refinedev/mui";
 
 // import React, { useContext, useMemo, useState } from "react";
-import React, { useContext, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useContext, useMemo, useState, useEffect } from "react";
 
 
 import { useTranslation } from "react-i18next";
@@ -101,6 +104,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const { resources, role: configRole } = useAdminUiConfig();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuExpanded, setMenuExpanded] = useState<Record<string, boolean>>({});
 
   const role = getUserRoleFromStorage("Header");
   const effectiveRole = (configRole as any) || role;
@@ -112,6 +116,102 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     return items;
   }, [effectiveRole, resources]);
   const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
+  const handleToggleGroup = useCallback((key: string) => {
+    setMenuExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      setMenuExpanded({});
+    }
+  }, [mobileMenuOpen]);
+
+  const resolveKey = (item: NavMenuItem) =>
+    item.key ?? item.labelKey ?? item.path ?? item.labelKey;
+
+  const renderMobileMenuItem = useCallback(
+    (item: NavMenuItem, depth = 0): React.ReactNode => {
+      const key = resolveKey(item);
+      const hasChildren = !!item.children?.length && !item.path;
+      const active = item.path ? location.pathname.startsWith(item.path) : false;
+      if (hasChildren) {
+        const isExpanded = !!menuExpanded[key];
+        return (
+          <Box key={key} sx={{ mt: depth === 0 ? 1 : 0 }}>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => handleToggleGroup(key)}
+                sx={{
+                  minHeight: 40,
+                  justifyContent: "flex-start",
+                  px: 2.5,
+                }}
+              >
+                {item.icon && (
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: 1.5,
+                      justifyContent: "center",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                )}
+                <ListItemText
+                  primary={t(item.labelKey)}
+                  primaryTypographyProps={{ fontWeight: 600 }}
+                />
+                {isExpanded ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {item.children!.map((child) => renderMobileMenuItem(child, depth + 1))}
+              </List>
+            </Collapse>
+          </Box>
+        );
+      }
+
+      return (
+        <ListItem
+          key={key}
+          disablePadding
+          sx={{ display: "block" }}
+        >
+          <ListItemButton
+            selected={active}
+            onClick={() => item.path && handleNavClick(item.path)}
+            sx={{
+              minHeight: 40,
+              justifyContent: "flex-start",
+              px: 3 + depth * 1.5,
+            }}
+          >
+            {item.icon && (
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: 1.5,
+                  justifyContent: "center",
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+            )}
+            <ListItemText
+              primary={t(item.labelKey)}
+              primaryTypographyProps={{
+                fontWeight: active ? 600 : 500,
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      );
+    },
+    [handleNavClick, handleToggleGroup, location.pathname, menuExpanded, t],
+  );
 
 
 
@@ -445,43 +545,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
 
         {/* Navigation list */}
         <Box sx={{ py: 1 }}>
-          <List disablePadding>
-            {flattenedNavItems.map((item) => {
-              const active = location.pathname === item.path;
-
-              return (
-                <ListItem key={item.path} disablePadding>
-                  <ListItemButton
-                  onClick={() => handleNavClick(item.path!)}
-                    selected={active}
-                    sx={{
-                      "&.Mui-selected": {
-                        bgcolor: "rgba(47,166,82,0.08)",
-                      },
-                    }}
-                  >
-                    {item.icon && (
-                      <ListItemIcon
-                        sx={{
-                          minWidth: 40,
-                          color: active
-                            ? theme.palette.primary.main
-                            : "inherit",
-                        }}
-                      >
-                        {item.icon}
-                      </ListItemIcon>
-                    )}
-                    <ListItemText
-                      primary={t(item.labelKey)}
-                      primaryTypographyProps={{
-                        fontWeight: active ? 600 : 500,
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
+          <List component="nav" disablePadding>
+            {navItems.map((item) => renderMobileMenuItem(item))}
           </List>
         </Box>
       </Drawer>

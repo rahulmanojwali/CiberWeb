@@ -100,6 +100,21 @@ export type AdminUser = {
   created_on?: string | null;
 };
 
+const getDisplayRole = (row: any): string => {
+  const raw =
+    row.role_slug ||
+    row.roleSlug ||
+    row.role_code ||
+    row.role ||
+    row.admin_role ||
+    (Array.isArray(row.roles) && row.roles.length ? row.roles[0] : "") ||
+    (row.role && typeof row.role === "object"
+      ? row.role.slug || row.role.role_slug || row.role.code
+      : "");
+
+  return raw ? String(raw).replace(/_/g, " ") : "";
+};
+
 type OrgOption = { _id?: string; org_code: string; org_name?: string | null };
 type MandiOption = { mandi_id: number; mandi_name?: string | null; mandi_slug?: string | null };
 
@@ -850,6 +865,141 @@ const loadOrgs = useCallback(async () => {
             <Box display="flex" justifyContent="center" py={6}>
               <CircularProgress />
             </Box>
+          ) : isSmallScreen ? (
+            <Stack spacing={1.5}>
+              {rows.map((row) => {
+                const displayRole = getDisplayRole(row);
+                const mandiCodes = Array.isArray(row.mandi_codes) ? row.mandi_codes : [];
+                const mandiPreview = mandiCodes.slice(0, 2).join(", ");
+                const extraMandis = mandiCodes.length > 2 ? mandiCodes.length - 2 : 0;
+                const isActive = row.is_active === "Y";
+
+                return (
+                  <Card key={row.username} variant="outlined">
+                    <CardContent>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="flex-start"
+                        spacing={1}
+                      >
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary">
+                            {row.username}
+                          </Typography>
+                          <Typography variant="h6">
+                            {row.display_name ||
+                              t("adminUsers.card.noNameFallback", {
+                                defaultValue: "Unnamed user",
+                              })}
+                          </Typography>
+                          {displayRole && (
+                            <Chip label={displayRole} size="small" sx={{ mt: 0.75 }} />
+                          )}
+                          {row.org_code && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              mt={0.75}
+                            >
+                              {t("adminUsers.columns.orgCode")}: {row.org_code}
+                            </Typography>
+                          )}
+                          {mandiCodes.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {t("adminUsers.columns.mandis")}: {mandiPreview}
+                              {extraMandis > 0 ? ` (+${extraMandis} more)` : ""}
+                            </Typography>
+                          )}
+                        </Box>
+
+                        <Box textAlign="right">
+                          <Chip
+                            label={
+                              isActive
+                                ? t("adminUsers.status.active")
+                                : t("adminUsers.status.inactive")
+                            }
+                            color={isActive ? "success" : "default"}
+                            size="small"
+                          />
+                          {row.last_login_on && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              mt={0.75}
+                            >
+                              {t("adminUsers.columns.lastLogin")}: {row.last_login_on}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Stack>
+
+                      {(row.email || row.mobile) && (
+                        <Stack direction="row" spacing={2} mt={1}>
+                          {row.email && (
+                            <Typography variant="caption" color="text.secondary">
+                              {row.email}
+                            </Typography>
+                          )}
+                          {row.mobile && (
+                            <Typography variant="caption" color="text.secondary">
+                              • {row.mobile}
+                            </Typography>
+                          )}
+                        </Stack>
+                      )}
+
+                      <Stack direction="row" justifyContent="flex-end" spacing={0.5} mt={1.5}>
+                        {canUpdateUserAction && (
+                          <Tooltip title={t("adminUsers.actions.edit")}>
+                            <IconButton size="small" onClick={() => handleOpenEdit(row)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {canUpdateUserAction && (
+                          <Tooltip
+                            title={
+                              isActive
+                                ? t("adminUsers.actions.deactivate")
+                                : t("adminUsers.actions.activate")
+                            }
+                          >
+                            <IconButton
+                              size="small"
+                              color={isActive ? "error" : "success"}
+                              onClick={() => handleDeactivate(row)}
+                            >
+                              {isActive ? (
+                                <BlockIcon fontSize="small" />
+                              ) : (
+                                <CheckCircleIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        {canResetPasswordAction && (
+                          <Tooltip title={t("adminUsers.actions.reset")}>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleResetPassword(row)}
+                            >
+                              <LockResetIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
           ) : (
             <Box sx={{ width: "100%", overflowX: "auto" }}>
               <ResponsiveDataGrid

@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -10,6 +13,8 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -27,6 +32,8 @@ export const SettlementsPage: React.FC = () => {
   const { i18n } = useTranslation();
   const language = i18n.language || "en";
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const canView = useMemo(() => can(uiConfig.resources, "settlements.list", "LIST"), [uiConfig.resources]);
   const [filters, setFilters] = useState({
     org_id: "",
@@ -105,86 +112,142 @@ export const SettlementsPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack spacing={2}>
-        <Typography variant="h5">Settlements</Typography>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1} flexWrap="wrap">
-          <TextField
-            label="Org ID"
-            size="small"
-            value={filters.org_id}
-            onChange={(event) => setFilters((prev) => ({ ...prev, org_id: event.target.value }))}
-          />
-          <TextField
-            label="Mandi ID"
-            size="small"
-            value={filters.mandi_id}
-            onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
-          />
-          <TextField
-            label="Party Role"
-            size="small"
-            select
-            value={filters.party_role}
-            onChange={(event) => setFilters((prev) => ({ ...prev, party_role: event.target.value }))}
-          >
-            <MenuItem value="">Any</MenuItem>
-            {PARTY_ROLES.map((role) => (
-              <MenuItem key={role} value={role}>
-                {role}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Party Code"
-            size="small"
-            value={filters.party_code}
-            onChange={(event) => setFilters((prev) => ({ ...prev, party_code: event.target.value }))}
-          />
-          <TextField
-            label="Status"
-            size="small"
-            select
-            value={filters.status}
-            onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
-          >
-            <MenuItem value="">Any</MenuItem>
-            {STATUS_OPTIONS.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="From"
-            size="small"
-            type="date"
-            value={filters.from_date}
-            onChange={(event) => setFilters((prev) => ({ ...prev, from_date: event.target.value }))}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            label="To"
-            size="small"
-            type="date"
-            value={filters.to_date}
-            onChange={(event) => setFilters((prev) => ({ ...prev, to_date: event.target.value }))}
-            InputLabelProps={{ shrink: true }}
-          />
-          <Button variant="outlined" onClick={() => loadSettlements()}>
-            Refresh
-          </Button>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
+          <Typography variant="h5">Settlements</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Review settlement balances and payouts.
+          </Typography>
         </Stack>
-        <Box>
-          <ResponsiveDataGrid
-            columns={columns}
-            rows={rows}
-            loading={loading}
-            onRowClick={(params) => openDetail(params.row.id)}
-          />
-        </Box>
       </Stack>
 
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} fullWidth maxWidth="lg">
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Org ID"
+                size="small"
+                value={filters.org_id}
+                onChange={(event) => setFilters((prev) => ({ ...prev, org_id: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Mandi ID"
+                size="small"
+                value={filters.mandi_id}
+                onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Party Role"
+                size="small"
+                select
+                value={filters.party_role}
+                onChange={(event) => setFilters((prev) => ({ ...prev, party_role: event.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">Any</MenuItem>
+                {PARTY_ROLES.map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {role}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Party Code"
+                size="small"
+                value={filters.party_code}
+                onChange={(event) => setFilters((prev) => ({ ...prev, party_code: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Status"
+                size="small"
+                select
+                value={filters.status}
+                onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">Any</MenuItem>
+                {STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="From"
+                size="small"
+                type="date"
+                value={filters.from_date}
+                onChange={(event) => setFilters((prev) => ({ ...prev, from_date: event.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="To"
+                size="small"
+                type="date"
+                value={filters.to_date}
+                onChange={(event) => setFilters((prev) => ({ ...prev, to_date: event.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Button variant="outlined" onClick={() => loadSettlements()} fullWidth>
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={rows}
+                loading={loading}
+                onRowClick={(params) => openDetail(params.row.id)}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        fullWidth
+        maxWidth="lg"
+        fullScreen={fullScreenDialog}
+      >
         <DialogTitle>Settlement Detail</DialogTitle>
         <DialogContent>
           {detailData?.header ? (

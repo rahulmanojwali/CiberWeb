@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Grid, Stack, TextField, Typography } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
@@ -102,45 +102,76 @@ export const OrgPaymentSettings: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-        <Stack spacing={1}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
           <Typography variant="h5">Org Payment Settings</Typography>
-          <Stack direction="row" spacing={1}>
-            <TextField
-              label="Org ID"
-              size="small"
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
-            />
-            <Button variant="contained" onClick={loadSettings} disabled={!orgId}>
-              Load
-            </Button>
-          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Load and edit organization-specific payment overrides.
+          </Typography>
         </Stack>
-        <Stack spacing={1} flex={1}>
-          <Typography variant="subtitle1">Editable payload</Typography>
-          <TextField
-            multiline
-            minRows={10}
-            value={payloadJson}
-            onChange={(event) => setPayloadJson(event.target.value)}
-            fullWidth
-          />
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" onClick={loadSettings} disabled={!orgId}>
+            Load
+          </Button>
           <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
             Save
           </Button>
         </Stack>
       </Stack>
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Fee overrides
-        </Typography>
-        <ResponsiveDataGrid
-          columns={columns}
-          rows={feeRows}
-          loading={loading}
-        />
-      </Box>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Org ID"
+                size="small"
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle1" gutterBottom>
+            Fee overrides
+          </Typography>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid columns={columns} rows={feeRows} loading={loading} />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="subtitle1">Editable payload</Typography>
+            <TextField
+              multiline
+              minRows={10}
+              value={payloadJson}
+              onChange={(event) => setPayloadJson(event.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </CardContent>
+      </Card>
     </PageContainer>
   );
 };

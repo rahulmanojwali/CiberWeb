@@ -2,14 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   MenuItem,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -43,6 +49,8 @@ export const SubscriptionsPage: React.FC = () => {
   const { i18n } = useTranslation();
   const language = i18n.language || "en";
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const canCreate = useMemo(() => can(uiConfig.resources, "subscriptions.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "subscriptions.update", "UPDATE"), [uiConfig.resources]);
   const [filters, setFilters] = useState({
@@ -169,165 +177,237 @@ export const SubscriptionsPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack spacing={2}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
           <Typography variant="h5">Subscriptions</Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <TextField
-              label="Subject Type"
-              select
-              size="small"
-              value={filters.subject_type}
-              onChange={(event) => setFilters((prev) => ({ ...prev, subject_type: event.target.value }))}
-            >
-              <MenuItem value="">Any</MenuItem>
-              {SUBJECT_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Org ID"
-              size="small"
-              value={filters.org_id}
-              onChange={(event) => setFilters((prev) => ({ ...prev, org_id: event.target.value }))}
-            />
-            <TextField
-              label="Mandi ID"
-              size="small"
-              value={filters.mandi_id}
-              onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
-            />
-            <TextField
-              label="Status"
-              select
-              size="small"
-              value={filters.status}
-              onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
-            >
-              <MenuItem value="">Any</MenuItem>
-              {STATUS_OPTIONS.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {value}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Payer Username"
-              size="small"
-              value={filters.payer_username}
-              onChange={(event) => setFilters((prev) => ({ ...prev, payer_username: event.target.value }))}
-            />
-            <Button variant="outlined" onClick={() => setPagination((prev) => ({ ...prev, page: 1 }))}>
-              Apply
-            </Button>
-          </Stack>
-          {canCreate && (
-            <Button variant="contained" onClick={() => openDialog()} sx={{ alignSelf: "flex-start" }}>
-              New Subscription
-            </Button>
-          )}
+          <Typography variant="body2" color="text.secondary">
+            Track recurring subscriptions and billing cycles.
+          </Typography>
         </Stack>
-        <Box>
-          <ResponsiveDataGrid
-            columns={columns}
-            rows={rows}
-            loading={loading}
-            onRowClick={(params) => canEdit && openDialog(params.row)}
-          />
-        </Box>
+        {canCreate && (
+          <Button variant="contained" onClick={() => openDialog()}>
+            New Subscription
+          </Button>
+        )}
       </Stack>
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Subject Type"
+                select
+                size="small"
+                value={filters.subject_type}
+                onChange={(event) => setFilters((prev) => ({ ...prev, subject_type: event.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">Any</MenuItem>
+                {SUBJECT_TYPES.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Org ID"
+                size="small"
+                value={filters.org_id}
+                onChange={(event) => setFilters((prev) => ({ ...prev, org_id: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Mandi ID"
+                size="small"
+                value={filters.mandi_id}
+                onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Status"
+                select
+                size="small"
+                value={filters.status}
+                onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">Any</MenuItem>
+                {STATUS_OPTIONS.map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Payer Username"
+                size="small"
+                value={filters.payer_username}
+                onChange={(event) => setFilters((prev) => ({ ...prev, payer_username: event.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Button
+                variant="outlined"
+                onClick={() => setPagination((prev) => ({ ...prev, page: 1 }))}
+                fullWidth
+              >
+                Apply
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={rows}
+                loading={loading}
+                onRowClick={(params) => canEdit && openDialog(params.row)}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={fullScreenDialog}
+      >
         <DialogTitle>{canEdit ? "Create / Update Subscription" : "Create Subscription"}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              label="Subject Type"
-              select
-              fullWidth
-              value={form.subject_type}
-              onChange={(event) => setForm((prev) => ({ ...prev, subject_type: event.target.value }))}
-            >
-              {SUBJECT_TYPES.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Org ID"
-              fullWidth
-              value={form.org_id}
-              onChange={(event) => setForm((prev) => ({ ...prev, org_id: event.target.value }))}
-            />
-            <TextField
-              label="Mandi ID"
-              fullWidth
-              value={form.mandi_id}
-              onChange={(event) => setForm((prev) => ({ ...prev, mandi_id: event.target.value }))}
-            />
-            <TextField
-              label="Party Code"
-              fullWidth
-              value={form.party_code}
-              onChange={(event) => setForm((prev) => ({ ...prev, party_code: event.target.value }))}
-            />
-            <TextField
-              label="Payer Username"
-              fullWidth
-              value={form.payer_username}
-              onChange={(event) => setForm((prev) => ({ ...prev, payer_username: event.target.value }))}
-            />
-            <TextField
-              label="Billing Cycle"
-              fullWidth
-              select
-              value={form.billing_cycle}
-              onChange={(event) => setForm((prev) => ({ ...prev, billing_cycle: event.target.value }))}
-            >
-              {["MONTHLY", "QUARTERLY", "YEARLY"].map((cycle) => (
-                <MenuItem key={cycle} value={cycle}>
-                  {cycle}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Amount Base"
-              type="number"
-              fullWidth
-              value={form.amount_base}
-              onChange={(event) => setForm((prev) => ({ ...prev, amount_base: event.target.value }))}
-            />
-            <TextField
-              label="Max Discount %"
-              type="number"
-              fullWidth
-              value={form.max_discount_percent}
-              onChange={(event) => setForm((prev) => ({ ...prev, max_discount_percent: event.target.value }))}
-            />
-            <TextField
-              label="Status"
-              select
-              fullWidth
-              value={form.status}
-              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
-            >
-              {STATUS_OPTIONS.map((value) => (
-                <MenuItem key={value} value={value}>
-                  {value}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Next Due On"
-              type="date"
-              fullWidth
-              value={form.next_due_on}
-              onChange={(event) => setForm((prev) => ({ ...prev, next_due_on: event.target.value }))}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Stack>
+        <DialogContent dividers>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Subject Type"
+                select
+                fullWidth
+                value={form.subject_type}
+                onChange={(event) => setForm((prev) => ({ ...prev, subject_type: event.target.value }))}
+              >
+                {SUBJECT_TYPES.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Org ID"
+                fullWidth
+                value={form.org_id}
+                onChange={(event) => setForm((prev) => ({ ...prev, org_id: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Mandi ID"
+                fullWidth
+                value={form.mandi_id}
+                onChange={(event) => setForm((prev) => ({ ...prev, mandi_id: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Party Code"
+                fullWidth
+                value={form.party_code}
+                onChange={(event) => setForm((prev) => ({ ...prev, party_code: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Payer Username"
+                fullWidth
+                value={form.payer_username}
+                onChange={(event) => setForm((prev) => ({ ...prev, payer_username: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Billing Cycle"
+                fullWidth
+                select
+                value={form.billing_cycle}
+                onChange={(event) => setForm((prev) => ({ ...prev, billing_cycle: event.target.value }))}
+              >
+                {["MONTHLY", "QUARTERLY", "YEARLY"].map((cycle) => (
+                  <MenuItem key={cycle} value={cycle}>
+                    {cycle}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Amount Base"
+                type="number"
+                fullWidth
+                value={form.amount_base}
+                onChange={(event) => setForm((prev) => ({ ...prev, amount_base: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Max Discount %"
+                type="number"
+                fullWidth
+                value={form.max_discount_percent}
+                onChange={(event) => setForm((prev) => ({ ...prev, max_discount_percent: event.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Status"
+                select
+                fullWidth
+                value={form.status}
+                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}
+              >
+                {STATUS_OPTIONS.map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Next Due On"
+                type="date"
+                fullWidth
+                value={form.next_due_on}
+                onChange={(event) => setForm((prev) => ({ ...prev, next_due_on: event.target.value }))}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>

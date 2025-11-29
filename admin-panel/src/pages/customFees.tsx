@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Stack, TextField, Typography } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
@@ -94,10 +94,58 @@ export const CustomFees: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack spacing={2}>
-        <Typography variant="h5">Custom Fee Templates</Typography>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <Stack spacing={1} flex={1}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
+          <Typography variant="h5">Custom Fee Templates</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Configure reusable custom fee templates for settlements.
+          </Typography>
+        </Stack>
+      </Stack>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={2}
+          >
+            <Typography variant="subtitle1">Existing templates</Typography>
+            <Button variant="outlined" onClick={loadData}>
+              Refresh
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={gridRows}
+                loading={loading}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1}>
             <Typography variant="subtitle1">Editable payload</Typography>
             <TextField
               multiline
@@ -106,25 +154,14 @@ export const CustomFees: React.FC = () => {
               onChange={(event) => setPayloadJson(event.target.value)}
               fullWidth
             />
-            <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
-              Save
-            </Button>
+            <Box display="flex" justifyContent="flex-end">
+              <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
+                Save
+              </Button>
+            </Box>
           </Stack>
-          <Stack spacing={1} flex={1}>
-            <Typography variant="subtitle1">Existing templates</Typography>
-            <Button variant="outlined" onClick={loadData}>
-              Refresh
-            </Button>
-          </Stack>
-        </Stack>
-        <Box>
-          <ResponsiveDataGrid
-            columns={columns}
-            rows={gridRows}
-            loading={loading}
-          />
-        </Box>
-      </Stack>
+        </CardContent>
+      </Card>
     </PageContainer>
   );
 };

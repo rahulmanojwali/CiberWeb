@@ -13,6 +13,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   MenuItem,
   Stack,
   TextField,
@@ -370,54 +371,65 @@ export const Orgs: React.FC = () => {
         justifyContent="space-between"
         alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
+        sx={{ mb: 2 }}
       >
-        <Typography variant="h5">Organisations</Typography>
+        <Stack spacing={0.5}>
+          <Typography variant="h5">Organisations</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage organisation master data and status quickly.
+          </Typography>
+        </Stack>
         {showCreateButton && (
           <Button
             variant="contained"
-            size="small"
+            size="medium"
             onClick={handleOpenCreate}
-            sx={{ alignSelf: { xs: "stretch", md: "flex-start" } }}
           >
             Add Organisation
           </Button>
         )}
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        alignItems={{ xs: "stretch", md: "center" }}
-      >
-        <TextField
-          label="Search code/name"
-          size="small"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          fullWidth
-        />
-        <TextField
-          select
-          size="small"
-          label="Status"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          sx={{ width: { xs: "100%", md: 180 } }}
-        >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="ACTIVE">Active</MenuItem>
-          <MenuItem value="INACTIVE">Inactive</MenuItem>
-        </TextField>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={loadOrgs}
-          disabled={loading}
-          sx={{ width: { xs: "100%", md: "auto" } }}
-        >
-          Refresh
-        </Button>
-      </Stack>
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Search code/name"
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                size="small"
+                label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                fullWidth
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">Inactive</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={loadOrgs}
+                disabled={loading}
+                fullWidth
+              >
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -425,167 +437,189 @@ export const Orgs: React.FC = () => {
         </Alert>
       ) : null}
 
-      {isSmallScreen ? (
-        <Stack spacing={1.5}>
-          {filteredRows.map((row) => (
-            <Card key={row.id} variant="outlined">
-              <CardContent>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="flex-start"
-                  spacing={1}
-                >
-                  <Box>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      {row.org_code}
-                    </Typography>
-                    <Typography variant="h6">{row.org_name}</Typography>
-                    {row.country && (
-                      <Typography variant="caption" color="text.secondary">
-                        {row.country}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Chip
-                    label={row.status}
-                    color={row.status === "ACTIVE" ? "success" : "default"}
-                    size="small"
-                  />
-                </Stack>
-                <Stack direction="row" spacing={2} mt={1}>
-                  {row.created_on && (
-                    <Typography variant="caption" color="text.secondary">
-                      Created: {row.created_on}
-                    </Typography>
-                  )}
-                  {row.updated_on && (
-                    <Typography variant="caption" color="text.secondary">
-                      Updated: {row.updated_on}
-                    </Typography>
-                  )}
-                </Stack>
-                {!isReadOnly && (
-                  <Stack direction="row" justifyContent="flex-end" mt={1.5}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleOpenEdit(row)}
+      <Card>
+        <CardContent>
+          {isSmallScreen ? (
+            <Stack spacing={1.5}>
+              {filteredRows.map((row) => (
+                <Card key={row.id} variant="outlined">
+                  <CardContent>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="flex-start"
+                      spacing={1}
                     >
-                      Edit
-                    </Button>
-                  </Stack>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          {!filteredRows.length && (
-            <Typography variant="body2" color="text.secondary">
-              No organisations found.
-            </Typography>
+                      <Box>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          {row.org_code}
+                        </Typography>
+                        <Typography variant="h6">{row.org_name}</Typography>
+                        {row.country && (
+                          <Typography variant="caption" color="text.secondary">
+                            {row.country}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip
+                        label={row.status}
+                        color={row.status === "ACTIVE" ? "success" : "default"}
+                        size="small"
+                      />
+                    </Stack>
+                    <Stack direction="row" spacing={2} mt={1}>
+                      {row.created_on && (
+                        <Typography variant="caption" color="text.secondary">
+                          Created: {row.created_on}
+                        </Typography>
+                      )}
+                      {row.updated_on && (
+                        <Typography variant="caption" color="text.secondary">
+                          Updated: {row.updated_on}
+                        </Typography>
+                      )}
+                    </Stack>
+                    {!isReadOnly && (
+                      <Stack direction="row" justifyContent="flex-end" mt={1.5}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleOpenEdit(row)}
+                        >
+                          Edit
+                        </Button>
+                      </Stack>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+              {!filteredRows.length && (
+                <Typography variant="body2" color="text.secondary">
+                  No organisations found.
+                </Typography>
+              )}
+            </Stack>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                rows={filteredRows}
+                columns={columns}
+                pageSizeOptions={[10, 25, 50]}
+                disableRowSelectionOnClick
+                loading={loading}
+                minWidth={760}
+              />
+            </Box>
           )}
-        </Stack>
-      ) : (
-        <ResponsiveDataGrid
-          rows={filteredRows}
-          columns={columns}
-          pageSizeOptions={[10, 25, 50]}
-          disableRowSelectionOnClick
-          loading={loading}
-          minWidth={760}
-        />
-      )}
+        </CardContent>
+      </Card>
 
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
         fullScreen={isSmallScreen}
       >
         <DialogTitle>{isEditMode ? "Edit Organisation" : "Add Organisation"}</DialogTitle>
         <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              label="Org Code"
-              name="org_code"
-              value={form.org_code}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-              disabled
-              helperText="Auto-generated from Organisation Name"
-            />
-            <TextField
-              label="Organisation Name"
-              name="org_name"
-              value={form.org_name}
-              onChange={handleChange}
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-              disabled={isReadOnly}
-            />
-            <TextField
-              select
-              label="Country"
-              name="country"
-              value={form.country}
-              onChange={handleChange}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              disabled={!isSuper}
-              helperText={!isSuper ? "Only SUPER_ADMIN can change Country." : undefined}
-            >
-              <MenuItem value="IN">India (IN)</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="Status"
-              name="status"
-              value={form.status}
-              onChange={handleChange}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              disabled={!isSuper}
-              helperText={!isSuper ? "Only SUPER_ADMIN can change status." : undefined}
-            >
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-            </TextField>
-            <TextField
-              label="Created On"
-              name="created_on"
-              value={form.created_on || ""}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              disabled
-            />
-            <TextField
-              label="Updated On"
-              name="updated_on"
-              value={form.updated_on || ""}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              disabled
-            />
-            <TextField
-              label="Created By"
-              name="created_by"
-              value={form.created_by || ""}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              disabled
-            />
-            <TextField
-              label="Updated By"
-              name="updated_by"
-              value={form.updated_by || ""}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              disabled
-            />
-          </Stack>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Org Code"
+                name="org_code"
+                value={form.org_code}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                disabled
+                helperText="Auto-generated from Organisation Name"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Organisation Name"
+                name="org_name"
+                value={form.org_name}
+                onChange={handleChange}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                disabled={isReadOnly}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Country"
+                name="country"
+                value={form.country}
+                onChange={handleChange}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                disabled={!isSuper}
+                helperText={!isSuper ? "Only SUPER_ADMIN can change Country." : undefined}
+              >
+                <MenuItem value="IN">India (IN)</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Status"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                disabled={!isSuper}
+                helperText={!isSuper ? "Only SUPER_ADMIN can change status." : undefined}
+              >
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">Inactive</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Created On"
+                name="created_on"
+                value={form.created_on || ""}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Updated On"
+                name="updated_on"
+                value={form.updated_on || ""}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Created By"
+                name="created_by"
+                value={form.created_by || ""}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Updated By"
+                name="updated_by"
+                value={form.updated_by || ""}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+                disabled
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>

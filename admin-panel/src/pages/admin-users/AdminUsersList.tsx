@@ -11,7 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
+  Grid,
   MenuItem,
   Snackbar,
   Stack,
@@ -785,80 +785,96 @@ const loadOrgs = useCallback(async () => {
         </Stack>
       </Stack>
 
-      <Card>
+      <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            alignItems={{ xs: "stretch", md: "center" }}
-          >
-            <TextField
-              label={t("adminUsers.filters.organisation")}
-              select
-              value={filters.org_code || ""}
-              onChange={(e) => setFilters((prev) => ({ ...prev, org_code: e.target.value }))}
-              disabled={orgFilterDisabled}
-              fullWidth
-            >
-              <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-              {orgOptions.map((org) => (
-                <MenuItem key={org.org_code} value={org.org_code}>
-                  {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              label={t("adminUsers.filters.role")}
-              select
-              value={filters.role_slug}
-              onChange={(e) => setFilters((prev) => ({ ...prev, role_slug: e.target.value }))}
-              fullWidth
-            >
-              <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-              {roleOptions.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {role.replace(/_/g, " ")}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              label={t("adminUsers.filters.status")}
-              select
-              value={filters.status}
-              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as any }))}
-              fullWidth
-            >
-              <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
-              <MenuItem value="ACTIVE">{t("adminUsers.filters.active")}</MenuItem>
-              <MenuItem value="INACTIVE">{t("adminUsers.filters.inactive")}</MenuItem>
-            </TextField>
-          </Stack>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label={t("adminUsers.filters.organisation")}
+                select
+                value={filters.org_code || ""}
+                onChange={(e) => setFilters((prev) => ({ ...prev, org_code: e.target.value }))}
+                disabled={orgFilterDisabled}
+                fullWidth
+              >
+                <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
+                {orgOptions.map((org) => (
+                  <MenuItem key={org.org_code} value={org.org_code}>
+                    {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label={t("adminUsers.filters.role")}
+                select
+                value={filters.role_slug}
+                onChange={(e) => setFilters((prev) => ({ ...prev, role_slug: e.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
+                {roleOptions.map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {role.replace(/_/g, " ")}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label={t("adminUsers.filters.status")}
+                select
+                value={filters.status}
+                onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as any }))}
+                fullWidth
+              >
+                <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
+                <MenuItem value="ACTIVE">{t("adminUsers.filters.active")}</MenuItem>
+                <MenuItem value="INACTIVE">{t("adminUsers.filters.inactive")}</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
 
-      {error && <Alert severity="error">{error}</Alert>}
-
-      {loading ? (
-        <Box display="flex" justifyContent="center" py={6}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <ResponsiveDataGrid
-          rows={rows}
-          columns={columns}
-          getRowId={(row) => row.username}
-          pageSizeOptions={[10, 25, 50]}
-          autoHeight
-        />
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
 
-      <Dialog fullScreen={isSmallScreen} open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Card>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={6}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                rows={rows}
+                columns={columns}
+                getRowId={(row) => row.username}
+                pageSizeOptions={[10, 25, 50]}
+                autoHeight
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        fullScreen={isSmallScreen}
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>{isEditMode ? t("adminUsers.dialog.editTitle") : t("adminUsers.dialog.createTitle")}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Stack spacing={2} divider={<Divider flexItem />}> 
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <DialogContent dividers>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 label={t("adminUsers.dialog.username")}
                 name="username"
@@ -868,7 +884,9 @@ const loadOrgs = useCallback(async () => {
                 disabled={isEditMode}
                 required
               />
-              {!isEditMode && (
+            </Grid>
+            {!isEditMode && (
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label={t("adminUsers.dialog.password")}
                   name="password"
@@ -878,10 +896,9 @@ const loadOrgs = useCallback(async () => {
                   fullWidth
                   required
                 />
-              )}
-            </Stack>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              </Grid>
+            )}
+            <Grid item xs={12} sm={4}>
               <TextField
                 label={t("adminUsers.dialog.fullName")}
                 name="display_name"
@@ -890,6 +907,8 @@ const loadOrgs = useCallback(async () => {
                 fullWidth
                 required
               />
+            </Grid>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label={t("adminUsers.dialog.email")}
                 name="email"
@@ -898,6 +917,8 @@ const loadOrgs = useCallback(async () => {
                 onChange={handleChange}
                 fullWidth
               />
+            </Grid>
+            <Grid item xs={12} sm={4}>
               <TextField
                 label={t("adminUsers.dialog.mobile")}
                 name="mobile"
@@ -905,9 +926,8 @@ const loadOrgs = useCallback(async () => {
                 onChange={handleChange}
                 fullWidth
               />
-            </Stack>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <TextField
                 label={t("adminUsers.dialog.organisation")}
                 select
@@ -923,7 +943,8 @@ const loadOrgs = useCallback(async () => {
                   </MenuItem>
                 ))}
               </TextField>
-
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <TextField
                 label={t("adminUsers.dialog.roles")}
                 select
@@ -937,9 +958,8 @@ const loadOrgs = useCallback(async () => {
                   </MenuItem>
                 ))}
               </TextField>
-            </Stack>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            </Grid>
+            <Grid item xs={12}>
               <TextField
                 label={t("adminUsers.dialog.mandis")}
                 select
@@ -962,8 +982,9 @@ const loadOrgs = useCallback(async () => {
                   );
                 })}
               </TextField>
-
-              <Stack direction="row" alignItems="center" spacing={1}>
+            </Grid>
+            <Grid item xs={12}>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Typography>{t("adminUsers.dialog.status")}</Typography>
                 <Switch
                   checked={form.is_active}
@@ -971,12 +992,12 @@ const loadOrgs = useCallback(async () => {
                 />
                 <Typography>{form.is_active ? t("adminUsers.dialog.active") : t("adminUsers.dialog.inactive")}</Typography>
               </Stack>
-            </Stack>
-          </Stack>
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>{t("adminUsers.dialog.cancel")}</Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading} variant="contained">
             {loading ? <CircularProgress size={18} /> : t("adminUsers.dialog.save")}
           </Button>
         </DialogActions>

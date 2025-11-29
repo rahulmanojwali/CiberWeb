@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Grid, Stack, TextField, Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { GridColDef } from "@mui/x-data-grid";
 import { PageContainer } from "../components/PageContainer";
@@ -116,60 +116,104 @@ export const CommodityFees: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-        <Stack spacing={1} flex={1}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
           <Typography variant="h5">Commodity Fee Settings</Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <TextField
-              label="Org ID"
-              size="small"
-              value={filters.org_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, org_id: e.target.value }))}
-            />
-            <TextField
-              label="Mandi ID"
-              size="small"
-              value={filters.mandi_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
-            />
-            <TextField
-              label="Commodity ID"
-              size="small"
-              value={filters.commodity_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, commodity_id: e.target.value }))}
-            />
-            <TextField
-              label="Product ID"
-              size="small"
-              value={filters.product_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, product_id: e.target.value }))}
-            />
-            <Button variant="contained" onClick={loadData}>
-              Refresh
-            </Button>
-          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Manage commodity-level payment overrides.
+          </Typography>
         </Stack>
-        <Stack spacing={1} flex={1}>
-          <Typography variant="subtitle1">Upsert payload</Typography>
-          <TextField
-            multiline
-            minRows={10}
-            value={payloadJson}
-            onChange={(event) => setPayloadJson(event.target.value)}
-            fullWidth
-          />
-          <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
-            Save
-          </Button>
-        </Stack>
+        <Button variant="contained" onClick={loadData}>
+          Refresh
+        </Button>
       </Stack>
-      <Box sx={{ mt: 2 }}>
-        <ResponsiveDataGrid
-          columns={columns}
-          rows={gridRows}
-          loading={loading}
-        />
-      </Box>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Org ID"
+                size="small"
+                value={filters.org_id}
+                onChange={(e) => setFilters((prev) => ({ ...prev, org_id: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Mandi ID"
+                size="small"
+                value={filters.mandi_id}
+                onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Commodity ID"
+                size="small"
+                value={filters.commodity_id}
+                onChange={(e) => setFilters((prev) => ({ ...prev, commodity_id: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Product ID"
+                size="small"
+                value={filters.product_id}
+                onChange={(e) => setFilters((prev) => ({ ...prev, product_id: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={gridRows}
+                loading={loading}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="subtitle1">Upsert payload</Typography>
+            <TextField
+              multiline
+              minRows={10}
+              value={payloadJson}
+              onChange={(event) => setPayloadJson(event.target.value)}
+              fullWidth
+            />
+            <Box display="flex" justifyContent="flex-end">
+              <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
+                Save
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
     </PageContainer>
   );
 };

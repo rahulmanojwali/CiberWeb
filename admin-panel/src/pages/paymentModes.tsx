@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
@@ -104,54 +104,92 @@ export const PaymentModes: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-        <Stack spacing={1} flex={1}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        alignItems={{ xs: "flex-start", md: "center" }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Stack spacing={0.5}>
           <Typography variant="h5">Payment Modes</Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <TextField
-              label="Scope"
-              select
-              size="small"
-              value={filters.org_scope}
-              onChange={(e) => setFilters((prev) => ({ ...prev, org_scope: e.target.value }))}
-            >
-              <MenuItem value="GLOBAL">GLOBAL</MenuItem>
-              <MenuItem value="ORG">ORG</MenuItem>
-            </TextField>
-            {filters.org_scope === "ORG" && (
-              <TextField
-                label="Org ID"
-                size="small"
-                value={filters.org_id}
-                onChange={(e) => setFilters((prev) => ({ ...prev, org_id: e.target.value }))}
-              />
-            )}
-            <Button variant="contained" onClick={loadData}>
-              Refresh
-            </Button>
-          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Control payment mode rules per scope.
+          </Typography>
         </Stack>
-        <Stack spacing={1} flex={1}>
-          <Typography variant="subtitle1">Upsert payload</Typography>
-          <TextField
-            multiline
-            minRows={10}
-            value={payloadJson}
-            onChange={(event) => setPayloadJson(event.target.value)}
-            fullWidth
-          />
-          <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
-            Save
-          </Button>
-        </Stack>
+        <Button variant="contained" onClick={loadData}>
+          Refresh
+        </Button>
       </Stack>
-      <Box sx={{ mt: 2 }}>
-        <ResponsiveDataGrid
-          columns={columns}
-          rows={gridRows}
-          loading={loading}
-        />
-      </Box>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Scope"
+                select
+                size="small"
+                value={filters.org_scope}
+                onChange={(e) => setFilters((prev) => ({ ...prev, org_scope: e.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="GLOBAL">GLOBAL</MenuItem>
+                <MenuItem value="ORG">ORG</MenuItem>
+              </TextField>
+            </Grid>
+            {filters.org_scope === "ORG" && (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Org ID"
+                  size="small"
+                  value={filters.org_id}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, org_id: e.target.value }))}
+                  fullWidth
+                />
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={gridRows}
+                loading={loading}
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1}>
+            <Typography variant="subtitle1">Upsert payload</Typography>
+            <TextField
+              multiline
+              minRows={10}
+              value={payloadJson}
+              onChange={(event) => setPayloadJson(event.target.value)}
+              fullWidth
+            />
+            <Box display="flex" justifyContent="flex-end">
+              <Button variant="contained" disabled={!canUpdate} onClick={handleSave}>
+                Save
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
     </PageContainer>
   );
 };

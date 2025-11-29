@@ -3,16 +3,21 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   MenuItem,
   Snackbar,
   Stack,
   Switch,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -62,6 +67,8 @@ export const OrgMandiMapping: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
@@ -243,102 +250,152 @@ export const OrgMandiMapping: React.FC = () => {
         justifyContent="space-between"
         alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
-        mb={2}
+        sx={{ mb: 2 }}
       >
-        <Typography variant="h5">Org–Mandi Mapping</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            label="Organisation"
-            size="small"
-            value={filters.org_id}
-            onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o._id} value={o._id}>
-                {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="Y">Active</MenuItem>
-            <MenuItem value="N">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              Add Mapping
-            </Button>
-          )}
+        <Stack spacing={0.5}>
+          <Typography variant="h5">Org–Mandi Mapping</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Assign mandis to organisations with granular scope controls.
+          </Typography>
         </Stack>
+        {canCreate && (
+          <Button
+            variant="contained"
+            size="medium"
+            startIcon={<AddIcon />}
+            onClick={openCreate}
+          >
+            Add Mapping
+          </Button>
+        )}
       </Stack>
 
-      <Box sx={{ height: 560 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.id} />
-      </Box>
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                select
+                label="Organisation"
+                size="small"
+                value={filters.org_id}
+                onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="">All</MenuItem>
+                {orgOptions.map((o) => (
+                  <MenuItem key={o._id} value={o._id}>
+                    {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={filters.status}
+                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
+                fullWidth
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="Y">Active</MenuItem>
+                <MenuItem value="N">Inactive</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={loadMappings}
+                disabled={loading}
+                fullWidth
+              >
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Card>
+        <CardContent>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.id} />
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={fullScreenDialog}
+      >
         <DialogTitle>Map Organisation to Mandi</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            select
-            label="Organisation"
-            size="small"
-            value={form.org_id}
-            onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
-            fullWidth
-          >
-            {orgOptions.map((o) => (
-              <MenuItem key={o._id} value={o._id}>
-                {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Mandi"
-            size="small"
-            value={form.mandi_id}
-            onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
-            fullWidth
-          >
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m.name} ({m.mandi_id})
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Scope"
-            size="small"
-            value={form.assignment_scope}
-            onChange={(e) => setForm((f) => ({ ...f, assignment_scope: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="EXCLUSIVE">Exclusive</MenuItem>
-            <MenuItem value="SHARED">Shared</MenuItem>
-          </TextField>
-          <TextField
-            select
-            label="Active"
-            size="small"
-            value={form.is_active ? "Y" : "N"}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+        <DialogContent dividers>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Organisation"
+                size="small"
+                value={form.org_id}
+                onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+                fullWidth
+              >
+                {orgOptions.map((o) => (
+                  <MenuItem key={o._id} value={o._id}>
+                    {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Mandi"
+                size="small"
+                value={form.mandi_id}
+                onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
+                fullWidth
+              >
+                {mandiOptions.map((m) => (
+                  <MenuItem key={m.mandi_id} value={m.mandi_id}>
+                    {m.name} ({m.mandi_id})
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Scope"
+                size="small"
+                value={form.assignment_scope}
+                onChange={(e) => setForm((f) => ({ ...f, assignment_scope: e.target.value }))}
+                fullWidth
+              >
+                <MenuItem value="EXCLUSIVE">Exclusive</MenuItem>
+                <MenuItem value="SHARED">Shared</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Active"
+                size="small"
+                value={form.is_active ? "Y" : "N"}
+                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+                fullWidth
+              >
+                <MenuItem value="Y">Yes</MenuItem>
+                <MenuItem value="N">No</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>

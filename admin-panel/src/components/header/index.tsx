@@ -96,6 +96,13 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
 
   const navigate = useNavigate();
   const location = useLocation();
+  const handleNavClick = useCallback(
+    (path: string) => {
+      navigate(path);
+      setMobileMenuOpen(false);
+    },
+    [navigate],
+  );
 
   const { data: user } = useGetIdentity<IUser>();
   const currentLanguage = normalizeLanguageCode(
@@ -228,11 +235,6 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
 
   const handleLogout = () => {
     logout();
-  };
-
-  const handleNavClick = (path: string) => {
-    navigate(path);
-    setMobileMenuOpen(false);
   };
 
   return (

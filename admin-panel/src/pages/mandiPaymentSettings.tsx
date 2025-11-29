@@ -103,6 +103,16 @@ export const MandiPaymentSettings: React.FC = () => {
     is_active: fee.is_active,
   }));
 
+  const columns = useMemo<GridColDef<any>[]>(
+    () => [
+      { field: "fee_code", headerName: "Fee Code", width: 160 },
+      { field: "mode", headerName: "Mode", width: 120 },
+      { field: "percent_value", headerName: "Percent", width: 120 },
+      { field: "fixed_value", headerName: "Fixed", width: 120 },
+    ],
+    [],
+  );
+
   return (
     <PageContainer>
       <Stack

@@ -2,14 +2,19 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   MenuItem,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -56,6 +61,8 @@ export const Mandis: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -200,93 +207,140 @@ export const Mandis: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.mandis", { defaultValue: "Mandis" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            label="State"
-            size="small"
-            value={filters.state_code}
-            onChange={(e) => setFilters((f) => ({ ...f, state_code: e.target.value }))}
-          />
-          <TextField
-            label="District"
-            size="small"
-            value={filters.district}
-            onChange={(e) => setFilters((f) => ({ ...f, district: e.target.value }))}
-          />
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="INACTIVE">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems="flex-start"
+        spacing={2}
+      >
+        <Stack spacing={0.5}>
+          <Typography variant="h5">{t("menu.mandis", { defaultValue: "Mandis" })}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage mandis across the network with filters and actions.
+          </Typography>
         </Stack>
+        {canCreate && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            {t("actions.create", { defaultValue: "Create" })}
+          </Button>
+        )}
       </Stack>
 
-      <Box sx={{ height: 580 }}>
-        <ResponsiveDataGrid
-          columns={columns}
-          rows={rows}
-          loading={loading}
-          getRowId={(r) => r.mandi_id}
-        />
-      </Box>
+      <Card sx={{ mt: 2, mb: 2 }}>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="State"
+                size="small"
+                value={filters.state_code}
+                onChange={(e) => setFilters((f) => ({ ...f, state_code: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="District"
+                size="small"
+                value={filters.district}
+                onChange={(e) => setFilters((f) => ({ ...f, district: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={filters.status}
+                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
+                fullWidth
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">Inactive</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Card>
+        <CardContent>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid
+              columns={columns}
+              rows={rows}
+              loading={loading}
+              getRowId={(r) => r.mandi_id}
+            />
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={fullScreenDialog}
+      >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Name (EN)"
-            value={form.name_en}
-            onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="State Code"
-            value={form.state_code}
-            onChange={(e) => setForm((f) => ({ ...f, state_code: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="District"
-            value={form.district_name_en}
-            onChange={(e) => setForm((f) => ({ ...f, district_name_en: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Address"
-            value={form.address_line}
-            onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Pincode"
-            value={form.pincode}
-            onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            select
-            label="Active"
-            value={form.is_active ? "Y" : "N"}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+        <DialogContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Name (EN)"
+                value={form.name_en}
+                onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="State Code"
+                value={form.state_code}
+                onChange={(e) => setForm((f) => ({ ...f, state_code: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="District"
+                value={form.district_name_en}
+                onChange={(e) => setForm((f) => ({ ...f, district_name_en: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Pincode"
+                value={form.pincode}
+                onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Address"
+                value={form.address_line}
+                onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Active"
+                value={form.is_active ? "Y" : "N"}
+                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+                fullWidth
+              >
+                <MenuItem value="Y">Yes</MenuItem>
+                <MenuItem value="N">No</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>

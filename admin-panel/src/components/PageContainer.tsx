@@ -11,7 +11,10 @@ export const PageContainer: React.FC<PageContainerProps> = ({
     <Box
       sx={{
         width: "100%",
-        p: { xs: 1.5, md: 3 },
+        maxWidth: 1440,
+        mx: "auto",
+        px: { xs: 1.5, md: 3 },
+        py: { xs: 2, md: 3 },
         display: "flex",
         flexDirection: "column",
         gap: 2,

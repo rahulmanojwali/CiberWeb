@@ -32,6 +32,19 @@ import {
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 
+const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
+  const flattened: NavMenuItem[] = [];
+  items.forEach((item) => {
+    if (item.path) {
+      flattened.push(item);
+    }
+    if (item.children?.length) {
+      flattened.push(...flattenNavMenuItems(item.children));
+    }
+  });
+  return flattened;
+};
+
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const theme = useTheme();
@@ -58,6 +71,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     console.log("[CustomSider] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
     return items;
   }, [effectiveRole, resources]);
+  const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
 
 
 
@@ -136,7 +150,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
         <List disablePadding>
-          {navItems.map((item) => {
+          {flattenedNavItems.map((item) => {
             const active = location.pathname === item.path;
 
             const anyItem = item as any;
@@ -148,7 +162,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
             const listItem = (
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                onClick={() => navigate(item.path!)}
                 selected={active}
                 sx={{
                   justifyContent: collapsed ? "center" : "flex-start",

@@ -51,6 +51,19 @@ import {
 import { getUserRoleFromStorage } from "../../utils/roles";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 
+const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
+  const flattened: NavMenuItem[] = [];
+  items.forEach((item) => {
+    if (item.path) {
+      flattened.push(item);
+    }
+    if (item.children?.length) {
+      flattened.push(...flattenNavMenuItems(item.children));
+    }
+  });
+  return flattened;
+};
+
 
 // Height of the mobile AppBar (toolbar)
 const APPBAR_MOBILE_HEIGHT = 56;
@@ -98,6 +111,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
     return items;
   }, [effectiveRole, resources]);
+  const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
 
 
 
@@ -432,13 +446,13 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
         {/* Navigation list */}
         <Box sx={{ py: 1 }}>
           <List disablePadding>
-            {navItems.map((item) => {
+            {flattenedNavItems.map((item) => {
               const active = location.pathname === item.path;
 
               return (
                 <ListItem key={item.path} disablePadding>
                   <ListItemButton
-                    onClick={() => handleNavClick(item.path)}
+                  onClick={() => handleNavClick(item.path!)}
                     selected={active}
                     sx={{
                       "&.Mui-selected": {

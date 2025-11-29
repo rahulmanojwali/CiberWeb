@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   RefineThemedLayoutSiderProps,
 } from "@refinedev/mui";
@@ -15,11 +15,14 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
+import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -44,6 +47,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   }
 
   const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = useCallback((key: string) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -144,14 +152,13 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
           }}
         >
           {navItems.map((item) => {
-            const isGroup = item.children?.length && !item.path;
-
+            const isGroup = !!item.children?.length && !item.path;
+            const labelKey = item.key || item.labelKey || item.path;
             if (!isGroup) {
               const active = !!item.path && location.pathname.startsWith(item.path);
-
               return (
                 <ListItem
-                  key={item.key || item.path || item.labelKey}
+                  key={labelKey}
                   disablePadding
                   sx={{ display: "block" }}
                 >
@@ -188,11 +195,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               );
             }
 
+            const groupKey = item.key || item.labelKey || item.path || `${labelKey}-group`;
+            const isExpanded = !!expanded[groupKey];
             return (
-              <Box
-                key={item.key || item.labelKey}
-                sx={{ mt: collapsed ? 1 : 2 }}
-              >
+              <Box key={groupKey} sx={{ mt: collapsed ? 1 : 2 }}>
                 {!collapsed && (
                   <Typography
                     variant="caption"
@@ -208,50 +214,80 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     {t(item.labelKey)}
                   </Typography>
                 )}
-
-                <List disablePadding>
-                  {item.children!.map((child) => {
-                    const active = !!child.path && location.pathname.startsWith(child.path);
-
-                    return (
-                      <ListItem
-                        key={child.key || child.path || child.labelKey}
-                        disablePadding
-                        sx={{ display: "block" }}
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => toggleGroup(groupKey)}
+                    sx={{
+                      minHeight: collapsed ? 40 : 36,
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      px: collapsed ? 1.5 : 2.5,
+                    }}
+                  >
+                    {item.icon && (
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: collapsed ? 0 : 1.5,
+                          justifyContent: "center",
+                        }}
                       >
-                        <ListItemButton
-                          selected={active}
-                          onClick={() => child.path && navigate(child.path)}
-                          sx={{
-                            minHeight: 38,
-                            justifyContent: collapsed ? "center" : "flex-start",
-                            px: collapsed ? 1.5 : 3,
-                          }}
-                        >
-                          {child.icon && (
-                            <ListItemIcon
+                        {item.icon}
+                      </ListItemIcon>
+                    )}
+                    {!collapsed && (
+                      <ListItemText
+                        primary={t(item.labelKey)}
+                        primaryTypographyProps={{ fontWeight: 600 }}
+                      />
+                    )}
+                    {!collapsed && (isExpanded ? <ExpandLess /> : <ExpandMore />)}
+                  </ListItemButton>
+                </ListItem>
+                {!collapsed && (
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {item.children!.map((child) => {
+                        const childKey = child.key || child.labelKey || child.path;
+                        const active = !!child.path && location.pathname.startsWith(child.path);
+                        return (
+                          <ListItem
+                            key={childKey}
+                            disablePadding
+                            sx={{ display: "block" }}
+                          >
+                            <ListItemButton
+                              selected={active}
+                              onClick={() => child.path && navigate(child.path)}
                               sx={{
-                                minWidth: 0,
-                                mr: collapsed ? 0 : 1.5,
-                                justifyContent: "center",
+                                minHeight: 38,
+                                justifyContent: "flex-start",
+                                px: 3,
                               }}
                             >
-                              {child.icon}
-                            </ListItemIcon>
-                          )}
-                          {!collapsed && (
-                            <ListItemText
-                              primary={t(child.labelKey)}
-                              primaryTypographyProps={{
-                                fontWeight: active ? 600 : 500,
-                              }}
-                            />
-                          )}
-                        </ListItemButton>
-                      </ListItem>
-                    );
-                  })}
-                </List>
+                              {child.icon && (
+                                <ListItemIcon
+                                  sx={{
+                                    minWidth: 0,
+                                    mr: 1.5,
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  {child.icon}
+                                </ListItemIcon>
+                              )}
+                              <ListItemText
+                                primary={t(child.labelKey)}
+                                primaryTypographyProps={{
+                                  fontWeight: active ? 600 : 500,
+                                }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        );
+                      })}
+                    </List>
+                  </Collapse>
+                )}
               </Box>
             );
           })}

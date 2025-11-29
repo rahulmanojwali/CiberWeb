@@ -77,10 +77,15 @@ const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { mutate: logout } = useLogout();
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("cd_user");
+    if (!storedUser) {
+      logout();
+      return;
+    }
+
     const role = getUserRoleFromStorage("AppGuard");
     if (!role) {
-      logout();
-      alert("Not authorized for admin console.");
+      console.warn("[AppGuard] no role resolved for stored user; skipping alert.");
     }
   }, [logout]);
 

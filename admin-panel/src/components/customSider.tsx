@@ -32,19 +32,6 @@ import {
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 
-const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
-  const flattened: NavMenuItem[] = [];
-  items.forEach((item) => {
-    if (item.path) {
-      flattened.push(item);
-    }
-    if (item.children?.length) {
-      flattened.push(...flattenNavMenuItems(item.children));
-    }
-  });
-  return flattened;
-};
-
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const theme = useTheme();
@@ -71,7 +58,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     console.log("[CustomSider] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
     return items;
   }, [effectiveRole, resources]);
-  const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
 
 
 
@@ -149,64 +135,124 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
-        <List disablePadding>
-          {flattenedNavItems.map((item) => {
-            const active = location.pathname === item.path;
+        <List
+          component="nav"
+          sx={{
+            mt: 1,
+            px: collapsed ? 0.5 : 1.5,
+            pb: 2,
+          }}
+        >
+          {navItems.map((item) => {
+            const isGroup = item.children?.length && !item.path;
 
-            const anyItem = item as any;
-            const labelKey: string | undefined = anyItem.labelKey;
-            const label: string =
-              anyItem.label ??
-              anyItem.title ??
-              (labelKey ? t(labelKey, { defaultValue: labelKey }) : "");
+            if (!isGroup) {
+              const active = !!item.path && location.pathname.startsWith(item.path);
 
-            const listItem = (
-              <ListItemButton
-                onClick={() => navigate(item.path!)}
-                selected={active}
-                sx={{
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  px: collapsed ? 1.5 : 2,
-                  "&.Mui-selected": {
-                    bgcolor: "rgba(47,166,82,0.10)",
-                    "& .MuiListItemText-primary": {
-                      fontWeight: 600,
-                      color: theme.palette.primary.main,
-                    },
-                  },
-                }}
-              >
-                {item.icon && (
-                  <ListItemIcon
+              return (
+                <ListItem
+                  key={item.key || item.path || item.labelKey}
+                  disablePadding
+                  sx={{ display: "block" }}
+                >
+                  <ListItemButton
+                    selected={active}
+                    onClick={() => item.path && navigate(item.path)}
                     sx={{
-                      minWidth: collapsed ? 0 : 40,
-                      mr: collapsed ? 0 : 1,
-                      color: active
-                        ? theme.palette.primary.main
-                        : "text.secondary",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      minHeight: 40,
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      px: collapsed ? 1.5 : 2.5,
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
-                )}
-
-                {!collapsed && <ListItemText primary={label} />}
-              </ListItemButton>
-            );
+                    {item.icon && (
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: collapsed ? 0 : 1.5,
+                          justifyContent: "center",
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                    )}
+                    {!collapsed && (
+                      <ListItemText
+                        primary={t(item.labelKey)}
+                        primaryTypographyProps={{
+                          fontWeight: active ? 600 : 500,
+                        }}
+                      />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              );
+            }
 
             return (
-              <ListItem key={item.path} disablePadding>
-                {collapsed ? (
-                  <Tooltip title={label} placement="right">
-                    {listItem}
-                  </Tooltip>
-                ) : (
-                  listItem
+              <Box
+                key={item.key || item.labelKey}
+                sx={{ mt: collapsed ? 1 : 2 }}
+              >
+                {!collapsed && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      px: 2,
+                      pb: 0.5,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                      color: "text.secondary",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t(item.labelKey)}
+                  </Typography>
                 )}
-              </ListItem>
+
+                <List disablePadding>
+                  {item.children!.map((child) => {
+                    const active = !!child.path && location.pathname.startsWith(child.path);
+
+                    return (
+                      <ListItem
+                        key={child.key || child.path || child.labelKey}
+                        disablePadding
+                        sx={{ display: "block" }}
+                      >
+                        <ListItemButton
+                          selected={active}
+                          onClick={() => child.path && navigate(child.path)}
+                          sx={{
+                            minHeight: 38,
+                            justifyContent: collapsed ? "center" : "flex-start",
+                            px: collapsed ? 1.5 : 3,
+                          }}
+                        >
+                          {child.icon && (
+                            <ListItemIcon
+                              sx={{
+                                minWidth: 0,
+                                mr: collapsed ? 0 : 1.5,
+                                justifyContent: "center",
+                              }}
+                            >
+                              {child.icon}
+                            </ListItemIcon>
+                          )}
+                          {!collapsed && (
+                            <ListItemText
+                              primary={t(child.labelKey)}
+                              primaryTypographyProps={{
+                                fontWeight: active ? 600 : 500,
+                              }}
+                            />
+                          )}
+                        </ListItemButton>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </Box>
             );
           })}
         </List>

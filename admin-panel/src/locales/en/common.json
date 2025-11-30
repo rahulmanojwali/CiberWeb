@@ -91,11 +91,11 @@
   "auctionSessions": "Auction Sessions",
   "auctionLots": "Auction Lots",
   "auctionResults": "Auction Results",
-"menu.organisationsList": "Organisation List",
-"menu.mandisList": "Mandi List",
-"menu.gateEntryReasonsMaster": "Gate Entry Reasons (Master)",
-"menu.auctionMethodsMaster": "Auction Methods (Master)",
-"menu.traderApprovalQueue": "Trader Approval Queue"
+"organisationsList": "Organisation List",
+"mandisList": "Mandi List",
+"gateEntryReasonsMaster": "Gate Entry Reasons (Master)",
+"auctionMethodsMaster": "Auction Methods (Master)",
+"traderApprovalQueue": "Trader Approval Queue"
 
 
 

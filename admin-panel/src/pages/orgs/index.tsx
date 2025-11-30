@@ -443,7 +443,7 @@ export const Orgs: React.FC = () => {
       <Card>
         <CardContent>
           {isSmallScreen ? (
-            <Stack spacing={1.5}>
+            <Stack spacing={1} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
               {filteredRows.map((row) => (
                 <Card key={row.id} variant="outlined">
                   <CardContent sx={{ p: { xs: 1.25, sm: 1.5 } }}>

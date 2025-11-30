@@ -166,17 +166,18 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     selected={active}
                     onClick={() => item.path && navigate(item.path)}
                     sx={{
-                      minHeight: 40,
+                      minHeight: 36,
                       justifyContent: collapsed ? "center" : "flex-start",
-                      px: collapsed ? 1.5 : 2.5,
+                      px: collapsed ? 1.25 : 2,
                     }}
                   >
                     {item.icon && (
                       <ListItemIcon
                         sx={{
                           minWidth: 0,
-                          mr: collapsed ? 0 : 1.5,
+                          mr: collapsed ? 0 : 1.25,
                           justifyContent: "center",
+                          "& svg": { fontSize: 18 },
                         }}
                       >
                         {item.icon}
@@ -187,6 +188,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                         primary={t(item.labelKey)}
                         primaryTypographyProps={{
                           fontWeight: active ? 600 : 500,
+                          variant: "body2",
+                          fontSize: "0.9rem",
                         }}
                       />
                     )}
@@ -198,37 +201,23 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             const groupKey = item.key || item.labelKey || item.path || `${labelKey}-group`;
             const isExpanded = !!expanded[groupKey];
             return (
-              <Box key={groupKey} sx={{ mt: collapsed ? 1 : 2 }}>
-                {!collapsed && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      px: 2,
-                      pb: 0.5,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.8,
-                      color: "text.secondary",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {t(item.labelKey)}
-                  </Typography>
-                )}
+              <Box key={groupKey} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
                 <ListItem disablePadding>
                   <ListItemButton
                     onClick={() => toggleGroup(groupKey)}
                     sx={{
-                      minHeight: collapsed ? 40 : 36,
+                      minHeight: collapsed ? 36 : 34,
                       justifyContent: collapsed ? "center" : "flex-start",
-                      px: collapsed ? 1.5 : 2.5,
+                      px: collapsed ? 1.25 : 2,
                     }}
                   >
                     {item.icon && (
                       <ListItemIcon
                         sx={{
                           minWidth: 0,
-                          mr: collapsed ? 0 : 1.5,
+                          mr: collapsed ? 0 : 1,
                           justifyContent: "center",
+                          "& svg": { fontSize: 18 },
                         }}
                       >
                         {item.icon}
@@ -237,10 +226,20 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     {!collapsed && (
                       <ListItemText
                         primary={t(item.labelKey)}
-                        primaryTypographyProps={{ fontWeight: 600 }}
+                        primaryTypographyProps={{
+                          variant: "subtitle2",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                        }}
                       />
                     )}
-                    {!collapsed && (isExpanded ? <ExpandLess /> : <ExpandMore />)}
+                    {!collapsed && (
+                      isExpanded ? (
+                        <ExpandLess sx={{ fontSize: 18 }} />
+                      ) : (
+                        <ExpandMore sx={{ fontSize: 18 }} />
+                      )
+                    )}
                   </ListItemButton>
                 </ListItem>
                 {!collapsed && (
@@ -259,17 +258,18 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               selected={active}
                               onClick={() => child.path && navigate(child.path)}
                               sx={{
-                                minHeight: 38,
+                                minHeight: 34,
                                 justifyContent: "flex-start",
-                                px: 3,
+                                px: 2.75,
                               }}
                             >
                               {child.icon && (
                                 <ListItemIcon
                                   sx={{
                                     minWidth: 0,
-                                    mr: 1.5,
+                                    mr: 1.25,
                                     justifyContent: "center",
+                                    "& svg": { fontSize: 18 },
                                   }}
                                 >
                                   {child.icon}
@@ -278,7 +278,9 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               <ListItemText
                                 primary={t(child.labelKey)}
                                 primaryTypographyProps={{
+                                  variant: "body2",
                                   fontWeight: active ? 600 : 500,
+                                  fontSize: "0.9rem",
                                 }}
                               />
                             </ListItemButton>

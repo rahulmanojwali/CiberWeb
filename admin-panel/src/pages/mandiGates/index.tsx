@@ -9,7 +9,6 @@ import {
   MenuItem,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -68,11 +67,15 @@ export const MandiGates: React.FC = () => {
   const [selectedMandi, setSelectedMandi] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "mandi_gates.create", "CREATE"), [uiConfig.resources]);
+  const canCreateMandiGate = useMemo(
+    () => can(uiConfig.resources, "mandi_gates.create", "CREATE"),
+    [uiConfig.resources],
+  );
   const canEdit = useMemo(() => can(uiConfig.resources, "mandi_gates.edit", "UPDATE"), [uiConfig.resources]);
   const canDeactivate = useMemo(() => can(uiConfig.resources, "mandi_gates.deactivate", "DEACTIVATE"), [uiConfig.resources]);
 
@@ -157,7 +160,18 @@ export const MandiGates: React.FC = () => {
     setDialogOpen(true);
   };
 
+  const handleOpenCreate = () => {
+    setCreateOpen(true);
+    openCreate();
+  };
+
+  const handleCloseDialog = () => {
+    setCreateOpen(false);
+    setDialogOpen(false);
+  };
+
   const openEdit = (row: GateRow) => {
+    setCreateOpen(false);
     setIsEdit(true);
     setEditId(row.id);
     setForm({
@@ -194,7 +208,7 @@ export const MandiGates: React.FC = () => {
     } else {
       await createMandiGate({ username, language, payload });
     }
-    setDialogOpen(false);
+    handleCloseDialog();
     await loadData();
   };
 
@@ -206,49 +220,55 @@ export const MandiGates: React.FC = () => {
   };
 
   return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.mandiGates", { defaultValue: "Mandi Gates" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            label="Mandi"
-            size="small"
-            value={selectedMandi}
-            onChange={(e) => setSelectedMandi(e.target.value)}
-            sx={{ minWidth: 200 }}
+    <PageContainer
+      title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
+      actions={
+        canCreateMandiGate && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            disabled={createOpen}
+            onClick={handleOpenCreate}
           >
-            {mandiOptions.map((m: any) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="Y">Active</MenuItem>
-            <MenuItem value="N">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </Stack>
+            {t("actions.create", { defaultValue: "Create" })}
+          </Button>
+        )
+      }
+    >
+      <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+        <TextField
+          select
+          label="Mandi"
+          size="small"
+          value={selectedMandi}
+          onChange={(e) => setSelectedMandi(e.target.value)}
+          sx={{ minWidth: 200 }}
+        >
+          {mandiOptions.map((m: any) => (
+            <MenuItem key={m.mandi_id} value={m.mandi_id}>
+              {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Status"
+          size="small"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          sx={{ width: 140 }}
+        >
+          <MenuItem value="ALL">All</MenuItem>
+          <MenuItem value="Y">Active</MenuItem>
+          <MenuItem value="N">Inactive</MenuItem>
+        </TextField>
       </Stack>
 
       <Box sx={{ height: 520 }}>
         <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
       </Box>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
         <DialogTitle>{isEdit ? "Edit Gate" : "Create Gate"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <TextField
@@ -325,7 +345,7 @@ export const MandiGates: React.FC = () => {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button variant="contained" onClick={handleSave}>
             {isEdit ? "Update" : "Create"}
           </Button>

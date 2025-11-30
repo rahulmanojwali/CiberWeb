@@ -9,7 +9,6 @@ import {
   MenuItem,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -71,6 +70,7 @@ export const MandiFacilities: React.FC = () => {
   const [selectedMandi, setSelectedMandi] = useState<string>("");
   const [masterDialog, setMasterDialog] = useState(false);
   const [facilityDialog, setFacilityDialog] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [masterForm, setMasterForm] = useState(masterDefault);
   const [facilityForm, setFacilityForm] = useState(facilityDefault);
   const [masterEditId, setMasterEditId] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export const MandiFacilities: React.FC = () => {
     [uiConfig.resources],
   );
 
-  const canCreateFacility = useMemo(
+  const canCreateMandiFacility = useMemo(
     () => can(uiConfig.resources, "mandi_facilities.create", "CREATE"),
     [uiConfig.resources],
   );
@@ -273,7 +273,18 @@ export const MandiFacilities: React.FC = () => {
     setFacilityDialog(true);
   };
 
+  const handleOpenCreate = () => {
+    setCreateOpen(true);
+    openFacilityCreate();
+  };
+
+  const handleCloseCreate = () => {
+    setCreateOpen(false);
+    setFacilityDialog(false);
+  };
+
   const openFacilityEdit = (row: FacilityRow) => {
+    setCreateOpen(false);
     setFacilityEditId(row.id);
     setFacilityForm({ facility_code: row.facility_code, is_active: row.is_active });
     setFacilityDialog(true);
@@ -293,7 +304,7 @@ export const MandiFacilities: React.FC = () => {
     } else {
       await createMandiFacility({ username, language, payload });
     }
-    setFacilityDialog(false);
+    handleCloseCreate();
     await loadFacilities();
   };
 
@@ -305,29 +316,21 @@ export const MandiFacilities: React.FC = () => {
   };
 
   return (
-    <PageContainer>
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={2}
-        sx={{ mb: 2 }}
-      >
-        <Box>
-          <Typography variant="h5">
-            {t("menu.mandiFacilitiesMasters", { defaultValue: "Mandi Facilities" })}
-          </Typography>
-        </Box>
-        {canCreateFacility && (
+    <PageContainer
+      title={t("mandiFacilities.title", { defaultValue: "Mandi Facilities" })}
+      actions={
+        canCreateMandiFacility && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={openFacilityCreate}
+            disabled={createOpen}
+            onClick={handleOpenCreate}
           >
             {t("mandiFacilities.actions.add", { defaultValue: "Add facility" })}
           </Button>
-        )}
-      </Stack>
+        )
+      }
+    >
 
       {/* Facility masters */}
       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -423,7 +426,7 @@ export const MandiFacilities: React.FC = () => {
       </Dialog>
 
       {/* Facility dialog */}
-      <Dialog open={facilityDialog} onClose={() => setFacilityDialog(false)} fullWidth maxWidth="sm">
+      <Dialog open={facilityDialog} onClose={handleCloseCreate} fullWidth maxWidth="sm">
         <DialogTitle>{facilityEditId ? "Edit Facility" : "Add Facility"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <TextField
@@ -451,7 +454,7 @@ export const MandiFacilities: React.FC = () => {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFacilityDialog(false)}>Cancel</Button>
+          <Button onClick={handleCloseCreate}>Cancel</Button>
           <Button variant="contained" onClick={saveFacility}>
             {facilityEditId ? "Update" : "Create"}
           </Button>

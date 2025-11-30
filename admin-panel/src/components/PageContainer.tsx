@@ -1,8 +1,15 @@
 import Box, { BoxProps } from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import type { FC, ReactNode } from "react";
 
-type PageContainerProps = BoxProps;
+type PageContainerProps = BoxProps & {
+  title?: ReactNode;
+  actions?: ReactNode;
+};
 
-export const PageContainer: React.FC<PageContainerProps> = ({
+export const PageContainer: FC<PageContainerProps> = ({
+  title,
+  actions,
   children,
   sx,
   ...rest
@@ -22,6 +29,23 @@ export const PageContainer: React.FC<PageContainerProps> = ({
       }}
       {...rest}
     >
+      {(title || actions) && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            width: "100%",
+          }}
+        >
+          {title && (
+            <Typography variant="h5" component="h1">
+              {title}
+            </Typography>
+          )}
+          {actions && <Box sx={{ ml: "auto" }}>{actions}</Box>}
+        </Box>
+      )}
       {children}
     </Box>
   );

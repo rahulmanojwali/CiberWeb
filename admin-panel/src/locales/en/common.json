@@ -90,7 +90,16 @@
   "auctionPolicies": "Auction Policies",
   "auctionSessions": "Auction Sessions",
   "auctionLots": "Auction Lots",
-  "auctionResults": "Auction Results"
+  "auctionResults": "Auction Results",
+"menu.organisationsList": "Organisation List",
+"menu.mandisList": "Mandi List",
+"menu.gateEntryReasonsMaster": "Gate Entry Reasons (Master)",
+"menu.auctionMethodsMaster": "Auction Methods (Master)",
+"menu.traderApprovalQueue": "Trader Approval Queue"
+
+
+
+
 }
 
   ,

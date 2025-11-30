@@ -306,9 +306,28 @@ export const MandiFacilities: React.FC = () => {
 
   return (
     <PageContainer>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        {t("menu.mandiFacilitiesMasters", { defaultValue: "Mandi Facilities" })}
-      </Typography>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems="center"
+        spacing={2}
+        sx={{ mb: 2 }}
+      >
+        <Box>
+          <Typography variant="h5">
+            {t("menu.mandiFacilitiesMasters", { defaultValue: "Mandi Facilities" })}
+          </Typography>
+        </Box>
+        {canCreateFacility && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={openFacilityCreate}
+          >
+            {t("mandiFacilities.actions.add", { defaultValue: "Add facility" })}
+          </Button>
+        )}
+      </Stack>
 
       {/* Facility masters */}
       <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -362,11 +381,6 @@ export const MandiFacilities: React.FC = () => {
           <MenuItem value="Y">Active</MenuItem>
           <MenuItem value="N">Inactive</MenuItem>
         </TextField>
-        {canCreateFacility && (
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openFacilityCreate}>
-            Add Facility
-          </Button>
-        )}
       </Stack>
       <Box sx={{ height: 360 }}>
         <ResponsiveDataGrid columns={facilityColumns} rows={facilities} loading={false} getRowId={(r) => r.id} />

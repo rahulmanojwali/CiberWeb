@@ -492,44 +492,43 @@ export const Orgs: React.FC = () => {
                   </Typography>
                 </Box>
 
+                <Box sx={{ mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                  >
+                    Last Updated
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
+                  >
+                    {formatDateTime(row.updated_on)}
+                  </Typography>
+                </Box>
+
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    mt: 0.25,
+                    mt: 1,
                   }}
                 >
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                    >
-                      Last Updated
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
-                    >
-                      {formatDateTime(row.updated_on)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Chip
-                      label={row.status === "ACTIVE" ? "Active" : "Inactive"}
-                      color={row.status === "ACTIVE" ? "success" : "default"}
-                      size="small"
-                      sx={{
-                        fontSize: { xs: "0.7rem", md: "0.75rem" },
-                        height: 22,
-                      }}
-                    />
-                    {!isReadOnly && (
-                      <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
-                        <EditOutlinedIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    )}
-                  </Box>
+                  <Chip
+                    label={row.status === "ACTIVE" ? "Active" : "Inactive"}
+                    color={row.status === "ACTIVE" ? "success" : "default"}
+                    size="small"
+                    sx={{
+                      fontSize: { xs: "0.7rem", md: "0.75rem" },
+                      height: 22,
+                    }}
+                  />
+                  {!isReadOnly && (
+                    <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
+                      <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  )}
                 </Box>
               </Stack>
             </Card>

@@ -18,7 +18,6 @@ import {
   Stack,
   TextField,
   Typography,
-  IconButton,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -35,7 +34,6 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -485,9 +483,13 @@ export const Orgs: React.FC = () => {
                       </Stack>
                       {!isReadOnly && (
                         <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.25 }}>
-                          <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
-                            <EditOutlinedIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleOpenEdit(row)}
+                          >
+                            Edit
+                          </Button>
                         </Box>
                       )}
                     </Stack>

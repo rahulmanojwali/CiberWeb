@@ -61,6 +61,20 @@ function currentUsername(): string | null {
   }
 }
 
+function formatDateTime(value?: string | Date | null): string {
+  if (!value) return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export const Orgs: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
@@ -443,32 +457,59 @@ export const Orgs: React.FC = () => {
             <Stack spacing={1} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
               {filteredRows.map((row) => (
                 <Card key={row.id} variant="outlined">
-                  <CardContent sx={{ p: { xs: 1.25, sm: 1.5 } }}>
-                    <Stack spacing={0.75}>
-                      <Stack direction="row" spacing={1} alignItems="flex-start">
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <CardContent sx={{ px: 2, py: 1.5 }}>
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                        >
+                          Organisation Name
+                        </Typography>
+                        <Typography
+                          variant="body1"
+                          sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
+                        >
+                          {row.org_name}
+                        </Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                        >
+                          Organisation Code
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontSize: { xs: "0.85rem", md: "0.9rem" }, color: "text.primary" }}
+                        >
+                          {row.org_code}
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          mt: 0.25,
+                        }}
+                      >
+                        <Box>
                           <Typography
-                            variant="body1"
-                            sx={{ fontSize: { xs: "0.95rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
+                            variant="caption"
+                            sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
                           >
-                            {row.org_name}
+                            Last Updated
                           </Typography>
-                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, mt: 0.25 }}>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontSize: { xs: "0.8rem", md: "0.85rem" }, color: "text.primary" }}
-                            >
-                              {row.org_code}
-                            </Typography>
-                            {row.updated_on && (
-                              <Typography
-                                variant="caption"
-                                sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                              >
-                                Last updated: {row.updated_on}
-                              </Typography>
-                            )}
-                          </Box>
+                          <Typography
+                            variant="caption"
+                            sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
+                          >
+                            {formatDateTime(row.updated_on)}
+                          </Typography>
                         </Box>
                         <Chip
                           label={row.status === "ACTIVE" ? "Active" : "Inactive"}
@@ -477,10 +518,10 @@ export const Orgs: React.FC = () => {
                           sx={{
                             fontSize: { xs: "0.7rem", md: "0.75rem" },
                             height: 22,
-                            alignSelf: "flex-start",
                           }}
                         />
-                      </Stack>
+                      </Box>
+
                       {!isReadOnly && (
                         <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.25 }}>
                           <Button

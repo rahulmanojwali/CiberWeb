@@ -166,7 +166,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     selected={active}
                     onClick={() => item.path && navigate(item.path)}
                     sx={{
-                      minHeight: 36,
+                      minHeight: 32,
+                      py: 0.5,
                       justifyContent: collapsed ? "center" : "flex-start",
                       px: collapsed ? 1.25 : 2,
                     }}
@@ -189,7 +190,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                         primaryTypographyProps={{
                           fontWeight: active ? 600 : 500,
                           variant: "body2",
-                          fontSize: "0.9rem",
+                          fontSize: "0.8rem",
                         }}
                       />
                     )}
@@ -258,16 +259,17 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               selected={active}
                               onClick={() => child.path && navigate(child.path)}
                               sx={{
-                                minHeight: 34,
+                                minHeight: 32,
+                                py: 0.5,
                                 justifyContent: "flex-start",
-                                px: 2.75,
+                                px: 2.5,
                               }}
                             >
                               {child.icon && (
                                 <ListItemIcon
                                   sx={{
                                     minWidth: 0,
-                                    mr: 1.25,
+                                    mr: 1.1,
                                     justifyContent: "center",
                                     "& svg": { fontSize: 18 },
                                   }}
@@ -280,7 +282,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                                 primaryTypographyProps={{
                                   variant: "body2",
                                   fontWeight: active ? 600 : 500,
-                                  fontSize: "0.9rem",
+                                  fontSize: "0.8rem",
                                 }}
                               />
                             </ListItemButton>

@@ -18,6 +18,7 @@ import {
   Stack,
   TextField,
   Typography,
+  IconButton,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -34,6 +35,8 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -443,53 +446,71 @@ export const Orgs: React.FC = () => {
             <Stack spacing={1.5}>
               {filteredRows.map((row) => (
                 <Card key={row.id} variant="outlined">
-                  <CardContent>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                      spacing={1}
-                    >
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          {row.org_code}
+                  <CardContent sx={{ p: { xs: 1.25, sm: 1.5 } }}>
+                    <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          bgcolor: "background.default",
+                          borderRadius: 2,
+                          p: 0.5,
+                          height: 36,
+                          width: 36,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <BusinessOutlinedIcon sx={{ fontSize: { xs: 20, md: 22 }, color: "text.secondary" }} />
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600 }}
+                        >
+                          {row.org_name}
                         </Typography>
-                        <Typography variant="h6">{row.org_name}</Typography>
-                        {row.country && (
-                          <Typography variant="caption" color="text.secondary">
-                            {row.country}
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, mt: 0.25 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontSize: { xs: "0.8rem", md: "0.85rem" }, color: "text.primary" }}
+                          >
+                            {row.org_code}
                           </Typography>
+                          {row.updated_on && (
+                            <Typography
+                              variant="caption"
+                              sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                            >
+                              Last updated: {row.updated_on}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          ml: 0.5,
+                        }}
+                      >
+                        <Chip
+                          label={row.status === "ACTIVE" ? "Active" : "Inactive"}
+                          color={row.status === "ACTIVE" ? "success" : "default"}
+                          size="small"
+                          sx={{
+                            fontSize: { xs: "0.7rem", md: "0.75rem" },
+                            height: 22,
+                          }}
+                        />
+                        {!isReadOnly && (
+                          <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
+                            <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
                         )}
                       </Box>
-                      <Chip
-                        label={row.status}
-                        color={row.status === "ACTIVE" ? "success" : "default"}
-                        size="small"
-                      />
                     </Stack>
-                    <Stack direction="row" spacing={2} mt={1}>
-                      {row.created_on && (
-                        <Typography variant="caption" color="text.secondary">
-                          Created: {row.created_on}
-                        </Typography>
-                      )}
-                      {row.updated_on && (
-                        <Typography variant="caption" color="text.secondary">
-                          Updated: {row.updated_on}
-                        </Typography>
-                      )}
-                    </Stack>
-                    {!isReadOnly && (
-                      <Stack direction="row" justifyContent="flex-end" mt={1.5}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleOpenEdit(row)}
-                        >
-                          Edit
-                        </Button>
-                      </Stack>
-                    )}
                   </CardContent>
                 </Card>
               ))}

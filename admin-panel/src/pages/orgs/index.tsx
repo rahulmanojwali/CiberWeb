@@ -18,6 +18,7 @@ import {
   Stack,
   TextField,
   Typography,
+  IconButton,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -34,6 +35,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -451,99 +453,96 @@ export const Orgs: React.FC = () => {
         </Alert>
       ) : null}
 
-      <Card>
-        <CardContent>
-          {isSmallScreen ? (
-            <Stack spacing={1} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
-              {filteredRows.map((row) => (
-                <Card key={row.id} variant="outlined">
-                  <CardContent sx={{ px: 2, py: 1.5 }}>
-                    <Stack spacing={1}>
-                      <Box>
-                        <Typography
-                          variant="caption"
-                          sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                        >
-                          Organisation Name
-                        </Typography>
-                        <Typography
-                          variant="body1"
-                          sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
-                        >
-                          {row.org_name}
-                        </Typography>
-                      </Box>
+      {isSmallScreen ? (
+        <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
+          {filteredRows.map((row) => (
+            <Card
+              key={row.id}
+              variant="outlined"
+              sx={{ borderRadius: 2, px: 2, py: 1.5, boxShadow: 2, mb: 0.5 }}
+            >
+              <Stack spacing={1}>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                  >
+                    Organisation Name
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
+                  >
+                    {row.org_name}
+                  </Typography>
+                </Box>
 
-                      <Box>
-                        <Typography
-                          variant="caption"
-                          sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                        >
-                          Organisation Code
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{ fontSize: { xs: "0.85rem", md: "0.9rem" }, color: "text.primary" }}
-                        >
-                          {row.org_code}
-                        </Typography>
-                      </Box>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                  >
+                    Organisation Code
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontSize: { xs: "0.85rem", md: "0.9rem" }, color: "text.primary" }}
+                  >
+                    {row.org_code}
+                  </Typography>
+                </Box>
 
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          mt: 0.25,
-                        }}
-                      >
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                          >
-                            Last Updated
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
-                          >
-                            {formatDateTime(row.updated_on)}
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={row.status === "ACTIVE" ? "Active" : "Inactive"}
-                          color={row.status === "ACTIVE" ? "success" : "default"}
-                          size="small"
-                          sx={{
-                            fontSize: { xs: "0.7rem", md: "0.75rem" },
-                            height: 22,
-                          }}
-                        />
-                      </Box>
-
-                      {!isReadOnly && (
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.25 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleOpenEdit(row)}
-                          >
-                            Edit
-                          </Button>
-                        </Box>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-              {!filteredRows.length && (
-                <Typography variant="body2" color="text.secondary">
-                  No organisations found.
-                </Typography>
-              )}
-            </Stack>
-          ) : (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    mt: 0.25,
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                    >
+                      Last Updated
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
+                    >
+                      {formatDateTime(row.updated_on)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Chip
+                      label={row.status === "ACTIVE" ? "Active" : "Inactive"}
+                      color={row.status === "ACTIVE" ? "success" : "default"}
+                      size="small"
+                      sx={{
+                        fontSize: { xs: "0.7rem", md: "0.75rem" },
+                        height: 22,
+                      }}
+                    />
+                    {!isReadOnly && (
+                      <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
+                        <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Box>
+              </Stack>
+            </Card>
+          ))}
+          {!filteredRows.length && (
+            <Typography variant="body2" color="text.secondary">
+              No organisations found.
+            </Typography>
+          )}
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>
             <Box sx={{ width: "100%", overflowX: "auto" }}>
               <ResponsiveDataGrid
                 rows={filteredRows}
@@ -554,9 +553,9 @@ export const Orgs: React.FC = () => {
                 minWidth={760}
               />
             </Box>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog
         open={dialogOpen}

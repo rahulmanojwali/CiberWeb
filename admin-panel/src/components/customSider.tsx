@@ -166,8 +166,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     selected={active}
                     onClick={() => item.path && navigate(item.path)}
                     sx={{
-                      minHeight: 32,
-                      py: 0.5,
+                      minHeight: { xs: 30, sm: 32, md: 32 },
+                      py: { xs: 0.4, sm: 0.5, md: 0.6 },
                       justifyContent: collapsed ? "center" : "flex-start",
                       px: collapsed ? 1.25 : 2,
                     }}
@@ -178,7 +178,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                           minWidth: 0,
                           mr: collapsed ? 0 : 1.25,
                           justifyContent: "center",
-                          "& svg": { fontSize: 18 },
+                          "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
                         }}
                       >
                         {item.icon}
@@ -190,7 +190,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                         primaryTypographyProps={{
                           fontWeight: active ? 600 : 500,
                           variant: "body2",
-                          fontSize: "0.8rem",
+                          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
                         }}
                       />
                     )}
@@ -259,8 +259,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               selected={active}
                               onClick={() => child.path && navigate(child.path)}
                               sx={{
-                                minHeight: 32,
-                                py: 0.5,
+                                minHeight: { xs: 30, sm: 32, md: 32 },
+                                py: { xs: 0.4, sm: 0.5, md: 0.6 },
                                 justifyContent: "flex-start",
                                 px: 2.5,
                               }}
@@ -271,7 +271,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                                     minWidth: 0,
                                     mr: 1.1,
                                     justifyContent: "center",
-                                    "& svg": { fontSize: 18 },
+                                    "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
                                   }}
                                 >
                                   {child.icon}
@@ -282,7 +282,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                                 primaryTypographyProps={{
                                   variant: "body2",
                                   fontWeight: active ? 600 : 500,
-                                  fontSize: "0.8rem",
+                                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
                                 }}
                               />
                             </ListItemButton>

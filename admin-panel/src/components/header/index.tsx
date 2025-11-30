@@ -149,7 +149,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               <ListItemButton
                 onClick={() => handleToggleGroup(key)}
                 sx={{
-                  minHeight: 40,
+                  minHeight: { xs: 34, sm: 36, md: 40 },
+                  py: { xs: 0.4, sm: 0.5, md: 0.6 },
                   justifyContent: "flex-start",
                   px: 2.5,
                 }}
@@ -158,8 +159,9 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                   <ListItemIcon
                     sx={{
                       minWidth: 0,
-                      mr: 1.5,
+                      mr: 1.25,
                       justifyContent: "center",
+                      "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
                     }}
                   >
                     {item.icon}
@@ -167,9 +169,13 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                 )}
                 <ListItemText
                   primary={t(item.labelKey)}
-                  primaryTypographyProps={{ fontWeight: 600 }}
+                  primaryTypographyProps={{
+                    fontWeight: 600,
+                    variant: "subtitle2",
+                    fontSize: { xs: "0.78rem", sm: "0.82rem", md: "0.85rem" },
+                  }}
                 />
-                {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                {isExpanded ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
               </ListItemButton>
             </ListItem>
             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
@@ -191,7 +197,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
             selected={active}
             onClick={() => item.path && handleNavClick(item.path)}
             sx={{
-              minHeight: 40,
+              minHeight: { xs: 32, sm: 34, md: 40 },
+              py: { xs: 0.4, sm: 0.5, md: 0.6 },
               justifyContent: "flex-start",
               px: 3 + depth * 1.5,
             }}
@@ -200,8 +207,9 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               <ListItemIcon
                 sx={{
                   minWidth: 0,
-                  mr: 1.5,
+                  mr: 1.25,
                   justifyContent: "center",
+                  "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
                 }}
               >
                 {item.icon}
@@ -211,6 +219,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               primary={t(item.labelKey)}
               primaryTypographyProps={{
                 fontWeight: active ? 600 : 500,
+                variant: "body2",
+                fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
               }}
             />
           </ListItemButton>

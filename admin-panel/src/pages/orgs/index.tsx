@@ -18,7 +18,6 @@ import {
   Stack,
   TextField,
   Typography,
-  IconButton,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -35,7 +34,6 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
@@ -462,74 +460,76 @@ export const Orgs: React.FC = () => {
               sx={{ borderRadius: 2, px: 2, py: 1.5, boxShadow: 2, mb: 0.5 }}
             >
               <Stack spacing={1}>
-                <Box>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                  >
-                    Organisation Name
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
-                  >
-                    {row.org_name}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                  >
-                    Organisation Code
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontSize: { xs: "0.85rem", md: "0.9rem" }, color: "text.primary" }}
-                  >
-                    {row.org_code}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ mb: 0.5 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
-                  >
-                    Last Updated
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.primary" }}
-                  >
-                    {formatDateTime(row.updated_on)}
-                  </Typography>
-                </Box>
-
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    mt: 1,
+                    mb: 1,
                   }}
                 >
+                  <Typography
+                    variant="body1"
+                    sx={{ fontWeight: 600, fontSize: { xs: "0.9rem", md: "1rem" }, lineHeight: 1.3 }}
+                  >
+                    {row.org_name}
+                  </Typography>
                   <Chip
                     label={row.status === "ACTIVE" ? "Active" : "Inactive"}
-                    color={row.status === "ACTIVE" ? "success" : "default"}
                     size="small"
-                    sx={{
-                      fontSize: { xs: "0.7rem", md: "0.75rem" },
-                      height: 22,
-                    }}
+                    color={row.status === "ACTIVE" ? "success" : "default"}
+                    sx={{ fontSize: { xs: "0.7rem", md: "0.75rem" }, height: 22 }}
                   />
-                  {!isReadOnly && (
-                    <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
-                      <EditOutlinedIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  )}
                 </Box>
+
+                <Box sx={{ mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontSize: { xs: "0.75rem", md: "0.8rem" } }}
+                  >
+                    Organisation Code
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontSize: { xs: "0.85rem", md: "0.9rem" } }}
+                  >
+                    {row.org_code}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontSize: { xs: "0.75rem", md: "0.8rem" } }}
+                  >
+                    Last Updated
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" } }}
+                  >
+                    {formatDateTime(row.updated_on)}
+                  </Typography>
+                </Box>
+
+                {!isReadOnly && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      mt: 0.5,
+                    }}
+                  >
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => handleOpenEdit(row)}
+                      sx={{ textTransform: "none", fontSize: "0.8rem" }}
+                    >
+                      Edit
+                    </Button>
+                  </Box>
+                )}
               </Stack>
             </Card>
           ))}

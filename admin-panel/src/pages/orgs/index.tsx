@@ -529,7 +529,7 @@ export const Orgs: React.FC = () => {
                         fontSize: "0.8rem",
                         fontWeight: 600,
                         color: "primary.main",
-                        px: 0,
+                        px: 1,
                       }}
                     >
                       Edit

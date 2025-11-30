@@ -35,6 +35,8 @@ import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../ut
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 
+
+
 type OrgStatus = "ACTIVE" | "INACTIVE";
 
 interface OrgRow {
@@ -520,7 +522,7 @@ export const Orgs: React.FC = () => {
                       mt: 1,
                     }}
                   >
-                    <Button
+                    {/* <Button
                       variant="text"
                       size="small"
                       onClick={() => handleOpenEdit(row)}
@@ -533,7 +535,26 @@ export const Orgs: React.FC = () => {
                       }}
                     >
                       Edit
-                    </Button>
+                    </Button> */}
+
+<Button
+  variant="outlined"
+  size="small"
+  onClick={() => handleOpenEdit(row)}
+  sx={{
+    textTransform: "none",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    borderRadius: 1,
+    px: 1.5,
+    py: 0.3,
+  }}
+>
+  Edit
+</Button>
+
+
+
                   </Box>
                 )}
               </Stack>

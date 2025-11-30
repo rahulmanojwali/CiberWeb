@@ -500,13 +500,13 @@ export const Orgs: React.FC = () => {
                 <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
-                    sx={{ color: "text.secondary", fontSize: { xs: "0.75rem", md: "0.8rem" } }}
+                    sx={{ display: "block", color: "text.secondary", fontSize: { xs: "0.75rem", md: "0.8rem" } }}
                   >
                     Last Updated
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" } }}
+                    sx={{ display: "block", fontSize: { xs: "0.75rem", md: "0.8rem" } }}
                   >
                     {formatDateTime(row.updated_on)}
                   </Typography>
@@ -517,14 +517,20 @@ export const Orgs: React.FC = () => {
                     sx={{
                       display: "flex",
                       justifyContent: "flex-end",
-                      mt: 0.5,
+                      mt: 1,
                     }}
                   >
                     <Button
                       variant="text"
                       size="small"
                       onClick={() => handleOpenEdit(row)}
-                      sx={{ textTransform: "none", fontSize: "0.8rem" }}
+                      sx={{
+                        textTransform: "none",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        color: "primary.main",
+                        px: 0,
+                      }}
                     >
                       Edit
                     </Button>

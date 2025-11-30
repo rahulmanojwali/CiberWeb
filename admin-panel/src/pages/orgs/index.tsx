@@ -35,7 +35,6 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
-import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 type OrgStatus = "ACTIVE" | "INACTIVE";
@@ -447,54 +446,32 @@ export const Orgs: React.FC = () => {
               {filteredRows.map((row) => (
                 <Card key={row.id} variant="outlined">
                   <CardContent sx={{ p: { xs: 1.25, sm: 1.5 } }}>
-                    <Stack direction="row" spacing={1.25} alignItems="flex-start">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          bgcolor: "background.default",
-                          borderRadius: 2,
-                          p: 0.5,
-                          height: 36,
-                          width: 36,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <BusinessOutlinedIcon sx={{ fontSize: { xs: 20, md: 22 }, color: "text.secondary" }} />
-                      </Box>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          variant="body1"
-                          sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600 }}
-                        >
-                          {row.org_name}
-                        </Typography>
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, mt: 0.25 }}>
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" spacing={1} alignItems="flex-start">
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography
-                            variant="body2"
-                            sx={{ fontSize: { xs: "0.8rem", md: "0.85rem" }, color: "text.primary" }}
+                            variant="body1"
+                            sx={{ fontSize: { xs: "0.95rem", md: "1rem" }, fontWeight: 600, lineHeight: 1.35 }}
                           >
-                            {row.org_code}
+                            {row.org_name}
                           </Typography>
-                          {row.updated_on && (
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, mt: 0.25 }}>
                             <Typography
-                              variant="caption"
-                              sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                              variant="body2"
+                              sx={{ fontSize: { xs: "0.8rem", md: "0.85rem" }, color: "text.primary" }}
                             >
-                              Last updated: {row.updated_on}
+                              {row.org_code}
                             </Typography>
-                          )}
+                            {row.updated_on && (
+                              <Typography
+                                variant="caption"
+                                sx={{ fontSize: { xs: "0.75rem", md: "0.8rem" }, color: "text.secondary" }}
+                              >
+                                Last updated: {row.updated_on}
+                              </Typography>
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          ml: 0.5,
-                        }}
-                      >
                         <Chip
                           label={row.status === "ACTIVE" ? "Active" : "Inactive"}
                           color={row.status === "ACTIVE" ? "success" : "default"}
@@ -502,14 +479,17 @@ export const Orgs: React.FC = () => {
                           sx={{
                             fontSize: { xs: "0.7rem", md: "0.75rem" },
                             height: 22,
+                            alignSelf: "flex-start",
                           }}
                         />
-                        {!isReadOnly && (
+                      </Stack>
+                      {!isReadOnly && (
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.25 }}>
                           <IconButton size="small" onClick={() => handleOpenEdit(row)} edge="end">
                             <EditOutlinedIcon sx={{ fontSize: 18 }} />
                           </IconButton>
-                        )}
-                      </Box>
+                        </Box>
+                      )}
                     </Stack>
                   </CardContent>
                 </Card>

@@ -27,6 +27,8 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { BRAND_ASSETS } from "../config/appConfig";
+import CloseIcon from "@mui/icons-material/Close";
+
 
 import {
   filterMenuByResources,
@@ -88,7 +90,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       }}
     >
       {/* Top brand section – replaces "Refine Project" */}
-      <Box
+      {/* <Box
         sx={{
           px: collapsed ? 1 : 2,
           py: 2,
@@ -127,10 +129,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               </Typography>
             </Box>
           )}
-        </Box>
+        </Box> */}
 
         {/* Collapse / expand toggle */}
-        <IconButton
+        {/* <IconButton
           size="small"
           onClick={() => setCollapsed((prev) => !prev)}
           sx={{
@@ -139,7 +141,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         >
           {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </IconButton>
-      </Box>
+      </Box> */}
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>

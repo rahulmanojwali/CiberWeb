@@ -63,6 +63,7 @@ export const Mandis: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -74,6 +75,7 @@ export const Mandis: React.FC = () => {
   const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
   const canDeactivate = useMemo(() => can(uiConfig.resources, "mandis.deactivate", "DEACTIVATE"), [uiConfig.resources]);
+  const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 
   const columns = useMemo<GridColDef<MandiRow>[]>(
     () => [
@@ -156,6 +158,7 @@ export const Mandis: React.FC = () => {
   }, [language, filters.state_code, filters.district, filters.status]);
 
   const openCreate = () => {
+    if (!canCreate) return;
     setIsEdit(false);
     setForm(defaultForm);
     setSelectedId(null);
@@ -163,6 +166,7 @@ export const Mandis: React.FC = () => {
   };
 
   const openEdit = (row: MandiRow) => {
+    if (!canEdit) return;
     setIsEdit(true);
     setSelectedId(row.mandi_id);
     setForm({
@@ -204,6 +208,8 @@ export const Mandis: React.FC = () => {
     await deactivateMandi({ username, language, mandi_id });
     await loadData();
   };
+
+  const canSubmit = isEdit ? canEdit : canCreate;
 
   return (
     <PageContainer>
@@ -265,18 +271,84 @@ export const Mandis: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <ResponsiveDataGrid
-              columns={columns}
-              rows={rows}
-              loading={loading}
-              getRowId={(r) => r.mandi_id}
-            />
-          </Box>
-        </CardContent>
-      </Card>
+      {isSmallScreen ? (
+        <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
+          {rows.map((row) => (
+            <Card key={row.mandi_id} variant="outlined" sx={{ borderRadius: 2, px: 2, py: 1.5, boxShadow: 1 }}>
+              <Stack spacing={1}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                    {row.name}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {row.is_active ? "Active" : "Inactive"}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Mandi ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.mandi_id}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    State / District
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.state_code} {row.district_name_en ? `• ${row.district_name_en}` : ""}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Pincode
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.pincode || "-"}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
+                  {canEdit && (
+                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                      Edit
+                    </Button>
+                  )}
+                  {canDeactivate && (
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="text"
+                      onClick={() => handleDeactivate(row.mandi_id)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Deactivate
+                    </Button>
+                  )}
+                </Box>
+              </Stack>
+            </Card>
+          ))}
+          {!rows.length && (
+            <Typography variant="body2" color="text.secondary">
+              No mandis found.
+            </Typography>
+          )}
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={rows}
+                loading={loading}
+                getRowId={(r) => r.mandi_id}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog
         open={dialogOpen}
@@ -294,6 +366,7 @@ export const Mandis: React.FC = () => {
                 value={form.name_en}
                 onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
                 fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -302,6 +375,7 @@ export const Mandis: React.FC = () => {
                 value={form.state_code}
                 onChange={(e) => setForm((f) => ({ ...f, state_code: e.target.value }))}
                 fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -310,6 +384,7 @@ export const Mandis: React.FC = () => {
                 value={form.district_name_en}
                 onChange={(e) => setForm((f) => ({ ...f, district_name_en: e.target.value }))}
                 fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -318,6 +393,7 @@ export const Mandis: React.FC = () => {
                 value={form.pincode}
                 onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
                 fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12}>
@@ -326,6 +402,7 @@ export const Mandis: React.FC = () => {
                 value={form.address_line}
                 onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
                 fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -335,6 +412,7 @@ export const Mandis: React.FC = () => {
                 value={form.is_active ? "Y" : "N"}
                 onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
                 fullWidth
+                disabled={isReadOnly}
               >
                 <MenuItem value="Y">Yes</MenuItem>
                 <MenuItem value="N">No</MenuItem>
@@ -344,9 +422,11 @@ export const Mandis: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            {isEdit ? "Update" : "Create"}
-          </Button>
+          {canSubmit && (
+            <Button variant="contained" onClick={handleSave} disabled={isEdit && isReadOnly}>
+              {isEdit ? "Update" : "Create"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </PageContainer>

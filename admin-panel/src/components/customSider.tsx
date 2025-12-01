@@ -8,6 +8,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
 
 import Box from "@mui/material/Box";
+import Avatar from "@mui/material/Avatar";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -17,18 +18,12 @@ import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
 import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
 
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import CloseIcon from "@mui/icons-material/Close";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 
 import { useLocation, useNavigate } from "react-router-dom";
-
-import { BRAND_ASSETS } from "../config/appConfig";
-import CloseIcon from "@mui/icons-material/Close";
-
 
 import {
   filterMenuByResources,
@@ -36,17 +31,13 @@ import {
 } from "../config/menuConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
+import { getCurrentAdminUsername } from "../utils/session";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down("md"));
   const { t } = useTranslation();
-
-  // 👉 Hide sider completely on mobile; drawer handles navigation there
-  if (isSmall) {
-    return null;
-  }
 
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -69,9 +60,18 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     return items;
   }, [effectiveRole, resources]);
 
+  const username = getCurrentAdminUsername();
+  const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
+  const initials = displayName?.charAt(0)?.toUpperCase() || "?";
 
+  const handleCloseClick = () => {
+    if (isSmall) {
+      setCollapsed(true);
+    } else {
+      setCollapsed((prev) => !prev);
+    }
+  };
 
-  
 
   const siderWidth = collapsed ? 72 : 260;
 
@@ -89,59 +89,25 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         transition: "width 0.2s ease",
       }}
     >
-      {/* Top brand section – replaces "Refine Project" */}
-      {/* <Box
+      {/* Top section – compact close icon */}
+      <Box
         sx={{
-          px: collapsed ? 1 : 2,
-          py: 2,
-          borderBottom: `1px solid ${theme.palette.divider}`,
           display: "flex",
           alignItems: "center",
-          justifyContent: collapsed ? "center" : "space-between",
-          gap: 1.5,
+          justifyContent: "flex-end",
+          px: 1,
+          py: 0.5,
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: collapsed ? 0 : 1.5,
-          }}
-        >
-          <Box
-            component="img"
-            src={BRAND_ASSETS.logo}
-            alt="CiberMandi"
-            sx={{
-              height: 32,
-              width: "auto",
-            }}
-          />
-          {!collapsed && (
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                CiberMandi Admin
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {t("layout.sider.tagline", {
-                  defaultValue: "Control room for mandis",
-                })}
-              </Typography>
-            </Box>
-          )}
-        </Box> */}
-
-        {/* Collapse / expand toggle */}
-        {/* <IconButton
+        <IconButton
           size="small"
-          onClick={() => setCollapsed((prev) => !prev)}
-          sx={{
-            ml: collapsed ? 0 : 1,
-          }}
+          onClick={handleCloseClick}
+          sx={{ p: "4px" }}
         >
-          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          <CloseIcon fontSize="small" />
         </IconButton>
-      </Box> */}
+      </Box>
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
@@ -298,6 +264,29 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             );
           })}
         </List>
+      </Box>
+
+      {/* Profile section */}
+      <Box
+        sx={{
+          borderTop: `1px solid ${theme.palette.divider}`,
+          px: collapsed ? 1 : 2,
+          py: 1.5,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Avatar sx={{ width: 32, height: 32 }}>{initials}</Avatar>
+          {!collapsed && (
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {displayName}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {t("layout.sider.signedIn", { defaultValue: "Signed in" })}
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Box>
 
       {/* Bottom small footer (optional) */}

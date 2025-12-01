@@ -30,14 +30,14 @@
     "$date": "2025-11-12T01:22:33.646Z"
   },
   "email": "oa.agri@example.com",
-  "is_active": "Y",
+  "is_active": "N",
   "mobile": "8888888888",
   "password_hash": "$2b$10$QlyXUG1WwoSOIF/Sjhaz6.J4hDguj6W4SAaJTO3a7rgGF8Y7/XZdy",
-  "updated_by": "MANUAL_SET",
+  "updated_by": "himnishwali",
   "updated_on": {
-    "$date": "2025-11-22T09:03:02.959Z"
+    "$date": "2025-11-27T14:04:10.382Z"
   },
-  "version": 1
+  "version": 2
 },
 {
   "_id": {
@@ -72,14 +72,14 @@
   "password_hash": "$2b$10$gujRYDz9hgg5eztk8n9pZ.VkVK/NPBcdLw82uAVV7hqKGwI6cfnzS",
   "is_active": "Y",
   "last_login_on": {
-    "$date": "2025-11-27T04:30:44.114Z"
+    "$date": "2025-12-01T03:08:29.971Z"
   },
   "created_on": {
     "$date": "2025-11-22T15:16:25.601Z"
   },
   "created_by": "superadmin",
   "updated_on": {
-    "$date": "2025-11-27T04:30:44.114Z"
+    "$date": "2025-12-01T03:08:29.971Z"
   },
   "updated_by": "ADMIN_LOGIN",
   "version": 1,
@@ -93,20 +93,20 @@
   "display_name": "himnish wali",
   "email": "himnishwali@gmail.com",
   "mobile": "9871648857",
-  "password_hash": "$2b$10$tlSuk9B5.RHfc18uwHzNgOnTL0.PRFU0kKgAETvt5QaQYNl6yPifu",
+  "password_hash": "$2b$10$gujRYDz9hgg5eztk8n9pZ.VkVK/NPBcdLw82uAVV7hqKGwI6cfnzS",
   "is_active": "Y",
   "last_login_on": {
-    "$date": "2025-11-27T04:55:03.566Z"
+    "$date": "2025-12-01T03:03:33.408Z"
   },
   "created_on": {
     "$date": "2025-11-22T15:26:00.787Z"
   },
   "created_by": "superadmin",
   "updated_on": {
-    "$date": "2025-11-27T04:55:03.566Z"
+    "$date": "2025-12-01T03:03:33.408Z"
   },
   "updated_by": "ADMIN_LOGIN",
-  "version": 1
+  "version": 2
 },
 {
   "_id": {
@@ -116,7 +116,7 @@
   "display_name": "manoj kumar",
   "email": "manoj@gmail.com",
   "mobile": "99871648856",
-  "password_hash": "$2b$10$1cbrBguvjzuS0HALgkK/DOALPyFbbNa66jOBpp30JfvUKxT2ZY/s6",
+  "password_hash": "$2b$10$ZND91lxRFSsBchvTY6Uwkea3dHme/T023f.lGEXMlYpg1hIqphWC.",
   "is_active": "Y",
   "last_login_on": null,
   "created_on": {
@@ -124,10 +124,10 @@
   },
   "created_by": "superadmin",
   "updated_on": {
-    "$date": "2025-11-22T16:57:32.267Z"
+    "$date": "2025-11-27T13:01:31.997Z"
   },
-  "updated_by": "superadmin",
-  "version": 1
+  "updated_by": "rahulwali",
+  "version": 2
 },
 {
   "_id": {
@@ -138,17 +138,17 @@
   "email": "rajkumar@gmail.com",
   "mobile": "9871648845",
   "password_hash": "$2b$10$SsUErxqH4YQ6hONaQwxusOivX78CrIJRbeOhANN3zq4euyoZ1iCXe",
-  "is_active": "Y",
+  "is_active": "N",
   "last_login_on": null,
   "created_on": {
     "$date": "2025-11-22T16:45:37.394Z"
   },
   "created_by": "superadmin",
   "updated_on": {
-    "$date": "2025-11-22T23:28:42.842Z"
+    "$date": "2025-11-27T09:40:33.629Z"
   },
-  "updated_by": "superadmin",
-  "version": 1
+  "updated_by": "rahulwali",
+  "version": 2
 },
 {
   "_id": {
@@ -161,14 +161,14 @@
   "password_hash": "$2b$10$42poEMHParvixJsyqVLzt.Vk3uqF0mqXT9L5v9kNNavsQt6uhPxN2",
   "is_active": "Y",
   "last_login_on": {
-    "$date": "2025-11-26T04:19:07.773Z"
+    "$date": "2025-11-29T01:21:44.080Z"
   },
   "created_on": {
     "$date": "2025-11-26T04:18:40.982Z"
   },
   "created_by": "rahulwali",
   "updated_on": {
-    "$date": "2025-11-26T04:19:07.773Z"
+    "$date": "2025-11-29T01:21:44.080Z"
   },
   "updated_by": "ADMIN_LOGIN",
   "version": 1
@@ -195,4 +195,255 @@
   },
   "updated_by": "ADMIN_LOGIN",
   "version": 1
+},
+{
+  "_id": {
+    "$oid": "692819c9338759faf3f9a197"
+  },
+  "username": "sanjaywali",
+  "display_name": "Sanjay kumar Wali",
+  "email": "sanjaywali@gmail.com",
+  "mobile": "9871648818",
+  "password_hash": "$2b$10$CctDTpAyYyuxALW2cLGkwuEZddO46UUkbHSXk1f.HuB40WhSvv88S",
+  "is_active": "N",
+  "last_login_on": null,
+  "version": 2,
+  "created_on": {
+    "$date": "2025-11-27T09:28:41.194Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T09:40:21.017Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "rahulwali"
+},
+{
+  "_id": {
+    "$oid": "692859b0338759faf3f9a199"
+  },
+  "username": "agri_org_admin",
+  "display_name": "agri admin",
+  "email": "agriadmin@gmail.com",
+  "mobile": "9811648858",
+  "password_hash": "$2b$10$6evLROBBzr.Mb7nvh05cjOVKweMynvgUB6lkOKvbvxHVTRSrAtV3e",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T14:11:59.168Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:01:20.688Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T14:11:59.168Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69285dd5338759faf3f9a19b"
+  },
+  "username": "agri_mandi_admin",
+  "display_name": "Mandi",
+  "email": "mandi@gmail.com",
+  "mobile": "9271648858",
+  "password_hash": "$2b$10$o2N12DmwCCXmouLk667BjepD.zgy5I5OrfFzu86OMOrWvTZprQpke",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-29T01:20:17.793Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:19:01.402Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-29T01:20:17.793Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286303338759faf3f9a19d"
+  },
+  "username": "agri_mandi_viewer",
+  "display_name": "mandi viewer",
+  "email": "mandiv@gmail.com",
+  "mobile": "9371648858",
+  "password_hash": "$2b$10$7Y4VXi9IkTNFg4zuvl6zpuJPNro151BdtD/Uhv0HWPWRf5eguWVlO",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T14:42:01.117Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:41:07.190Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T14:42:01.117Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286421338759faf3f9a19f"
+  },
+  "username": "agri_org_viewer",
+  "display_name": "Agri ORG Viewer",
+  "email": "agriorgv@gmail.com",
+  "mobile": "9471648858",
+  "password_hash": "$2b$10$QfKHUgA0K6GidKVCEIAHH.auitvV2Bdno/i6b7CfD3Ub4H6exSrEK",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T14:47:06.865Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:45:53.799Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T14:47:06.865Z"
+  },
+  "created_by": "rahulwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286509338759faf3f9a1a1"
+  },
+  "username": "agri_mandi_manager",
+  "display_name": "Mandi Manager",
+  "email": "mangimg@gmail.com",
+  "mobile": "9571648858",
+  "password_hash": "$2b$10$05KAkNn/wUy84/YWfKzVA.qwEFQAZ4dXJP325eYhnaoS2reFoKG3.",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-30T03:11:27.804Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:49:45.705Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-30T03:11:27.804Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "6928661b338759faf3f9a1a3"
+  },
+  "username": "agri_auctioneer",
+  "display_name": "Agri Auctioneer",
+  "email": "agriauctioneer@gmail.co",
+  "mobile": "9671648858",
+  "password_hash": "$2b$10$GKt46/d4hJHoZ7BMQdqTOu5QB2HD3JTWn7ycg53Au/vLA32ZSaJBe",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-29T01:22:59.587Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:54:19.219Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-29T01:22:59.587Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "6928670f338759faf3f9a1a5"
+  },
+  "username": "agri_gate_operator",
+  "display_name": "agri gate operator",
+  "email": "agri_gate_operator@gmail.com",
+  "mobile": "9771648858",
+  "password_hash": "$2b$10$r1o8inmJAt3yMRURxtaT5e7mrhxcu4YQaukiHzpcP6nzy3E0rQyl2",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-29T01:23:37.510Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T14:58:23.374Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-29T01:23:37.510Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286d34338759faf3f9a1a7"
+  },
+  "username": "weighbridge_operator",
+  "display_name": "agri_WEIGHBRIDGE OPERATOR",
+  "email": "weighbridge_operator@gmailcom",
+  "mobile": "9971648858",
+  "password_hash": "$2b$10$2sD4LO8cre8iZFpsIZlIr.cVFNW.AARarL6k1iDiDgTXjtqCAa/Lq",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T15:24:56.472Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T15:24:36.198Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T15:24:56.472Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286e4e338759faf3f9a1a9"
+  },
+  "username": "agri_weighbridge_operator",
+  "display_name": "agri WEIGHBRIDGE OPERATOR",
+  "email": "agri_weighbridge_operator@gmail.com",
+  "mobile": "9071648858",
+  "password_hash": "$2b$10$HmwakmEtFuUt2MIZr6GRtOerOr7i7Egpi1MRkWC.DiMZP7HZzY1/u",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T15:29:44.761Z"
+  },
+  "version": 1,
+  "created_on": {
+    "$date": "2025-11-27T15:29:18.815Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-27T15:29:44.761Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "ADMIN_LOGIN"
+},
+{
+  "_id": {
+    "$oid": "69286f18338759faf3f9a1ab"
+  },
+  "username": "agri_viewer",
+  "display_name": "agri_VIEWERJ",
+  "email": "agri_viewer@gmail.com",
+  "mobile": "9871648859",
+  "password_hash": "$2b$10$RZQBROlXfu4A3/fEiMFWbOGmpTG2uhdlmCN9y5o7EWNvgPQL3eogK",
+  "is_active": "Y",
+  "last_login_on": {
+    "$date": "2025-11-27T15:32:49.298Z"
+  },
+  "version": 2,
+  "created_on": {
+    "$date": "2025-11-27T15:32:40.394Z"
+  },
+  "updated_on": {
+    "$date": "2025-11-29T14:10:01.941Z"
+  },
+  "created_by": "himnishwali",
+  "updated_by": "rahulwali"
 }]

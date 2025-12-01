@@ -31,7 +31,7 @@ import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
+import { getUserScope } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 
@@ -82,28 +82,16 @@ export const Orgs: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const uiConfig = useAdminUiConfig();
   const scope = getUserScope("OrgsPage");
-  const role = scope.role;
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const isSuper = isSuperAdmin(role);
-  const orgAdmin = isOrgAdmin(role);
   const canCreateOrg = React.useMemo(() => {
-    if (uiConfig.resources.length) {
-      return can(uiConfig.resources, "organisations.create", "CREATE");
-    }
-    return isSuper;
-  }, [uiConfig.resources, isSuper]);
+    return can(uiConfig.resources, "organisations.create", "CREATE");
+  }, [uiConfig.resources]);
   const canUpdateOrgAction = React.useMemo(() => {
-    if (uiConfig.resources.length) {
-      return can(uiConfig.resources, "organisations.edit", "UPDATE");
-    }
-    return isSuper || orgAdmin;
-  }, [uiConfig.resources, isSuper, orgAdmin]);
+    return can(uiConfig.resources, "organisations.edit", "UPDATE");
+  }, [uiConfig.resources]);
   const isReadOnly = React.useMemo(() => {
-    if (uiConfig.resources.length) {
-      return !canUpdateOrgAction;
-    }
-    return isReadOnlyRole(role);
-  }, [uiConfig.resources, canUpdateOrgAction, role]);
+    return !canUpdateOrgAction;
+  }, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
@@ -212,10 +200,6 @@ export const Orgs: React.FC = () => {
   );
 
   const handleOpenCreate = () => {
-    if (!canCreateOrg) {
-      setToast({ open: true, message: "You are not authorized to create organisations.", severity: "error" });
-      return;
-    }
     setIsEditMode(false);
     setEditingId(null);
     setForm({
@@ -303,9 +287,7 @@ export const Orgs: React.FC = () => {
         };
         payload.country = form.country;
         payload.is_active = form.status === "ACTIVE" ? "Y" : "N";
-        if (!isSuper && scope.orgCode) {
-          payload.org_code = scope.orgCode;
-        }
+        payload.org_code = scopeOrgCode || form.org_code;
         const body = await buildBody(payload);
         const { data } = await axios.post(
           `${API_BASE_URL}${API_ROUTES.admin.updateOrganisation}`,
@@ -323,14 +305,31 @@ export const Orgs: React.FC = () => {
           setDialogOpen(false);
         }
       } else {
-        if (!canCreateOrg) {
-          setToast({ open: true, message: "You are not authorized to create organisations.", severity: "error" });
-          setLoading(false);
-          return;
+        const payload: any = {
+          api: API_TAGS.ORGS.create,
+          username,
+          language: "en",
+          org_name: form.org_name,
+          org_code: scopeOrgCode || form.org_code,
+          country: form.country,
+          is_active: form.status === "ACTIVE" ? "Y" : "N",
+        };
+        const body = await buildBody(payload);
+        const { data } = await axios.post(
+          `${API_BASE_URL}${API_ROUTES.admin.createOrganisation}`,
+          body,
+          { headers }
+        );
+        const resp = data?.response || {};
+        const code = String(resp.responsecode ?? "");
+        if (code !== "0") {
+          setError(resp.description || "Create failed.");
+          setToast({ open: true, message: resp.description || "Create failed.", severity: "error" });
+        } else {
+          await loadOrgs();
+          setToast({ open: true, message: "Organisation created.", severity: "success" });
+          setDialogOpen(false);
         }
-        setToast({ open: true, message: "You are not authorized to create organisations.", severity: "error" });
-        setLoading(false);
-        return;
       }
     } catch (e: any) {
       setError(e?.message || "Network error.");
@@ -626,8 +625,7 @@ export const Orgs: React.FC = () => {
                 onChange={handleChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                disabled={!isSuper}
-                helperText={!isSuper ? "Only SUPER_ADMIN can change Country." : undefined}
+                disabled={isReadOnly}
               >
                 <MenuItem value="IN">India (IN)</MenuItem>
               </TextField>
@@ -641,8 +639,7 @@ export const Orgs: React.FC = () => {
                 onChange={handleChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                disabled={!isSuper}
-                helperText={!isSuper ? "Only SUPER_ADMIN can change status." : undefined}
+                disabled={isReadOnly}
               >
                 <MenuItem value="ACTIVE">Active</MenuItem>
                 <MenuItem value="INACTIVE">Inactive</MenuItem>

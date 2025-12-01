@@ -237,238 +237,1130 @@
       ]
     },
     {
-      "resource_key": "gate_entry_reasons_masters.menu",
+      "resource_key": "org_mandi_mappings.menu",
       "actions": [
         "VIEW"
       ]
     },
     {
-      "resource_key": "gate_entry_reasons_masters.list",
+      "resource_key": "commodities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on commodities"
     },
     {
-      "resource_key": "gate_entry_reasons_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.menu",
+      "resource_key": "commodity_products.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on commodity_products"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.list",
+      "resource_key": "mandi_facilities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on mandi_facilities"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.create",
+      "resource_key": "mandi_gates.menu",
       "actions": [
-        "CREATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.edit",
+      "resource_key": "mandi_hours.menu",
       "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
     },
     {
       "resource_key": "auction_methods_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on auction_methods_masters"
     },
     {
       "resource_key": "auction_rounds_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on auction_rounds_masters"
     },
     {
       "resource_key": "cm_mandi_auction_policies.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.list",
+      "resource_key": "auction_sessions.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.create",
+      "resource_key": "auction_lots.menu",
       "actions": [
-        "CREATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.edit",
+      "resource_key": "auction_results.menu",
       "actions": [
-        "UPDATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "resource_key": "gate_entry_reasons_masters.menu",
       "actions": [
-        "DEACTIVATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
     },
     {
       "resource_key": "cm_gate_devices.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on cm_gate_devices"
     },
     {
       "resource_key": "gate_device_configs.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on gate_device_configs"
     },
     {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_tokens.view",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_movements_log.view",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
     },
     {
       "resource_key": "weighment_tickets.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "payment_models.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "org_payment_settings.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "mandi_payment_settings.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "commodity_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "payment_modes.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "custom_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "role_custom_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlements module menu (seeded by update_cm_admin_role_policies_matrix.js)"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "commodities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodity_products.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "payment_models.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "org_payment_settings.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "commodity_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "payment_modes.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "custom_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "traders.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status traders"
+    },
+    {
+      "resource_key": "farmers.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status farmers"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see Traders menu"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view Traders registry list"
+    },
+    {
+      "resource_key": "traders.update_status",
+      "actions": [
+        "UPDATE_STATUS"
+      ],
+      "notes": "Can block/unblock traders"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can see Farmers menu"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Can view Farmers registry list"
+    },
+    {
+      "resource_key": "farmers.update_status",
+      "actions": [
+        "UPDATE_STATUS"
+      ],
+      "notes": "Can block/unblock farmers"
     }
   ]
 },
@@ -741,238 +1633,1088 @@
       "notes": "No bulk upload; mandi-level roles only"
     },
     {
-      "resource_key": "gate_entry_reasons_masters.menu",
+      "resource_key": "org_mandi_mappings.menu",
       "actions": [
         "VIEW"
       ]
     },
     {
-      "resource_key": "gate_entry_reasons_masters.list",
+      "resource_key": "commodities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on commodities"
     },
     {
-      "resource_key": "gate_entry_reasons_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.menu",
+      "resource_key": "commodity_products.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on commodity_products"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.list",
+      "resource_key": "mandi_facilities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on mandi_facilities"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.create",
+      "resource_key": "mandi_gates.menu",
       "actions": [
-        "CREATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.edit",
+      "resource_key": "mandi_hours.menu",
       "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
     },
     {
       "resource_key": "auction_methods_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on auction_methods_masters"
     },
     {
       "resource_key": "auction_rounds_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on auction_rounds_masters"
     },
     {
       "resource_key": "cm_mandi_auction_policies.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.list",
+      "resource_key": "auction_sessions.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.create",
+      "resource_key": "auction_lots.menu",
       "actions": [
-        "CREATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.edit",
+      "resource_key": "auction_results.menu",
       "actions": [
-        "UPDATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
     },
     {
-      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "resource_key": "gate_entry_reasons_masters.menu",
       "actions": [
-        "DEACTIVATE"
-      ]
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
     },
     {
       "resource_key": "cm_gate_devices.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on cm_gate_devices"
     },
     {
       "resource_key": "gate_device_configs.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on gate_device_configs"
     },
     {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_tokens.view",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_movements_log.view",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
     },
     {
       "resource_key": "weighment_tickets.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "payment_models.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "org_payment_settings.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "mandi_payment_settings.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "commodity_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "payment_modes.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "custom_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "role_custom_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment config menu for ORG_ADMIN (org/mandi scoped)"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for ORG_ADMIN"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for ORG_ADMIN"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for ORG_ADMIN"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for ORG_ADMIN"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "commodities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodities"
+    },
+    {
+      "resource_key": "commodity_products.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodity_products"
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on auction_rounds_masters"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "payment_models.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "payment_models.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on payment_models"
+    },
+    {
+      "resource_key": "org_payment_settings.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "org_payment_settings.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on org_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "commodity_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "payment_modes.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "payment_modes.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on payment_modes"
+    },
+    {
+      "resource_key": "custom_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "custom_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "role_custom_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on role_custom_fees"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "traders.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status traders"
+    },
+    {
+      "resource_key": "farmers.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status farmers"
     }
   ]
 },
@@ -1176,112 +2918,486 @@
       "notes": "No bulk upload"
     },
     {
-      "resource_key": "gate_entry_reasons_masters.menu",
+      "resource_key": "org_mandi_mappings.menu",
       "actions": [
         "VIEW"
       ]
     },
     {
-      "resource_key": "gate_entry_reasons_masters.list",
+      "resource_key": "commodities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW commodities"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.menu",
+      "resource_key": "commodity_products.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW commodity_products"
     },
     {
-      "resource_key": "gate_vehicle_types_masters.list",
+      "resource_key": "mandi_facilities.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_hours.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "commodities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodities"
+    },
+    {
+      "resource_key": "commodities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodities"
+    },
+    {
+      "resource_key": "commodity_products.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodity_products"
     },
     {
       "resource_key": "auction_methods_masters.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW auction_methods_masters"
     },
     {
       "resource_key": "auction_methods_masters.list",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_methods_masters"
     },
     {
       "resource_key": "auction_rounds_masters.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW auction_rounds_masters"
     },
     {
       "resource_key": "auction_rounds_masters.list",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_rounds_masters"
     },
     {
       "resource_key": "cm_mandi_auction_policies.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
     },
     {
       "resource_key": "cm_mandi_auction_policies.list",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
     },
     {
       "resource_key": "cm_gate_devices.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW cm_gate_devices"
     },
     {
       "resource_key": "cm_gate_devices.list",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_gate_devices"
     },
     {
       "resource_key": "gate_device_configs.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW gate_device_configs"
     },
     {
       "resource_key": "gate_device_configs.list",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "VIEW gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_device_configs"
     },
     {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_tokens.view",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_movements_log.view",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
     },
     {
       "resource_key": "weighment_tickets.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
     }
   ]
 },
@@ -1439,148 +3555,662 @@
       "notes": "Can bulk upload mandi prices for assigned mandis"
     },
     {
+      "resource_key": "mandi_facilities.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "auction_sessions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
       "resource_key": "gate_entry_reasons_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
     },
     {
       "resource_key": "gate_vehicle_types_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_mandi_auction_policies.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_mandi_auction_policies.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
     },
     {
       "resource_key": "cm_gate_devices.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on cm_gate_devices"
     },
     {
       "resource_key": "gate_device_configs.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.create",
-      "actions": [
-        "CREATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.edit",
-      "actions": [
-        "UPDATE"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.deactivate",
-      "actions": [
-        "DEACTIVATE"
-      ]
+      ],
+      "notes": "CRUD on gate_device_configs"
     },
     {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_tokens.view",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_movements_log.view",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
     },
     {
       "resource_key": "weighment_tickets.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "mandi_payment_settings.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi-level payment config menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "commodity_fees.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Mandi-level payment config menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer menu for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on cm_gate_devices"
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on gate_device_configs"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "mandi_payment_settings.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "mandi_payment_settings.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_payment_settings"
+    },
+    {
+      "resource_key": "commodity_fees.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "commodity_fees.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on commodity_fees"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "traders.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status traders"
+    },
+    {
+      "resource_key": "farmers.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status farmers"
     }
   ]
 },
@@ -1732,6 +4362,412 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload; reserved for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "mandi_facilities.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on mandi_hours"
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "traders.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.create",
+      "actions": [
+        "CREATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.edit",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "farmers.deactivate",
+      "actions": [
+        "DEACTIVATE"
+      ],
+      "notes": "CRUD on farmers"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "traders.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status traders"
+    },
+    {
+      "resource_key": "farmers.update_status",
+      "actions": [
+        "UPDATE"
+      ],
+      "notes": "Update status farmers"
     }
   ]
 },
@@ -1841,6 +4877,83 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload; reserved for MANDI_ADMIN"
+    },
+    {
+      "resource_key": "auction_sessions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer for auctioneer"
+    },
+    {
+      "resource_key": "auction_lots.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer for auctioneer"
+    },
+    {
+      "resource_key": "auction_results.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer for auctioneer"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
     }
   ]
 },
@@ -1951,109 +5064,64 @@
       "resource_key": "gate_entry_reasons_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_reasons_masters.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
     },
     {
       "resource_key": "gate_vehicle_types_masters.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_vehicle_types_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_methods_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "auction_rounds_masters.list",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_mandi_auction_policies.menu",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_mandi_auction_policies.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
     },
     {
       "resource_key": "cm_gate_devices.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "cm_gate_devices.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
     },
     {
       "resource_key": "gate_device_configs.menu",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_device_configs.list",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
     },
     {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_entry_tokens.view",
-      "actions": [
-        "VIEW"
-      ]
-    },
-    {
-      "resource_key": "gate_movements_log.view",
-      "actions": [
-        "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
     },
     {
       "resource_key": "weighment_tickets.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate & Yard ops/menu for gate operator"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
     }
   ]
 },
@@ -2161,22 +5229,39 @@
       "notes": "No bulk upload"
     },
     {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/weighment ops viewer for weighbridge operator"
+    },
+    {
       "resource_key": "gate_pass_tokens.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/weighment ops viewer for weighbridge operator"
     },
     {
-      "resource_key": "gate_entry_tokens.view",
+      "resource_key": "dashboard.menu",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
     },
     {
       "resource_key": "gate_movements_log.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
     }
   ]
 },
@@ -2421,16 +5506,486 @@
       "notes": "No bulk upload"
     },
     {
-      "resource_key": "weighment_tickets.view",
+      "resource_key": "org_mandi_mappings.menu",
       "actions": [
         "VIEW"
       ]
     },
     {
+      "resource_key": "commodities.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodities"
+    },
+    {
+      "resource_key": "commodity_products.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodity_products"
+    },
+    {
+      "resource_key": "mandi_facilities.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "auction_sessions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "subscriptions.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "subscription_invoices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement read-only viewer menu"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "commodities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodities"
+    },
+    {
+      "resource_key": "commodities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodities"
+    },
+    {
+      "resource_key": "commodity_products.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodity_products"
+    },
+    {
+      "resource_key": "commodity_products.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW commodity_products"
+    },
+    {
+      "resource_key": "auction_methods_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_methods_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_methods_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_rounds_masters"
+    },
+    {
+      "resource_key": "auction_rounds_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW auction_rounds_masters"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "cm_mandi_auction_policies.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_mandi_auction_policies"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_entry_reasons_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_entry_reasons_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "gate_vehicle_types_masters.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_vehicle_types_masters"
+    },
+    {
+      "resource_key": "cm_gate_devices.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_gate_devices"
+    },
+    {
+      "resource_key": "cm_gate_devices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW cm_gate_devices"
+    },
+    {
+      "resource_key": "gate_device_configs.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_device_configs"
+    },
+    {
+      "resource_key": "gate_device_configs.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW gate_device_configs"
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
       "resource_key": "gate_movements_log.view",
       "actions": [
         "VIEW"
-      ]
+      ],
+      "notes": "Gate/Yard ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_sessions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_lots.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "auction_results.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Auction ops viewer"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "subscriptions.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscriptions.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "subscription_invoices.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Payment/settlement viewer"
     }
   ]
 },
@@ -2536,6 +6091,188 @@
       "resource_key": "mandi_prices.bulk_upload",
       "actions": [],
       "notes": "No bulk upload"
+    },
+    {
+      "resource_key": "mandi_gates.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "settlements.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level settlements/payments log viewer menu"
+    },
+    {
+      "resource_key": "payments_log.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level settlements/payments log viewer menu"
+    },
+    {
+      "resource_key": "traders.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "farmers.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Trader/Farmer registry viewer menu"
+    },
+    {
+      "resource_key": "dashboard.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard menu"
+    },
+    {
+      "resource_key": "dashboard.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Dashboard main view"
+    },
+    {
+      "resource_key": "mandi_facilities.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_facilities.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_facilities"
+    },
+    {
+      "resource_key": "mandi_gates.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_gates.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_gates"
+    },
+    {
+      "resource_key": "mandi_hours.menu",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "mandi_hours.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW mandi_hours"
+    },
+    {
+      "resource_key": "gate_pass_tokens.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops high-level view"
+    },
+    {
+      "resource_key": "weighment_tickets.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops high-level view"
+    },
+    {
+      "resource_key": "gate_movements_log.view",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "Gate/Yard ops high-level view"
+    },
+    {
+      "resource_key": "traders.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "traders.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW traders"
+    },
+    {
+      "resource_key": "farmers.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "farmers.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "VIEW farmers"
+    },
+    {
+      "resource_key": "settlements.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level finance view"
+    },
+    {
+      "resource_key": "settlements.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level finance view"
+    },
+    {
+      "resource_key": "payments_log.list",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level finance view"
+    },
+    {
+      "resource_key": "payments_log.detail",
+      "actions": [
+        "VIEW"
+      ],
+      "notes": "High-level finance view"
     }
   ]
 }]

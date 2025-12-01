@@ -27,6 +27,7 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
+import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 
 type MandiRow = {
   mandi_id: number;
@@ -71,6 +72,8 @@ export const Mandis: React.FC = () => {
   const [form, setForm] = useState(defaultForm);
   const [filters, setFilters] = useState({ state_code: "", district: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
+  const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
 
   const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
@@ -161,6 +164,7 @@ export const Mandis: React.FC = () => {
     if (!canCreate) return;
     setIsEdit(false);
     setForm(defaultForm);
+    setPincodeError(null);
     setSelectedId(null);
     setDialogOpen(true);
   };
@@ -169,6 +173,7 @@ export const Mandis: React.FC = () => {
     if (!canEdit) return;
     setIsEdit(true);
     setSelectedId(row.mandi_id);
+    setPincodeError(null);
     setForm({
       mandi_id: row.mandi_id,
       name_en: row.name,
@@ -179,6 +184,49 @@ export const Mandis: React.FC = () => {
       is_active: row.is_active,
     });
     setDialogOpen(true);
+  };
+
+  const handlePincodeLookup = async (pincode: string) => {
+    const username = currentUsername();
+    if (!username) return;
+    if (!pincode || pincode.trim().length !== 6) {
+      setPincodeError(pincode ? "Enter a 6-digit pincode" : null);
+      setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
+      return;
+    }
+    try {
+      setPincodeLookupLoading(true);
+      const resp = await fetchStatesDistrictsByPincode({
+        username,
+        language,
+        pincode: pincode.trim(),
+        country: "IN",
+      });
+      const states =
+        resp?.data?.states ||
+        resp?.response?.data?.states ||
+        resp?.states ||
+        [];
+      const firstState = states?.[0];
+      const firstDistrict = firstState?.districts?.[0];
+      if (firstState?.state_code && firstDistrict?.district_name) {
+        setForm((f) => ({
+          ...f,
+          state_code: firstState.state_code,
+          district_name_en: firstDistrict.district_name,
+        }));
+        setPincodeError(null);
+      } else {
+        setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
+        setPincodeError("Pincode not found");
+      }
+    } catch (err) {
+      console.error("[mandis] pincode lookup", err);
+      setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
+      setPincodeError("Pincode lookup failed");
+    } finally {
+      setPincodeLookupLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -362,27 +410,9 @@ export const Mandis: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Name (EN)"
+                label="Mandi Name"
                 value={form.name_en}
                 onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="State Code"
-                value={form.state_code}
-                onChange={(e) => setForm((f) => ({ ...f, state_code: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="District"
-                value={form.district_name_en}
-                onChange={(e) => setForm((f) => ({ ...f, district_name_en: e.target.value }))}
                 fullWidth
                 disabled={isReadOnly}
               />
@@ -392,8 +422,27 @@ export const Mandis: React.FC = () => {
                 label="Pincode"
                 value={form.pincode}
                 onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
+                onBlur={(e) => handlePincodeLookup(e.target.value)}
                 fullWidth
                 disabled={isReadOnly}
+                helperText={pincodeError || (pincodeLookupLoading ? "Resolving pincode..." : undefined)}
+                error={Boolean(pincodeError)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="State Code"
+                value={form.state_code}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="District"
+                value={form.district_name_en}
+                fullWidth
+                disabled
               />
             </Grid>
             <Grid item xs={12}>
@@ -402,6 +451,8 @@ export const Mandis: React.FC = () => {
                 value={form.address_line}
                 onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
                 fullWidth
+                multiline
+                minRows={3}
                 disabled={isReadOnly}
               />
             </Grid>

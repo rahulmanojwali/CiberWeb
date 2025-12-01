@@ -34,6 +34,9 @@ export const API_TAGS = {
     update: "updateMandi",
     deactivate: "deactivateMandi",
   },
+  MASTERS: {
+    getStatesDistricts: "get_States_Districts17",
+  },
   COMMODITIES: {
     list: "getCommodities",
     create: "createCommodity",
@@ -340,6 +343,7 @@ export const API_ROUTES = {
   masters: {
     getMandiCoverage: "/masters/getMandiCoverage",
     getMandis: "/masters/getMandis",
+    getStatesDistricts: "/masters/getStatesDistricts",
   },
 } as const;
 

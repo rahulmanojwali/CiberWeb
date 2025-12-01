@@ -277,6 +277,7 @@ export const Mandis: React.FC = () => {
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
+    const orgCode = uiConfig.scope?.org_code || "";
     const payload: any = {
       name_i18n: { en: form.name_en },
       state_code: form.state_code,
@@ -284,6 +285,7 @@ export const Mandis: React.FC = () => {
       address_line: form.address_line,
       pincode: form.pincode,
       is_active: form.is_active,
+      org_code: orgCode || undefined,
     };
     if (isEdit && selectedId) {
       payload.mandi_id = selectedId;

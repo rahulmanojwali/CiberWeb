@@ -89,25 +89,30 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         transition: "width 0.2s ease",
       }}
     >
-      {/* Top section – compact close icon */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          px: 1,
-          py: 0.5,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <IconButton
-          size="small"
-          onClick={handleCloseClick}
-          sx={{ p: "4px" }}
+      {/* Top section – desktop only: label + close */}
+      {!isSmall && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 2,
+            py: 1,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
         >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            {t("layout.sider.adminMenu", { defaultValue: "Admin menu" })}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={handleCloseClick}
+            sx={{ p: "6px" }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>

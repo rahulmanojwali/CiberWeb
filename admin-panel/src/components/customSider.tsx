@@ -64,7 +64,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
   const initials = displayName?.charAt(0)?.toUpperCase() || "?";
 
-  const handleCloseClick = () => {
+const handleCloseClick = () => {
     if (isSmall) {
       setCollapsed(true);
     } else {
@@ -72,6 +72,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     }
   };
 
+
+  if (isSmall) {
+    return null;
+  }
 
   const siderWidth = collapsed ? 72 : 260;
 

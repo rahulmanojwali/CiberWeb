@@ -442,82 +442,23 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
       </AppBar>
 
       {/* MOBILE NAV DRAWER */}
-      
-<Drawer
-  anchor="left"
-  open={mobileMenuOpen && isSmall}
-  onClose={() => setMobileMenuOpen(false)}
-  slotProps={{
-    paper: {
-      sx: {
-        width: "80%",
-        maxWidth: 340,
-        bgcolor: theme.palette.background.default,
-
-        top: APPBAR_MOBILE_HEIGHT,
-        height: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
-        position: "fixed",
-      },
-    },
-  }}
->
-
-
-  {/* Drawer header: close button + logo/text */}
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      px: 2,
-      py: 1.5,
-      borderBottom: 1,
-      borderColor: "divider",
-    }}
-  >
-    <IconButton
-      edge="start"
-      onClick={() => setMobileMenuOpen(false)}
-      aria-label="close menu"
-    >
-      <CloseIcon />
-    </IconButton>
-
-    <Stack direction="row" spacing={1.25} alignItems="center">
-      <Box
-        component="img"
-        src={BRAND_ASSETS.logo}
-        alt="CiberMandi"
-        sx={{
-          height: 32,
-          width: "auto",
+      <Drawer
+        anchor="left"
+        open={mobileMenuOpen && isSmall}
+        onClose={() => setMobileMenuOpen(false)}
+        slotProps={{
+          paper: {
+            sx: {
+              width: "80%",
+              maxWidth: 340,
+              bgcolor: theme.palette.background.default,
+              top: APPBAR_MOBILE_HEIGHT,
+              height: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
+              position: "fixed",
+            },
+          },
         }}
-      />
-      <Box>
-        <Typography
-          variant="subtitle1"
-          sx={{ fontWeight: 700, lineHeight: 1.1 }}
-        >
-          CiberMandi Admin
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{ color: "text.secondary" }}
-        >
-          {t("header.mobile_menu_title", {
-            defaultValue: "Navigation",
-          })}
-        </Typography>
-      </Box>
-    </Stack>
-  </Box>
-
-
-
-
-
-        {/* tell here need to change  */}
-
+      >
         {/* User info inside drawer */}
         {user && (
           <Box

@@ -208,18 +208,25 @@ export const Mandis: React.FC = () => {
         pincode: pincode.trim(),
         country: "IN",
       });
-      const states =
-        resp?.data?.states ||
-        resp?.response?.data?.states ||
-        resp?.states ||
-        [];
-      const firstState = states?.[0];
-      const firstDistrict = firstState?.districts?.[0];
-      if (firstState?.state_code && firstDistrict?.district_name) {
+      const directData = resp?.response?.data || resp?.data;
+      const statesArray = directData?.states || resp?.response?.data?.states || resp?.states || [];
+
+      let stateCode: string | undefined;
+      let districtName: string | undefined;
+
+      if (directData?.state_code && (directData?.district_name_en || directData?.district_name)) {
+        stateCode = directData.state_code;
+        districtName = directData.district_name_en || directData.district_name;
+      } else if (Array.isArray(statesArray) && statesArray[0]?.state_code && statesArray[0]?.districts?.[0]?.district_name) {
+        stateCode = statesArray[0].state_code;
+        districtName = statesArray[0].districts[0].district_name;
+      }
+
+      if (stateCode && districtName) {
         setForm((f) => ({
           ...f,
-          state_code: firstState.state_code,
-          district_name_en: firstDistrict.district_name,
+          state_code: stateCode,
+          district_name_en: districtName,
         }));
         setPincodeError(null);
         setIsPincodeValid(true);

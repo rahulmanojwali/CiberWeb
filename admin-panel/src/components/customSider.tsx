@@ -64,12 +64,9 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
   const initials = displayName?.charAt(0)?.toUpperCase() || "?";
 
-const handleCloseClick = () => {
-    if (isSmall) {
-      setCollapsed(true);
-    } else {
-      setCollapsed((prev) => !prev);
-    }
+  const handleCloseClick = () => {
+    // Desktop: toggle collapsed; mobile never renders this sider.
+    setCollapsed((prev) => !prev);
   };
 
 
@@ -93,25 +90,35 @@ const handleCloseClick = () => {
         transition: "width 0.2s ease",
       }}
     >
-      {/* Top section – desktop only: label + close */}
+      {/* Top section – desktop only: label + close (always visible when rendered) */}
       {!isSmall && (
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            px: 2,
+            px: collapsed ? 1 : 2,
             py: 1,
             borderBottom: `1px solid ${theme.palette.divider}`,
+            minHeight: 44,
           }}
         >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: collapsed ? 80 : "100%",
+            }}
+          >
             {t("layout.sider.adminMenu", { defaultValue: "Admin menu" })}
           </Typography>
           <IconButton
             size="small"
             onClick={handleCloseClick}
-            sx={{ p: "6px" }}
+            sx={{ p: "6px", color: "text.primary" }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>

@@ -73,7 +73,8 @@ export const Mandis: React.FC = () => {
   const [filters, setFilters] = useState({ state_code: "", district: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pincodeError, setPincodeError] = useState<string | null>(null);
-  const [pincodeLookupLoading, setPincodeLookupLoading] = useState(false);
+  const [isPincodeResolving, setIsPincodeResolving] = useState(false);
+  const [isPincodeValid, setIsPincodeValid] = useState(false);
 
   const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
@@ -165,6 +166,8 @@ export const Mandis: React.FC = () => {
     setIsEdit(false);
     setForm(defaultForm);
     setPincodeError(null);
+    setIsPincodeValid(false);
+    setIsPincodeResolving(false);
     setSelectedId(null);
     setDialogOpen(true);
   };
@@ -174,6 +177,8 @@ export const Mandis: React.FC = () => {
     setIsEdit(true);
     setSelectedId(row.mandi_id);
     setPincodeError(null);
+    setIsPincodeResolving(false);
+    setIsPincodeValid(Boolean(row.pincode && row.state_code && row.district_name_en));
     setForm({
       mandi_id: row.mandi_id,
       name_en: row.name,
@@ -192,10 +197,11 @@ export const Mandis: React.FC = () => {
     if (!pincode || pincode.trim().length !== 6) {
       setPincodeError(pincode ? "Enter a 6-digit pincode" : null);
       setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
+      setIsPincodeValid(false);
       return;
     }
     try {
-      setPincodeLookupLoading(true);
+      setIsPincodeResolving(true);
       const resp = await fetchStatesDistrictsByPincode({
         username,
         language,
@@ -216,17 +222,49 @@ export const Mandis: React.FC = () => {
           district_name_en: firstDistrict.district_name,
         }));
         setPincodeError(null);
+        setIsPincodeValid(true);
       } else {
         setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
         setPincodeError("Pincode not found");
+        setIsPincodeValid(false);
       }
     } catch (err) {
       console.error("[mandis] pincode lookup", err);
       setForm((f) => ({ ...f, state_code: "", district_name_en: "" }));
       setPincodeError("Pincode lookup failed");
+      setIsPincodeValid(false);
     } finally {
-      setPincodeLookupLoading(false);
+      setIsPincodeResolving(false);
     }
+  };
+
+  const handlePincodeChange = (value: string) => {
+    const numeric = value.replace(/\D/g, "").slice(0, 6);
+    setForm((f) => ({ ...f, pincode: numeric, state_code: numeric.length === 6 ? f.state_code : "", district_name_en: numeric.length === 6 ? f.district_name_en : "" }));
+    if (numeric.length < 6) {
+      setIsPincodeValid(false);
+      setPincodeError(numeric ? "Enter a 6-digit pincode" : null);
+      setIsPincodeResolving(false);
+      return;
+    }
+    setIsPincodeResolving(true);
+    handlePincodeLookup(numeric);
+  };
+
+  const isCreateDisabled = () => {
+    const hasRequired =
+      form.name_en.trim().length > 0 &&
+      form.pincode.trim().length === 6 &&
+      isPincodeValid &&
+      form.state_code &&
+      form.district_name_en &&
+      form.address_line.trim().length > 0;
+    return (
+      !canSubmit ||
+      isReadOnly ||
+      isPincodeResolving ||
+      !hasRequired
+    );
   };
 
   const handleSave = async () => {
@@ -421,12 +459,12 @@ export const Mandis: React.FC = () => {
               <TextField
                 label="Pincode"
                 value={form.pincode}
-                onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
-                onBlur={(e) => handlePincodeLookup(e.target.value)}
+                onChange={(e) => handlePincodeChange(e.target.value)}
                 fullWidth
                 disabled={isReadOnly}
-                helperText={pincodeError || (pincodeLookupLoading ? "Resolving pincode..." : undefined)}
+                helperText={pincodeError || (isPincodeResolving ? "Resolving location..." : undefined)}
                 error={Boolean(pincodeError)}
+                inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -453,7 +491,7 @@ export const Mandis: React.FC = () => {
                 fullWidth
                 multiline
                 minRows={3}
-                disabled={isReadOnly}
+                disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -463,7 +501,7 @@ export const Mandis: React.FC = () => {
                 value={form.is_active ? "Y" : "N"}
                 onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
                 fullWidth
-                disabled={isReadOnly}
+                disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
               >
                 <MenuItem value="Y">Yes</MenuItem>
                 <MenuItem value="N">No</MenuItem>
@@ -474,7 +512,11 @@ export const Mandis: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           {canSubmit && (
-            <Button variant="contained" onClick={handleSave} disabled={isEdit && isReadOnly}>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={isCreateDisabled()}
+            >
               {isEdit ? "Update" : "Create"}
             </Button>
           )}

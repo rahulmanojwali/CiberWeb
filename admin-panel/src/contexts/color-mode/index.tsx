@@ -70,6 +70,26 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           },
         },
       },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            minHeight: 48,
+            paddingTop: 6,
+            paddingBottom: 6,
+          },
+        },
+      },
+      MuiListItemIcon: {
+        styleOverrides: {
+          root: {
+            minWidth: 36,
+            marginRight: 8,
+            "& .MuiSvgIcon-root": {
+              fontSize: 20,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -104,6 +124,26 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           root: {
             borderRadius: 999,
             textTransform: "none",
+          },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            minHeight: 48,
+            paddingTop: 6,
+            paddingBottom: 6,
+          },
+        },
+      },
+      MuiListItemIcon: {
+        styleOverrides: {
+          root: {
+            minWidth: 36,
+            marginRight: 8,
+            "& .MuiSvgIcon-root": {
+              fontSize: 20,
+            },
           },
         },
       },

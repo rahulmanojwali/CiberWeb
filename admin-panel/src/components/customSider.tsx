@@ -150,10 +150,14 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     selected={active}
                     onClick={() => item.path && navigate(item.path)}
                     sx={{
-                      minHeight: { xs: 30, sm: 32, md: 32 },
-                      py: { xs: 0.4, sm: 0.5, md: 0.6 },
+                      minHeight: 48,
+                      py: 0.75,
                       justifyContent: collapsed ? "center" : "flex-start",
                       px: collapsed ? 1.25 : 2,
+                      "&.Mui-selected": {
+                        backgroundColor: "#e0f2f1",
+                        borderRadius: 1,
+                      },
                     }}
                   >
                     {item.icon && (
@@ -162,7 +166,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                           minWidth: 0,
                           mr: collapsed ? 0 : 1.25,
                           justifyContent: "center",
-                          "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
+                          "& svg": { fontSize: 20 },
                         }}
                       >
                         {item.icon}
@@ -191,9 +195,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                   <ListItemButton
                     onClick={() => toggleGroup(groupKey)}
                     sx={{
-                      minHeight: collapsed ? 36 : 34,
+                      minHeight: 48,
                       justifyContent: collapsed ? "center" : "flex-start",
                       px: collapsed ? 1.25 : 2,
+                      py: 0.75,
                     }}
                   >
                     {item.icon && (
@@ -202,7 +207,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                           minWidth: 0,
                           mr: collapsed ? 0 : 1,
                           justifyContent: "center",
-                          "& svg": { fontSize: 18 },
+                          "& svg": { fontSize: 20 },
                         }}
                       >
                         {item.icon}
@@ -243,10 +248,14 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               selected={active}
                               onClick={() => child.path && navigate(child.path)}
                               sx={{
-                                minHeight: { xs: 30, sm: 32, md: 32 },
-                                py: { xs: 0.4, sm: 0.5, md: 0.6 },
+                                minHeight: 48,
+                                py: 0.75,
                                 justifyContent: "flex-start",
                                 px: 2.5,
+                                "&.Mui-selected": {
+                                  backgroundColor: "#e0f2f1",
+                                  borderRadius: 1,
+                                },
                               }}
                             >
                               {child.icon && (
@@ -255,7 +264,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                                     minWidth: 0,
                                     mr: 1.1,
                                     justifyContent: "center",
-                                    "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
+                                    "& svg": { fontSize: 20 },
                                   }}
                                 >
                                   {child.icon}
@@ -276,6 +285,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     </List>
                   </Collapse>
                 )}
+                <Divider sx={{ my: 1, opacity: 0.3 }} />
               </Box>
             );
           })}

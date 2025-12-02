@@ -147,12 +147,13 @@ export const Mandis: React.FC = () => {
     setLoading(true);
     try {
       const orgCode = uiConfig.scope?.org_code || undefined;
+      const viewScope = orgCode ? "ALL" : "ALL";
       const resp = await fetchMandis({
         username,
         language,
         filters: {
           org_code: orgCode,
-          view_scope: orgCode ? "ORG_ASSIGNED" : "ALL",
+          view_scope: viewScope,
           page: page + 1, // API expects 1-based
           pageSize,
           search: debouncedSearch || undefined,
@@ -563,6 +564,7 @@ export const Mandis: React.FC = () => {
         }}
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
+
         <DialogContent
           sx={{
             p: 1.5,
@@ -665,6 +667,7 @@ export const Mandis: React.FC = () => {
             </Grid>
           </Box>
         </DialogContent>
+
         <DialogActions
           sx={{
             px: 2,

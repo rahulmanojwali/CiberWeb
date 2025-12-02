@@ -238,6 +238,7 @@ export const Mandis: React.FC = () => {
 
       let stateCode: string | undefined;
       let districtName: string | undefined;
+       let districtId: string | null | undefined;
 
       if (directData?.state_code && (directData?.district_name_en || directData?.district_name)) {
         stateCode = directData.state_code;

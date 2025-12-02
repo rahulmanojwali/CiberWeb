@@ -37,6 +37,9 @@ type MandiRow = {
   pincode: string;
   is_active: boolean;
   address_line?: string;
+  contact_number?: string | null;
+  remarks?: string | null;
+  district_id?: string | null;
 };
 
 const defaultForm = {
@@ -44,8 +47,11 @@ const defaultForm = {
   name_en: "",
   state_code: "",
   district_name_en: "",
+  district_id: "",
   address_line: "",
   pincode: "",
+  contact_number: "",
+  remarks: "",
   is_active: true,
 };
 
@@ -163,6 +169,9 @@ export const Mandis: React.FC = () => {
           pincode: m.pincode || "",
           is_active: Boolean(m.is_active),
           address_line: m.address_line || "",
+          contact_number: m.contact_number || "",
+          remarks: m.remarks || "",
+          district_id: m.district_id || null,
         })),
       );
     } finally {
@@ -197,8 +206,11 @@ export const Mandis: React.FC = () => {
       name_en: row.name,
       state_code: row.state_code,
       district_name_en: row.district_name_en,
-      address_line: "",
+      district_id: row.district_id || "",
+      address_line: row.address_line || "",
       pincode: row.pincode,
+      contact_number: row.contact_number || "",
+      remarks: row.remarks || "",
       is_active: row.is_active,
     });
     setDialogOpen(true);
@@ -230,9 +242,11 @@ export const Mandis: React.FC = () => {
       if (directData?.state_code && (directData?.district_name_en || directData?.district_name)) {
         stateCode = directData.state_code;
         districtName = directData.district_name_en || directData.district_name;
+        districtId = directData.district_id || null;
       } else if (Array.isArray(statesArray) && statesArray[0]?.state_code && statesArray[0]?.districts?.[0]?.district_name) {
         stateCode = statesArray[0].state_code;
         districtName = statesArray[0].districts[0].district_name;
+        districtId = statesArray[0].districts[0].district_id || null;
       }
 
       if (stateCode && districtName) {
@@ -240,6 +254,7 @@ export const Mandis: React.FC = () => {
           ...f,
           state_code: stateCode,
           district_name_en: districtName,
+          district_id: districtId || "",
         }));
         setPincodeError(null);
         setIsPincodeValid(true);
@@ -295,8 +310,11 @@ export const Mandis: React.FC = () => {
       name_i18n: { en: form.name_en },
       state_code: form.state_code,
       district_name_en: form.district_name_en,
+      district_id: form.district_id || undefined,
       address_line: form.address_line,
       pincode: form.pincode,
+      contact_number: form.contact_number || null,
+      remarks: form.remarks || null,
       is_active: form.is_active,
       org_code: orgCode || undefined,
     };
@@ -539,6 +557,24 @@ export const Mandis: React.FC = () => {
                 multiline
                 minRows={3}
                 disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Contact Number"
+                value={form.contact_number}
+                onChange={(e) => setForm((f) => ({ ...f, contact_number: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Remarks"
+                value={form.remarks}
+                onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
               />
             </Grid>
             <Grid item xs={12} sm={6}>

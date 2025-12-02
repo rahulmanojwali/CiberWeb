@@ -36,6 +36,7 @@ type MandiRow = {
   district_name_en: string;
   pincode: string;
   is_active: boolean;
+  address_line?: string;
 };
 
 const defaultForm = {
@@ -161,6 +162,7 @@ export const Mandis: React.FC = () => {
           district_name_en: m.district_name_en || "",
           pincode: m.pincode || "",
           is_active: Boolean(m.is_active),
+          address_line: m.address_line || "",
         })),
       );
     } finally {

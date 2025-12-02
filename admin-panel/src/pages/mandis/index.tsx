@@ -67,6 +67,9 @@ export const Mandis: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
@@ -132,16 +135,23 @@ export const Mandis: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
+      const orgCode = uiConfig.scope?.org_code || undefined;
       const resp = await fetchMandis({
         username,
         language,
         filters: {
+          org_code: orgCode,
+          view_scope: orgCode ? "ORG_ASSIGNED" : "ALL",
+          page: page + 1,
+          pageSize,
           state_code: filters.state_code || undefined,
           district_name_en: filters.district || undefined,
           is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
         },
       });
-      const list = resp?.data?.mandis || [];
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.mandis || [];
+      setRowCount(Number(data?.totalCount || list.length));
       setRows(
         list.map((m: any) => ({
           mandi_id: m.mandi_id,
@@ -159,7 +169,7 @@ export const Mandis: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, filters.state_code, filters.district, filters.status]);
+  }, [language, filters.state_code, filters.district, filters.status, page, pageSize]);
 
   const openCreate = () => {
     if (!canCreate) return;
@@ -439,6 +449,14 @@ export const Mandis: React.FC = () => {
                 rows={rows}
                 loading={loading}
                 getRowId={(r) => r.mandi_id}
+                paginationMode="server"
+                rowCount={rowCount}
+                paginationModel={{ page, pageSize }}
+                onPaginationModelChange={(model) => {
+                  setPage(model.page);
+                  if (model.pageSize !== pageSize) setPageSize(model.pageSize);
+                }}
+                pageSizeOptions={[20, 50, 100]}
               />
             </Box>
           </CardContent>
@@ -473,7 +491,7 @@ export const Mandis: React.FC = () => {
                 disabled={isReadOnly}
                 helperText={pincodeError || (isPincodeResolving ? "Resolving location..." : undefined)}
                 error={Boolean(pincodeError)}
-                inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>

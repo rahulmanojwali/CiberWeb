@@ -75,7 +75,7 @@ export const Mandis: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0); // 0-based for grid/mobile controls
   const [pageSize, setPageSize] = useState(20);
   const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -153,7 +153,7 @@ export const Mandis: React.FC = () => {
         filters: {
           org_code: orgCode,
           view_scope: orgCode ? "ORG_ASSIGNED" : "ALL",
-          page,
+          page: page + 1, // API expects 1-based
           pageSize,
           search: debouncedSearch || undefined,
           state_code: filters.state_code || undefined,
@@ -163,7 +163,8 @@ export const Mandis: React.FC = () => {
       });
       const data = resp?.data || resp?.response?.data || {};
       const list = data?.mandis || [];
-      setRowCount(Number(data?.totalCount || list.length));
+      const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
+      setRowCount(total);
       setRows(
         list.map((m: any) => ({
           mandi_id: m.mandi_id,
@@ -511,9 +512,9 @@ export const Mandis: React.FC = () => {
           {rowCount > pageSize && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
               <Pagination
-                count={Math.ceil(rowCount / pageSize)}
-                page={page}
-                onChange={(_, newPage) => setPage(newPage)}
+                count={Math.max(1, Math.ceil(rowCount / pageSize))}
+                page={page + 1}
+                onChange={(_, newPage) => setPage(newPage - 1)}
                 color="primary"
               />
             </Box>
@@ -533,7 +534,10 @@ export const Mandis: React.FC = () => {
                 paginationModel={{ page, pageSize }}
                 onPaginationModelChange={(model) => {
                   setPage(model.page);
-                  if (model.pageSize !== pageSize) setPageSize(model.pageSize);
+                  if (model.pageSize !== pageSize) {
+                    setPageSize(model.pageSize);
+                    setPage(0);
+                  }
                 }}
                 pageSizeOptions={[20, 50, 100]}
               />

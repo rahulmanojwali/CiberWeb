@@ -104,8 +104,24 @@ function App() {
           <CssBaseline />
           <GlobalStyles
             styles={{
-              html: { WebkitFontSmoothing: "auto", height: "100%", overscrollBehaviorY: "none" },
-              body: { height: "100%", margin: 0, padding: 0, overscrollBehaviorY: "none", overflow: "hidden" },
+              html: {
+                WebkitFontSmoothing: "auto",
+                height: "100%",
+                margin: 0,
+                padding: 0,
+                overscrollBehaviorY: "contain",
+                overscrollBehaviorX: "none",
+                touchAction: "pan-y",
+              },
+              body: {
+                height: "100%",
+                margin: 0,
+                padding: 0,
+                overscrollBehaviorY: "contain",
+                overscrollBehaviorX: "none",
+                overflow: "hidden",
+                touchAction: "pan-y",
+              },
               "#root": { height: "100%", overflow: "hidden" },
               ".MuiDrawer-paper": { overscrollBehavior: "contain" },
             }}

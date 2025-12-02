@@ -3,12 +3,12 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overscroll-behavior: none;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
   touch-action: pan-y;
 }
 
 #root {
   height: 100%;
   overflow: hidden;
-  overscroll-behavior: contain;
 }

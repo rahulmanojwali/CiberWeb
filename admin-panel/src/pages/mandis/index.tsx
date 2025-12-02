@@ -389,7 +389,7 @@ export const Mandis: React.FC = () => {
                 size="small"
                 value={searchText}
                 onChange={(e) => {
-                  setPage(1);
+                  setPage(0);
                   setSearchText(e.target.value);
                 }}
                 fullWidth
@@ -555,7 +555,7 @@ export const Mandis: React.FC = () => {
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent sx={{ p: 1.5 }}>
-          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1, pb: 1 }}>
+          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1, pb: 0.5 }}>
           <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <TextField

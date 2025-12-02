@@ -81,11 +81,19 @@ export const Commodities: React.FC = () => {
     severity: "info",
   });
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "commodities.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "commodities.edit", "UPDATE"), [uiConfig.resources]);
+  const roleSlug = (uiConfig.role || "").toUpperCase();
+  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+  const canCreate = useMemo(
+    () => isSuperAdmin || can(uiConfig.resources, "commodities.create", "CREATE"),
+    [uiConfig.resources, isSuperAdmin],
+  );
+  const canEdit = useMemo(
+    () => isSuperAdmin || can(uiConfig.resources, "commodities.edit", "UPDATE"),
+    [uiConfig.resources, isSuperAdmin],
+  );
   const canDeactivate = useMemo(
-    () => can(uiConfig.resources, "commodities.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
+    () => isSuperAdmin || can(uiConfig.resources, "commodities.deactivate", "DEACTIVATE"),
+    [uiConfig.resources, isSuperAdmin],
   );
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 

@@ -555,7 +555,7 @@ export const Mandis: React.FC = () => {
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent sx={{ p: 1.5 }}>
-          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1, pb: 0.5 }}>
+          <Box sx={{ maxHeight: "50vh", overflowY: "auto", pr: 1, pb: 0.5 }}>
           <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <TextField

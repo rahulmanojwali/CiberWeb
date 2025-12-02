@@ -66,6 +66,9 @@ export const Commodities: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
@@ -133,9 +136,14 @@ export const Commodities: React.FC = () => {
       const resp = await fetchCommodities({
         username,
         language,
+        page: page + 1,
+        pageSize,
         filters: { is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" },
       });
-      const list = resp?.data?.commodities || resp?.commodities || [];
+      const data = resp?.data || resp?.response?.data || resp || {};
+      const list = data?.commodities || [];
+      const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
+      setRowCount(total);
       setRows(
         list.map((c: any) => ({
           commodity_id: c.commodity_id,
@@ -152,7 +160,7 @@ export const Commodities: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, statusFilter]);
+  }, [language, statusFilter, page, pageSize]);
 
   const openCreate = () => {
     setIsEdit(false);
@@ -249,7 +257,16 @@ export const Commodities: React.FC = () => {
       </Stack>
 
       {isSmallScreen ? (
-        <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
+        <Stack
+          spacing={1.5}
+          sx={{
+            maxWidth: 640,
+            mx: "auto",
+            width: "100%",
+            flex: 1,
+            overflowY: "auto",
+          }}
+        >
           {rows.map((row) => (
             <Box
               key={row.commodity_id}
@@ -261,7 +278,7 @@ export const Commodities: React.FC = () => {
               }}
               onClick={() => canEdit && openEdit(row)}
             >
-              <Stack spacing={0.75}>
+              <Stack spacing={1}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                   <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
                     {row.name}
@@ -273,15 +290,34 @@ export const Commodities: React.FC = () => {
                     sx={{ fontSize: "0.75rem" }}
                   />
                 </Stack>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Group: {row.group || "-"}
-                </Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Code: {row.code || "-"}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  ID: {row.commodity_id}
-                </Typography>
+
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Group / Category
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.group || "-"}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Code / Slug
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.code || "-"}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Commodity ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.commodity_id}
+                  </Typography>
+                </Box>
+
                 <Stack direction="row" justifyContent="flex-end" spacing={1}>
                   {canEdit && (
                     <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
@@ -311,10 +347,36 @@ export const Commodities: React.FC = () => {
               No commodities found.
             </Typography>
           )}
+          {rowCount > pageSize && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+              <Pagination
+                count={Math.max(1, Math.ceil(rowCount / pageSize))}
+                page={page + 1}
+                onChange={(_, newPage) => setPage(newPage - 1)}
+                color="primary"
+              />
+            </Box>
+          )}
         </Stack>
       ) : (
         <Box sx={{ height: 520 }}>
-          <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.commodity_id} />
+          <ResponsiveDataGrid
+            columns={columns}
+            rows={rows}
+            loading={loading}
+            getRowId={(r) => r.commodity_id}
+            paginationMode="server"
+            rowCount={rowCount}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              setPage(model.page);
+              if (model.pageSize !== pageSize) {
+                setPageSize(model.pageSize);
+                setPage(0);
+              }
+            }}
+            pageSizeOptions={[20, 50, 100]}
+          />
         </Box>
       )}
 

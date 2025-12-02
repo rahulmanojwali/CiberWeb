@@ -18,7 +18,7 @@ import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import Drawer from "@mui/material/Drawer";
+import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 import Collapse from "@mui/material/Collapse";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -149,8 +149,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               <ListItemButton
                 onClick={() => handleToggleGroup(key)}
                 sx={{
-                  minHeight: { xs: 34, sm: 36, md: 40 },
-                  py: { xs: 0.4, sm: 0.5, md: 0.6 },
+                  minHeight: 48,
+                  py: 0.75,
                   justifyContent: "flex-start",
                   px: 2.5,
                 }}
@@ -161,7 +161,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                       minWidth: 0,
                       mr: 1.25,
                       justifyContent: "center",
-                      "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
+                      "& svg": { fontSize: 20 },
                     }}
                   >
                     {item.icon}
@@ -197,8 +197,8 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
             selected={active}
             onClick={() => item.path && handleNavClick(item.path)}
             sx={{
-              minHeight: { xs: 32, sm: 34, md: 40 },
-              py: { xs: 0.4, sm: 0.5, md: 0.6 },
+              minHeight: 48,
+              py: 0.75,
               justifyContent: "flex-start",
               px: 3 + depth * 1.5,
             }}
@@ -209,7 +209,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                   minWidth: 0,
                   mr: 1.25,
                   justifyContent: "center",
-                  "& svg": { fontSize: { xs: 16, sm: 18, md: 18 } },
+                  "& svg": { fontSize: 20 },
                 }}
               >
                 {item.icon}
@@ -442,20 +442,20 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
       </AppBar>
 
       {/* MOBILE NAV DRAWER */}
-      <Drawer
+      <SwipeableDrawer
         anchor="left"
+        disableDiscovery={false}
         open={mobileMenuOpen && isSmall}
+        onOpen={() => setMobileMenuOpen(true)}
         onClose={() => setMobileMenuOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              width: "80%",
-              maxWidth: 340,
-              bgcolor: theme.palette.background.default,
-              top: APPBAR_MOBILE_HEIGHT,
-              height: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
-              position: "fixed",
-            },
+        PaperProps={{
+          sx: {
+            width: "80%",
+            maxWidth: 340,
+            bgcolor: theme.palette.background.default,
+            top: APPBAR_MOBILE_HEIGHT,
+            height: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
+            position: "fixed",
           },
         }}
       >
@@ -499,10 +499,15 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
         {/* Navigation list */}
         <Box sx={{ py: 1 }}>
           <List component="nav" disablePadding>
-            {navItems.map((item) => renderMobileMenuItem(item))}
+            {navItems.map((item) => (
+              <React.Fragment key={resolveKey(item)}>
+                {renderMobileMenuItem(item)}
+                <Divider sx={{ my: 1, opacity: 0.3 }} />
+              </React.Fragment>
+            ))}
           </List>
         </Box>
-      </Drawer>
+      </SwipeableDrawer>
     </>
   );
 };

@@ -131,7 +131,17 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     if (!mobileMenuOpen) {
       setMenuExpanded({});
     }
-  }, [mobileMenuOpen]);
+    if (isSmall) {
+      document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      if (isSmall) {
+        document.body.style.overflow = "";
+      }
+    };
+  }, [mobileMenuOpen, isSmall]);
 
   const resolveKey = (item: NavMenuItem) =>
     item.key ?? item.labelKey ?? item.path ?? item.labelKey;
@@ -497,12 +507,19 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
         <Divider />
 
         {/* Navigation list */}
-        <Box sx={{ py: 1 }}>
+        <Box
+          sx={{
+            py: 1,
+            maxHeight: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
+            overflowY: "auto",
+            overscrollBehavior: "contain",
+          }}
+        >
           <List component="nav" disablePadding>
-            {navItems.map((item) => (
+            {navItems.map((item, idx) => (
               <React.Fragment key={resolveKey(item)}>
                 {renderMobileMenuItem(item)}
-                <Divider sx={{ my: 1, opacity: 0.3 }} />
+                {idx < navItems.length - 1 && <Divider sx={{ my: 1, opacity: 0.3 }} />}
               </React.Fragment>
             ))}
           </List>

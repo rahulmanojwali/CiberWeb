@@ -138,8 +138,8 @@ function App() {
 
                 >
              
-                  <Route index element={<Navigate to="/" replace />} />
-                  <Route path="/" element={<Dashboard />} />
+                  <Route index element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/orgs" element={<Orgs />} />
                   <Route path="/mandis" element={<Mandis />} />
@@ -192,7 +192,7 @@ function App() {
                 <Route
                   element={
                     <Authenticated key="authenticated-outer" fallback={<Outlet />}>
-                      <NavigateToResource />
+                      <Navigate to="/dashboard" replace />
                     </Authenticated>
                   }
                 >

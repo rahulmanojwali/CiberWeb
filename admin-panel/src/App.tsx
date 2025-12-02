@@ -7,6 +7,7 @@ import {
   ThemedLayout,
   useNotificationProvider,
 } from "@refinedev/mui";
+import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import routerProvider, {
@@ -101,7 +102,13 @@ function App() {
       <RefineKbarProvider>
         <ColorModeContextProvider>
           <CssBaseline />
-          <GlobalStyles styles={{ html: { WebkitFontSmoothing: "auto" } }} />
+          <GlobalStyles
+            styles={{
+              html: { WebkitFontSmoothing: "auto", height: "100%", overscrollBehaviorY: "none" },
+              body: { height: "100%", margin: 0, padding: 0, overscrollBehaviorY: "none", overflow: "hidden" },
+              "#root": { height: "100%", overflow: "hidden" },
+            }}
+          />
           <RefineSnackbarProvider>
            <Refine
   dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
@@ -116,19 +123,26 @@ function App() {
 
 >
 
-              <Routes>
-                <Route
+          <Routes>
+            <Route
             
 
 //strat 
  element={
       <AdminRoleGuard>
         <AdminUiConfigProvider>
-          <ThemedLayout
-            Header={Header}
-            Sider={CustomSider}
-          >
-            <Outlet />
+          <ThemedLayout Header={Header} Sider={CustomSider}>
+            <Box
+              data-app-scrollable="true"
+              sx={{
+                flex: 1,
+                height: "100%",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+            >
+              <Outlet />
+            </Box>
           </ThemedLayout>
         </AdminUiConfigProvider>
       </AdminRoleGuard>

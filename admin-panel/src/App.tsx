@@ -7,7 +7,6 @@ import {
   ThemedLayout,
   useNotificationProvider,
 } from "@refinedev/mui";
-import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import routerProvider, {
@@ -104,65 +103,29 @@ function App() {
           <CssBaseline />
           <GlobalStyles
             styles={{
-              html: {
-                WebkitFontSmoothing: "auto",
-                height: "100%",
-                margin: 0,
-                padding: 0,
-                overscrollBehavior: "none",
-                touchAction: "pan-y",
-              },
-              body: {
-                height: "100%",
-                margin: 0,
-                padding: 0,
-                overscrollBehavior: "none",
-                overflow: "hidden",
-                touchAction: "pan-y",
-              },
-              "#root": { height: "100%", overflow: "hidden" },
-              ".MuiDrawer-paper": { overscrollBehavior: "contain" },
+              html: { WebkitFontSmoothing: "auto" },
+              body: { margin: 0, padding: 0 },
             }}
           />
           <RefineSnackbarProvider>
-            <Box
-              sx={{
-                height: "100vh",
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                overscrollBehavior: "contain",
+            <Refine
+              dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+              notificationProvider={useNotificationProvider}
+              routerProvider={routerProvider}
+              authProvider={authProvider}
+              options={{
+                syncWithLocation: true,
+                warnWhenUnsavedChanges: true,
+                projectId: "CD-ADMIN-PANEL",
               }}
             >
-              <Refine
-                dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
-                notificationProvider={useNotificationProvider}
-                routerProvider={routerProvider}
-                authProvider={authProvider}
-                options={{
-                  syncWithLocation: true,
-                  warnWhenUnsavedChanges: true,
-                  projectId: "CD-ADMIN-PANEL",
-                }}
-              >
-                <Routes>
-                  <Route
+              <Routes>
+                <Route
                     element={
                       <AdminRoleGuard>
                         <AdminUiConfigProvider>
                           <ThemedLayout Header={Header} Sider={CustomSider}>
-                            <Box
-                              data-app-scrollable="true"
-                              sx={{
-                                flex: 1,
-                                height: "100%",
-                                minHeight: "100%",
-                                overflowY: "auto",
-                                overscrollBehavior: "contain",
-                              }}
-                            >
-                              <Outlet />
-                            </Box>
+                            <Outlet />
                           </ThemedLayout>
                         </AdminUiConfigProvider>
                       </AdminRoleGuard>
@@ -234,7 +197,6 @@ function App() {
                 <UnsavedChangesNotifier />
                 <DocumentTitleHandler />
               </Refine>
-            </Box>
           </RefineSnackbarProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>

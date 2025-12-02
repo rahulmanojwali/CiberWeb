@@ -3,11 +3,8 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overscroll-behavior: none; /* fully disable browser pull-to-refresh */
-  touch-action: pan-y;
 }
 
 #root {
   height: 100%;
-  overflow: hidden;
 }

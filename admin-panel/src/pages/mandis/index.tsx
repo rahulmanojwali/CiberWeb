@@ -91,6 +91,7 @@ export const Mandis: React.FC = () => {
       { field: "state_code", headerName: "State", width: 100 },
       { field: "district_name_en", headerName: "District", flex: 1 },
       { field: "pincode", headerName: "Pincode", width: 110 },
+      { field: "address_line", headerName: "Address", flex: 1.5 },
       {
         field: "is_active",
         headerName: "Active",
@@ -297,14 +298,25 @@ export const Mandis: React.FC = () => {
       is_active: form.is_active,
       org_code: orgCode || undefined,
     };
-    if (isEdit && selectedId) {
-      payload.mandi_id = selectedId;
-      await updateMandi({ username, language, payload });
-    } else {
-      await createMandi({ username, language, payload });
+    try {
+      let resp;
+      if (isEdit && selectedId) {
+        payload.mandi_id = selectedId;
+        resp = await updateMandi({ username, language, payload });
+      } else {
+        resp = await createMandi({ username, language, payload });
+      }
+      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
+      const description = resp?.response?.description || resp?.description || "";
+      if (String(responseCode) === "0") {
+        setDialogOpen(false);
+        await loadData();
+      } else {
+        alert(description || "Operation failed.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Operation failed.");
     }
-    setDialogOpen(false);
-    await loadData();
   };
 
   const handleDeactivate = async (mandi_id: number) => {
@@ -406,17 +418,23 @@ export const Mandis: React.FC = () => {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Pincode
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {row.pincode || "-"}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
-                  {canEdit && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      Edit
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                Pincode
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                {row.pincode || "-"}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem", mt: 0.5 }}>
+                Address
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                {row.address_line || "-"}
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
+              {canEdit && (
+                <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                  Edit
                     </Button>
                   )}
                   {canDeactivate && (

@@ -572,7 +572,6 @@ export const Mandis: React.FC = () => {
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
-            overflow: "hidden",
           }}
         >
           <Box

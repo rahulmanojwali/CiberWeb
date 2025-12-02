@@ -145,105 +145,96 @@ function App() {
                   projectId: "CD-ADMIN-PANEL",
                 }}
               >
+                <Routes>
+                  <Route
+                    element={
+                      <AdminRoleGuard>
+                        <AdminUiConfigProvider>
+                          <ThemedLayout Header={Header} Sider={CustomSider}>
+                            <Box
+                              data-app-scrollable="true"
+                              sx={{
+                                flex: 1,
+                                height: "100%",
+                                minHeight: "100%",
+                                overflowY: "auto",
+                                overscrollBehavior: "contain",
+                              }}
+                            >
+                              <Outlet />
+                            </Box>
+                          </ThemedLayout>
+                        </AdminUiConfigProvider>
+                      </AdminRoleGuard>
+                    }
+                  >
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/orgs" element={<Orgs />} />
+                    <Route path="/mandis" element={<Mandis />} />
+                    <Route path="/admin-users" element={<AdminUsers />} />
+                    <Route path="/trader-approvals" element={<TraderApprovals />} />
+                    <Route path="/traders" element={<Traders />} />
+                    <Route path="/farmers" element={<Farmers />} />
+                    <Route path="/mandi-coverage" element={<MandiCoverage />} />
+                    <Route path="/mandi-prices" element={<MandiPrices />} />
+                    <Route path="/payments-settlements" element={<PaymentsLanding />} />
+                    <Route path="/payment-models" element={<PaymentModels />} />
+                    <Route path="/org-payment-settings" element={<OrgPaymentSettings />} />
+                    <Route path="/mandi-payment-settings" element={<MandiPaymentSettings />} />
+                    <Route path="/commodity-fees" element={<CommodityFees />} />
+                    <Route path="/payment-modes" element={<PaymentModes />} />
+                    <Route path="/custom-fees" element={<CustomFees />} />
+                    <Route path="/role-custom-fees" element={<RoleCustomFees />} />
+                    <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                    <Route path="/subscription-invoices" element={<SubscriptionInvoices />} />
+                    <Route path="/settlements" element={<SettlementsPage />} />
+                    <Route path="/payments-log" element={<PaymentsLog />} />
+                    <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
+                    <Route path="/org-mandi" element={<OrgMandiMapping />} />
+                    <Route path="/commodities" element={<Commodities />} />
+                    <Route path="/commodity-products" element={<CommodityProducts />} />
+                    <Route path="/mandi-facilities" element={<MandiFacilities />} />
+                    <Route path="/mandi-gates" element={<MandiGates />} />
+                    <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />
+                    <Route path="/gate-entry-reasons" element={<GateEntryReasons />} />
+                    <Route path="/gate-vehicle-types" element={<GateVehicleTypes />} />
+                    <Route path="/auction-methods" element={<AuctionMethods />} />
+                    <Route path="/auction-rounds" element={<AuctionRounds />} />
+                    <Route path="/auction-policies" element={<AuctionPolicies />} />
+                    <Route path="/gate-devices" element={<GateDevices />} />
+                    <Route path="/gate-device-configs" element={<GateDeviceConfigs />} />
+                    <Route path="/gate-tokens" element={<GateTokens />} />
+                    <Route path="/weighment-tickets" element={<WeighmentTickets />} />
+                    <Route path="/gate-movements" element={<GateMovements />} />
+                    <Route path="/auction-sessions" element={<AuctionSessions />} />
+                    <Route path="/auction-lots" element={<AuctionLots />} />
+                    <Route path="/auction-results" element={<AuctionResults />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="*" element={<ErrorComponent />} />
+                  </Route>
 
-              <Routes>
-                <Route
-            
+                  {/* Public routes */}
+                  <Route
+                    element={
+                      <Authenticated key="authenticated-outer" fallback={<Outlet />}>
+                        <Navigate to="/dashboard" replace />
+                      </Authenticated>
+                    }
+                  >
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                  </Route>
+                </Routes>
 
-//strat 
- element={
-      <AdminRoleGuard>
-        <AdminUiConfigProvider>
-          <ThemedLayout Header={Header} Sider={CustomSider}>
-            <Box
-              data-app-scrollable="true"
-              sx={{
-                flex: 1,
-                height: "100%",
-                minHeight: "100%",
-                overflowY: "auto",
-                overscrollBehavior: "contain",
-              }}
-            >
-              <Outlet />
+                <RefineKbar />
+                <UnsavedChangesNotifier />
+                <DocumentTitleHandler />
+              </Refine>
             </Box>
-          </ThemedLayout>
-        </AdminUiConfigProvider>
-      </AdminRoleGuard>
-    }
-//end
-
-
-                >
-             
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/orgs" element={<Orgs />} />
-                  <Route path="/mandis" element={<Mandis />} />
-                  <Route path="/admin-users" element={<AdminUsers />} />
-                  <Route path="/trader-approvals" element={<TraderApprovals />} />
-                  <Route path="/traders" element={<Traders />} />
-                  <Route path="/farmers" element={<Farmers />} />
-                  <Route path="/mandi-coverage" element={<MandiCoverage />} />
-                  <Route path="/mandi-prices" element={<MandiPrices />} />
-                  <Route path="/payments-settlements" element={<PaymentsLanding />} />
-                  <Route path="/payment-models" element={<PaymentModels />} />
-                  <Route path="/org-payment-settings" element={<OrgPaymentSettings />} />
-                  <Route path="/mandi-payment-settings" element={<MandiPaymentSettings />} />
-                  <Route path="/commodity-fees" element={<CommodityFees />} />
-                  <Route path="/payment-modes" element={<PaymentModes />} />
-                  <Route path="/custom-fees" element={<CustomFees />} />
-                  <Route path="/role-custom-fees" element={<RoleCustomFees />} />
-                  <Route path="/subscriptions" element={<SubscriptionsPage />} />
-                  <Route path="/subscription-invoices" element={<SubscriptionInvoices />} />
-                  <Route path="/settlements" element={<SettlementsPage />} />
-                  <Route path="/payments-log" element={<PaymentsLog />} />
-                  <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
-                  <Route path="/org-mandi" element={<OrgMandiMapping />} />
-                  <Route path="/commodities" element={<Commodities />} />
-                  <Route path="/commodity-products" element={<CommodityProducts />} />
-                  <Route path="/mandi-facilities" element={<MandiFacilities />} />
-                  <Route path="/mandi-gates" element={<MandiGates />} />
-                  <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />
-                  <Route path="/gate-entry-reasons" element={<GateEntryReasons />} />
-                  <Route path="/gate-vehicle-types" element={<GateVehicleTypes />} />
-                  <Route path="/auction-methods" element={<AuctionMethods />} />
-                  <Route path="/auction-rounds" element={<AuctionRounds />} />
-                  <Route path="/auction-policies" element={<AuctionPolicies />} />
-                  <Route path="/gate-devices" element={<GateDevices />} />
-                  <Route path="/gate-device-configs" element={<GateDeviceConfigs />} />
-                  <Route path="/gate-tokens" element={<GateTokens />} />
-                  <Route path="/weighment-tickets" element={<WeighmentTickets />} />
-                  <Route path="/gate-movements" element={<GateMovements />} />
-                  <Route path="/auction-sessions" element={<AuctionSessions />} />
-                  <Route path="/auction-lots" element={<AuctionLots />} />
-                  <Route path="/auction-results" element={<AuctionResults />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/reports" element={<Reports />} />
-
-
-                  <Route path="*" element={<ErrorComponent />} />
-                </Route>
-
-                {/* Public routes */}
-                <Route
-                  element={
-                    <Authenticated key="authenticated-outer" fallback={<Outlet />}>
-                      <Navigate to="/dashboard" replace />
-                    </Authenticated>
-                  }
-                >
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                </Route>
-              </Routes>
-
-              <RefineKbar />
-              <UnsavedChangesNotifier />
-              <DocumentTitleHandler />
-            </Refine>
           </RefineSnackbarProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>

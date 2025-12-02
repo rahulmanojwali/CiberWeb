@@ -15,6 +15,7 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Pagination,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -74,7 +75,7 @@ export const Mandis: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,6 +86,8 @@ export const Mandis: React.FC = () => {
   const [pincodeError, setPincodeError] = useState<string | null>(null);
   const [isPincodeResolving, setIsPincodeResolving] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
@@ -150,8 +153,9 @@ export const Mandis: React.FC = () => {
         filters: {
           org_code: orgCode,
           view_scope: orgCode ? "ORG_ASSIGNED" : "ALL",
-          page: page + 1,
+          page,
           pageSize,
+          search: debouncedSearch || undefined,
           state_code: filters.state_code || undefined,
           district_name_en: filters.district || undefined,
           is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
@@ -180,8 +184,13 @@ export const Mandis: React.FC = () => {
   };
 
   useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchText), 400);
+    return () => clearTimeout(handle);
+  }, [searchText]);
+
+  useEffect(() => {
     loadData();
-  }, [language, filters.state_code, filters.district, filters.status, page, pageSize]);
+  }, [language, filters.state_code, filters.district, filters.status, page, pageSize, debouncedSearch]);
 
   const openCreate = () => {
     if (!canCreate) return;
@@ -375,10 +384,25 @@ export const Mandis: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
               <TextField
+                label="Search code/name"
+                size="small"
+                value={searchText}
+                onChange={(e) => {
+                  setPage(1);
+                  setSearchText(e.target.value);
+                }}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
                 label="State"
                 size="small"
                 value={filters.state_code}
-                onChange={(e) => setFilters((f) => ({ ...f, state_code: e.target.value }))}
+                onChange={(e) => {
+                  setPage(1);
+                  setFilters((f) => ({ ...f, state_code: e.target.value }));
+                }}
                 fullWidth
               />
             </Grid>
@@ -387,7 +411,10 @@ export const Mandis: React.FC = () => {
                 label="District"
                 size="small"
                 value={filters.district}
-                onChange={(e) => setFilters((f) => ({ ...f, district: e.target.value }))}
+                onChange={(e) => {
+                  setPage(1);
+                  setFilters((f) => ({ ...f, district: e.target.value }));
+                }}
                 fullWidth
               />
             </Grid>
@@ -397,7 +424,10 @@ export const Mandis: React.FC = () => {
                 label="Status"
                 size="small"
                 value={filters.status}
-                onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
+                onChange={(e) => {
+                  setPage(1);
+                  setFilters((f) => ({ ...f, status: e.target.value as any }));
+                }}
                 fullWidth
               >
                 <MenuItem value="ALL">All</MenuItem>
@@ -478,6 +508,16 @@ export const Mandis: React.FC = () => {
               No mandis found.
             </Typography>
           )}
+          {rowCount > pageSize && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <Pagination
+                count={Math.ceil(rowCount / pageSize)}
+                page={page}
+                onChange={(_, newPage) => setPage(newPage)}
+                color="primary"
+              />
+            </Box>
+          )}
         </Stack>
       ) : (
         <Card>
@@ -511,6 +551,7 @@ export const Mandis: React.FC = () => {
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent>
+          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -592,6 +633,7 @@ export const Mandis: React.FC = () => {
               </TextField>
             </Grid>
           </Grid>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>

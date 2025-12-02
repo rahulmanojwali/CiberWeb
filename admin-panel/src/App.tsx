@@ -107,13 +107,14 @@ function App() {
               html: { WebkitFontSmoothing: "auto", height: "100%", overscrollBehaviorY: "none" },
               body: { height: "100%", margin: 0, padding: 0, overscrollBehaviorY: "none", overflow: "hidden" },
               "#root": { height: "100%", overflow: "hidden" },
+              ".MuiDrawer-paper": { overscrollBehavior: "contain" },
             }}
           />
           <RefineSnackbarProvider>
            <Refine
-  dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
-  notificationProvider={useNotificationProvider}
-  routerProvider={routerProvider}
+    dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+    notificationProvider={useNotificationProvider}
+    routerProvider={routerProvider}
   authProvider={authProvider}
   options={{
     syncWithLocation: true,
@@ -121,10 +122,10 @@ function App() {
     projectId: "CD-ADMIN-PANEL",
   }}
 
->
+    >
 
-          <Routes>
-            <Route
+              <Routes>
+                <Route
             
 
 //strat 
@@ -136,7 +137,8 @@ function App() {
               data-app-scrollable="true"
               sx={{
                 flex: 1,
-                height: "100%",
+                height: "100vh",
+                minHeight: "100vh",
                 overflowY: "auto",
                 overscrollBehavior: "contain",
               }}

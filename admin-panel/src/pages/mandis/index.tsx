@@ -560,50 +560,49 @@ export const Mandis: React.FC = () => {
           },
         }}
       > */}
-<Dialog
-  open={dialogOpen}
-  onClose={() => setDialogOpen(false)}
-  fullWidth
-  maxWidth="sm"
-  fullScreen={fullScreenDialog}
-  scroll="paper"
-  PaperProps={{
-    sx: {
-      // Use full viewport height on mobile, 90% on desktop
-      height: fullScreenDialog ? "100vh" : "90vh",
-      maxHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-    },
-  }}
->
-
-
-
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={fullScreenDialog}
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            height: fullScreenDialog ? "100vh" : "90vh",
+            maxHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent
           sx={{
             p: 1.5,
-            pt: 1,
+            pt: 1.25,
             pb: 0,
             flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
             overflow: "hidden",
           }}
         >
           <Box
             sx={{
-              height: "100%",
+              flex: 1,
               overflowY: "auto",
               pr: 1,
               pb: 1,
             }}
           >
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Mandi Name"
-                value={form.name_en}
-                onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Mandi Name"
+                  value={form.name_en}
+                  onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
                 fullWidth
                 disabled={isReadOnly}
               />
@@ -678,7 +677,8 @@ export const Mandis: React.FC = () => {
                 <MenuItem value="N">No</MenuItem>
               </TextField>
             </Grid>
-          </Grid>
+            </Grid>
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions

@@ -546,7 +546,7 @@ export const Mandis: React.FC = () => {
         </Card>
       )}
 
-      <Dialog
+      {/* <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         fullWidth
@@ -554,12 +554,32 @@ export const Mandis: React.FC = () => {
         fullScreen={fullScreenDialog}
         PaperProps={{
           sx: {
-            maxHeight: "90vh",
+            maxHeight: "100vh",
             display: "flex",
             flexDirection: "column",
           },
         }}
-      >
+      > */}
+<Dialog
+  open={dialogOpen}
+  onClose={() => setDialogOpen(false)}
+  fullWidth
+  maxWidth="sm"
+  fullScreen={fullScreenDialog}
+  scroll="paper"
+  PaperProps={{
+    sx: {
+      // Use full viewport height on mobile, 90% on desktop
+      height: fullScreenDialog ? "100vh" : "90vh",
+      maxHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+    },
+  }}
+>
+
+
+
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent
           sx={{

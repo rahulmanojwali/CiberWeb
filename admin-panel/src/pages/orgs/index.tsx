@@ -33,7 +33,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 
 
 
@@ -81,17 +81,12 @@ export const Orgs: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const uiConfig = useAdminUiConfig();
+  const orgPerms = useCrudPermissions("organisations");
   const scope = getUserScope("OrgsPage");
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const canCreateOrg = React.useMemo(() => {
-    return can(uiConfig.resources, "organisations.create", "CREATE");
-  }, [uiConfig.resources]);
-  const canUpdateOrgAction = React.useMemo(() => {
-    return can(uiConfig.resources, "organisations.edit", "UPDATE");
-  }, [uiConfig.resources]);
-  const isReadOnly = React.useMemo(() => {
-    return !canUpdateOrgAction;
-  }, [canUpdateOrgAction]);
+  const canCreateOrg = orgPerms.canCreate;
+  const canUpdateOrgAction = orgPerms.canEdit;
+  const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);

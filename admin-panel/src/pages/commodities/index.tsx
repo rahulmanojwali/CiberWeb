@@ -25,8 +25,7 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
   fetchCommodities,
   createCommodity,
@@ -62,7 +61,6 @@ function currentUsername(): string | null {
 export const Commodities: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<CommodityRow[]>([]);
@@ -81,20 +79,7 @@ export const Commodities: React.FC = () => {
     severity: "info",
   });
 
-  const roleSlug = (uiConfig.role || "").toUpperCase();
-  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
-  const canCreate = useMemo(
-    () => isSuperAdmin || can(uiConfig.resources, "commodities.create", "CREATE"),
-    [uiConfig.resources, isSuperAdmin],
-  );
-  const canEdit = useMemo(
-    () => isSuperAdmin || can(uiConfig.resources, "commodities.edit", "UPDATE"),
-    [uiConfig.resources, isSuperAdmin],
-  );
-  const canDeactivate = useMemo(
-    () => isSuperAdmin || can(uiConfig.resources, "commodities.deactivate", "DEACTIVATE"),
-    [uiConfig.resources, isSuperAdmin],
-  );
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("commodities", { masterOnly: true });
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 
   const columns = useMemo<GridColDef<CommodityRow>[]>(

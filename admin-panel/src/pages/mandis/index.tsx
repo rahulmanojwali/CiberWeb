@@ -28,7 +28,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 
@@ -97,9 +97,7 @@ export const Mandis: React.FC = () => {
     severity: "info",
   });
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(() => can(uiConfig.resources, "mandis.deactivate", "DEACTIVATE"), [uiConfig.resources]);
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandis");
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
   const roleSlug = (uiConfig.role || "").toUpperCase();
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";

@@ -16,6 +16,8 @@ import {
   useMediaQuery,
   useTheme,
   Pagination,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -41,6 +43,7 @@ type MandiRow = {
   contact_number?: string | null;
   remarks?: string | null;
   district_id?: string | null;
+  scope_type?: "GLOBAL" | "ORG" | string;
 };
 
 const defaultForm = {
@@ -88,11 +91,18 @@ export const Mandis: React.FC = () => {
   const [isPincodeValid, setIsPincodeValid] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
+    open: false,
+    message: "",
+    severity: "info",
+  });
 
   const canCreate = useMemo(() => can(uiConfig.resources, "mandis.create", "CREATE"), [uiConfig.resources]);
   const canEdit = useMemo(() => can(uiConfig.resources, "mandis.edit", "UPDATE"), [uiConfig.resources]);
   const canDeactivate = useMemo(() => can(uiConfig.resources, "mandis.deactivate", "DEACTIVATE"), [uiConfig.resources]);
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
+  const roleSlug = (uiConfig.role || "").toUpperCase();
+  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
 
   const columns = useMemo<GridColDef<MandiRow>[]>(
     () => [
@@ -115,7 +125,7 @@ export const Mandis: React.FC = () => {
         sortable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
-            {canEdit && (
+            {canEdit && (isSuperAdmin || params.row.scope_type !== "GLOBAL") && (
               <Button
                 size="small"
                 startIcon={<EditIcon />}
@@ -124,7 +134,7 @@ export const Mandis: React.FC = () => {
                 Edit
               </Button>
             )}
-            {canDeactivate && (
+            {canDeactivate && (isSuperAdmin || params.row.scope_type !== "GLOBAL") && (
               <Button
                 size="small"
                 color="error"
@@ -138,7 +148,7 @@ export const Mandis: React.FC = () => {
         ),
       },
     ],
-    [canEdit, canDeactivate],
+    [canEdit, canDeactivate, isSuperAdmin],
   );
 
   const loadData = async () => {
@@ -178,6 +188,7 @@ export const Mandis: React.FC = () => {
           contact_number: m.contact_number || "",
           remarks: m.remarks || "",
           district_id: m.district_id || null,
+          scope_type: (m.scope_type || "").toUpperCase() as any,
         })),
       );
     } finally {
@@ -207,6 +218,10 @@ export const Mandis: React.FC = () => {
 
   const openEdit = (row: MandiRow) => {
     if (!canEdit) return;
+    if (!isSuperAdmin && row.scope_type === "GLOBAL") {
+      setToast({ open: true, message: "You are not authorized to edit global mandis.", severity: "error" });
+      return;
+    }
     setIsEdit(true);
     setSelectedId(row.mandi_id);
     setPincodeError(null);
@@ -343,19 +358,31 @@ export const Mandis: React.FC = () => {
       if (String(responseCode) === "0") {
         setDialogOpen(false);
         await loadData();
+        setToast({ open: true, message: isEdit ? "Mandi updated." : "Mandi created.", severity: "success" });
       } else {
-        alert(description || "Operation failed.");
+        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
       }
     } catch (err: any) {
-      alert(err?.message || "Operation failed.");
+      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
     }
   };
 
   const handleDeactivate = async (mandi_id: number) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateMandi({ username, language, mandi_id });
-    await loadData();
+    try {
+      const resp = await deactivateMandi({ username, language, mandi_id });
+      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
+      const description = resp?.response?.description || resp?.description || "";
+      if (String(responseCode) === "0") {
+        await loadData();
+        setToast({ open: true, message: "Mandi deactivated.", severity: "success" });
+      } else {
+        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
+      }
+    } catch (err: any) {
+      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
+    }
   };
 
   const canSubmit = isEdit ? canEdit : canCreate;
@@ -471,26 +498,26 @@ export const Mandis: React.FC = () => {
                   </Typography>
                 </Box>
                 <Box>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                Pincode
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                {row.pincode || "-"}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem", mt: 0.5 }}>
-                Address
-              </Typography>
-              <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                {row.address_line || "-"}
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
-              {canEdit && (
-                <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                  Edit
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Pincode
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.pincode || "-"}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem", mt: 0.5 }}>
+                    Address
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {row.address_line || "-"}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
+                  {canEdit && (isSuperAdmin || row.scope_type !== "GLOBAL") && (
+                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                      Edit
                     </Button>
                   )}
-                  {canDeactivate && (
+                  {canDeactivate && (isSuperAdmin || row.scope_type !== "GLOBAL") && (
                     <Button
                       size="small"
                       color="error"
@@ -687,6 +714,21 @@ export const Mandis: React.FC = () => {
           )}
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={toast.severity}
+          onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+          sx={{ width: "100%" }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </PageContainer>
   );
 };

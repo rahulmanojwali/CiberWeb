@@ -567,8 +567,8 @@ export const Mandis: React.FC = () => {
 
         <DialogContent
           sx={{
-            p: 1.5,
-            pt: 1.25,
+            p: 2,
+            pt: 2, // ensure first label is clearly visible under the title
             pb: 0,
             flex: 1,
             display: "flex",
@@ -582,6 +582,7 @@ export const Mandis: React.FC = () => {
               overflowY: "auto",
               pr: 1,
               pb: 1,
+              pt: 0.5,
             }}
           >
             <Grid container spacing={1.5}>

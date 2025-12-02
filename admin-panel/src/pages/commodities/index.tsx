@@ -15,6 +15,7 @@ import {
   Alert,
   useMediaQuery,
   useTheme,
+  Pagination,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -136,9 +137,11 @@ export const Commodities: React.FC = () => {
       const resp = await fetchCommodities({
         username,
         language,
-        page: page + 1,
-        pageSize,
-        filters: { is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" },
+        filters: {
+          is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE",
+          page: page + 1,
+          pageSize,
+        },
       });
       const data = resp?.data || resp?.response?.data || resp || {};
       const list = data?.commodities || [];
@@ -352,7 +355,7 @@ export const Commodities: React.FC = () => {
               <Pagination
                 count={Math.max(1, Math.ceil(rowCount / pageSize))}
                 page={page + 1}
-                onChange={(_, newPage) => setPage(newPage - 1)}
+                onChange={(_event, newPage: number) => setPage(newPage - 1)}
                 color="primary"
               />
             </Box>

@@ -125,18 +125,26 @@ function App() {
             }}
           />
           <RefineSnackbarProvider>
-           <Refine
-    dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
-    notificationProvider={useNotificationProvider}
-    routerProvider={routerProvider}
-  authProvider={authProvider}
-  options={{
-    syncWithLocation: true,
-    warnWhenUnsavedChanges: true,
-    projectId: "CD-ADMIN-PANEL",
-  }}
-
-    >
+            <Box
+              sx={{
+                height: "100vh",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                overscrollBehavior: "contain",
+              }}
+            >
+              <Refine
+                dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
+                notificationProvider={useNotificationProvider}
+                routerProvider={routerProvider}
+                authProvider={authProvider}
+                options={{
+                  syncWithLocation: true,
+                  warnWhenUnsavedChanges: true,
+                  projectId: "CD-ADMIN-PANEL",
+                }}
+              >
 
               <Routes>
                 <Route
@@ -151,8 +159,8 @@ function App() {
               data-app-scrollable="true"
               sx={{
                 flex: 1,
-                height: "100vh",
-                minHeight: "100vh",
+                height: "100%",
+                minHeight: "100%",
                 overflowY: "auto",
                 overscrollBehavior: "contain",
               }}

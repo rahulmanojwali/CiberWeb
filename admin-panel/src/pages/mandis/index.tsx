@@ -401,7 +401,7 @@ export const Mandis: React.FC = () => {
                 size="small"
                 value={filters.state_code}
                 onChange={(e) => {
-                  setPage(1);
+                  setPage(0);
                   setFilters((f) => ({ ...f, state_code: e.target.value }));
                 }}
                 fullWidth
@@ -413,7 +413,7 @@ export const Mandis: React.FC = () => {
                 size="small"
                 value={filters.district}
                 onChange={(e) => {
-                  setPage(1);
+                  setPage(0);
                   setFilters((f) => ({ ...f, district: e.target.value }));
                 }}
                 fullWidth
@@ -426,7 +426,7 @@ export const Mandis: React.FC = () => {
                 size="small"
                 value={filters.status}
                 onChange={(e) => {
-                  setPage(1);
+                  setPage(0);
                   setFilters((f) => ({ ...f, status: e.target.value as any }));
                 }}
                 fullWidth
@@ -546,20 +546,6 @@ export const Mandis: React.FC = () => {
         </Card>
       )}
 
-      {/* <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        fullScreen={fullScreenDialog}
-        PaperProps={{
-          sx: {
-            maxHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
-      > */}
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -603,81 +589,80 @@ export const Mandis: React.FC = () => {
                   label="Mandi Name"
                   value={form.name_en}
                   onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Pincode"
-                value={form.pincode}
-                onChange={(e) => handlePincodeChange(e.target.value)}
-                fullWidth
-                disabled={isReadOnly}
-                helperText={pincodeError || (isPincodeResolving ? "Resolving location..." : undefined)}
-                error={Boolean(pincodeError)}
-                inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="State Code"
-                value={form.state_code}
-                fullWidth
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="District"
-                value={form.district_name_en}
-                fullWidth
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Address"
-                value={form.address_line}
-                onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
-                fullWidth
-                multiline
-                minRows={3}
-                disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Contact Number"
-                value={form.contact_number}
-                onChange={(e) => setForm((f) => ({ ...f, contact_number: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Remarks"
-                value={form.remarks}
-                onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Active"
-                value={form.is_active ? "Y" : "N"}
-                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-                fullWidth
-                disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
-              >
-                <MenuItem value="Y">Yes</MenuItem>
-                <MenuItem value="N">No</MenuItem>
-              </TextField>
-            </Grid>
-            </Grid>
+                  fullWidth
+                  disabled={isReadOnly}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Pincode"
+                  value={form.pincode}
+                  onChange={(e) => handlePincodeChange(e.target.value)}
+                  fullWidth
+                  disabled={isReadOnly}
+                  helperText={pincodeError || (isPincodeResolving ? "Resolving location..." : undefined)}
+                  error={Boolean(pincodeError)}
+                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="State Code"
+                  value={form.state_code}
+                  fullWidth
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="District"
+                  value={form.district_name_en}
+                  fullWidth
+                  disabled
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Address"
+                  value={form.address_line}
+                  onChange={(e) => setForm((f) => ({ ...f, address_line: e.target.value }))}
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Contact Number"
+                  value={form.contact_number}
+                  onChange={(e) => setForm((f) => ({ ...f, contact_number: e.target.value }))}
+                  fullWidth
+                  disabled={isReadOnly}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Remarks"
+                  value={form.remarks}
+                  onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+                  fullWidth
+                  disabled={isReadOnly}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Active"
+                  value={form.is_active ? "Y" : "N"}
+                  onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+                  fullWidth
+                  disabled={isReadOnly || isPincodeResolving || !isPincodeValid}
+                >
+                  <MenuItem value="Y">Yes</MenuItem>
+                  <MenuItem value="N">No</MenuItem>
+                </TextField>
+              </Grid>
             </Grid>
           </Box>
         </DialogContent>

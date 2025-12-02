@@ -552,10 +552,32 @@ export const Mandis: React.FC = () => {
         fullWidth
         maxWidth="sm"
         fullScreen={fullScreenDialog}
+        PaperProps={{
+          sx: {
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
-        <DialogContent sx={{ p: 1.5 }}>
-          <Box sx={{ maxHeight: "90vh", overflowY: "auto", pr: 1, pb: 0.5 }}>
+        <DialogContent
+          sx={{
+            p: 1.5,
+            pt: 1,
+            pb: 0,
+            flex: 1,
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            sx={{
+              height: "100%",
+              overflowY: "auto",
+              pr: 1,
+              pb: 1,
+            }}
+          >
           <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -639,7 +661,12 @@ export const Mandis: React.FC = () => {
           </Grid>
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1,
+          }}
+        >
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           {canSubmit && (
             <Button

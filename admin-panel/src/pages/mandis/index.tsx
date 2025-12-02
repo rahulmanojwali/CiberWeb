@@ -385,7 +385,7 @@ export const Mandis: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
               <TextField
-                label="Search code/name"
+                label="Search code/name/pincode"
                 size="small"
                 value={searchText}
                 onChange={(e) => {
@@ -554,9 +554,9 @@ export const Mandis: React.FC = () => {
         fullScreen={fullScreenDialog}
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1 }}>
-          <Grid container spacing={2}>
+        <DialogContent sx={{ p: 1.5 }}>
+          <Box sx={{ maxHeight: "70vh", overflowY: "auto", pr: 1, pb: 1 }}>
+          <Grid container spacing={1.5}>
             <Grid item xs={12} sm={6}>
               <TextField
                 label="Mandi Name"

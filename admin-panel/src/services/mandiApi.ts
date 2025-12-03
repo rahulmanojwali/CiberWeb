@@ -249,16 +249,19 @@ export const deactivateCommodityProduct = async ({
   username,
   language = DEFAULT_LANGUAGE,
   product_id,
+  org_code,
 }: {
   username: string;
   language?: string;
   product_id: number;
+  org_code?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateCommodityProduct, {
     api: API_TAGS.PRODUCTS.deactivate,
     username,
     language,
     product_id,
+    org_code,
   });
 
 // --- Facility masters ---

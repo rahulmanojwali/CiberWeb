@@ -24,6 +24,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import {
   fetchCommodityProducts,
   fetchCommodities,
@@ -39,6 +40,8 @@ type ProductRow = {
   name: string;
   unit: string | null;
   is_active: boolean;
+  scope_type?: string;
+  org_code?: string | null;
 };
 
 const defaultForm = {
@@ -64,6 +67,8 @@ export const CommodityProducts: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const fullScreenDialog = isSmallScreen;
+  const uiConfig = useAdminUiConfig();
+  const orgCode = uiConfig?.scope?.org_code || null;
 
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [commodities, setCommodities] = useState<any[]>([]);
@@ -78,47 +83,7 @@ export const CommodityProducts: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("commodity_products", { masterOnly: true });
-
-  const columns = useMemo<GridColDef<ProductRow>[]>(
-    () => [
-      { field: "product_id", headerName: "ID", width: 90 },
-      { field: "name", headerName: "Product", flex: 1 },
-      { field: "commodity_name", headerName: "Commodity", width: 180 },
-      { field: "unit", headerName: "Unit", width: 100 },
-      {
-        field: "is_active",
-        headerName: "Active",
-        width: 100,
-        valueFormatter: (value) => (value ? "Y" : "N"),
-      },
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 170,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-                Edit
-              </Button>
-            )}
-            {canDeactivate && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.product_id)}
-              >
-                Deactivate
-              </Button>
-            )}
-          </Stack>
-        ),
-      },
-    ],
-    [canEdit, canDeactivate],
-  );
+  const { canCreate, canEdit, canDeactivate, canViewDetail, isSuperAdmin } = useCrudPermissions("commodity_products");
 
   const loadCommodities = useCallback(async () => {
     const username = currentUsername();
@@ -141,6 +106,7 @@ export const CommodityProducts: React.FC = () => {
         pageSize,
         commodity_id: filters.commodity_id || undefined,
         is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
+        org_code: orgCode || undefined,
       },
     });
     const data = resp?.data || resp?.response?.data || {};
@@ -157,12 +123,14 @@ export const CommodityProducts: React.FC = () => {
           name: p?.name_i18n?.en || p.slug || String(p.product_id),
           unit: p.unit || null,
           is_active: Boolean(p.is_active),
+          scope_type: p.scope_type,
+          org_code: p.org_code || null,
         })),
       );
     } finally {
       setLoading(false);
     }
-  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize]);
+  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize, orgCode]);
 
   useEffect(() => {
     loadCommodities();
@@ -202,6 +170,9 @@ export const CommodityProducts: React.FC = () => {
       unit: form.unit || null,
       is_active: form.is_active,
     };
+    if (!isSuperAdmin && orgCode) {
+      payload.org_code = orgCode;
+    }
     if (isEdit && selectedId) {
       payload.product_id = selectedId;
       await updateCommodityProduct({ username, language, payload });
@@ -210,14 +181,70 @@ export const CommodityProducts: React.FC = () => {
     }
     setDialogOpen(false);
     await loadData();
-  }, [form.commodity_id, form.is_active, form.name_en, form.unit, isEdit, language, loadData, selectedId]);
+  }, [form.commodity_id, form.is_active, form.name_en, form.unit, isEdit, isSuperAdmin, orgCode, language, loadData, selectedId]);
 
   const handleDeactivate = useCallback(async (product_id: number) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateCommodityProduct({ username, language, product_id });
+    await deactivateCommodityProduct({
+      username,
+      language,
+      product_id,
+      org_code: !isSuperAdmin && orgCode ? orgCode : undefined,
+    });
     await loadData();
-  }, [language, loadData]);
+  }, [language, loadData, orgCode, isSuperAdmin]);
+
+  const columns = useMemo<GridColDef<ProductRow>[]>(
+    () => [
+      { field: "product_id", headerName: "ID", width: 90 },
+      { field: "name", headerName: "Product", flex: 1 },
+      { field: "commodity_name", headerName: "Commodity", width: 180 },
+      { field: "unit", headerName: "Unit", width: 100 },
+      {
+        field: "is_active",
+        headerName: "Active",
+        width: 100,
+        valueFormatter: (value) => (value ? "Y" : "N"),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 190,
+        renderCell: (params) => {
+          const row = params.row;
+          const isOrgOwned = row.scope_type === "ORG" && row.org_code && orgCode && row.org_code === orgCode;
+          const canEditRow = canEdit && (isSuperAdmin || isOrgOwned);
+          const canDeactivateRow = canDeactivate && (isSuperAdmin || isOrgOwned);
+          return (
+            <Stack direction="row" spacing={1}>
+              {canEditRow && (
+                <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                  Edit
+                </Button>
+              )}
+              {canDeactivateRow && (
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<BlockIcon />}
+                  onClick={() => handleDeactivate(row.product_id)}
+                >
+                  Deactivate
+                </Button>
+              )}
+              {!canEditRow && canViewDetail && (
+                <Button size="small" onClick={() => openEdit(row)}>
+                  View
+                </Button>
+              )}
+            </Stack>
+          );
+        },
+      },
+    ],
+    [canEdit, canDeactivate, canViewDetail, isSuperAdmin, orgCode, openEdit, handleDeactivate],
+  );
 
   const listContent = useMemo(() => {
     if (isSmallScreen) {
@@ -260,30 +287,32 @@ export const CommodityProducts: React.FC = () => {
                   </Typography>
                 </Box>
                 <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  {canEdit && (
+                  {(isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code)) && canEdit && (
                     <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
                       Edit
                     </Button>
                   )}
-                  {canDeactivate && (
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="text"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeactivate(row.product_id);
-                      }}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Deactivate
-                    </Button>
-                  )}
-                  {!canEdit && canViewDetail && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      View
-                    </Button>
-                  )}
+                  {(isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code)) &&
+                    canDeactivate && (
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeactivate(row.product_id);
+                        }}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  {!(canEdit && (isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code))) &&
+                    canViewDetail && (
+                      <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                        View
+                      </Button>
+                    )}
                 </Stack>
               </Stack>
             </Box>
@@ -328,7 +357,23 @@ export const CommodityProducts: React.FC = () => {
         />
       </Box>
     );
-  }, [isSmallScreen, rows, theme.palette.divider, canViewDetail, canEdit, canDeactivate, handleDeactivate, page, pageSize, rowCount, columns, loading, openEdit]);
+  }, [
+    isSmallScreen,
+    rows,
+    theme.palette.divider,
+    canViewDetail,
+    canEdit,
+    canDeactivate,
+    handleDeactivate,
+    page,
+    pageSize,
+    rowCount,
+    columns,
+    loading,
+    openEdit,
+    orgCode,
+    isSuperAdmin,
+  ]);
 
   return (
     <PageContainer>

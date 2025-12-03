@@ -123,7 +123,7 @@ export const CommodityProducts: React.FC = () => {
           name: p?.name_i18n?.en || p.slug || String(p.product_id),
           unit: p.unit || null,
           is_active: Boolean(p.is_active),
-          scope_type: p.scope_type,
+          scope_type: p.scope_type || "GLOBAL",
           org_code: p.org_code || null,
         })),
       );
@@ -440,6 +440,14 @@ export const CommodityProducts: React.FC = () => {
         <DialogTitle>{isEdit ? "Edit Product" : "Create Product"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {orgCode && !isSuperAdmin && (
+              <TextField
+                label="Organisation"
+                value={orgCode}
+                fullWidth
+                disabled
+              />
+            )}
             <TextField
               select
               label="Commodity"

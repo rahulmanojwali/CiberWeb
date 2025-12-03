@@ -27,6 +27,7 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
+import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
@@ -76,10 +77,11 @@ export const Mandis: React.FC = () => {
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const [rows, setRows] = useState<MandiRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0); // 0-based for grid/mobile controls
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -570,7 +572,7 @@ export const Mandis: React.FC = () => {
                     setPage(0);
                   }
                 }}
-                pageSizeOptions={[20, 50, 100]}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
               />
             </Box>
           </CardContent>

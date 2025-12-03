@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
+import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
   fetchCommodities,
@@ -63,11 +64,12 @@ export const Commodities: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
+  const fullScreenDialog = isSmallScreen;
+  const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const [rows, setRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [rowCount, setRowCount] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -373,7 +375,7 @@ export const Commodities: React.FC = () => {
                 setPage(0);
               }
             }}
-            pageSizeOptions={[20, 50, 100]}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
           />
         </Box>
       )}

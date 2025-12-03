@@ -401,8 +401,7 @@ export const CommodityProducts: React.FC = () => {
   ]);
 
   return (
-    <PageContainer>
-      <Box sx={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+    <PageContainer sx={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
       <Stack spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.commodityProducts", { defaultValue: "Commodity Products" })}</Typography>
         <Stack
@@ -483,7 +482,6 @@ export const CommodityProducts: React.FC = () => {
       </Stack>
 
       {listContent}
-      </Box>
 
       <Dialog
         open={dialogOpen}

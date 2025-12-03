@@ -26,7 +26,7 @@ type CrudOptions = {
  */
 export function useCrudPermissions(resourceKey: string, options: CrudOptions = {}): CrudPermissions {
   const uiConfig = useAdminUiConfig();
-  const roleSlug = (uiConfig.role || "").toUpperCase();
+  const roleSlug = (uiConfig.role || (uiConfig.scope as any)?.role_slug || "").toUpperCase();
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
   const masterOnly = options.masterOnly === true;
 
@@ -34,9 +34,9 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
     const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
     const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW") || can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
     const view = viewList || viewDetail;
-    const create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
-    const edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
-    const deactivate = can(uiConfig.resources, `${resourceKey}.deactivate`, "DEACTIVATE");
+    let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
+    let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
+    let deactivate = can(uiConfig.resources, `${resourceKey}.deactivate`, "DEACTIVATE");
 
     if (isSuperAdmin) {
       // Super admin always has CRUD; view uses policy or default to true.
@@ -47,6 +47,13 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
         canEdit: true,
         canDeactivate: true,
       };
+    }
+
+    // Org-admin fallback for org-scoped commodity products when policies are missing create/edit/deactivate.
+    if (resourceKey === "commodity_products" && roleSlug === "ORG_ADMIN" && uiConfig.scope?.org_code) {
+      if (!create) create = true;
+      if (!edit) edit = true;
+      if (!deactivate) deactivate = true;
     }
 
     if (masterOnly) {

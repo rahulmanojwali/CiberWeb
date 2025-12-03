@@ -63,6 +63,7 @@ export const Commodities: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const [rows, setRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -79,7 +80,7 @@ export const Commodities: React.FC = () => {
     severity: "info",
   });
 
-  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("commodities", { masterOnly: true });
+  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("commodities", { masterOnly: true });
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 
   const columns = useMemo<GridColDef<CommodityRow>[]>(
@@ -334,6 +335,16 @@ export const Commodities: React.FC = () => {
                       Deactivate
                     </Button>
                   )}
+                  {!canEdit && canViewDetail && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => openEdit(row)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      View
+                    </Button>
+                  )}
                 </Stack>
               </Stack>
             </Box>
@@ -376,45 +387,86 @@ export const Commodities: React.FC = () => {
         </Box>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+        fullScreen={fullScreenDialog}
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            height: fullScreenDialog ? "100vh" : "90vh",
+            maxHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
         <DialogTitle>{isEdit ? "Edit Commodity" : "Create Commodity"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Name (EN)"
-            value={form.name_en}
-            onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-            fullWidth
-            disabled={isReadOnly}
-          />
-          <TextField
-            label="Group / Category"
-            value={form.commodity_group}
-            onChange={(e) => setForm((f) => ({ ...f, commodity_group: e.target.value }))}
-            fullWidth
-            disabled={isReadOnly}
-          />
-          <TextField
-            label="Code / Slug"
-            value={form.code}
-            onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-            fullWidth
-            disabled={isReadOnly}
-          />
-          <TextField
-            select
-            label="Active"
-            value={form.is_active ? "Y" : "N"}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-            fullWidth
-            disabled={isReadOnly}
+        <DialogContent
+          sx={{
+            p: 1.5,
+            pt: 1.25,
+            pb: 0,
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: "auto",
+              pr: 1,
+              pb: 1,
+            }}
           >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+            <Stack spacing={1.5}>
+              <TextField
+                label="Name (EN)"
+                value={form.name_en}
+                onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
+              />
+              <TextField
+                label="Group / Category"
+                value={form.commodity_group}
+                onChange={(e) => setForm((f) => ({ ...f, commodity_group: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
+              />
+              <TextField
+                label="Code / Slug"
+                value={form.code}
+                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
+              />
+              <TextField
+                select
+                label="Active"
+                value={form.is_active ? "Y" : "N"}
+                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+                fullWidth
+                disabled={isReadOnly}
+              >
+                <MenuItem value="Y">Yes</MenuItem>
+                <MenuItem value="N">No</MenuItem>
+              </TextField>
+            </Stack>
+          </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions
+          sx={{
+            px: 2,
+            py: 1,
+          }}
+        >
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          { (isEdit ? canEdit : canCreate) && (
+          {(isEdit ? canEdit : canCreate) && (
             <Button variant="contained" onClick={handleSave} disabled={isReadOnly}>
               {isEdit ? "Update" : "Create"}
             </Button>

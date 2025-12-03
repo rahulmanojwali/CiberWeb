@@ -97,7 +97,7 @@ export const Mandis: React.FC = () => {
     severity: "info",
   });
 
-  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandis");
+  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("mandis");
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
   const roleSlug = (uiConfig.role || "").toUpperCase();
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
@@ -524,6 +524,11 @@ export const Mandis: React.FC = () => {
                       sx={{ textTransform: "none" }}
                     >
                       Deactivate
+                    </Button>
+                  )}
+                  {!canEdit && canViewDetail && (
+                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                      View
                     </Button>
                   )}
                 </Box>

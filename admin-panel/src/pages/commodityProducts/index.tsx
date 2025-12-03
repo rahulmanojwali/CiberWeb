@@ -361,7 +361,7 @@ export const CommodityProducts: React.FC = () => {
     }
 
     return (
-      <Box sx={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <Box sx={{ width: "100%", overflowX: "auto", mt: 2 }}>
         <ResponsiveDataGrid
           columns={columns}
           rows={rows}
@@ -370,6 +370,7 @@ export const CommodityProducts: React.FC = () => {
           paginationMode="server"
           rowCount={rowCount}
           paginationModel={{ page, pageSize }}
+          autoHeight
           onPaginationModelChange={(model) => {
             setPage(model.page);
             if (model.pageSize !== pageSize) {

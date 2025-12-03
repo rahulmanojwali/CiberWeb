@@ -20,6 +20,7 @@ import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom
 
 import { authProvider } from "./authProvider";
 import { Header } from "./components/header";
+import Box from "@mui/material/Box";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { LeftSider } from "./components/LeftSider";
 import { Login } from "./pages/login";
@@ -103,8 +104,9 @@ function App() {
           <CssBaseline />
           <GlobalStyles
             styles={{
-              html: { WebkitFontSmoothing: "auto" },
-              body: { margin: 0, padding: 0 },
+              html: { WebkitFontSmoothing: "auto", height: "100%", overflow: "hidden" },
+              body: { margin: 0, padding: 0, height: "100%", overflow: "hidden" },
+              "#root": { height: "100%", overflow: "hidden" },
             }}
           />
           <RefineSnackbarProvider>
@@ -125,7 +127,26 @@ function App() {
                       <AdminRoleGuard>
                         <AdminUiConfigProvider>
                           <ThemedLayout Header={Header} Sider={CustomSider}>
-                            <Outlet />
+                            <Box
+                              sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                height: "100vh",
+                                overflow: "hidden",
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  flex: 1,
+                                  minHeight: 0,
+                                  overflowY: "auto",
+                                  overflowX: "hidden",
+                                }}
+                                data-app-scrollable
+                              >
+                                <Outlet />
+                              </Box>
+                            </Box>
                           </ThemedLayout>
                         </AdminUiConfigProvider>
                       </AdminRoleGuard>

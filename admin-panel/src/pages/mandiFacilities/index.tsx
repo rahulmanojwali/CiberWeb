@@ -154,7 +154,7 @@ export const MandiFacilities: React.FC = () => {
     [canEditMaster, canDeactivateMaster],
   );
 
-  const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
+const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
     () => [
       { field: "facility_name", headerName: "Facility Name", flex: 1 },
       { field: "facility_code", headerName: "Facility Code", width: 160 },
@@ -202,8 +202,7 @@ export const MandiFacilities: React.FC = () => {
 
   const loadMasters = async () => {
     const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchMandiFacilitiesMasters({ username, language });
+    const resp = await fetchMandiFacilitiesMasters({ username: username || "", language });
     const list = resp?.data?.items || resp?.data || resp?.response?.data?.items || [];
     const filtered = masterStatus === "ALL" ? list : list.filter((m: any) => m.is_active === masterStatus);
     setMasters(

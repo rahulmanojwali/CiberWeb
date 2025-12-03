@@ -586,7 +586,7 @@ export const Mandis: React.FC = () => {
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
         <DialogContent dividers>
-          <Grid container spacing={1.5} mt={1}>
+            <Grid container spacing={1.5} mt={1}>
             <Grid item xs={12} sm={6}>
               <TextField
                 label="Mandi Name"
@@ -667,7 +667,6 @@ export const Mandis: React.FC = () => {
                 </TextField>
               </Grid>
             </Grid>
-          </Grid>
         </DialogContent>
 
         <DialogActions>

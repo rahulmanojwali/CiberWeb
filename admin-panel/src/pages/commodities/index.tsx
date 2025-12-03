@@ -384,65 +384,31 @@ export const Commodities: React.FC = () => {
         fullWidth
         maxWidth="md"
         fullScreen={fullScreenDialog}
-        scroll="paper"
-        PaperProps={{
-          sx: {
-            height: fullScreenDialog ? "100vh" : "90vh",
-            maxHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
       >
         <DialogTitle>{isEdit ? "Edit Commodity" : "Create Commodity"}</DialogTitle>
-        <DialogContent
-          sx={{
-            p: 1.5,
-            pt: 1.25,
-            pb: 0,
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-            overflow: "hidden",
-          }}
-        >
-          <Box
-            sx={{
-              flex: 1,
-              overflowY: "auto",
-              pr: 1,
-              pb: 1,
-            }}
-          >
-            <Stack spacing={1.5}>
-              <TextField
-                label="Commodity Name"
-                value={form.name_en}
-                onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-              <TextField
-                select
-                label="Active"
-                value={form.is_active ? "Y" : "N"}
-                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-                fullWidth
-                disabled={isReadOnly}
-              >
-                <MenuItem value="Y">Yes</MenuItem>
-                <MenuItem value="N">No</MenuItem>
-              </TextField>
-            </Stack>
-          </Box>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Commodity Name"
+              value={form.name_en}
+              onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+              fullWidth
+              disabled={isReadOnly}
+            />
+            <TextField
+              select
+              label="Active"
+              value={form.is_active ? "Y" : "N"}
+              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+              fullWidth
+              disabled={isReadOnly}
+            >
+              <MenuItem value="Y">Yes</MenuItem>
+              <MenuItem value="N">No</MenuItem>
+            </TextField>
+          </Stack>
         </DialogContent>
-        <DialogActions
-          sx={{
-            px: 2,
-            py: 1,
-          }}
-        >
+        <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           {(isEdit ? canEdit : canCreate) && (
             <Button variant="contained" onClick={handleSave} disabled={isReadOnly}>

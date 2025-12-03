@@ -85,7 +85,6 @@ export const CommodityProducts: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [orgFilterCode, setOrgFilterCode] = useState<string>("ALL");
-  const [orgScopeFilter, setOrgScopeFilter] = useState<"ALL" | "ORG_ONLY">("ALL");
 
   const { canCreate, canEdit, canDeactivate, canViewDetail, isSuperAdmin } = useCrudPermissions("commodity_products");
 
@@ -266,14 +265,10 @@ export const CommodityProducts: React.FC = () => {
   );
 
   const listContent = useMemo(() => {
-    const filteredRows =
-      !isSuperAdmin && orgScopeFilter === "ORG_ONLY" && orgCode
-        ? rows.filter((row) => row.scope_type === "ORG" && row.org_code === orgCode)
-        : rows;
     if (isSmallScreen) {
       return (
         <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%", flex: 1 }}>
-          {filteredRows.map((row) => (
+          {rows.map((row) => (
             <Box
               key={row.product_id}
               sx={{
@@ -371,11 +366,7 @@ export const CommodityProducts: React.FC = () => {
       <Box sx={{ height: 520 }}>
         <ResponsiveDataGrid
           columns={columns}
-          rows={
-            !isSuperAdmin && orgScopeFilter === "ORG_ONLY" && orgCode
-              ? rows.filter((r) => r.scope_type === "ORG" && r.org_code === orgCode)
-              : rows
-          }
+          rows={rows}
           loading={loading}
           getRowId={(r) => r.product_id}
           paginationMode="server"
@@ -408,7 +399,6 @@ export const CommodityProducts: React.FC = () => {
     openEdit,
     orgCode,
     isSuperAdmin,
-    orgScopeFilter,
     resolveOrgLabel,
   ]);
 
@@ -421,46 +411,34 @@ export const CommodityProducts: React.FC = () => {
           spacing={2}
           alignItems={isSmallScreen ? "stretch" : "center"}
         >
-          {isSuperAdmin ? (
-            <TextField
-              select
-              label="Organisation"
-              size="small"
-              value={orgFilterCode}
-              onChange={(e) => {
-                setOrgFilterCode(e.target.value);
-                setPage(0);
-              }}
-              sx={{ minWidth: isSmallScreen ? "100%" : 200 }}
-              fullWidth={isSmallScreen}
-            >
-              <MenuItem value="ALL">All organisations</MenuItem>
-              {Array.isArray((uiConfig as any)?.scope?.org_codes)
-                ? (uiConfig as any).scope.org_codes.map((code: string) => (
-                    <MenuItem key={code} value={code}>
-                      {code}
-                    </MenuItem>
-                  ))
-                : null}
-            </TextField>
-          ) : (
-            orgCode && (
-              <ToggleButtonGroup
-                value={orgScopeFilter}
-                exclusive
-                onChange={(_e, val) => {
-                  if (!val) return;
-                  setOrgScopeFilter(val);
-                  setPage(0);
-                }}
-                size="small"
-                fullWidth={isSmallScreen}
-              >
-                <ToggleButton value="ALL">All (Global + My Org)</ToggleButton>
-                <ToggleButton value="ORG_ONLY">My Org Only</ToggleButton>
-              </ToggleButtonGroup>
-            )
-          )}
+          <TextField
+            select
+            label="Organisation"
+            size="small"
+            value={orgFilterCode}
+            onChange={(e) => {
+              setOrgFilterCode(e.target.value);
+              setPage(0);
+            }}
+            sx={{ minWidth: isSmallScreen ? "100%" : 200 }}
+            fullWidth={isSmallScreen}
+          >
+            <MenuItem value="ALL">All organisations</MenuItem>
+            {Array.isArray((uiConfig as any)?.scope?.org_codes)
+              ? (uiConfig as any).scope.org_codes.map((code: string) => (
+                  <MenuItem key={code} value={code}>
+                    {code}
+                  </MenuItem>
+                ))
+              : orgCode
+              ? [orgCode].map((code) => (
+                  <MenuItem key={code} value={code}>
+                    {code}
+                  </MenuItem>
+                ))
+              : null}
+          </TextField>
+
           <TextField
             select
             label="Commodity"

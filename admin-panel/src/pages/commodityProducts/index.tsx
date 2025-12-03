@@ -13,6 +13,8 @@ import {
   useTheme,
   useMediaQuery,
   Pagination,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -82,8 +84,18 @@ export const CommodityProducts: React.FC = () => {
   const [form, setForm] = useState(defaultForm);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
+  const [orgFilterCode, setOrgFilterCode] = useState<string>("ALL");
+  const [orgScopeFilter, setOrgScopeFilter] = useState<"ALL" | "ORG_ONLY">("ALL");
 
   const { canCreate, canEdit, canDeactivate, canViewDetail, isSuperAdmin } = useCrudPermissions("commodity_products");
+
+  const resolveOrgLabel = useCallback(
+    (code?: string | null) => {
+      if (!code) return "Global";
+      return code;
+    },
+    [],
+  );
 
   const loadCommodities = useCallback(async () => {
     const username = currentUsername();
@@ -106,7 +118,11 @@ export const CommodityProducts: React.FC = () => {
         pageSize,
         commodity_id: filters.commodity_id || undefined,
         is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
-        org_code: orgCode || undefined,
+        org_code: isSuperAdmin
+          ? orgFilterCode === "ALL"
+            ? undefined
+            : orgFilterCode
+          : orgCode || undefined,
       },
     });
     const data = resp?.data || resp?.response?.data || {};
@@ -172,6 +188,9 @@ export const CommodityProducts: React.FC = () => {
     };
     if (!isSuperAdmin && orgCode) {
       payload.org_code = orgCode;
+    }
+    if (isSuperAdmin && orgFilterCode !== "ALL") {
+      payload.org_code = orgFilterCode;
     }
     if (isEdit && selectedId) {
       payload.product_id = selectedId;
@@ -247,10 +266,14 @@ export const CommodityProducts: React.FC = () => {
   );
 
   const listContent = useMemo(() => {
+    const filteredRows =
+      !isSuperAdmin && orgScopeFilter === "ORG_ONLY" && orgCode
+        ? rows.filter((row) => row.scope_type === "ORG" && row.org_code === orgCode)
+        : rows;
     if (isSmallScreen) {
       return (
         <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%", flex: 1 }}>
-          {rows.map((row) => (
+          {filteredRows.map((row) => (
             <Box
               key={row.product_id}
               sx={{
@@ -284,6 +307,14 @@ export const CommodityProducts: React.FC = () => {
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
                     {row.commodity_name}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Organisation
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                    {resolveOrgLabel(row.org_code)}
                   </Typography>
                 </Box>
                 <Stack direction="row" justifyContent="flex-end" spacing={1}>
@@ -340,7 +371,11 @@ export const CommodityProducts: React.FC = () => {
       <Box sx={{ height: 520 }}>
         <ResponsiveDataGrid
           columns={columns}
-          rows={rows}
+          rows={
+            !isSuperAdmin && orgScopeFilter === "ORG_ONLY" && orgCode
+              ? rows.filter((r) => r.scope_type === "ORG" && r.org_code === orgCode)
+              : rows
+          }
           loading={loading}
           getRowId={(r) => r.product_id}
           paginationMode="server"
@@ -373,6 +408,8 @@ export const CommodityProducts: React.FC = () => {
     openEdit,
     orgCode,
     isSuperAdmin,
+    orgScopeFilter,
+    resolveOrgLabel,
   ]);
 
   return (
@@ -384,6 +421,46 @@ export const CommodityProducts: React.FC = () => {
           spacing={2}
           alignItems={isSmallScreen ? "stretch" : "center"}
         >
+          {isSuperAdmin ? (
+            <TextField
+              select
+              label="Organisation"
+              size="small"
+              value={orgFilterCode}
+              onChange={(e) => {
+                setOrgFilterCode(e.target.value);
+                setPage(0);
+              }}
+              sx={{ minWidth: isSmallScreen ? "100%" : 200 }}
+              fullWidth={isSmallScreen}
+            >
+              <MenuItem value="ALL">All organisations</MenuItem>
+              {Array.isArray((uiConfig as any)?.scope?.org_codes)
+                ? (uiConfig as any).scope.org_codes.map((code: string) => (
+                    <MenuItem key={code} value={code}>
+                      {code}
+                    </MenuItem>
+                  ))
+                : null}
+            </TextField>
+          ) : (
+            orgCode && (
+              <ToggleButtonGroup
+                value={orgScopeFilter}
+                exclusive
+                onChange={(_e, val) => {
+                  if (!val) return;
+                  setOrgScopeFilter(val);
+                  setPage(0);
+                }}
+                size="small"
+                fullWidth={isSmallScreen}
+              >
+                <ToggleButton value="ALL">All (Global + My Org)</ToggleButton>
+                <ToggleButton value="ORG_ONLY">My Org Only</ToggleButton>
+              </ToggleButtonGroup>
+            )
+          )}
           <TextField
             select
             label="Commodity"

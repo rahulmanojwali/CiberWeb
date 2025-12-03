@@ -581,50 +581,21 @@ export const Mandis: React.FC = () => {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
         fullScreen={fullScreenDialog}
-        scroll="paper"
-        PaperProps={{
-          sx: {
-            height: fullScreenDialog ? "100vh" : "90vh",
-            maxHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
       >
         <DialogTitle>{isEdit ? "Edit Mandi" : "Create Mandi"}</DialogTitle>
-
-        <DialogContent
-          sx={{
-            p: 2,
-            pt: 2, // ensure first label is clearly visible under the title
-            pb: 0,
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
-          <Box
-            sx={{
-              flex: 1,
-              overflowY: "auto",
-              pr: 1,
-              pb: 1,
-              pt: 0.5,
-            }}
-          >
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Mandi Name"
-                  value={form.name_en}
-                  onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-                  fullWidth
-                  disabled={isReadOnly}
-                />
-              </Grid>
+        <DialogContent dividers>
+          <Grid container spacing={1.5} mt={1}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Mandi Name"
+                value={form.name_en}
+                onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+                fullWidth
+                disabled={isReadOnly}
+              />
+            </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Pincode"
@@ -696,15 +667,10 @@ export const Mandis: React.FC = () => {
                 </TextField>
               </Grid>
             </Grid>
-          </Box>
+          </Grid>
         </DialogContent>
 
-        <DialogActions
-          sx={{
-            px: 2,
-            py: 1,
-          }}
-        >
+        <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           {canSubmit && (
             <Button

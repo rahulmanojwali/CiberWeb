@@ -156,15 +156,26 @@ export const MandiFacilities: React.FC = () => {
 
   const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
     () => [
-      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
-      { field: "facility_code", headerName: "Facility Code", width: 150 },
       { field: "facility_name", headerName: "Facility Name", flex: 1 },
+      { field: "facility_code", headerName: "Facility Code", width: 160 },
+      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
+      {
+        field: "capacity",
+        headerName: "Capacity",
+        width: 140,
+        valueGetter: (params: any) => {
+          const num = params.row.capacity_num || "";
+          const unit = params.row.capacity_unit || "";
+          return num ? `${num}${unit ? ` ${unit}` : ""}` : "";
+        },
+      },
+      { field: "gate_code_hint", headerName: "Gate Hint", width: 140 },
       { field: "is_active", headerName: "Active", width: 100 },
       {
         field: "actions",
         headerName: "Actions",
         width: 170,
-        renderCell: (params) => (
+        renderCell: (params: any) => (
           <Stack direction="row" spacing={1}>
             {canEditFacility && (
               <Button size="small" startIcon={<EditIcon />} onClick={() => openFacilityEdit(params.row)}>
@@ -255,7 +266,7 @@ export const MandiFacilities: React.FC = () => {
 
   useEffect(() => {
     loadFacilities();
-  }, [selectedMandi, facilityStatus]);
+  }, [selectedMandi, facilityStatus, masters]);
 
   const openMasterCreate = () => {
     setMasterEditId(null);
@@ -474,63 +485,65 @@ export const MandiFacilities: React.FC = () => {
         <DialogTitle>{facilityEditId ? "Edit Facility" : "Add Facility"}</DialogTitle>
         <DialogContent dividers sx={{ mt: 1 }}>
           <Stack spacing={2}>
-          <TextField
-            select
-            label="Facility Code"
-            value={facilityForm.facility_code}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, facility_code: e.target.value }))}
-            fullWidth
-          >
-            {masters
-              .filter((m) => m.is_active === "Y")
-              .map((m) => {
-                const assigned = facilities.some(
-                  (f) => f.facility_code === m.facility_code && f.mandi_id === Number(selectedMandi),
-                );
-                const disabled = !facilityEditId && assigned;
-                return (
-                  <MenuItem key={m.facility_code} value={m.facility_code} disabled={disabled}>
-                    {m.facility_code} - {m.name}
-                  </MenuItem>
-                );
-              })}
-          </TextField>
-          <TextField
-            label="Capacity Number"
-            value={(facilityForm as any).capacity_num || ""}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_num: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Capacity Unit"
-            value={(facilityForm as any).capacity_unit || ""}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_unit: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Gate Code Hint"
-            value={(facilityForm as any).gate_code_hint || ""}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, gate_code_hint: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Notes"
-            value={(facilityForm as any).notes || ""}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, notes: e.target.value }))}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <TextField
-            select
-            label="Active"
-            value={facilityForm.is_active}
-            onChange={(e) => setFacilityForm((f) => ({ ...f, is_active: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+            <TextField
+              select
+              label="Facility Code"
+              value={facilityForm.facility_code}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, facility_code: e.target.value }))}
+              fullWidth
+              required
+            >
+              {masters
+                .filter((m) => m.is_active === "Y")
+                .map((m) => {
+                  const assigned = facilities.some(
+                    (f) => f.facility_code === m.facility_code && f.mandi_id === Number(selectedMandi),
+                  );
+                  const disabled = !facilityEditId && assigned;
+                  return (
+                    <MenuItem key={m.facility_code} value={m.facility_code} disabled={disabled}>
+                      {m.name} ({m.facility_code})
+                    </MenuItem>
+                  );
+                })}
+            </TextField>
+            <TextField
+              label="Capacity Number"
+              type="number"
+              value={(facilityForm as any).capacity_num || ""}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_num: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Capacity Unit"
+              value={(facilityForm as any).capacity_unit || ""}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_unit: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Gate Code Hint"
+              value={(facilityForm as any).gate_code_hint || ""}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, gate_code_hint: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Notes"
+              value={(facilityForm as any).notes || ""}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, notes: e.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+            <TextField
+              select
+              label="Active"
+              value={facilityForm.is_active}
+              onChange={(e) => setFacilityForm((f) => ({ ...f, is_active: e.target.value }))}
+              fullWidth
+            >
+              <MenuItem value="Y">Yes</MenuItem>
+              <MenuItem value="N">No</MenuItem>
+            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>

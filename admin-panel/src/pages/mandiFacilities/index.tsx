@@ -164,8 +164,9 @@ export const MandiFacilities: React.FC = () => {
         headerName: "Capacity",
         width: 140,
         valueGetter: (params: any) => {
-          const num = params.row.capacity_num || "";
-          const unit = params.row.capacity_unit || "";
+          const row = params?.row || {};
+          const num = row.capacity_num || "";
+          const unit = row.capacity_unit || "";
           return num ? `${num}${unit ? ` ${unit}` : ""}` : "";
         },
       },
@@ -486,6 +487,7 @@ export const MandiFacilities: React.FC = () => {
         <DialogContent dividers sx={{ mt: 1 }}>
           <Stack spacing={2}>
             <TextField
+              id="facility-code"
               select
               label="Facility Code"
               value={facilityForm.facility_code}
@@ -508,6 +510,7 @@ export const MandiFacilities: React.FC = () => {
                 })}
             </TextField>
             <TextField
+              id="capacity-num"
               label="Capacity Number"
               type="number"
               value={(facilityForm as any).capacity_num || ""}
@@ -515,18 +518,21 @@ export const MandiFacilities: React.FC = () => {
               fullWidth
             />
             <TextField
+              id="capacity-unit"
               label="Capacity Unit"
               value={(facilityForm as any).capacity_unit || ""}
               onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_unit: e.target.value }))}
               fullWidth
             />
             <TextField
+              id="gate-code-hint"
               label="Gate Code Hint"
               value={(facilityForm as any).gate_code_hint || ""}
               onChange={(e) => setFacilityForm((f) => ({ ...f, gate_code_hint: e.target.value }))}
               fullWidth
             />
             <TextField
+              id="notes"
               label="Notes"
               value={(facilityForm as any).notes || ""}
               onChange={(e) => setFacilityForm((f) => ({ ...f, notes: e.target.value }))}
@@ -535,6 +541,7 @@ export const MandiFacilities: React.FC = () => {
               minRows={2}
             />
             <TextField
+              id="is-active"
               select
               label="Active"
               value={facilityForm.is_active}

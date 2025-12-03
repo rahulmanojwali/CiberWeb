@@ -273,9 +273,9 @@ export const Commodities: React.FC = () => {
                 p: 2,
                 boxShadow: 1,
               }}
-              onClick={() => canEdit && openEdit(row)}
+              onClick={() => canViewDetail && openEdit(row)}
             >
-              <Stack spacing={1}>
+              <Stack spacing={1.25}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                   <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
                     {row.name}
@@ -290,28 +290,19 @@ export const Commodities: React.FC = () => {
 
                 <Box>
                   <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Group / Category
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {row.group || "-"}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Code / Slug
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {row.code || "-"}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
                     Commodity ID
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
                     {row.commodity_id}
+                  </Typography>
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                    Commodity Name
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                    {row.name || "-"}
                   </Typography>
                 </Box>
 
@@ -413,6 +404,7 @@ export const Commodities: React.FC = () => {
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
+            overflow: "hidden",
           }}
         >
           <Box
@@ -425,23 +417,9 @@ export const Commodities: React.FC = () => {
           >
             <Stack spacing={1.5}>
               <TextField
-                label="Name (EN)"
+                label="Commodity Name"
                 value={form.name_en}
                 onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-              <TextField
-                label="Group / Category"
-                value={form.commodity_group}
-                onChange={(e) => setForm((f) => ({ ...f, commodity_group: e.target.value }))}
-                fullWidth
-                disabled={isReadOnly}
-              />
-              <TextField
-                label="Code / Slug"
-                value={form.code}
-                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
                 fullWidth
                 disabled={isReadOnly}
               />

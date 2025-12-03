@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -120,15 +120,15 @@ export const CommodityProducts: React.FC = () => {
     [canEdit, canDeactivate],
   );
 
-  const loadCommodities = async () => {
+  const loadCommodities = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchCommodities({ username, language });
     const list = resp?.data?.commodities || [];
     setCommodities(list);
-  };
+  }, [language]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     setLoading(true);
@@ -162,27 +162,26 @@ export const CommodityProducts: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize]);
 
   useEffect(() => {
     loadCommodities();
-  }, []);
+  }, [loadCommodities]);
 
   useEffect(() => {
     if (commodities.length) {
       loadData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commodities, language, filters.commodity_id, filters.status, page, pageSize]);
+  }, [commodities.length, loadData]);
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     setIsEdit(false);
     setSelectedId(null);
     setForm(defaultForm);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const openEdit = (row: ProductRow) => {
+  const openEdit = useCallback((row: ProductRow) => {
     setIsEdit(true);
     setSelectedId(row.product_id);
     setForm({
@@ -192,9 +191,9 @@ export const CommodityProducts: React.FC = () => {
       is_active: row.is_active,
     });
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     const payload: any = {
@@ -211,56 +210,18 @@ export const CommodityProducts: React.FC = () => {
     }
     setDialogOpen(false);
     await loadData();
-  };
+  }, [form.commodity_id, form.is_active, form.name_en, form.unit, isEdit, language, loadData, selectedId]);
 
-  const handleDeactivate = async (product_id: number) => {
+  const handleDeactivate = useCallback(async (product_id: number) => {
     const username = currentUsername();
     if (!username) return;
     await deactivateCommodityProduct({ username, language, product_id });
     await loadData();
-  };
+  }, [language, loadData]);
 
-  return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.commodityProducts", { defaultValue: "Commodity Products" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            label="Commodity"
-            size="small"
-            value={filters.commodity_id}
-            onChange={(e) => setFilters((f) => ({ ...f, commodity_id: e.target.value }))}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {commodities.map((c: any) => (
-              <MenuItem key={c.commodity_id} value={c.commodity_id}>
-                {c?.name_i18n?.en || c.slug || c.commodity_id}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="INACTIVE">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </Stack>
-      </Stack>
-
-      {isSmallScreen ? (
+  const listContent = useMemo(() => {
+    if (isSmallScreen) {
+      return (
         <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%", flex: 1 }}>
           {rows.map((row) => (
             <Box
@@ -343,27 +304,86 @@ export const CommodityProducts: React.FC = () => {
             </Box>
           )}
         </Stack>
-      ) : (
-        <Box sx={{ height: 520 }}>
-          <ResponsiveDataGrid
-            columns={columns}
-            rows={rows}
-            loading={loading}
-            getRowId={(r) => r.product_id}
-            paginationMode="server"
-            rowCount={rowCount}
-            paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
-              setPage(model.page);
-              if (model.pageSize !== pageSize) {
-                setPageSize(model.pageSize);
-                setPage(0);
-              }
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </Box>
-      )}
+      );
+    }
+
+    return (
+      <Box sx={{ height: 520 }}>
+        <ResponsiveDataGrid
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          getRowId={(r) => r.product_id}
+          paginationMode="server"
+          rowCount={rowCount}
+          paginationModel={{ page, pageSize }}
+          onPaginationModelChange={(model) => {
+            setPage(model.page);
+            if (model.pageSize !== pageSize) {
+              setPageSize(model.pageSize);
+              setPage(0);
+            }
+          }}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+        />
+      </Box>
+    );
+  }, [isSmallScreen, rows, theme.palette.divider, canViewDetail, canEdit, canDeactivate, handleDeactivate, page, pageSize, rowCount, columns, loading, openEdit]);
+
+  return (
+    <PageContainer>
+      <Stack spacing={2} mb={2}>
+        <Typography variant="h5">{t("menu.commodityProducts", { defaultValue: "Commodity Products" })}</Typography>
+        <Stack
+          direction={isSmallScreen ? "column" : "row"}
+          spacing={2}
+          alignItems={isSmallScreen ? "stretch" : "center"}
+        >
+          <TextField
+            select
+            label="Commodity"
+            size="small"
+            value={filters.commodity_id}
+            onChange={(e) => setFilters((f) => ({ ...f, commodity_id: e.target.value }))}
+            sx={{ minWidth: isSmallScreen ? "100%" : 180 }}
+            fullWidth={isSmallScreen}
+          >
+            <MenuItem value="">All</MenuItem>
+            {commodities.map((c: any) => (
+              <MenuItem key={c.commodity_id} value={c.commodity_id}>
+                {c?.name_i18n?.en || c.slug || c.commodity_id}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Status"
+            size="small"
+            value={filters.status}
+            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
+            sx={{ width: isSmallScreen ? "100%" : 160 }}
+            fullWidth={isSmallScreen}
+          >
+            <MenuItem value="ALL">All</MenuItem>
+            <MenuItem value="ACTIVE">Active</MenuItem>
+            <MenuItem value="INACTIVE">Inactive</MenuItem>
+          </TextField>
+          {canCreate && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={openCreate}
+              fullWidth={isSmallScreen}
+              sx={{ minWidth: isSmallScreen ? "100%" : 160 }}
+            >
+              {t("actions.create", { defaultValue: "Create" })}
+            </Button>
+          )}
+        </Stack>
+      </Stack>
+
+      {listContent}
 
       <Dialog
         open={dialogOpen}

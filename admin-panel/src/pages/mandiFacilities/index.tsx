@@ -11,6 +11,9 @@ import {
   TextField,
   useMediaQuery,
   useTheme,
+  Card,
+  CardContent,
+  Typography,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -80,6 +83,7 @@ export const MandiFacilities: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
+  const isSmallScreen = fullScreenDialog;
 
   const [masters, setMasters] = useState<MasterRow[]>([]);
   const [facilities, setFacilities] = useState<FacilityRow[]>([]);
@@ -380,63 +384,148 @@ const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
         )
       }
     >
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} mb={2}>
+            <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+              Facility Types (Master)
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={masterStatus}
+                onChange={(e) => setMasterStatus(e.target.value as any)}
+                sx={{ width: { xs: "100%", sm: 140 } }}
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="Y">Active</MenuItem>
+                <MenuItem value="N">Inactive</MenuItem>
+              </TextField>
+              {canCreateMaster && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={openMasterCreate}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
+                >
+                  Add Facility Type
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid columns={masterColumns} rows={masters} loading={false} getRowId={(r) => r.id} autoHeight />
+          </Box>
+        </CardContent>
+      </Card>
 
-      {/* Facility masters */}
-      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-        <TextField
-          select
-          label="Status"
-          size="small"
-          value={masterStatus}
-          onChange={(e) => setMasterStatus(e.target.value as any)}
-          sx={{ width: 140 }}
-        >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="Y">Active</MenuItem>
-          <MenuItem value="N">Inactive</MenuItem>
-        </TextField>
-        {canCreateMaster && (
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openMasterCreate}>
-            Add Facility Type
-          </Button>
-        )}
-      </Stack>
-      <Box sx={{ height: 320, mb: 3 }}>
-        <ResponsiveDataGrid columns={masterColumns} rows={masters} loading={false} getRowId={(r) => r.id} />
-      </Box>
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} mb={2}>
+            <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+              Facilities in Mandi
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+              <TextField
+                select
+                label="Mandi"
+                size="small"
+                value={selectedMandi}
+                onChange={(e) => setSelectedMandi(e.target.value)}
+                sx={{ minWidth: { xs: "100%", sm: 200 } }}
+                fullWidth
+              >
+                {mandiOptions.map((m: any) => (
+                  <MenuItem key={m.mandi_id} value={m.mandi_id}>
+                    {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={facilityStatus}
+                onChange={(e) => setFacilityStatus(e.target.value as any)}
+                sx={{ width: { xs: "100%", sm: 160 } }}
+                fullWidth
+              >
+                <MenuItem value="ALL">All</MenuItem>
+                <MenuItem value="Y">Active</MenuItem>
+                <MenuItem value="N">Inactive</MenuItem>
+              </TextField>
+            </Stack>
+          </Stack>
 
-      {/* Facilities for mandi */}
-      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-        <TextField
-          select
-          label="Mandi"
-          size="small"
-          value={selectedMandi}
-          onChange={(e) => setSelectedMandi(e.target.value)}
-          sx={{ minWidth: 200 }}
-        >
-          {mandiOptions.map((m: any) => (
-            <MenuItem key={m.mandi_id} value={m.mandi_id}>
-              {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Status"
-          size="small"
-          value={facilityStatus}
-          onChange={(e) => setFacilityStatus(e.target.value as any)}
-          sx={{ width: 140 }}
-        >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="Y">Active</MenuItem>
-          <MenuItem value="N">Inactive</MenuItem>
-        </TextField>
-      </Stack>
-      <Box sx={{ height: 360 }}>
-        <ResponsiveDataGrid columns={facilityColumns} rows={facilities} loading={false} getRowId={(r) => r.id} />
-      </Box>
+          {isSmallScreen ? (
+            <Stack spacing={1.5}>
+              {facilities.map((row) => (
+                <Card key={row.id} variant="outlined">
+                  <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Facility Name
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        {row.facility_name || row.facility_code}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Code: {row.facility_code}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Capacity
+                      </Typography>
+                      <Typography variant="body2">
+                        {row.capacity_num ? `${row.capacity_num}${row.capacity_unit ? ` ${row.capacity_unit}` : ""}` : "—"}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Gate Hint
+                      </Typography>
+                      <Typography variant="body2">{row.gate_code_hint || "—"}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Status
+                      </Typography>
+                      <Typography variant="body2">{row.is_active === "Y" ? "Active" : "Inactive"}</Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end" pt={0.5}>
+                      {canEditFacility && (
+                        <Button size="small" onClick={() => openFacilityEdit(row)}>
+                          Edit
+                        </Button>
+                      )}
+                      {canDeactivateFacility && (
+                        <Button size="small" color="error" onClick={() => handleFacilityDeactivate(row.id)}>
+                          Deactivate
+                        </Button>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+              {!facilities.length && <Typography color="text.secondary">No facilities found.</Typography>}
+            </Stack>
+          ) : (
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid
+                columns={facilityColumns}
+                rows={facilities}
+                loading={false}
+                getRowId={(r) => r.id}
+                autoHeight
+              />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Master dialog */}
       <Dialog open={masterDialog} onClose={() => setMasterDialog(false)} fullWidth maxWidth="sm">

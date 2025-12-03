@@ -104,9 +104,9 @@ function App() {
           <CssBaseline />
           <GlobalStyles
             styles={{
-              html: { WebkitFontSmoothing: "auto", height: "100%", overflow: "hidden" },
-              body: { margin: 0, padding: 0, height: "100%", overflow: "hidden" },
-              "#root": { height: "100%", overflow: "hidden" },
+              html: { WebkitFontSmoothing: "auto", height: "100%" },
+              body: { margin: 0, padding: 0, height: "100%" },
+              "#root": { height: "100%" },
             }}
           />
           <RefineSnackbarProvider>
@@ -127,26 +127,7 @@ function App() {
                       <AdminRoleGuard>
                         <AdminUiConfigProvider>
                           <ThemedLayout Header={Header} Sider={CustomSider}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexDirection: "column",
-                                height: "100vh",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  flex: 1,
-                                  minHeight: 0,
-                                  overflowY: "auto",
-                                  overflowX: "hidden",
-                                }}
-                                data-app-scrollable
-                              >
-                                <Outlet />
-                              </Box>
-                            </Box>
+                            <Outlet />
                           </ThemedLayout>
                         </AdminUiConfigProvider>
                       </AdminRoleGuard>

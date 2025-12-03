@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -361,26 +363,30 @@ export const CommodityProducts: React.FC = () => {
     }
 
     return (
-      <Box sx={{ width: "100%", overflowX: "auto", mt: 2 }}>
-        <ResponsiveDataGrid
-          columns={columns}
-          rows={rows}
-          loading={loading}
-          getRowId={(r) => r.product_id}
-          paginationMode="server"
-          rowCount={rowCount}
-          paginationModel={{ page, pageSize }}
-          autoHeight
-          onPaginationModelChange={(model) => {
-            setPage(model.page);
-            if (model.pageSize !== pageSize) {
-              setPageSize(model.pageSize);
-              setPage(0);
-            }
-          }}
-          pageSizeOptions={PAGE_SIZE_OPTIONS}
-        />
-      </Box>
+      <Card>
+        <CardContent>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid
+              columns={columns}
+              rows={rows}
+              loading={loading}
+              getRowId={(r) => r.product_id}
+              paginationMode="server"
+              rowCount={rowCount}
+              paginationModel={{ page, pageSize }}
+              autoHeight
+              onPaginationModelChange={(model) => {
+                setPage(model.page);
+                if (model.pageSize !== pageSize) {
+                  setPageSize(model.pageSize);
+                  setPage(0);
+                }
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </Box>
+        </CardContent>
+      </Card>
     );
   }, [
     isSmallScreen,

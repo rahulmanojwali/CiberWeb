@@ -71,6 +71,14 @@ export const CommodityProducts: React.FC = () => {
   const fullScreenDialog = isSmallScreen;
   const uiConfig = useAdminUiConfig();
   const orgCode = uiConfig?.scope?.org_code || null;
+  const orgOptions: { code: string; label: string }[] = useMemo(() => {
+    const codes = Array.isArray((uiConfig as any)?.scope?.org_codes)
+      ? (uiConfig as any).scope.org_codes
+      : orgCode
+      ? [orgCode]
+      : [];
+    return codes.map((c: string) => ({ code: c, label: c }));
+  }, [uiConfig, orgCode]);
 
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [commodities, setCommodities] = useState<any[]>([]);
@@ -84,7 +92,7 @@ export const CommodityProducts: React.FC = () => {
   const [form, setForm] = useState(defaultForm);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
-  const [orgFilterCode, setOrgFilterCode] = useState<string>("ALL");
+  const [orgFilterCode, setOrgFilterCode] = useState<string>(orgCode || "ALL");
 
   const { canCreate, canEdit, canDeactivate, canViewDetail, isSuperAdmin } = useCrudPermissions("commodity_products");
 
@@ -145,7 +153,7 @@ export const CommodityProducts: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize, orgCode]);
+  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize, orgCode, orgFilterCode, isSuperAdmin]);
 
   useEffect(() => {
     loadCommodities();
@@ -156,6 +164,12 @@ export const CommodityProducts: React.FC = () => {
       loadData();
     }
   }, [commodities.length, loadData]);
+
+  useEffect(() => {
+    if (orgCode && orgFilterCode === "ALL") {
+      setOrgFilterCode(orgCode);
+    }
+  }, [orgCode, orgFilterCode]);
 
   const openCreate = useCallback(() => {
     setIsEdit(false);

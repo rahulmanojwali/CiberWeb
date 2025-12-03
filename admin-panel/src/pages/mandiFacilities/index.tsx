@@ -9,6 +9,8 @@ import {
   MenuItem,
   Stack,
   TextField,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -53,16 +55,31 @@ type FacilityRow = {
   id: string;
   mandi_id: number;
   facility_code: string;
+  facility_name?: string;
   is_active: string;
+  capacity_num?: string;
+  capacity_unit?: string;
+  gate_code_hint?: string;
+  notes?: string;
 };
 
 const masterDefault = { facility_code: "", name_en: "", is_active: "Y" };
 const facilityDefault = { facility_code: "", is_active: "Y" };
+const facilityDetailDefault = {
+  facility_code: "",
+  is_active: "Y",
+  capacity_num: "",
+  capacity_unit: "",
+  gate_code_hint: "",
+  notes: "",
+};
 
 export const MandiFacilities: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [masters, setMasters] = useState<MasterRow[]>([]);
   const [facilities, setFacilities] = useState<FacilityRow[]>([]);
@@ -140,7 +157,8 @@ export const MandiFacilities: React.FC = () => {
   const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
     () => [
       { field: "mandi_id", headerName: "Mandi ID", width: 110 },
-      { field: "facility_code", headerName: "Facility", width: 150 },
+      { field: "facility_code", headerName: "Facility Code", width: 150 },
+      { field: "facility_name", headerName: "Facility Name", flex: 1 },
       { field: "is_active", headerName: "Active", width: 100 },
       {
         field: "actions",
@@ -207,12 +225,21 @@ export const MandiFacilities: React.FC = () => {
       },
     });
     const list = resp?.data?.items || [];
+    const nameMap = masters.reduce((acc: Record<string, string>, m) => {
+      acc[m.facility_code] = m.name;
+      return acc;
+    }, {});
     setFacilities(
       list.map((f: any) => ({
         id: f._id,
         mandi_id: f.mandi_id,
         facility_code: f.facility_code,
         is_active: f.is_active,
+        facility_name: nameMap[f.facility_code] || f.facility_code,
+        capacity_num: f.capacity_num,
+        capacity_unit: f.capacity_unit,
+        gate_code_hint: f.gate_code_hint,
+        notes: f.notes,
       })),
     );
   };
@@ -269,7 +296,7 @@ export const MandiFacilities: React.FC = () => {
 
   const openFacilityCreate = () => {
     setFacilityEditId(null);
-    setFacilityForm({ facility_code: "", is_active: "Y" });
+    setFacilityForm(facilityDetailDefault as any);
     setFacilityDialog(true);
   };
 
@@ -286,7 +313,14 @@ export const MandiFacilities: React.FC = () => {
   const openFacilityEdit = (row: FacilityRow) => {
     setCreateOpen(false);
     setFacilityEditId(row.id);
-    setFacilityForm({ facility_code: row.facility_code, is_active: row.is_active });
+    setFacilityForm({
+      facility_code: row.facility_code,
+      is_active: row.is_active,
+      capacity_num: row.capacity_num || "",
+      capacity_unit: row.capacity_unit || "",
+      gate_code_hint: row.gate_code_hint || "",
+      notes: row.notes || "",
+    } as any);
     setFacilityDialog(true);
   };
 
@@ -297,6 +331,10 @@ export const MandiFacilities: React.FC = () => {
       mandi_id: Number(selectedMandi),
       facility_code: facilityForm.facility_code,
       is_active: facilityForm.is_active,
+      capacity_num: (facilityForm as any).capacity_num || undefined,
+      capacity_unit: (facilityForm as any).capacity_unit || undefined,
+      gate_code_hint: (facilityForm as any).gate_code_hint || undefined,
+      notes: (facilityForm as any).notes || undefined,
     };
     if (facilityEditId) {
       payload._id = facilityEditId;
@@ -426,9 +464,16 @@ export const MandiFacilities: React.FC = () => {
       </Dialog>
 
       {/* Facility dialog */}
-      <Dialog open={facilityDialog} onClose={handleCloseCreate} fullWidth maxWidth="sm">
+      <Dialog
+        open={facilityDialog}
+        onClose={handleCloseCreate}
+        fullWidth
+        maxWidth="md"
+        fullScreen={fullScreenDialog}
+      >
         <DialogTitle>{facilityEditId ? "Edit Facility" : "Add Facility"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <DialogContent dividers sx={{ mt: 1 }}>
+          <Stack spacing={2}>
           <TextField
             select
             label="Facility Code"
@@ -436,12 +481,46 @@ export const MandiFacilities: React.FC = () => {
             onChange={(e) => setFacilityForm((f) => ({ ...f, facility_code: e.target.value }))}
             fullWidth
           >
-            {masters.map((m) => (
-              <MenuItem key={m.facility_code} value={m.facility_code}>
-                {m.facility_code} - {m.name}
-              </MenuItem>
-            ))}
+            {masters
+              .filter((m) => m.is_active === "Y")
+              .map((m) => {
+                const assigned = facilities.some(
+                  (f) => f.facility_code === m.facility_code && f.mandi_id === Number(selectedMandi),
+                );
+                const disabled = !facilityEditId && assigned;
+                return (
+                  <MenuItem key={m.facility_code} value={m.facility_code} disabled={disabled}>
+                    {m.facility_code} - {m.name}
+                  </MenuItem>
+                );
+              })}
           </TextField>
+          <TextField
+            label="Capacity Number"
+            value={(facilityForm as any).capacity_num || ""}
+            onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_num: e.target.value }))}
+            fullWidth
+          />
+          <TextField
+            label="Capacity Unit"
+            value={(facilityForm as any).capacity_unit || ""}
+            onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_unit: e.target.value }))}
+            fullWidth
+          />
+          <TextField
+            label="Gate Code Hint"
+            value={(facilityForm as any).gate_code_hint || ""}
+            onChange={(e) => setFacilityForm((f) => ({ ...f, gate_code_hint: e.target.value }))}
+            fullWidth
+          />
+          <TextField
+            label="Notes"
+            value={(facilityForm as any).notes || ""}
+            onChange={(e) => setFacilityForm((f) => ({ ...f, notes: e.target.value }))}
+            fullWidth
+            multiline
+            minRows={2}
+          />
           <TextField
             select
             label="Active"
@@ -452,6 +531,7 @@ export const MandiFacilities: React.FC = () => {
             <MenuItem value="Y">Yes</MenuItem>
             <MenuItem value="N">No</MenuItem>
           </TextField>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCreate}>Cancel</Button>

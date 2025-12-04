@@ -35,7 +35,6 @@ import {
   updateGateEntryReason,
   deactivateGateEntryReason,
 } from "../../services/gateApi";
-import { fetchOrganisations } from "../../services/adminUsersApi";
 
 function currentUsername(): string | null {
   try {
@@ -56,9 +55,6 @@ type ReasonRow = {
   needs_vehicle_check?: string;
   needs_weight_check?: string;
   is_active: string;
-  org_scope?: string;
-  org_code?: string;
-  org_id?: string;
 };
 
 const defaultForm = {
@@ -89,9 +85,6 @@ export const GateEntryReasons: React.FC = () => {
   const isMobile = fullScreenDialog;
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
-  const [orgOptions, setOrgOptions] = useState<{ value: string; label: string; code?: string }[]>([]);
-  const [orgFilter, setOrgFilter] = useState<string>("");
-
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
   const [loading, setLoading] = useState(false);
@@ -173,7 +166,6 @@ export const GateEntryReasons: React.FC = () => {
         language,
         filters: {
           is_active: status === "ALL" ? undefined : status,
-          org_id: orgFilter === "ALL" || !orgFilter ? undefined : orgFilter,
         },
       });
       const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
@@ -187,9 +179,6 @@ export const GateEntryReasons: React.FC = () => {
           needs_vehicle_check: r.needs_vehicle_check || r.vehicle_check || undefined,
           needs_weight_check: r.needs_weight_check || r.weight_check || undefined,
           is_active: r.is_active || r.active || "Y",
-          org_scope: r.org_scope,
-          org_code: r.org_code,
-          org_id: r.org_id,
         })),
       );
     } finally {
@@ -199,32 +188,7 @@ export const GateEntryReasons: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [status, language, orgFilter]);
-
-  useEffect(() => {
-    const loadOrgs = async () => {
-      const username = currentUsername();
-      if (!username) return;
-      const resp = await fetchOrganisations({ username, language });
-      const list = resp?.data?.organisations || resp?.response?.data?.organisations || [];
-      const mapped = list.map((o: any) => ({
-        value: o._id,
-        label: o.org_name ? `${o.org_code} – ${o.org_name}` : o.org_code,
-        code: o.org_code,
-      }));
-
-      if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") {
-        setOrgOptions([{ value: "ALL", label: "All organisations" }, ...mapped]);
-        setOrgFilter((prev) => (prev ? prev : "ALL"));
-      } else {
-        const own = mapped.find((o: any) => o.code === uiConfig.scope?.org_code) || mapped[0];
-        setOrgOptions(own ? [own] : []);
-        setOrgFilter((prev) => (prev ? prev : own?.value || ""));
-      }
-    };
-
-    loadOrgs();
-  }, [language, uiConfig]);
+  }, [status, language]);
 
   const openCreate = () => {
     setIsEdit(false);
@@ -293,23 +257,6 @@ export const GateEntryReasons: React.FC = () => {
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.gateEntryReasons", { defaultValue: "Gate Entry Reasons" })}</Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
-          {orgOptions.length > 0 && (
-            <TextField
-              select
-              label="Organisation"
-              size="small"
-              value={orgFilter}
-              onChange={(e) => setOrgFilter(e.target.value)}
-              disabled={(uiConfig.role || "").toUpperCase() !== "SUPER_ADMIN" && orgOptions.length === 1}
-              sx={{ width: { xs: "100%", sm: 240 } }}
-            >
-              {orgOptions.map((opt: any) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
           <TextField
             select
             label="Status"
@@ -346,7 +293,6 @@ export const GateEntryReasons: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Code: {row.reason_code}
                   </Typography>
-                  <Typography variant="body2">Org: {row.org_code || row.org_scope || "—"}</Typography>
                   <Typography variant="body2">Category: {row.category || "—"}</Typography>
                   <Typography variant="body2">Documents: {docs}</Typography>
                   <Typography variant="body2">Checks: {checks}</Typography>

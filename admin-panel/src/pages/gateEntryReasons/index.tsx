@@ -35,6 +35,7 @@ import {
   updateGateEntryReason,
   deactivateGateEntryReason,
 } from "../../services/gateApi";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 
 function currentUsername(): string | null {
   try {
@@ -57,6 +58,7 @@ type ReasonRow = {
   is_active: string;
   org_scope?: string;
   org_code?: string;
+  org_id?: string;
 };
 
 const defaultForm = {
@@ -87,31 +89,8 @@ export const GateEntryReasons: React.FC = () => {
   const isMobile = fullScreenDialog;
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
-  const orgOptions = useMemo(() => {
-    const codes = Array.isArray((uiConfig as any)?.scope?.org_codes)
-      ? (uiConfig as any).scope.org_codes
-      : uiConfig.scope?.org_code
-      ? [uiConfig.scope.org_code]
-      : [];
-
-    const opts = codes.map((code: string) => ({ value: code, label: code }));
-
-    if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") {
-      return [{ value: "ALL", label: "All organisations" }, ...opts];
-    }
-
-    if (opts.length === 0 && uiConfig.scope?.org_code) {
-      return [{ value: uiConfig.scope.org_code, label: uiConfig.scope.org_code }];
-    }
-    return opts;
-  }, [uiConfig]);
-
-  const defaultOrgFilter = useMemo(() => {
-    if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") return "ALL";
-    return uiConfig.scope?.org_code || orgOptions[0]?.value || "";
-  }, [uiConfig, orgOptions]);
-
-  const [orgFilter, setOrgFilter] = useState<string>(defaultOrgFilter);
+  const [orgOptions, setOrgOptions] = useState<{ value: string; label: string; code?: string }[]>([]);
+  const [orgFilter, setOrgFilter] = useState<string>("");
 
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -194,7 +173,7 @@ export const GateEntryReasons: React.FC = () => {
         language,
         filters: {
           is_active: status === "ALL" ? undefined : status,
-          org_code: orgFilter === "ALL" ? undefined : orgFilter || undefined,
+          org_id: orgFilter === "ALL" || !orgFilter ? undefined : orgFilter,
         },
       });
       const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
@@ -210,6 +189,7 @@ export const GateEntryReasons: React.FC = () => {
           is_active: r.is_active || r.active || "Y",
           org_scope: r.org_scope,
           org_code: r.org_code,
+          org_id: r.org_id,
         })),
       );
     } finally {
@@ -219,7 +199,32 @@ export const GateEntryReasons: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [status, language]);
+  }, [status, language, orgFilter]);
+
+  useEffect(() => {
+    const loadOrgs = async () => {
+      const username = currentUsername();
+      if (!username) return;
+      const resp = await fetchOrganisations({ username, language });
+      const list = resp?.data?.organisations || resp?.response?.data?.organisations || [];
+      const mapped = list.map((o: any) => ({
+        value: o._id,
+        label: o.org_name ? `${o.org_code} – ${o.org_name}` : o.org_code,
+        code: o.org_code,
+      }));
+
+      if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") {
+        setOrgOptions([{ value: "ALL", label: "All organisations" }, ...mapped]);
+        setOrgFilter((prev) => (prev ? prev : "ALL"));
+      } else {
+        const own = mapped.find((o: any) => o.code === uiConfig.scope?.org_code) || mapped[0];
+        setOrgOptions(own ? [own] : []);
+        setOrgFilter((prev) => (prev ? prev : own?.value || ""));
+      }
+    };
+
+    loadOrgs();
+  }, [language, uiConfig]);
 
   const openCreate = () => {
     setIsEdit(false);

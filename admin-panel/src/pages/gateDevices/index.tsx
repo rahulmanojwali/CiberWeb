@@ -2,11 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   MenuItem,
+  Pagination,
   Stack,
   TextField,
   Typography,
@@ -20,10 +24,12 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchGateDevices, createGateDevice, updateGateDevice, deactivateGateDevice } from "../../services/gateApi";
 import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
 import { fetchOrganisations } from "../../services/adminUsersApi";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 
 function currentUsername(): string | null {
   try {
@@ -43,6 +49,9 @@ type DeviceRow = {
   is_primary: string;
   is_active: string;
   org_id?: string;
+  org_code?: string;
+  updated_on?: string;
+  capability_set?: string[];
 };
 
 const defaultForm = {
@@ -60,6 +69,8 @@ export const GateDevices: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [rows, setRows] = useState<DeviceRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -71,22 +82,41 @@ export const GateDevices: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "cm_gate_devices.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "cm_gate_devices.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(
-    () => can(uiConfig.resources, "cm_gate_devices.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
-  );
+  const { canView, canCreate, canEdit, canDeactivate, isSuperAdmin } = useCrudPermissions("gate_devices");
+  const orgCode = uiConfig?.scope?.org_code || "";
+  const orgCodes =
+    (Array.isArray((uiConfig as any)?.scope?.org_codes) && (uiConfig as any)?.scope?.org_codes) ||
+    (orgCode ? [orgCode] : []);
 
   const columns = useMemo<GridColDef<DeviceRow>[]>(
     () => [
       { field: "device_code", headerName: "Device Code", width: 180 },
       { field: "device_type", headerName: "Type", width: 160 },
+      {
+        field: "org_code",
+        headerName: "Org",
+        width: 140,
+        valueGetter: (params) => orgLabel(params.row.org_id) || params.row.org_code || "",
+      },
       { field: "mandi_id", headerName: "Mandi", width: 110 },
       { field: "gate_code", headerName: "Gate", width: 130 },
+      {
+        field: "capability_set",
+        headerName: "Capabilities",
+        flex: 1,
+        valueGetter: (params) => (params.row.capability_set || []).join(", "),
+      },
       { field: "is_primary", headerName: "Primary", width: 110 },
-      { field: "is_active", headerName: "Active", width: 110 },
+      {
+        field: "is_active",
+        headerName: "Active",
+        width: 110,
+        valueGetter: (params) => (params.row.is_active === "Y" ? "Active" : "Inactive"),
+      },
       {
         field: "actions",
         headerName: "Actions",
@@ -120,14 +150,25 @@ export const GateDevices: React.FC = () => {
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    setOrgOptions(orgs);
+    const filtered = isSuperAdmin ? orgs : orgs.filter((o: any) => orgCodes.includes(o.org_code));
+    setOrgOptions(filtered);
+    if (!isSuperAdmin && filtered.length) {
+      setFilters((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
+    }
   };
 
-  const loadMandis = async () => {
+  const loadMandis = async (orgId?: string) => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    setMandiOptions(resp?.data?.mandis || []);
+    const mandis = resp?.data?.mandis || [];
+    const targetOrg = orgId ?? filters.org_id;
+    const filtered = targetOrg
+      ? mandis.filter(
+          (m: any) => String(m.org_id || "") === String(targetOrg) || String(m.org_code || "") === orgCode,
+        )
+      : mandis;
+    setMandiOptions(filtered);
   };
 
   const loadGates = async (mandiId?: string | number) => {
@@ -151,9 +192,18 @@ export const GateDevices: React.FC = () => {
           gate_code: filters.gate_code || undefined,
           device_type: filters.device_type || undefined,
           is_active: status === "ALL" ? undefined : status,
+          page,
+          perPage,
         },
       });
       const list = resp?.data?.devices || resp?.response?.data?.devices || [];
+      const pagination = resp?.data?.pagination || resp?.response?.data?.pagination;
+      if (pagination?.total !== undefined) {
+        setTotal(pagination.total);
+        setPerPage(pagination.perPage || perPage);
+      } else {
+        setTotal(list.length);
+      }
       setRows(
         list.map((d: any) => ({
           device_code: d.device_code,
@@ -163,6 +213,9 @@ export const GateDevices: React.FC = () => {
           is_primary: d.is_primary,
           is_active: d.is_active,
           org_id: d.org_id,
+          org_code: d.org_code || d.org_code_hint,
+          updated_on: d.updated_on,
+          capability_set: d.capability_set || [],
         })),
       );
     } finally {
@@ -173,27 +226,35 @@ export const GateDevices: React.FC = () => {
   useEffect(() => {
     loadOrgs();
     loadMandis();
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     loadData();
-  }, [status, filters.org_id, filters.mandi_id, filters.gate_code, filters.device_type, language]);
+  }, [status, filters.org_id, filters.mandi_id, filters.gate_code, filters.device_type, language, page, perPage]);
+
+  useEffect(() => {
+    loadMandis(filters.org_id);
+    setGateOptions([]);
+  }, [filters.org_id]);
 
   const openCreate = () => {
     setIsEdit(false);
-    setForm(defaultForm);
+    setForm({
+      ...defaultForm,
+      org_id: filters.org_id || (orgOptions[0]?._id || ""),
+    });
     setDialogOpen(true);
   };
 
   const openEdit = (row: DeviceRow) => {
     setIsEdit(true);
     setForm({
-      org_id: row.org_id || "",
+      org_id: row.org_id || filters.org_id || "",
       mandi_id: String(row.mandi_id),
       gate_code: row.gate_code,
       device_code: row.device_code,
       device_type: row.device_type,
-      capability_set: [],
+      capability_set: row.capability_set || [],
       is_primary: row.is_primary,
       is_active: row.is_active,
     });
@@ -230,18 +291,50 @@ export const GateDevices: React.FC = () => {
     await loadData();
   };
 
+  const orgLabel = (orgId?: string) => {
+    const found = orgOptions.find((o) => String(o._id) === String(orgId));
+    return found?.org_code || found?.org_name || "";
+  };
+
+  const mandiLabel = (mandiId?: number | string) => {
+    const found = mandiOptions.find((m: any) => String(m.mandi_id) === String(mandiId));
+    return found?.name_i18n?.en || found?.mandi_slug || mandiId;
+  };
+
+  if (!canView) return null;
+
   return (
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.gateDevices", { defaultValue: "Gate Devices" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          width={{ xs: "100%", sm: "auto" }}
+        >
           <TextField
             select
             label="Organisation"
             size="small"
             value={filters.org_id}
-            onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-            sx={{ minWidth: 180 }}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "" }));
+              setGateOptions([]);
+              setMandiOptions((prev) =>
+                prev.filter(
+                  (m: any) =>
+                    !e.target.value ||
+                    String(m.org_id || "") === String(e.target.value) ||
+                    String(m.org_code || "") === orgCode,
+                ),
+              );
+              setPage(1);
+              loadMandis();
+            }}
+            fullWidth
+            sx={{ minWidth: { sm: 180 } }}
+            disabled={!isSuperAdmin}
           >
             <MenuItem value="">All</MenuItem>
             {orgOptions.map((o) => (
@@ -258,8 +351,11 @@ export const GateDevices: React.FC = () => {
             onChange={(e) => {
               setFilters((f) => ({ ...f, mandi_id: e.target.value, gate_code: "" }));
               loadGates(e.target.value);
+              setPage(1);
+              setGateOptions([]);
             }}
-            sx={{ minWidth: 180 }}
+            fullWidth
+            sx={{ minWidth: { sm: 180 } }}
           >
             <MenuItem value="">All</MenuItem>
             {mandiOptions.map((m: any) => (
@@ -273,8 +369,12 @@ export const GateDevices: React.FC = () => {
             label="Gate"
             size="small"
             value={filters.gate_code}
-            onChange={(e) => setFilters((f) => ({ ...f, gate_code: e.target.value }))}
-            sx={{ minWidth: 160 }}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, gate_code: e.target.value }));
+              setPage(1);
+            }}
+            fullWidth
+            sx={{ minWidth: { sm: 160 } }}
           >
             <MenuItem value="">All</MenuItem>
             {gateOptions.map((g: any) => (
@@ -284,39 +384,138 @@ export const GateDevices: React.FC = () => {
             ))}
           </TextField>
           <TextField
-            label="Device Type"
-            size="small"
-            value={filters.device_type}
-            onChange={(e) => setFilters((f) => ({ ...f, device_type: e.target.value }))}
-            sx={{ minWidth: 140 }}
-          />
-          <TextField
             select
             label="Status"
             size="small"
             value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            sx={{ width: 140 }}
+            onChange={(e) => {
+              setStatus(e.target.value as any);
+              setPage(1);
+            }}
+            fullWidth
+            sx={{ minWidth: { sm: 140 } }}
           >
             <MenuItem value="ALL">All</MenuItem>
             <MenuItem value="Y">Active</MenuItem>
             <MenuItem value="N">Inactive</MenuItem>
           </TextField>
           {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} fullWidth>
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
         </Stack>
       </Stack>
 
-      <Box sx={{ height: 520 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.device_code} />
-      </Box>
+      {isMobile ? (
+        <Stack spacing={2}>
+          {(rows || []).map((row) => (
+            <Card key={row.device_code}>
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {row.device_code}
+                  </Typography>
+                  <Chip label={row.device_type} size="small" />
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Org: {orgLabel(row.org_id)} · Mandi: {mandiLabel(row.mandi_id)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Gate: {row.gate_code || "—"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Capabilities: {(row.capability_set || []).join(", ") || "—"}
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  {row.is_primary === "Y" && <Chip size="small" label="Primary" color="primary" />}
+                  <Chip
+                    size="small"
+                    label={row.is_active === "Y" ? "Active" : "Inactive"}
+                    color={row.is_active === "Y" ? "success" : "default"}
+                  />
+                </Stack>
+                {row.updated_on && (
+                  <Typography variant="caption" color="text.secondary">
+                    Last updated: {new Date(row.updated_on).toLocaleString()}
+                  </Typography>
+                )}
+                {(canEdit || canDeactivate) && (
+                  <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
+                    {canEdit && (
+                      <Button variant="text" size="small" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                        Edit
+                      </Button>
+                    )}
+                    {canDeactivate && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeactivate(row.device_code)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          <Box display="flex" justifyContent="center">
+            <Pagination
+              count={Math.max(1, Math.ceil(total / perPage))}
+              page={page}
+              onChange={(_, p) => setPage(p)}
+              size="small"
+            />
+          </Box>
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>
+            <ResponsiveDataGrid
+              columns={columns}
+              rows={rows || []}
+              loading={loading}
+              getRowId={(r) => r.device_code}
+              autoHeight
+              paginationMode="server"
+              rowCount={total}
+              page={page - 1}
+              pageSize={perPage}
+              onPageChange={(newPage) => setPage(newPage + 1)}
+              onPageSizeChange={(newSize) => {
+                setPerPage(newSize);
+                setPage(1);
+              }}
+              rowsPerPageOptions={[10, 25, 50]}
+            />
+          </CardContent>
+        </Card>
+      )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: { display: "flex", flexDirection: "column", maxHeight: isMobile ? "100vh" : "90vh" },
+        }}
+      >
         <DialogTitle>{isEdit ? "Edit Device" : "Create Device"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <DialogContent
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            overflowY: "auto",
+          }}
+        >
           <TextField
             label="Device Code"
             value={form.device_code}
@@ -325,33 +524,50 @@ export const GateDevices: React.FC = () => {
             disabled={isEdit}
           />
           <TextField
+            select
             label="Device Type"
             value={form.device_type}
             onChange={(e) => setForm((f) => ({ ...f, device_type: e.target.value }))}
             fullWidth
-          />
+          >
+            {["WEIGHBRIDGE_CONSOLE", "QR_SCANNER", "RFID_READER", "GPS_TRACKER"].map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
-            label="Capabilities (comma)"
-            value={form.capability_set.join(",")}
+            select
+            label="Capabilities"
+            SelectProps={{ multiple: true }}
+            value={form.capability_set}
             onChange={(e) =>
               setForm((f) => ({
                 ...f,
-                capability_set: e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
+                capability_set: (e.target.value as string[]).map((s) => s.trim()),
               }))
             }
             fullWidth
-          />
+          >
+            {["QR", "RFID", "GPS", "PRINTER", "DISPLAY", "API"].map((cap) => (
+              <MenuItem key={cap} value={cap}>
+                {cap}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             select
             label="Organisation"
             value={form.org_id}
-            onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "" }));
+              loadMandis(e.target.value);
+              setGateOptions([]);
+            }}
             fullWidth
+            disabled={!isSuperAdmin}
           >
-            <MenuItem value="">Not Set</MenuItem>
+            <MenuItem value="">Select</MenuItem>
             {orgOptions.map((o) => (
               <MenuItem key={o._id} value={o._id}>
                 {o.org_code}
@@ -408,9 +624,9 @@ export const GateDevices: React.FC = () => {
             <MenuItem value="N">No</MenuItem>
           </TextField>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
+          <Button variant="contained" onClick={handleSave} disabled={!form.device_code || !form.device_type}>
             {isEdit ? "Update" : "Create"}
           </Button>
         </DialogActions>

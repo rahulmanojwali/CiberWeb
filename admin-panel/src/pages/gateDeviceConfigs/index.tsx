@@ -2,11 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   MenuItem,
+  Pagination,
   Stack,
   TextField,
   Typography,
@@ -20,7 +24,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
   fetchGateDeviceConfigs,
   createGateDeviceConfig,
@@ -30,6 +34,8 @@ import {
 } from "../../services/gateApi";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 
 function currentUsername(): string | null {
   try {
@@ -48,6 +54,9 @@ type ConfigRow = {
   gate_code: string;
   device_code: string;
   is_active: string;
+  qr_format?: string;
+  qr_payload_template?: string;
+  updated_on?: string;
 };
 
 const defaultForm = {
@@ -65,6 +74,13 @@ export const GateDeviceConfigs: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { canView, canCreate, canEdit, canDeactivate, isSuperAdmin } = useCrudPermissions("gate_device_configs");
+  const orgCode = uiConfig?.scope?.org_code || "";
+  const orgCodes =
+    (Array.isArray((uiConfig as any)?.scope?.org_codes) && (uiConfig as any)?.scope?.org_codes) ||
+    (orgCode ? [orgCode] : []);
 
   const [rows, setRows] = useState<ConfigRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -78,19 +94,48 @@ export const GateDeviceConfigs: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "gate_device_configs.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "gate_device_configs.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(
-    () => can(uiConfig.resources, "gate_device_configs.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
-  );
+  const orgLabel = (orgId?: string) => {
+    const found = orgOptions.find((o) => String(o._id) === String(orgId));
+    return found?.org_code || found?.org_name || "";
+  };
+
+  const mandiLabel = (mandiId?: number | string) => {
+    const found = mandiOptions.find((m: any) => String(m.mandi_id) === String(mandiId));
+    return found?.name_i18n?.en || found?.mandi_slug || mandiId;
+  };
 
   const columns = useMemo<GridColDef<ConfigRow>[]>(
     () => [
       { field: "device_code", headerName: "Device Code", width: 180 },
-      { field: "mandi_id", headerName: "Mandi", width: 110 },
+      {
+        field: "org_id",
+        headerName: "Org",
+        width: 140,
+        valueGetter: (params) => orgLabel(params.row.org_id),
+      },
+      {
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 140,
+        valueGetter: (params) => mandiLabel(params.row.mandi_id),
+      },
       { field: "gate_code", headerName: "Gate", width: 130 },
+      {
+        field: "qr_format",
+        headerName: "QR Format",
+        width: 140,
+        valueGetter: (params) => params.row.qr_format || "—",
+      },
+      {
+        field: "qr_payload_template",
+        headerName: "QR Template",
+        flex: 1,
+        valueGetter: (params) => params.row.qr_payload_template || "—",
+      },
       { field: "is_active", headerName: "Active", width: 110 },
       {
         field: "actions",
@@ -125,14 +170,26 @@ export const GateDeviceConfigs: React.FC = () => {
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    setOrgOptions(orgs);
+    const filtered = isSuperAdmin ? orgs : orgs.filter((o: any) => orgCodes.includes(o.org_code));
+    setOrgOptions(filtered);
+    if (!isSuperAdmin && filtered.length) {
+      setFilters((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
+      setForm((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
+    }
   };
 
-  const loadMandis = async () => {
+  const loadMandis = async (orgId?: string) => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    setMandiOptions(resp?.data?.mandis || []);
+    const mandis = resp?.data?.mandis || [];
+    const targetOrg = orgId ?? filters.org_id;
+    const filtered = targetOrg
+      ? mandis.filter(
+          (m: any) => String(m.org_id || "") === String(targetOrg) || String(m.org_code || "") === String(orgCode),
+        )
+      : mandis;
+    setMandiOptions(filtered);
   };
 
   const loadGates = async (mandiId?: string | number) => {
@@ -145,8 +202,20 @@ export const GateDeviceConfigs: React.FC = () => {
   const loadDevices = async (mandiId?: string | number) => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchGateDevices({ username, language, filters: { mandi_id: mandiId ? Number(mandiId) : undefined, is_active: "Y" } });
-    setDeviceOptions(resp?.data?.devices || []);
+    const resp = await fetchGateDevices({
+      username,
+      language,
+      filters: {
+        org_id: filters.org_id || undefined,
+        mandi_id: mandiId ? Number(mandiId) : filters.mandi_id ? Number(filters.mandi_id) : undefined,
+        is_active: "Y",
+      },
+    });
+    const list = resp?.data?.devices || resp?.response?.data?.devices || [];
+    const filtered = filters.gate_code
+      ? list.filter((d: any) => String(d.gate_code || "") === String(filters.gate_code))
+      : list;
+    setDeviceOptions(filtered);
   };
 
   const loadData = async () => {
@@ -163,9 +232,18 @@ export const GateDeviceConfigs: React.FC = () => {
           gate_code: filters.gate_code || undefined,
           device_code: filters.device_code || undefined,
           is_active: status === "ALL" ? undefined : status,
+          page,
+          perPage,
         },
       });
       const list = resp?.data?.configs || resp?.response?.data?.configs || [];
+      const pagination = resp?.data?.pagination || resp?.response?.data?.pagination;
+      if (pagination?.total !== undefined) {
+        setTotal(pagination.total);
+        setPerPage(pagination.perPage || perPage);
+      } else {
+        setTotal(list.length);
+      }
       setRows(
         list.map((c: any) => ({
           id: c._id,
@@ -174,6 +252,9 @@ export const GateDeviceConfigs: React.FC = () => {
           gate_code: c.gate_code,
           device_code: c.device_code,
           is_active: c.is_active,
+          qr_format: c.qr_format,
+          qr_payload_template: c.qr_payload_template,
+          updated_on: c.updated_on,
         })),
       );
     } finally {
@@ -184,16 +265,26 @@ export const GateDeviceConfigs: React.FC = () => {
   useEffect(() => {
     loadOrgs();
     loadMandis();
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     loadData();
-  }, [status, filters.org_id, filters.mandi_id, filters.gate_code, filters.device_code, language]);
+  }, [status, filters.org_id, filters.mandi_id, filters.gate_code, filters.device_code, language, page, perPage]);
+
+  useEffect(() => {
+    loadMandis(filters.org_id);
+    setGateOptions([]);
+    setDeviceOptions([]);
+    setPage(1);
+  }, [filters.org_id]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
-    setForm(defaultForm);
+    setForm({
+      ...defaultForm,
+      org_id: filters.org_id || (orgOptions[0]?._id || ""),
+    });
     setDialogOpen(true);
   };
 
@@ -201,7 +292,7 @@ export const GateDeviceConfigs: React.FC = () => {
     setIsEdit(true);
     setEditId(row.id);
     setForm({
-      org_id: row.org_id || "",
+      org_id: row.org_id || filters.org_id || "",
       mandi_id: String(row.mandi_id),
       gate_code: row.gate_code,
       device_code: row.device_code,
@@ -232,6 +323,7 @@ export const GateDeviceConfigs: React.FC = () => {
       gate_code: form.gate_code,
       device_code: form.device_code,
       qr_format: form.qr_format || undefined,
+      qr_payload_template: form.qr_payload_template || undefined,
       rfid_protocol: form.rfid_protocol || undefined,
       is_active: form.is_active,
       notes: advanced ? JSON.stringify(advanced) : undefined,
@@ -253,18 +345,50 @@ export const GateDeviceConfigs: React.FC = () => {
     await loadData();
   };
 
+  if (!canView) return null;
+
+  const grid = (
+    <ResponsiveDataGrid
+      columns={columns}
+      rows={rows}
+      loading={loading}
+      getRowId={(r) => r.id}
+      autoHeight
+      paginationMode="server"
+      rowCount={total}
+      page={page - 1}
+      pageSize={perPage}
+      onPageChange={(newPage) => setPage(newPage + 1)}
+      onPageSizeChange={(newSize) => {
+        setPerPage(newSize);
+        setPage(1);
+      }}
+      rowsPerPageOptions={[10, 25, 50]}
+    />
+  );
+
   return (
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.gateDeviceConfigs", { defaultValue: "Gate Device Configs" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          width={{ xs: "100%", sm: "auto" }}
+        >
           <TextField
             select
             label="Organisation"
             size="small"
             value={filters.org_id}
-            onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
-            sx={{ minWidth: 180 }}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "", device_code: "" }));
+              setPage(1);
+            }}
+            sx={{ minWidth: { sm: 180 } }}
+            fullWidth
+            disabled={!isSuperAdmin}
           >
             <MenuItem value="">All</MenuItem>
             {orgOptions.map((o) => (
@@ -282,8 +406,10 @@ export const GateDeviceConfigs: React.FC = () => {
               setFilters((f) => ({ ...f, mandi_id: e.target.value, gate_code: "", device_code: "" }));
               loadGates(e.target.value);
               loadDevices(e.target.value);
+              setPage(1);
             }}
-            sx={{ minWidth: 160 }}
+            sx={{ minWidth: { sm: 160 } }}
+            fullWidth
           >
             <MenuItem value="">All</MenuItem>
             {mandiOptions.map((m: any) => (
@@ -297,8 +423,12 @@ export const GateDeviceConfigs: React.FC = () => {
             label="Gate"
             size="small"
             value={filters.gate_code}
-            onChange={(e) => setFilters((f) => ({ ...f, gate_code: e.target.value }))}
-            sx={{ minWidth: 150 }}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, gate_code: e.target.value, device_code: "" }));
+              setPage(1);
+            }}
+            sx={{ minWidth: { sm: 150 } }}
+            fullWidth
           >
             <MenuItem value="">All</MenuItem>
             {gateOptions.map((g: any) => (
@@ -312,8 +442,12 @@ export const GateDeviceConfigs: React.FC = () => {
             label="Device"
             size="small"
             value={filters.device_code}
-            onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
-            sx={{ minWidth: 150 }}
+            onChange={(e) => {
+              setFilters((f) => ({ ...f, device_code: e.target.value }));
+              setPage(1);
+            }}
+            sx={{ minWidth: { sm: 150 } }}
+            fullWidth
           >
             <MenuItem value="">All</MenuItem>
             {deviceOptions.map((d: any) => (
@@ -327,34 +461,122 @@ export const GateDeviceConfigs: React.FC = () => {
             label="Status"
             size="small"
             value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            sx={{ width: 140 }}
+            onChange={(e) => {
+              setStatus(e.target.value as any);
+              setPage(1);
+            }}
+            sx={{ minWidth: { sm: 140 } }}
+            fullWidth
           >
             <MenuItem value="ALL">All</MenuItem>
             <MenuItem value="Y">Active</MenuItem>
             <MenuItem value="N">Inactive</MenuItem>
           </TextField>
           {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} fullWidth>
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
         </Stack>
       </Stack>
 
-      <Box sx={{ height: 520 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.id} />
-      </Box>
+      {isMobile ? (
+        <Stack spacing={2}>
+          {(rows || []).map((row) => (
+            <Card key={row.id}>
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {row.device_code}
+                  </Typography>
+                  <Chip label="Config" size="small" />
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Org: {orgLabel(row.org_id)} · Mandi: {mandiLabel(row.mandi_id)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Gate: {row.gate_code || "—"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  QR: {row.qr_format || "—"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Template: {row.qr_payload_template ? row.qr_payload_template.substring(0, 40) + "..." : "—"}
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Chip
+                    size="small"
+                    label={row.is_active === "Y" ? "Active" : "Inactive"}
+                    color={row.is_active === "Y" ? "success" : "default"}
+                  />
+                </Stack>
+                {row.updated_on && (
+                  <Typography variant="caption" color="text.secondary">
+                    Updated: {new Date(row.updated_on).toLocaleString()}
+                  </Typography>
+                )}
+                {(canEdit || canDeactivate) && (
+                  <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
+                    {canEdit && (
+                      <Button variant="text" size="small" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                        Edit
+                      </Button>
+                    )}
+                    {canDeactivate && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeactivate(row.id)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          <Box display="flex" justifyContent="center">
+            <Pagination
+              count={Math.max(1, Math.ceil(total / perPage))}
+              page={page}
+              onChange={(_, p) => setPage(p)}
+              size="small"
+            />
+          </Box>
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>{grid}</CardContent>
+        </Card>
+      )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+        fullScreen={isMobile}
+        PaperProps={{ sx: { display: "flex", flexDirection: "column", maxHeight: isMobile ? "100vh" : "90vh" } }}
+      >
         <DialogTitle>{isEdit ? "Edit Device Config" : "Create Device Config"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+        <DialogContent
+          sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1, flex: 1, overflowY: "auto" }}
+        >
           <TextField
             select
             label="Organisation"
             value={form.org_id}
-            onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "", device_code: "" }));
+              loadMandis(e.target.value);
+              setGateOptions([]);
+              setDeviceOptions([]);
+            }}
             fullWidth
+            disabled={!isSuperAdmin}
           >
             <MenuItem value="">Not Set</MenuItem>
             {orgOptions.map((o) => (
@@ -413,6 +635,14 @@ export const GateDeviceConfigs: React.FC = () => {
             fullWidth
           />
           <TextField
+            label="QR Payload Template"
+            value={form.qr_payload_template || ""}
+            onChange={(e) => setForm((f) => ({ ...f, qr_payload_template: e.target.value }))}
+            fullWidth
+            multiline
+            minRows={2}
+          />
+          <TextField
             label="RFID Protocol"
             value={form.rfid_protocol}
             onChange={(e) => setForm((f) => ({ ...f, rfid_protocol: e.target.value }))}
@@ -437,11 +667,11 @@ export const GateDeviceConfigs: React.FC = () => {
             <MenuItem value="N">No</MenuItem>
           </TextField>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            {isEdit ? "Update" : "Create"}
-          </Button>
+      <DialogActions>
+        <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+        <Button variant="contained" onClick={handleSave}>
+          {isEdit ? "Update" : "Create"}
+        </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

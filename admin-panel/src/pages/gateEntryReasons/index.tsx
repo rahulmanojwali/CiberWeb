@@ -55,6 +55,8 @@ type ReasonRow = {
   needs_vehicle_check?: string;
   needs_weight_check?: string;
   is_active: string;
+  org_scope?: string;
+  org_code?: string;
 };
 
 const defaultForm = {
@@ -85,6 +87,7 @@ export const GateEntryReasons: React.FC = () => {
   const isMobile = fullScreenDialog;
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
+  const [orgFilter, setOrgFilter] = useState<string>(uiConfig.scope?.org_code || "");
 
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -165,7 +168,10 @@ export const GateEntryReasons: React.FC = () => {
       const resp = await fetchGateEntryReasons({
         username,
         language,
-        filters: { is_active: status === "ALL" ? undefined : status },
+        filters: {
+          is_active: status === "ALL" ? undefined : status,
+          org_code: uiConfig.role === "SUPER_ADMIN" ? orgFilter || undefined : undefined,
+        },
       });
       const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
       setRows(
@@ -178,6 +184,8 @@ export const GateEntryReasons: React.FC = () => {
           needs_vehicle_check: r.needs_vehicle_check || r.vehicle_check || undefined,
           needs_weight_check: r.needs_weight_check || r.weight_check || undefined,
           is_active: r.is_active || r.active || "Y",
+          org_scope: r.org_scope,
+          org_code: r.org_code,
         })),
       );
     } finally {
@@ -256,6 +264,18 @@ export const GateEntryReasons: React.FC = () => {
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.gateEntryReasons", { defaultValue: "Gate Entry Reasons" })}</Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
+          {uiConfig.role === "SUPER_ADMIN" && (
+            <TextField
+              label="Organisation (code)"
+              size="small"
+              value={orgFilter}
+              onChange={(e) => {
+                setOrgFilter(e.target.value.trim());
+              }}
+              placeholder="Leave blank for all"
+              sx={{ width: { xs: "100%", sm: 220 } }}
+            />
+          )}
           <TextField
             select
             label="Status"
@@ -279,10 +299,10 @@ export const GateEntryReasons: React.FC = () => {
       {isMobile ? (
         <Stack spacing={2}>
           {rows.map((row) => {
-          const docs = (row.requires_documents || []).join(", ") || "—";
-          const checks = [row.needs_vehicle_check === "Y" ? "Vehicle" : null, row.needs_weight_check === "Y" ? "Weight" : null]
-            .filter(Boolean)
-            .join(", ") || "—";
+            const docs = (row.requires_documents || []).join(", ") || "—";
+            const checks = [row.needs_vehicle_check === "Y" ? "Vehicle" : null, row.needs_weight_check === "Y" ? "Weight" : null]
+              .filter(Boolean)
+              .join(", ") || "—";
             return (
               <Card key={row.reason_code} variant="outlined">
                 <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -292,6 +312,7 @@ export const GateEntryReasons: React.FC = () => {
                   <Typography variant="body2" color="text.secondary">
                     Code: {row.reason_code}
                   </Typography>
+                  <Typography variant="body2">Org: {row.org_code || row.org_scope || "—"}</Typography>
                   <Typography variant="body2">Category: {row.category || "—"}</Typography>
                   <Typography variant="body2">Documents: {docs}</Typography>
                   <Typography variant="body2">Checks: {checks}</Typography>

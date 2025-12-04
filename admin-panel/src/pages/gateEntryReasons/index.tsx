@@ -51,7 +51,7 @@ type ReasonRow = {
   name: string;
   name_hi?: string;
   category?: string;
-  required_documents?: string[];
+  requires_documents?: string[];
   needs_vehicle_check?: string;
   needs_weight_check?: string;
   is_active: string;
@@ -100,10 +100,10 @@ export const GateEntryReasons: React.FC = () => {
       { field: "reason_code", headerName: "Code", width: 140 },
       { field: "category", headerName: "Category", width: 140 },
       {
-        field: "required_documents",
+        field: "requires_documents",
         headerName: "Documents",
         flex: 1,
-        valueGetter: (params: any) => (params?.row?.required_documents || []).join(", ") || "—",
+        valueGetter: (params: any) => (params?.row?.requires_documents || []).join(", ") || "—",
       },
       {
         field: "checks",
@@ -174,7 +174,7 @@ export const GateEntryReasons: React.FC = () => {
           name: r.name_i18n?.en || r.name_en || r.reason_code,
           name_hi: r.name_i18n?.hi || "",
           category: r.category || "OTHER",
-          required_documents: r.required_documents || [],
+          requires_documents: r.requires_documents || r.required_documents || [],
           needs_vehicle_check: r.needs_vehicle_check || r.vehicle_check || undefined,
           needs_weight_check: r.needs_weight_check || r.weight_check || undefined,
           is_active: r.is_active || r.active || "Y",
@@ -204,7 +204,7 @@ export const GateEntryReasons: React.FC = () => {
       name_en: row.name,
       name_hi: row.name_hi || "",
       category: (row.category as any) || "OTHER",
-      required_documents: row.required_documents || [],
+      required_documents: row.requires_documents || [],
       needs_vehicle_check: row.needs_vehicle_check === "Y",
       needs_weight_check: row.needs_weight_check === "Y",
       is_active: row.is_active as "Y" | "N",
@@ -279,7 +279,7 @@ export const GateEntryReasons: React.FC = () => {
       {isMobile ? (
         <Stack spacing={2}>
           {rows.map((row) => {
-          const docs = (row.required_documents || []).join(", ") || "—";
+          const docs = (row.requires_documents || []).join(", ") || "—";
           const checks = [row.needs_vehicle_check === "Y" ? "Vehicle" : null, row.needs_weight_check === "Y" ? "Weight" : null]
             .filter(Boolean)
             .join(", ") || "—";

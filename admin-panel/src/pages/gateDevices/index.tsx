@@ -82,7 +82,7 @@ export const GateDevices: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0); // zero-based for DataGrid
   const [perPage, setPerPage] = useState(10);
   const [total, setTotal] = useState(0);
 
@@ -100,7 +100,7 @@ export const GateDevices: React.FC = () => {
         field: "org_code",
         headerName: "Org",
         width: 140,
-        valueGetter: (params) => orgLabel(params.row.org_id) || params.row.org_code || "",
+        valueGetter: (params: any) => orgLabel(params.row.org_id) || params.row.org_code || "",
       },
       { field: "mandi_id", headerName: "Mandi", width: 110 },
       { field: "gate_code", headerName: "Gate", width: 130 },
@@ -108,14 +108,14 @@ export const GateDevices: React.FC = () => {
         field: "capability_set",
         headerName: "Capabilities",
         flex: 1,
-        valueGetter: (params) => (params.row.capability_set || []).join(", "),
+        valueGetter: (params: any) => (params.row.capability_set || []).join(", "),
       },
       { field: "is_primary", headerName: "Primary", width: 110 },
       {
         field: "is_active",
         headerName: "Active",
         width: 110,
-        valueGetter: (params) => (params.row.is_active === "Y" ? "Active" : "Inactive"),
+        valueGetter: (params: any) => (params.row.is_active === "Y" ? "Active" : "Inactive"),
       },
       {
         field: "actions",
@@ -192,7 +192,7 @@ export const GateDevices: React.FC = () => {
           gate_code: filters.gate_code || undefined,
           device_type: filters.device_type || undefined,
           is_active: status === "ALL" ? undefined : status,
-          page,
+          page: page + 1,
           perPage,
         },
       });
@@ -466,8 +466,8 @@ export const GateDevices: React.FC = () => {
           <Box display="flex" justifyContent="center">
             <Pagination
               count={Math.max(1, Math.ceil(total / perPage))}
-              page={page}
-              onChange={(_, p) => setPage(p)}
+              page={page + 1}
+              onChange={(_, p) => setPage(p - 1)}
               size="small"
             />
           </Box>
@@ -483,14 +483,15 @@ export const GateDevices: React.FC = () => {
               autoHeight
               paginationMode="server"
               rowCount={total}
-              page={page - 1}
-              pageSize={perPage}
-              onPageChange={(newPage) => setPage(newPage + 1)}
-              onPageSizeChange={(newSize) => {
-                setPerPage(newSize);
-                setPage(1);
+              paginationModel={{ page, pageSize: perPage }}
+              onPaginationModelChange={(model) => {
+                setPage(model.page);
+                if (model.pageSize !== perPage) {
+                  setPerPage(model.pageSize);
+                  setPage(0);
+                }
               }}
-              rowsPerPageOptions={[10, 25, 50]}
+              pageSizeOptions={[10, 25, 50]}
             />
           </CardContent>
         </Card>
@@ -541,12 +542,11 @@ export const GateDevices: React.FC = () => {
             label="Capabilities"
             SelectProps={{ multiple: true }}
             value={form.capability_set}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                capability_set: (e.target.value as string[]).map((s) => s.trim()),
-              }))
-            }
+            onChange={(e) => {
+              const value = e.target.value;
+              const arr = Array.isArray(value) ? value.map((s) => String(s).trim()) : [];
+              setForm((f) => ({ ...f, capability_set: arr }));
+            }}
             fullWidth
           >
             {["QR", "RFID", "GPS", "PRINTER", "DISPLAY", "API"].map((cap) => (

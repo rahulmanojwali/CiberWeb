@@ -65,6 +65,7 @@ const defaultForm = {
   gate_code: "",
   device_code: "",
   qr_format: "",
+  qr_payload_template: "",
   rfid_protocol: "",
   is_active: "Y",
   advanced_json: "",
@@ -94,7 +95,7 @@ export const GateDeviceConfigs: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(10);
   const [total, setTotal] = useState(0);
 
@@ -115,26 +116,26 @@ export const GateDeviceConfigs: React.FC = () => {
         field: "org_id",
         headerName: "Org",
         width: 140,
-        valueGetter: (params) => orgLabel(params.row.org_id),
+        valueGetter: (params: any) => orgLabel(params.row.org_id),
       },
       {
         field: "mandi_id",
         headerName: "Mandi",
         width: 140,
-        valueGetter: (params) => mandiLabel(params.row.mandi_id),
+        valueGetter: (params: any) => mandiLabel(params.row.mandi_id),
       },
       { field: "gate_code", headerName: "Gate", width: 130 },
       {
         field: "qr_format",
         headerName: "QR Format",
         width: 140,
-        valueGetter: (params) => params.row.qr_format || "—",
+        valueGetter: (params: any) => params.row.qr_format || "—",
       },
       {
         field: "qr_payload_template",
         headerName: "QR Template",
         flex: 1,
-        valueGetter: (params) => params.row.qr_payload_template || "—",
+        valueGetter: (params: any) => params.row.qr_payload_template || "—",
       },
       { field: "is_active", headerName: "Active", width: 110 },
       {
@@ -232,7 +233,7 @@ export const GateDeviceConfigs: React.FC = () => {
           gate_code: filters.gate_code || undefined,
           device_code: filters.device_code || undefined,
           is_active: status === "ALL" ? undefined : status,
-          page,
+          page: page + 1,
           perPage,
         },
       });
@@ -275,7 +276,7 @@ export const GateDeviceConfigs: React.FC = () => {
     loadMandis(filters.org_id);
     setGateOptions([]);
     setDeviceOptions([]);
-    setPage(1);
+    setPage(0);
   }, [filters.org_id]);
 
   const openCreate = () => {
@@ -297,6 +298,7 @@ export const GateDeviceConfigs: React.FC = () => {
       gate_code: row.gate_code,
       device_code: row.device_code,
       qr_format: "",
+      qr_payload_template: row.qr_payload_template || "",
       rfid_protocol: "",
       is_active: row.is_active,
       advanced_json: "",
@@ -356,14 +358,15 @@ export const GateDeviceConfigs: React.FC = () => {
       autoHeight
       paginationMode="server"
       rowCount={total}
-      page={page - 1}
-      pageSize={perPage}
-      onPageChange={(newPage) => setPage(newPage + 1)}
-      onPageSizeChange={(newSize) => {
-        setPerPage(newSize);
-        setPage(1);
+      paginationModel={{ page, pageSize: perPage }}
+      onPaginationModelChange={(model) => {
+        setPage(model.page);
+        if (model.pageSize !== perPage) {
+          setPerPage(model.pageSize);
+          setPage(0);
+        }
       }}
-      rowsPerPageOptions={[10, 25, 50]}
+      pageSizeOptions={[10, 25, 50]}
     />
   );
 
@@ -541,8 +544,8 @@ export const GateDeviceConfigs: React.FC = () => {
           <Box display="flex" justifyContent="center">
             <Pagination
               count={Math.max(1, Math.ceil(total / perPage))}
-              page={page}
-              onChange={(_, p) => setPage(p)}
+              page={page + 1}
+              onChange={(_, p) => setPage(p - 1)}
               size="small"
             />
           </Box>

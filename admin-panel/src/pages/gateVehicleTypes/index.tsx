@@ -149,15 +149,21 @@ export const GateVehicleTypes: React.FC = () => {
       });
       const list = resp?.data?.vehicle_types || resp?.response?.data?.vehicle_types || [];
       setRows(
-        list.map((v: any) => ({
-          vehicle_type_code: v.vehicle_type_code,
-          name_i18n: v.name_i18n || { en: v.name_en || v.vehicle_type_code },
-          is_active: v.is_active,
-          is_allowed: v.is_allowed,
-          requires_permit: v.requires_permit,
-          axle_count: v.axle_count ?? null,
-          max_gvw_tonnes: v.max_gvw_tonnes ?? null,
-        })),
+        list
+          .map((v: any) => {
+            const code = v?.vehicle_type_code || v?.code;
+            if (!code) return null;
+            return {
+              vehicle_type_code: code,
+              name_i18n: v?.name_i18n || { en: v?.name_en || code },
+              is_active: v?.is_active || "Y",
+              is_allowed: v?.is_allowed || "Y",
+              requires_permit: v?.requires_permit || "N",
+              axle_count: v?.axle_count ?? null,
+              max_gvw_tonnes: v?.max_gvw_tonnes ?? null,
+            } as VehicleRow;
+          })
+          .filter(Boolean) as VehicleRow[],
       );
     } finally {
       setLoading(false);

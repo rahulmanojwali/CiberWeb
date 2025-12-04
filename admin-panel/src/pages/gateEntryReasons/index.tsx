@@ -103,14 +103,14 @@ export const GateEntryReasons: React.FC = () => {
         field: "required_documents",
         headerName: "Documents",
         flex: 1,
-        valueGetter: (params) => (params.row?.required_documents || []).join(", ") || "—",
+        valueGetter: (params: any) => (params?.row?.required_documents || []).join(", ") || "—",
       },
       {
         field: "checks",
         headerName: "Checks",
         width: 140,
-        valueGetter: (params) => {
-          const row = params.row;
+        valueGetter: (params: any) => {
+          const row = params?.row as ReasonRow;
           const vehicle = row.needs_vehicle_check === "Y" ? "Vehicle" : null;
           const weight = row.needs_weight_check === "Y" ? "Weight" : null;
           return [vehicle, weight].filter(Boolean).join(", ") || "—";

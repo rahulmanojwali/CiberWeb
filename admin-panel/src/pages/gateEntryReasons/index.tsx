@@ -110,7 +110,7 @@ export const GateEntryReasons: React.FC = () => {
         headerName: "Checks",
         width: 140,
         valueGetter: (params: any) => {
-          const row = params?.row as ReasonRow;
+          const row = (params?.row || {}) as Partial<ReasonRow>;
           const vehicle = row.needs_vehicle_check === "Y" ? "Vehicle" : null;
           const weight = row.needs_weight_check === "Y" ? "Weight" : null;
           return [vehicle, weight].filter(Boolean).join(", ") || "—";
@@ -279,10 +279,10 @@ export const GateEntryReasons: React.FC = () => {
       {isMobile ? (
         <Stack spacing={2}>
           {rows.map((row) => {
-            const docs = row.required_documents?.join(", ") || "—";
-            const checks = [row.needs_vehicle_check === "Y" ? "Vehicle" : null, row.needs_weight_check === "Y" ? "Weight" : null]
-              .filter(Boolean)
-              .join(", ") || "—";
+          const docs = (row.required_documents || []).join(", ") || "—";
+          const checks = [row.needs_vehicle_check === "Y" ? "Vehicle" : null, row.needs_weight_check === "Y" ? "Weight" : null]
+            .filter(Boolean)
+            .join(", ") || "—";
             return (
               <Card key={row.reason_code} variant="outlined">
                 <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -412,6 +412,7 @@ export const GateEntryReasons: React.FC = () => {
                   checked={!!form.needs_vehicle_check}
                   onChange={(e) => setForm((f) => ({ ...f, needs_vehicle_check: e.target.checked }))}
                   color="primary"
+                  inputProps={{ id: "needs_vehicle_check" }}
                 />
               }
               label="Needs Vehicle Check"
@@ -422,6 +423,7 @@ export const GateEntryReasons: React.FC = () => {
                   checked={!!form.needs_weight_check}
                   onChange={(e) => setForm((f) => ({ ...f, needs_weight_check: e.target.checked }))}
                   color="primary"
+                  inputProps={{ id: "needs_weight_check" }}
                 />
               }
               label="Needs Weight Check"

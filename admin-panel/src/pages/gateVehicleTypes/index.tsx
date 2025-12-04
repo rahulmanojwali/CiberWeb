@@ -18,6 +18,8 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import DirectionsCarFilledIcon from "@mui/icons-material/DirectionsCarFilled";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -264,19 +266,98 @@ export const GateVehicleTypes: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Card>
-        <CardContent>
-          <Box sx={{ width: "100%" }}>
-            <ResponsiveDataGrid
-              columns={columns}
-              rows={rows || []}
-              loading={loading}
-              getRowId={(r) => r.vehicle_type_code}
-              autoHeight
-            />
-          </Box>
-        </CardContent>
-      </Card>
+      {fullScreen ? (
+        <Stack spacing={2}>
+          {(rows || []).map((row) => (
+            <Card key={row.vehicle_type_code}>
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Code
+                  </Typography>
+                  <Typography variant="body1" fontWeight={600}>
+                    {row.vehicle_type_code}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Name
+                  </Typography>
+                  <Typography variant="body1">{row.name_i18n?.en || row.vehicle_type_code}</Typography>
+                </Box>
+                <Stack direction="row" spacing={2}>
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary">
+                      Allowed
+                    </Typography>
+                    <Typography variant="body2">{row.is_allowed === "Y" ? "Yes" : "No"}</Typography>
+                  </Stack>
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary">
+                      Permit
+                    </Typography>
+                    <Typography variant="body2">{row.requires_permit === "Y" ? "Required" : "No"}</Typography>
+                  </Stack>
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary">
+                      Active
+                    </Typography>
+                    <Typography variant="body2">{row.is_active === "Y" ? "Active" : "Inactive"}</Typography>
+                  </Stack>
+                </Stack>
+                <Stack direction="row" spacing={2}>
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary">
+                      Axle Count
+                    </Typography>
+                    <Typography variant="body2">{row.axle_count ?? "—"}</Typography>
+                  </Stack>
+                  <Stack spacing={0.25}>
+                    <Typography variant="caption" color="text.secondary">
+                      Max GVW (t)
+                    </Typography>
+                    <Typography variant="body2">{row.max_gvw_tonnes ?? "—"}</Typography>
+                  </Stack>
+                </Stack>
+                {(canEdit || canDeactivate) && (
+                  <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
+                    {canEdit && (
+                      <Button variant="text" size="small" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                        Edit
+                      </Button>
+                    )}
+                    {canDeactivate && (
+                      <Button
+                        variant="text"
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeactivate(row.vehicle_type_code)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>
+            <Box sx={{ width: "100%" }}>
+              <ResponsiveDataGrid
+                columns={columns}
+                rows={rows || []}
+                loading={loading}
+                getRowId={(r) => r.vehicle_type_code}
+                autoHeight
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog
         open={dialogOpen}

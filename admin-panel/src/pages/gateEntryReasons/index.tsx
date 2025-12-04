@@ -29,6 +29,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { useMemoizedOrgs } from "../../utils/useMemoizedOrgs";
 import {
   fetchGateEntryReasons,
   createGateEntryReason,
@@ -84,7 +85,10 @@ export const GateEntryReasons: React.FC = () => {
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const isMobile = fullScreenDialog;
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons_masters");
+  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
+  const { orgOptions, orgMap } = useMemoizedOrgs(uiConfig);
+  const defaultOrg = uiConfig.scope?.org_code || orgOptions[0]?.org_code || "ALL";
+  const [orgFilter, setOrgFilter] = useState<string>(defaultOrg);
 
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");

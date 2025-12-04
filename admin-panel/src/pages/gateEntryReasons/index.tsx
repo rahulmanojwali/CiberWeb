@@ -87,22 +87,24 @@ export const GateEntryReasons: React.FC = () => {
   const isMobile = fullScreenDialog;
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
-  const orgCodes = useMemo(() => {
+  const orgOptions = useMemo(() => {
     const codes = Array.isArray((uiConfig as any)?.scope?.org_codes)
       ? (uiConfig as any).scope.org_codes
       : uiConfig.scope?.org_code
       ? [uiConfig.scope.org_code]
       : [];
-    return codes;
-  }, [uiConfig]);
 
-  const orgOptions = useMemo(() => {
-    const opts = orgCodes.map((code: string) => ({ value: code, label: code }));
+    const opts = codes.map((code: string) => ({ value: code, label: code }));
+
     if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") {
       return [{ value: "ALL", label: "All organisations" }, ...opts];
     }
-    return opts.length > 0 ? opts : [{ value: uiConfig.scope?.org_code || "", label: uiConfig.scope?.org_code || "" }];
-  }, [orgCodes, uiConfig]);
+
+    if (opts.length === 0 && uiConfig.scope?.org_code) {
+      return [{ value: uiConfig.scope.org_code, label: uiConfig.scope.org_code }];
+    }
+    return opts;
+  }, [uiConfig]);
 
   const defaultOrgFilter = useMemo(() => {
     if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") return "ALL";

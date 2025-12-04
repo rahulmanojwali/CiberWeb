@@ -87,7 +87,29 @@ export const GateEntryReasons: React.FC = () => {
   const isMobile = fullScreenDialog;
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
-  const [orgFilter, setOrgFilter] = useState<string>(uiConfig.scope?.org_code || "");
+  const orgCodes = useMemo(() => {
+    const codes = Array.isArray((uiConfig as any)?.scope?.org_codes)
+      ? (uiConfig as any).scope.org_codes
+      : uiConfig.scope?.org_code
+      ? [uiConfig.scope.org_code]
+      : [];
+    return codes;
+  }, [uiConfig]);
+
+  const orgOptions = useMemo(() => {
+    const opts = orgCodes.map((code: string) => ({ value: code, label: code }));
+    if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") {
+      return [{ value: "ALL", label: "All organisations" }, ...opts];
+    }
+    return opts.length > 0 ? opts : [{ value: uiConfig.scope?.org_code || "", label: uiConfig.scope?.org_code || "" }];
+  }, [orgCodes, uiConfig]);
+
+  const defaultOrgFilter = useMemo(() => {
+    if ((uiConfig.role || "").toUpperCase() === "SUPER_ADMIN") return "ALL";
+    return uiConfig.scope?.org_code || orgOptions[0]?.value || "";
+  }, [uiConfig, orgOptions]);
+
+  const [orgFilter, setOrgFilter] = useState<string>(defaultOrgFilter);
 
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -170,7 +192,7 @@ export const GateEntryReasons: React.FC = () => {
         language,
         filters: {
           is_active: status === "ALL" ? undefined : status,
-          org_code: uiConfig.role === "SUPER_ADMIN" ? orgFilter || undefined : undefined,
+          org_code: orgFilter === "ALL" ? undefined : orgFilter || undefined,
         },
       });
       const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
@@ -264,17 +286,22 @@ export const GateEntryReasons: React.FC = () => {
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.gateEntryReasons", { defaultValue: "Gate Entry Reasons" })}</Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
-          {uiConfig.role === "SUPER_ADMIN" && (
+          {orgOptions.length > 0 && (
             <TextField
-              label="Organisation (code)"
+              select
+              label="Organisation"
               size="small"
               value={orgFilter}
-              onChange={(e) => {
-                setOrgFilter(e.target.value.trim());
-              }}
-              placeholder="Leave blank for all"
-              sx={{ width: { xs: "100%", sm: 220 } }}
-            />
+              onChange={(e) => setOrgFilter(e.target.value)}
+              disabled={(uiConfig.role || "").toUpperCase() !== "SUPER_ADMIN" && orgOptions.length === 1}
+              sx={{ width: { xs: "100%", sm: 240 } }}
+            >
+              {orgOptions.map((opt: any) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
           )}
           <TextField
             select

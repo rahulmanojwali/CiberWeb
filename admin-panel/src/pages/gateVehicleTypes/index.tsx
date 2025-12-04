@@ -89,25 +89,25 @@ export const GateVehicleTypes: React.FC = () => {
         field: "name_i18n",
         headerName: "Name",
         flex: 1,
-        valueGetter: (params: any) => params.row?.name_i18n?.en || params.row.vehicle_type_code,
+        valueGetter: (params: any) => params?.row?.name_i18n?.en || params?.row?.vehicle_type_code || "",
       },
       {
         field: "is_allowed",
         headerName: "Allowed",
         width: 120,
-        valueGetter: (params: any) => (params.row?.is_allowed === "Y" ? "Yes" : "No"),
+        valueGetter: (params: any) => (params?.row?.is_allowed === "Y" ? "Yes" : "No"),
       },
       {
         field: "requires_permit",
         headerName: "Permit",
         width: 120,
-        valueGetter: (params: any) => (params.row?.requires_permit === "Y" ? "Required" : "No"),
+        valueGetter: (params: any) => (params?.row?.requires_permit === "Y" ? "Required" : "No"),
       },
       {
         field: "is_active",
         headerName: "Active",
         width: 110,
-        valueGetter: (params: any) => (params.row?.is_active === "Y" ? "Yes" : "No"),
+        valueGetter: (params: any) => (params?.row?.is_active === "Y" ? "Yes" : "No"),
       },
       {
         field: "actions",
@@ -269,7 +269,7 @@ export const GateVehicleTypes: React.FC = () => {
           <Box sx={{ width: "100%" }}>
             <ResponsiveDataGrid
               columns={columns}
-              rows={rows}
+              rows={rows || []}
               loading={loading}
               getRowId={(r) => r.vehicle_type_code}
               autoHeight
@@ -304,6 +304,7 @@ export const GateVehicleTypes: React.FC = () => {
         >
           <TextField
             label="Type Code"
+            id="vehicle-type-code"
             value={form.vehicle_type_code}
             onChange={(e) => setForm((f) => ({ ...f, vehicle_type_code: e.target.value }))}
             fullWidth
@@ -311,12 +312,14 @@ export const GateVehicleTypes: React.FC = () => {
           />
           <TextField
             label="Name (EN)"
+            id="vehicle-type-name-en"
             value={form.name_en}
             onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
             fullWidth
           />
           <TextField
             label="Name (HI)"
+            id="vehicle-type-name-hi"
             value={form.name_hi}
             onChange={(e) => setForm((f) => ({ ...f, name_hi: e.target.value }))}
             fullWidth

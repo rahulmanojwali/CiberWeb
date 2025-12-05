@@ -1,7 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Chip, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import CloseIcon from "@mui/icons-material/Close";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -58,6 +72,8 @@ export const GateTokens: React.FC = () => {
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [gateOptions, setGateOptions] = useState<Option[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selected, setSelected] = useState<TokenRow | null>(null);
 
   const [filters, setFilters] = useState({
     org_id: "",
@@ -145,7 +161,7 @@ export const GateTokens: React.FC = () => {
           <Button
             size="small"
             startIcon={<VisibilityOutlinedIcon fontSize="small" />}
-            href={`/gate-movements?token_code=${encodeURIComponent(params.row.token_code)}`}
+            onClick={() => handleView(params.row)}
           >
             View
           </Button>
@@ -275,6 +291,16 @@ export const GateTokens: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleView = (row: TokenRow) => {
+    setSelected(row);
+    setDetailOpen(true);
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setSelected(null);
   };
 
   useEffect(() => {
@@ -450,6 +476,102 @@ export const GateTokens: React.FC = () => {
           minWidth={960}
         />
       </Box>
+
+      <Dialog open={detailOpen} onClose={closeDetail} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography variant="h6">Gate Token</Typography>
+          <IconButton aria-label="close" onClick={closeDetail}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {!selected ? (
+            <Typography color="text.secondary">No data</Typography>
+          ) : (
+            <Stack spacing={2}>
+              <TextField
+                label="Token Code"
+                value={selected?.token_code ?? ""}
+                size="small"
+                InputProps={{ readOnly: true }}
+                fullWidth
+              />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Type"
+                  value={selected?.token_type ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Status"
+                  value={selected?.status ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Vehicle"
+                  value={selected?.vehicle_no ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Reason"
+                  value={selected?.reason_code ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Gate"
+                  value={selected?.gate_code ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Device"
+                  value={selected?.device_code ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Stack>
+              <Divider />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Updated On"
+                  value={formatDate(selected?.updated_on)}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Updated By"
+                  value={selected?.updated_by ?? ""}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Stack>
+              <TextField
+                label="Created On"
+                value={formatDate(selected?.created_on)}
+                size="small"
+                InputProps={{ readOnly: true }}
+                fullWidth
+              />
+            </Stack>
+          )}
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 };

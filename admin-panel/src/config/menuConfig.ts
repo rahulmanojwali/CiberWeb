@@ -378,7 +378,7 @@ export const APP_MENU: AppMenuItem[] = [
       icon: React.createElement(QrCodeScannerOutlinedIcon),
       resourceKey: "gate_pass_tokens.view",
       requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
     },
     {
       key: "gateEntries",
@@ -387,7 +387,7 @@ export const APP_MENU: AppMenuItem[] = [
       icon: React.createElement(TimelineOutlinedIcon),
       resourceKey: "gate_entry_tokens.view",
       requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
     },
     {
       key: "gateMovements",

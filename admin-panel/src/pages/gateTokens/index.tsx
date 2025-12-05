@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -18,9 +19,13 @@ type TokenRow = {
   token_type: "PASS" | "ENTRY";
   mandi: string | number | null;
   gate_code: string | null;
+  device_code?: string | null;
+  vehicle_no?: string | null;
+  reason_code?: string | null;
   status: string | null;
   created_on?: string | null;
   updated_on?: string | null;
+  updated_by?: string | null;
 };
 
 type Option = { value: string; label: string };
@@ -100,10 +105,23 @@ export const GateTokens: React.FC = () => {
   const columns = useMemo<GridColDef<TokenRow>[]>(
     () => [
       { field: "token_code", headerName: "Token Code", width: 180 },
-      { field: "token_type", headerName: "Type", width: 130 },
-      { field: "mandi", headerName: "Mandi", width: 140 },
-      { field: "gate_code", headerName: "Gate", width: 140 },
-      { field: "status", headerName: "Status", width: 140 },
+      { field: "token_type", headerName: "Type", width: 110 },
+      { field: "vehicle_no", headerName: "Vehicle", width: 140 },
+      { field: "reason_code", headerName: "Reason", width: 150 },
+      { field: "gate_code", headerName: "Gate", width: 120 },
+      { field: "device_code", headerName: "Device", width: 140 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 140,
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            label={params.value || "-"}
+            color={params.value === "SCANNED" ? "success" : params.value === "CREATED" ? "info" : "default"}
+          />
+        ),
+      },
       {
         field: "created_on",
         headerName: "Created On",
@@ -115,6 +133,23 @@ export const GateTokens: React.FC = () => {
         headerName: "Updated On",
         width: 190,
         valueFormatter: (value) => formatDate(value),
+      },
+      { field: "updated_by", headerName: "Updated By", width: 140 },
+      {
+        field: "actions",
+        headerName: "Actions",
+        sortable: false,
+        filterable: false,
+        width: 140,
+        renderCell: (params) => (
+          <Button
+            size="small"
+            startIcon={<VisibilityOutlinedIcon fontSize="small" />}
+            href={`/gate-movements?token_code=${encodeURIComponent(params.row.token_code)}`}
+          >
+            View
+          </Button>
+        ),
       },
     ],
     [],
@@ -218,9 +253,13 @@ export const GateTokens: React.FC = () => {
             token_type: kind,
             mandi: item.mandi || item.mandi_slug || item.mandi_id || null,
             gate_code: item.gate_code || item.gate || null,
+            device_code: item.device_code || null,
+            vehicle_no: item.vehicle_no || null,
+            reason_code: item.reason_code || item.reason || null,
             status: item.status || null,
             created_on: item.created_on || item.createdAt || null,
             updated_on: item.updated_on || item.updatedAt || null,
+            updated_by: item.updated_by || item.updatedBy || null,
           });
         });
       });
@@ -372,6 +411,7 @@ export const GateTokens: React.FC = () => {
         >
           <MenuItem value="">All</MenuItem>
           <MenuItem value="CREATED">Created</MenuItem>
+          <MenuItem value="SCANNED">Scanned</MenuItem>
           <MenuItem value="IN_YARD">In Yard</MenuItem>
           <MenuItem value="EXITED">Exited</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>

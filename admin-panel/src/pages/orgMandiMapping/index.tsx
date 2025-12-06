@@ -35,6 +35,8 @@ import {
   removeOrgMandi,
   fetchMandis,
 } from "../../services/mandiApi";
+import Autocomplete from "@mui/material/Autocomplete";
+import Autocomplete from "@mui/material/Autocomplete";
 
 type MappingRow = {
   id: string;
@@ -74,6 +76,7 @@ export const OrgMandiMapping: React.FC = () => {
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
+  const [mandiSearch, setMandiSearch] = useState("");
   const [filters, setFilters] = useState({ org_id: "", status: "ALL" as "ALL" | "Y" | "N" });
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);

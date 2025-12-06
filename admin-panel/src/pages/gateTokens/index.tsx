@@ -10,6 +10,9 @@ import {
   IconButton,
   MenuItem,
   Stack,
+  Card,
+  CardContent,
+  CardActions,
   TextField,
   Typography,
 } from "@mui/material";
@@ -18,6 +21,8 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
@@ -65,6 +70,8 @@ export const GateTokens: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [rows, setRows] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -354,10 +361,10 @@ export const GateTokens: React.FC = () => {
       </Stack>
 
       <Stack
-        direction={{ xs: "column", md: "row" }}
+        direction={isMobile ? "column" : "row"}
         spacing={2}
         mb={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
+        alignItems={isMobile ? "stretch" : "center"}
         flexWrap="wrap"
       >
         {uiConfig.role === "SUPER_ADMIN" && (
@@ -365,7 +372,8 @@ export const GateTokens: React.FC = () => {
             select
             label="Organisation"
             size="small"
-            sx={{ minWidth: 220 }}
+            sx={{ minWidth: isMobile ? "100%" : 220 }}
+            fullWidth={isMobile}
             value={filters.org_id}
             onChange={(e) => updateFilter("org_id", e.target.value)}
           >
@@ -382,7 +390,8 @@ export const GateTokens: React.FC = () => {
           select
           label="Mandi"
           size="small"
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: isMobile ? "100%" : 180 }}
+          fullWidth={isMobile}
           value={filters.mandi_id}
           onChange={(e) => updateFilter("mandi_id", e.target.value)}
         >
@@ -398,7 +407,8 @@ export const GateTokens: React.FC = () => {
           select
           label="Gate"
           size="small"
-          sx={{ minWidth: 160 }}
+          sx={{ minWidth: isMobile ? "100%" : 160 }}
+          fullWidth={isMobile}
           value={filters.gate_code}
           onChange={(e) => updateFilter("gate_code", e.target.value)}
         >
@@ -415,7 +425,8 @@ export const GateTokens: React.FC = () => {
             select
             label="Token Type"
             size="small"
-            sx={{ minWidth: 150 }}
+            sx={{ minWidth: isMobile ? "100%" : 150 }}
+            fullWidth={isMobile}
             value={filters.token_type}
             onChange={(e) => updateFilter("token_type", e.target.value as any)}
           >
@@ -431,7 +442,8 @@ export const GateTokens: React.FC = () => {
           select
           label="Status"
           size="small"
-          sx={{ minWidth: 150 }}
+          sx={{ minWidth: isMobile ? "100%" : 150 }}
+          fullWidth={isMobile}
           value={filters.status}
           onChange={(e) => updateFilter("status", e.target.value)}
         >
@@ -447,6 +459,7 @@ export const GateTokens: React.FC = () => {
           label="Date From"
           type="date"
           size="small"
+          fullWidth={isMobile}
           value={filters.date_from}
           onChange={(e) => updateFilter("date_from", e.target.value)}
           InputLabelProps={{ shrink: true }}
@@ -455,6 +468,7 @@ export const GateTokens: React.FC = () => {
           label="Date To"
           type="date"
           size="small"
+          fullWidth={isMobile}
           value={filters.date_to}
           onChange={(e) => updateFilter("date_to", e.target.value)}
           InputLabelProps={{ shrink: true }}
@@ -465,26 +479,74 @@ export const GateTokens: React.FC = () => {
         <Typography variant="body2" color="text.secondary" mb={1}>
           Showing {rows.length} records{totalCount ? ` (server total: ${totalCount})` : ""}.
         </Typography>
-        <ResponsiveDataGrid
-          rows={rows}
-          columns={columns}
-          loading={loading}
-          getRowId={(r) => r.id || `${r.token_type}-${r.token_code}`}
-          disableRowSelectionOnClick
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-          minWidth={960}
-        />
+        {isMobile ? (
+          <Stack spacing={2}>
+            {rows.map((row) => (
+              <Card key={row.id || row.token_code} variant="outlined">
+                <CardContent>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {row.token_code || "-"}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={row.status || "-"}
+                      color={
+                        row.status === "SCANNED" ? "success" : row.status === "CREATED" ? "info" : "default"
+                      }
+                    />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    Type: {row.token_type || "-"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Vehicle: {row.vehicle_no || "-"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Reason: {row.reason_code || "-"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Gate: {row.gate_code || "-"} | Device: {row.device_code || "-"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Updated: {formatDate(row.updated_on) || "-"}
+                  </Typography>
+                </CardContent>
+                <CardActions sx={{ justifyContent: "flex-end" }}>
+                  <Button size="small" startIcon={<VisibilityOutlinedIcon fontSize="small" />} onClick={() => handleView(row)}>
+                    View
+                  </Button>
+                </CardActions>
+              </Card>
+            ))}
+            {rows.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                No tokens found for the selected filters.
+              </Typography>
+            )}
+          </Stack>
+        ) : (
+          <ResponsiveDataGrid
+            rows={rows}
+            columns={columns}
+            loading={loading}
+            getRowId={(r) => r.id || `${r.token_type}-${r.token_code}`}
+            disableRowSelectionOnClick
+            pageSizeOptions={[25, 50, 100]}
+            initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+            minWidth={960}
+          />
+        )}
       </Box>
 
-      <Dialog open={detailOpen} onClose={closeDetail} fullWidth maxWidth="sm">
+      <Dialog open={detailOpen} onClose={closeDetail} fullWidth maxWidth="md" fullScreen={isMobile}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Typography variant="h6">Gate Token</Typography>
           <IconButton aria-label="close" onClick={closeDetail}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ p: 3 }}>
           {!selected ? (
             <Typography color="text.secondary">No data</Typography>
           ) : (

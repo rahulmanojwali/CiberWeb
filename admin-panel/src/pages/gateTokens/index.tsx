@@ -13,6 +13,13 @@ import {
   Card,
   CardContent,
   CardActions,
+  CircularProgress,
+  ChipProps,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Avatar,
   TextField,
   Typography,
 } from "@mui/material";
@@ -29,7 +36,7 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-import { fetchGatePassTokens, fetchGateEntryTokens } from "../../services/gateOpsApi";
+import { fetchGatePassTokens, fetchGateEntryTokens, fetchGateMovements } from "../../services/gateOpsApi";
 import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
 
 type TokenRow = {
@@ -81,6 +88,9 @@ export const GateTokens: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<TokenRow | null>(null);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [movementsLoading, setMovementsLoading] = useState(false);
+  const [movementsError, setMovementsError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState({
     org_id: "",
@@ -165,13 +175,18 @@ export const GateTokens: React.FC = () => {
         filterable: false,
         width: 140,
         renderCell: (params) => (
-          <Button
-            size="small"
-            startIcon={<VisibilityOutlinedIcon fontSize="small" />}
-            onClick={() => handleView(params.row)}
-          >
-            View
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              startIcon={<VisibilityOutlinedIcon fontSize="small" />}
+              onClick={() => handleView(params.row)}
+            >
+              View
+            </Button>
+            <Button size="small" onClick={() => handleViewMovements(params.row)}>
+              Movements
+            </Button>
+          </Stack>
         ),
       },
     ],
@@ -303,11 +318,52 @@ export const GateTokens: React.FC = () => {
   const handleView = (row: TokenRow) => {
     setSelected(row);
     setDetailOpen(true);
+    loadMovements(row);
   };
 
   const closeDetail = () => {
     setDetailOpen(false);
     setSelected(null);
+    setMovements([]);
+    setMovementsError(null);
+    setMovementsLoading(false);
+  };
+
+  const handleViewMovements = (row: TokenRow) => {
+    handleView(row);
+  };
+
+  const loadMovements = async (row: TokenRow) => {
+    const username = currentUsername();
+    if (!username || !row?.token_code) return;
+    setMovementsLoading(true);
+    setMovementsError(null);
+    try {
+      const resp = await fetchGateMovements({
+        username,
+        language,
+        filters: { token_code: row.token_code },
+      });
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "";
+      if (code !== "0") {
+        setMovements([]);
+        setMovementsError(desc || "Unable to load movements");
+      } else {
+        const list = resp?.data?.movements || resp?.response?.data?.movements || [];
+        setMovements(list || []);
+      }
+    } catch (e: any) {
+      setMovements([]);
+      setMovementsError(e?.message || "Unable to load movements");
+    } finally {
+      setMovementsLoading(false);
+    }
+  };
+
+  const stepColor = (step?: string): ChipProps["color"] => {
+    if (step === "ENTRY" || step === "SCAN") return "success";
+    return "default";
   };
 
   useEffect(() => {
@@ -516,6 +572,9 @@ export const GateTokens: React.FC = () => {
                   <Button size="small" startIcon={<VisibilityOutlinedIcon fontSize="small" />} onClick={() => handleView(row)}>
                     View
                   </Button>
+                  <Button size="small" onClick={() => handleViewMovements(row)}>
+                    Movements
+                  </Button>
                 </CardActions>
               </Card>
             ))}
@@ -630,6 +689,60 @@ export const GateTokens: React.FC = () => {
                 InputProps={{ readOnly: true }}
                 fullWidth
               />
+
+              <Divider />
+              <Stack spacing={1} direction="row" alignItems="center">
+                <Typography variant="subtitle1" fontWeight={600}>
+                  Movements Timeline
+                </Typography>
+                {movementsLoading && <CircularProgress size={18} />}
+              </Stack>
+              {movementsError && (
+                <Typography variant="body2" color="error">
+                  {movementsError}
+                </Typography>
+              )}
+              {!movementsLoading && !movementsError && movements.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No movements recorded for this token yet.
+                </Typography>
+              )}
+              {!movementsLoading && movements.length > 0 && (
+                <List dense>
+                  {movements.map((mv, idx) => (
+                    <ListItem key={idx} alignItems="flex-start" sx={{ pl: 0 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <Avatar sx={{ bgcolor: "primary.light", width: 32, height: 32 }}>
+                          {(mv.step || "?").charAt(0)}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Chip size="small" label={mv.step || "-"} color={stepColor(mv.step)} />
+                            <Typography variant="body2" color="text.secondary">
+                              {formatDate(mv.ts)}
+                            </Typography>
+                          </Stack>
+                        }
+                        secondary={
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2">Actor: {mv.actor || "-"}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Device: {mv.details?.device_code || "-"} | Source: {mv.details?.source || "-"}
+                            </Typography>
+                            {mv.details?.remarks && (
+                              <Typography variant="body2" color="text.secondary">
+                                Remarks: {mv.details?.remarks}
+                              </Typography>
+                            )}
+                          </Stack>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </Stack>
           )}
         </DialogContent>

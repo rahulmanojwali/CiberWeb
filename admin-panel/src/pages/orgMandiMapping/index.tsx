@@ -150,7 +150,11 @@ export const OrgMandiMapping: React.FC = () => {
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true, limit: 500 } });
+    const resp = await fetchMandis({
+      username,
+      language,
+      filters: { is_active: true, page: 1, pageSize: 1000 },
+    });
     const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
     // eslint-disable-next-line no-console
     console.log("OrgMandi mandis response", resp);
@@ -193,6 +197,10 @@ export const OrgMandiMapping: React.FC = () => {
           is_active: m.is_active,
         })),
       );
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error("OrgMandi mappings load error", err);
+      setToast({ open: true, message: "Failed to load mappings", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -229,19 +237,33 @@ export const OrgMandiMapping: React.FC = () => {
       setToast({ open: true, message: "org and mandi required", severity: "error" });
       return;
     }
-    await addOrgMandi({
-      username,
-      language,
-      payload: {
-        org_id: form.org_id,
-        mandi_id: Number(form.mandi_id),
-        assignment_scope: form.assignment_scope,
-        is_active: form.is_active ? "Y" : "N",
-      },
-    });
-    setDialogOpen(false);
-    setToast({ open: true, message: "Saved", severity: "success" });
-    await loadMappings();
+    try {
+      const resp = await addOrgMandi({
+        username,
+        language,
+        payload: {
+          org_id: form.org_id,
+          mandi_id: Number(form.mandi_id),
+          assignment_scope: form.assignment_scope,
+          is_active: form.is_active ? "Y" : "N",
+        },
+      });
+      // eslint-disable-next-line no-console
+      console.log("AddOrgMandi resp", resp);
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "Unknown";
+      if (code !== "0") {
+        setToast({ open: true, message: desc, severity: "error" });
+        return;
+      }
+      setDialogOpen(false);
+      setToast({ open: true, message: "Saved", severity: "success" });
+      await loadMappings();
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error("AddOrgMandi error", err);
+      setToast({ open: true, message: "Failed to save mapping", severity: "error" });
+    }
   };
 
   const handleDeactivate = async (mappingId: string) => {

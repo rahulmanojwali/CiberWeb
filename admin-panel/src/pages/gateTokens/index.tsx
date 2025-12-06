@@ -3,40 +3,25 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
   MenuItem,
   Stack,
-  Card,
-  CardContent,
-  CardActions,
-  CircularProgress,
-  ChipProps,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Avatar,
   TextField,
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import CloseIcon from "@mui/icons-material/Close";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import { useNavigate } from "react-router-dom";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-import { fetchGatePassTokens, fetchGateEntryTokens, fetchGateMovements } from "../../services/gateOpsApi";
+import { fetchGatePassTokens, fetchGateEntryTokens } from "../../services/gateOpsApi";
 import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
 
 type TokenRow = {
@@ -79,6 +64,7 @@ export const GateTokens: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const navigate = useNavigate();
 
   const [rows, setRows] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,11 +72,6 @@ export const GateTokens: React.FC = () => {
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [gateOptions, setGateOptions] = useState<Option[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<TokenRow | null>(null);
-  const [movements, setMovements] = useState<any[]>([]);
-  const [movementsLoading, setMovementsLoading] = useState(false);
-  const [movementsError, setMovementsError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState({
     org_id: "",
@@ -179,11 +160,11 @@ export const GateTokens: React.FC = () => {
             <Button
               size="small"
               startIcon={<VisibilityOutlinedIcon fontSize="small" />}
-              onClick={() => handleView(params.row)}
+              onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}`)}
             >
               View
             </Button>
-            <Button size="small" onClick={() => handleViewMovements(params.row)}>
+            <Button size="small" onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}#movements`)}>
               Movements
             </Button>
           </Stack>
@@ -313,57 +294,6 @@ export const GateTokens: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleView = (row: TokenRow) => {
-    setSelected(row);
-    setDetailOpen(true);
-    loadMovements(row);
-  };
-
-  const closeDetail = () => {
-    setDetailOpen(false);
-    setSelected(null);
-    setMovements([]);
-    setMovementsError(null);
-    setMovementsLoading(false);
-  };
-
-  const handleViewMovements = (row: TokenRow) => {
-    handleView(row);
-  };
-
-  const loadMovements = async (row: TokenRow) => {
-    const username = currentUsername();
-    if (!username || !row?.token_code) return;
-    setMovementsLoading(true);
-    setMovementsError(null);
-    try {
-      const resp = await fetchGateMovements({
-        username,
-        language,
-        filters: { token_code: row.token_code },
-      });
-      const code = resp?.response?.responsecode || resp?.responsecode || "1";
-      const desc = resp?.response?.description || resp?.description || "";
-      if (code !== "0") {
-        setMovements([]);
-        setMovementsError(desc || "Unable to load movements");
-      } else {
-        const list = resp?.data?.movements || resp?.response?.data?.movements || [];
-        setMovements(list || []);
-      }
-    } catch (e: any) {
-      setMovements([]);
-      setMovementsError(e?.message || "Unable to load movements");
-    } finally {
-      setMovementsLoading(false);
-    }
-  };
-
-  const stepColor = (step?: string): ChipProps["color"] => {
-    if (step === "ENTRY" || step === "SCAN") return "success";
-    return "default";
   };
 
   useEffect(() => {
@@ -547,9 +477,7 @@ export const GateTokens: React.FC = () => {
                     <Chip
                       size="small"
                       label={row.status || "-"}
-                      color={
-                        row.status === "SCANNED" ? "success" : row.status === "CREATED" ? "info" : "default"
-                      }
+                      color={row.status === "SCANNED" ? "success" : row.status === "CREATED" ? "info" : "default"}
                     />
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
@@ -569,10 +497,19 @@ export const GateTokens: React.FC = () => {
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ justifyContent: "flex-end" }}>
-                  <Button size="small" startIcon={<VisibilityOutlinedIcon fontSize="small" />} onClick={() => handleView(row)}>
+                  <Button
+                    size="small"
+                    startIcon={<VisibilityOutlinedIcon fontSize="small" />}
+                    onClick={() => navigate(`/gate-tokens/${encodeURIComponent(row.token_code)}`)}
+                  >
                     View
                   </Button>
-                  <Button size="small" onClick={() => handleViewMovements(row)}>
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      navigate(`/gate-tokens/${encodeURIComponent(row.token_code)}#movements`)
+                    }
+                  >
                     Movements
                   </Button>
                 </CardActions>
@@ -597,156 +534,6 @@ export const GateTokens: React.FC = () => {
           />
         )}
       </Box>
-
-      <Dialog open={detailOpen} onClose={closeDetail} fullWidth maxWidth="md" fullScreen={isMobile}>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6">Gate Token</Typography>
-          <IconButton aria-label="close" onClick={closeDetail}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
-          {!selected ? (
-            <Typography color="text.secondary">No data</Typography>
-          ) : (
-            <Stack spacing={2}>
-              <TextField
-                label="Token Code"
-                value={selected?.token_code ?? ""}
-                size="small"
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Type"
-                  value={selected?.token_type ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-                <TextField
-                  label="Status"
-                  value={selected?.status ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-              </Stack>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Vehicle"
-                  value={selected?.vehicle_no ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-                <TextField
-                  label="Reason"
-                  value={selected?.reason_code ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-              </Stack>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Gate"
-                  value={selected?.gate_code ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-                <TextField
-                  label="Device"
-                  value={selected?.device_code ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-              </Stack>
-              <Divider />
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Updated On"
-                  value={formatDate(selected?.updated_on)}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-                <TextField
-                  label="Updated By"
-                  value={selected?.updated_by ?? ""}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  fullWidth
-                />
-              </Stack>
-              <TextField
-                label="Created On"
-                value={formatDate(selected?.created_on)}
-                size="small"
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-
-              <Divider />
-              <Stack spacing={1} direction="row" alignItems="center">
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Movements Timeline
-                </Typography>
-                {movementsLoading && <CircularProgress size={18} />}
-              </Stack>
-              {movementsError && (
-                <Typography variant="body2" color="error">
-                  {movementsError}
-                </Typography>
-              )}
-              {!movementsLoading && !movementsError && movements.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  No movements recorded for this token yet.
-                </Typography>
-              )}
-              {!movementsLoading && movements.length > 0 && (
-                <List dense>
-                  {movements.map((mv, idx) => (
-                    <ListItem key={idx} alignItems="flex-start" sx={{ pl: 0 }}>
-                      <ListItemIcon sx={{ minWidth: 40 }}>
-                        <Avatar sx={{ bgcolor: "primary.light", width: 32, height: 32 }}>
-                          {(mv.step || "?").charAt(0)}
-                        </Avatar>
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Chip size="small" label={mv.step || "-"} color={stepColor(mv.step)} />
-                            <Typography variant="body2" color="text.secondary">
-                              {formatDate(mv.ts)}
-                            </Typography>
-                          </Stack>
-                        }
-                        secondary={
-                          <Stack spacing={0.5}>
-                            <Typography variant="body2">Actor: {mv.actor || "-"}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Device: {mv.details?.device_code || "-"} | Source: {mv.details?.source || "-"}
-                            </Typography>
-                            {mv.details?.remarks && (
-                              <Typography variant="body2" color="text.secondary">
-                                Remarks: {mv.details?.remarks}
-                              </Typography>
-                            )}
-                          </Stack>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-      </Dialog>
     </PageContainer>
   );
 };

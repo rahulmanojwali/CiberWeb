@@ -36,7 +36,6 @@ import {
   fetchMandis,
 } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
-import Autocomplete from "@mui/material/Autocomplete";
 
 type MappingRow = {
   id: string;

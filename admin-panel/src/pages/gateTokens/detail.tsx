@@ -58,7 +58,8 @@ export const GateTokenDetail: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
-  const { tokenCode } = useParams<{ tokenCode: string }>();
+  const { tokenCode: tokenCodeParam } = useParams<{ tokenCode: string }>();
+  const tokenCode = useMemo(() => (tokenCodeParam ? decodeURIComponent(tokenCodeParam) : ""), [tokenCodeParam]);
 
   const [detail, setDetail] = useState<TokenDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,6 +67,7 @@ export const GateTokenDetail: React.FC = () => {
   const [movementsLoading, setMovementsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [movementsMeta, setMovementsMeta] = useState<{ code: string; desc: string }>({ code: "", desc: "" });
 
   const canViewEntry = useMemo(
     () => can(uiConfig.resources, "gate_entry_tokens.view", "VIEW"),
@@ -135,6 +137,7 @@ export const GateTokenDetail: React.FC = () => {
     if (!username) return;
     setMovementsLoading(true);
     setMovementsError(null);
+    setMovementsMeta({ code: "", desc: "" });
     try {
       const resp = await fetchGateMovements({
         username,
@@ -143,6 +146,7 @@ export const GateTokenDetail: React.FC = () => {
       });
       const code = resp?.response?.responsecode || resp?.responsecode || "1";
       const desc = resp?.response?.description || resp?.description || "";
+      setMovementsMeta({ code, desc });
       if (code !== "0") {
         setMovements([]);
         setMovementsError(desc || "Unable to load movements");
@@ -180,7 +184,7 @@ export const GateTokenDetail: React.FC = () => {
         <Typography variant="h5">Gate Token Details</Typography>
         {tokenCode && (
           <Typography variant="body2" color="text.secondary">
-            Token: {tokenCode}
+            Loaded token_code: {tokenCode}
           </Typography>
         )}
       </Stack>
@@ -225,6 +229,11 @@ export const GateTokenDetail: React.FC = () => {
               <Typography variant="h6">Movements Timeline</Typography>
               {movementsLoading && <CircularProgress size={18} />}
             </Stack>
+            {tokenCode && (
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Movements for token_code: {tokenCode} {movementsMeta.code && `(last response: ${movementsMeta.code} ${movementsMeta.desc || ""})`}
+              </Typography>
+            )}
             {movementsError && (
               <Typography variant="body2" color="error">
                 {movementsError}

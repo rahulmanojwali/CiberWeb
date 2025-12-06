@@ -150,8 +150,10 @@ export const OrgMandiMapping: React.FC = () => {
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const mandis = resp?.data?.mandis || [];
+    const resp = await fetchMandis({ username, language, filters: { is_active: true, limit: 500 } });
+    const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+    // eslint-disable-next-line no-console
+    console.log("OrgMandi mandis response", resp);
     setMandiOptions(
       mandis.map((m: any) => ({
         mandi_id: m.mandi_id,

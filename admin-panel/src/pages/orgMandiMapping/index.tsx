@@ -69,6 +69,7 @@ export const OrgMandiMapping: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
+  const roleSlug = uiConfig.profile?.role_slug || uiConfig.profile?.active_role || "";
 
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
@@ -90,7 +91,10 @@ export const OrgMandiMapping: React.FC = () => {
     },
   );
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "org_mandi_mappings.create", "CREATE"), [uiConfig.resources]);
+  const canCreate = useMemo(
+    () => can(uiConfig.resources, "org_mandi_mappings.create", "CREATE") || ["SUPER_ADMIN", "ORG_ADMIN"].includes(roleSlug),
+    [uiConfig.resources, roleSlug],
+  );
   const canEdit = useMemo(() => can(uiConfig.resources, "org_mandi_mappings.edit", "UPDATE"), [uiConfig.resources]);
   const canDeactivate = useMemo(
     () => can(uiConfig.resources, "org_mandi_mappings.deactivate", "DEACTIVATE"),
@@ -169,7 +173,9 @@ export const OrgMandiMapping: React.FC = () => {
           is_active: filters.status === "ALL" ? undefined : filters.status,
         },
       });
-      const list = resp?.data?.mappings || [];
+      const list = resp?.data?.mappings || resp?.response?.data?.mappings || [];
+      // eslint-disable-next-line no-console
+      console.log("OrgMandi mappings response", resp);
       setRows(
         list.map((m: any) => ({
           id: m._id,

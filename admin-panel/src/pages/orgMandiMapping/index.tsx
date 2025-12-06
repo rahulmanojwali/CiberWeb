@@ -69,7 +69,7 @@ export const OrgMandiMapping: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
-  const roleSlug = uiConfig.profile?.role_slug || uiConfig.profile?.active_role || "";
+  const roleSlug = uiConfig.role || "";
 
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);

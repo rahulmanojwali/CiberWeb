@@ -76,6 +76,7 @@ export const OrgMandiMapping: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
   const [mandiSearch, setMandiSearch] = useState("");
+  const [selectedMandi, setSelectedMandi] = useState<MandiOption | null>(null);
   const [filters, setFilters] = useState({ org_id: "", status: "ALL" as "ALL" | "Y" | "N" });
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -160,12 +161,18 @@ export const OrgMandiMapping: React.FC = () => {
     const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
     // eslint-disable-next-line no-console
     console.log("OrgMandi mandis response", resp);
-    setMandiOptions(
-      mandis.map((m: any) => ({
-        mandi_id: m.mandi_id,
-        name: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
-      })),
-    );
+    const mapped: MandiOption[] = mandis.map((m: any) => ({
+      mandi_id: m.mandi_id,
+      name: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+    }));
+    if (selectedMandi && !mapped.find((m) => m.mandi_id === selectedMandi.mandi_id)) {
+      mapped.push(selectedMandi);
+    }
+    setMandiOptions(mapped);
+    if (!selectedMandi && form.mandi_id) {
+      const found = mapped.find((m) => String(m.mandi_id) === String(form.mandi_id));
+      if (found) setSelectedMandi(found);
+    }
   };
 
   const loadMappings = async () => {
@@ -396,12 +403,11 @@ export const OrgMandiMapping: React.FC = () => {
               getOptionLabel={(option) => `${option.name} (${option.mandi_id})`}
               inputValue={mandiSearch}
               onInputChange={(_, value) => setMandiSearch(value)}
-              value={
-                mandiOptions.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null
-              }
-              onChange={(_, val) =>
-                setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }))
-              }
+              value={selectedMandi}
+              onChange={(_, val) => {
+                setSelectedMandi(val);
+                setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}

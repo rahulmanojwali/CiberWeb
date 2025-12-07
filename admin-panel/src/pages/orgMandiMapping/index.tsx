@@ -371,43 +371,51 @@ export const OrgMandiMapping: React.FC = () => {
         fullScreen={fullScreenDialog}
       >
         <DialogTitle>Map Organisation to Mandi</DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} mt={1}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Organisation"
-                size="small"
-                value={form.org_id}
-                onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
-                fullWidth
-              >
-                {orgOptions.map((o) => (
-                  <MenuItem key={o._id} value={o._id}>
-                    {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                size="small"
-                options={mandiOptions}
-                getOptionLabel={(option) => `${option.name} (${option.mandi_id})`}
-                onInputChange={(_, value) => setMandiSearch(value)}
-                value={
-                  mandiOptions.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null
-                }
-                onChange={(_, val) =>
-                  setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }))
-                }
-                renderInput={(params) => <TextField {...params} label="Mandi" fullWidth />}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Scope"
+      <DialogContent dividers>
+        <Grid container spacing={2} mt={1}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              label="Organisation"
+              size="small"
+              value={form.org_id}
+              onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+              fullWidth
+            >
+              {orgOptions.map((o) => (
+                <MenuItem key={o._id} value={o._id}>
+                  {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Autocomplete
+              size="small"
+              options={mandiOptions}
+              getOptionLabel={(option) => `${option.name} (${option.mandi_id})`}
+              inputValue={mandiSearch}
+              onInputChange={(_, value) => setMandiSearch(value)}
+              value={
+                mandiOptions.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null
+              }
+              onChange={(_, val) =>
+                setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Mandi"
+                  placeholder="Search mandi by name or slug"
+                  fullWidth
+                />
+              )}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              label="Scope"
                 size="small"
                 value={form.assignment_scope}
                 onChange={(e) => setForm((f) => ({ ...f, assignment_scope: e.target.value }))}

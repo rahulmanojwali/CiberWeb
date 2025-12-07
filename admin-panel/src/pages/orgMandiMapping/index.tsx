@@ -155,7 +155,7 @@ export const OrgMandiMapping: React.FC = () => {
     const resp = await fetchMandis({
       username,
       language,
-      filters: { is_active: true, page: 1, pageSize: 1000 },
+      filters: { is_active: true, page: 1, pageSize: 1000, search: mandiSearch },
     });
     const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
     // eslint-disable-next-line no-console
@@ -216,6 +216,10 @@ export const OrgMandiMapping: React.FC = () => {
   useEffect(() => {
     loadMappings();
   }, [filters.org_id, filters.status]);
+
+  useEffect(() => {
+    loadMandis();
+  }, [mandiSearch]);
 
   const openCreate = () => {
     setForm({ org_id: "", mandi_id: "", assignment_scope: "EXCLUSIVE", is_active: true });
@@ -386,20 +390,19 @@ export const OrgMandiMapping: React.FC = () => {
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Mandi"
+              <Autocomplete
                 size="small"
-                value={form.mandi_id}
-                onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
-                fullWidth
-              >
-                {mandiOptions.map((m) => (
-                  <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                    {m.name} ({m.mandi_id})
-                  </MenuItem>
-                ))}
-              </TextField>
+                options={mandiOptions}
+                getOptionLabel={(option) => `${option.name} (${option.mandi_id})`}
+                onInputChange={(_, value) => setMandiSearch(value)}
+                value={
+                  mandiOptions.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null
+                }
+                onChange={(_, val) =>
+                  setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }))
+                }
+                renderInput={(params) => <TextField {...params} label="Mandi" fullWidth />}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField

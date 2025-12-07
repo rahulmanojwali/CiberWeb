@@ -299,11 +299,11 @@ export const MandiGates: React.FC = () => {
           label="Status"
           size="small"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          sx={{ width: 140 }}
-        >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="Y">Active</MenuItem>
+        onChange={(e) => setStatusFilter(e.target.value as any)}
+        sx={{ width: 140 }}
+      >
+        <MenuItem value="ALL">All</MenuItem>
+        <MenuItem value="Y">Active</MenuItem>
           <MenuItem value="N">Inactive</MenuItem>
         </TextField>
       </Stack>
@@ -317,6 +317,20 @@ export const MandiGates: React.FC = () => {
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <TextField
             select
+            label="Organisation"
+            value={form.org_id || selectedOrg}
+            onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+            fullWidth
+            disabled={isEdit}
+          >
+            {orgOptions.map((o: any) => (
+              <MenuItem key={o._id} value={o._id}>
+                {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
             label="Mandi"
             value={form.mandi_id || selectedMandi}
             onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
@@ -325,7 +339,7 @@ export const MandiGates: React.FC = () => {
           >
             {mandiOptions.map((m: any) => (
               <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
+                {m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
               </MenuItem>
             ))}
           </TextField>
@@ -343,39 +357,43 @@ export const MandiGates: React.FC = () => {
           />
           <TextField
             select
-            label="Entry Only"
-            value={form.is_entry_only}
-            onChange={(e) => setForm((f) => ({ ...f, is_entry_only: e.target.value }))}
+            label="Direction"
+            value={form.gate_direction}
+            onChange={(e) => setForm((f) => ({ ...f, gate_direction: e.target.value }))}
             fullWidth
           >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
+            <MenuItem value="ENTRY">ENTRY</MenuItem>
+            <MenuItem value="EXIT">EXIT</MenuItem>
+            <MenuItem value="BOTH">BOTH</MenuItem>
           </TextField>
           <TextField
             select
-            label="Exit Only"
-            value={form.is_exit_only}
-            onChange={(e) => setForm((f) => ({ ...f, is_exit_only: e.target.value }))}
+            label="Type"
+            value={form.gate_type}
+            onChange={(e) => setForm((f) => ({ ...f, gate_type: e.target.value }))}
             fullWidth
           >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
+            <MenuItem value="VEHICLE">VEHICLE</MenuItem>
+            <MenuItem value="PEDESTRIAN">PEDESTRIAN</MenuItem>
+            <MenuItem value="MIXED">MIXED</MenuItem>
           </TextField>
           <TextField
             select
-            label="Weighbridge"
-            value={form.is_weighbridge}
-            onChange={(e) => setForm((f) => ({ ...f, is_weighbridge: e.target.value }))}
+            label="Has Weighbridge"
+            value={form.has_weighbridge}
+            onChange={(e) => setForm((f) => ({ ...f, has_weighbridge: e.target.value }))}
             fullWidth
           >
             <MenuItem value="Y">Yes</MenuItem>
             <MenuItem value="N">No</MenuItem>
           </TextField>
           <TextField
-            label="Allowed Vehicle Codes (comma)"
-            value={form.allowed_vehicle_codes}
-            onChange={(e) => setForm((f) => ({ ...f, allowed_vehicle_codes: e.target.value }))}
+            label="Notes"
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             fullWidth
+            multiline
+            minRows={2}
           />
           <TextField
             select

@@ -417,7 +417,7 @@ export const createMandiGate = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.createMandiGate, {
+  postEncrypted(API_ROUTES.admin.addMandiGate, {
     api: API_TAGS.GATES.create,
     username,
     language,
@@ -433,7 +433,7 @@ export const updateMandiGate = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.updateMandiGate, {
+  postEncrypted(API_ROUTES.admin.editMandiGate, {
     api: API_TAGS.GATES.update,
     username,
     language,

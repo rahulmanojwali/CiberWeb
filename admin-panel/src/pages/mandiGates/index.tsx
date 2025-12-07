@@ -20,6 +20,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,
   createMandiGate,
@@ -40,20 +41,29 @@ function currentUsername(): string | null {
 
 type GateRow = {
   id: string;
+  org_id: string;
+  org_name?: string;
   mandi_id: number;
   gate_code: string;
-  name: string;
+  gate_name: string;
+  gate_direction?: string;
+  gate_type?: string;
+  has_weighbridge?: string;
   is_active: string;
+  updated_on?: string;
+  updated_by?: string;
 };
 
 const defaultForm = {
+  org_id: "",
   mandi_id: "",
   gate_code: "",
   name_en: "",
-  is_entry_only: "N",
-  is_exit_only: "N",
-  is_weighbridge: "N",
-  allowed_vehicle_codes: "",
+  name_hi: "",
+  gate_direction: "BOTH",
+  gate_type: "VEHICLE",
+  has_weighbridge: "N",
+  notes: "",
   is_active: "Y",
 };
 
@@ -63,7 +73,9 @@ export const MandiGates: React.FC = () => {
   const uiConfig = useAdminUiConfig();
 
   const [rows, setRows] = useState<GateRow[]>([]);
+  const [orgOptions, setOrgOptions] = useState<any[]>([]);
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [selectedMandi, setSelectedMandi] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,10 +93,16 @@ export const MandiGates: React.FC = () => {
 
   const columns = useMemo<GridColDef<GateRow>[]>(
     () => [
-      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
       { field: "gate_code", headerName: "Gate Code", width: 140 },
-      { field: "name", headerName: "Name", flex: 1 },
+      { field: "gate_name", headerName: "Gate Name", flex: 1 },
+      { field: "gate_direction", headerName: "Direction", width: 120 },
+      { field: "gate_type", headerName: "Type", width: 120 },
+      { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
+      { field: "org_name", headerName: "Org", width: 160 },
+      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
       { field: "is_active", headerName: "Active", width: 100 },
+      { field: "updated_on", headerName: "Updated On", width: 160 },
+      { field: "updated_by", headerName: "Updated By", width: 140 },
       {
         field: "actions",
         headerName: "Actions",
@@ -113,10 +131,23 @@ export const MandiGates: React.FC = () => {
     [canEdit, canDeactivate],
   );
 
+  const loadOrgs = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchOrganisations({ username, language });
+    const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+    setOrgOptions(orgs);
+    if (!selectedOrg && orgs.length) setSelectedOrg(String(orgs[0]._id));
+  };
+
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
+    const resp = await fetchMandis({
+      username,
+      language,
+      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000 },
+    });
     const mandis = resp?.data?.mandis || [];
     setMandiOptions(mandis);
     if (!selectedMandi && mandis.length) setSelectedMandi(String(mandis[0].mandi_id));
@@ -124,39 +155,51 @@ export const MandiGates: React.FC = () => {
 
   const loadData = async () => {
     const username = currentUsername();
-    if (!username || !selectedMandi) return;
+    if (!username) return;
     const resp = await fetchMandiGates({
       username,
       language,
       filters: {
-        mandi_id: Number(selectedMandi),
+        org_id: selectedOrg || undefined,
+        mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
         is_active: statusFilter === "ALL" ? undefined : statusFilter,
       },
     });
-    const list = resp?.data?.items || [];
+    const list = resp?.data?.gates || resp?.data?.items || [];
     setRows(
       list.map((g: any) => ({
         id: g._id,
+        org_id: g.org_id,
+        org_name: g.org_name || "",
         mandi_id: g.mandi_id,
         gate_code: g.gate_code,
-        name: g?.name_i18n?.en || g.gate_code,
+        gate_name: g?.name_i18n?.en || g.gate_code,
+        gate_direction: g.gate_direction,
+        gate_type: g.gate_type,
+        has_weighbridge: g.has_weighbridge,
         is_active: g.is_active,
+        updated_on: g.updated_on,
+        updated_by: g.updated_by,
       })),
     );
   };
 
   useEffect(() => {
-    loadMandis();
+    loadOrgs();
   }, []);
 
   useEffect(() => {
+    loadMandis();
+  }, [selectedOrg]);
+
+  useEffect(() => {
     loadData();
-  }, [selectedMandi, statusFilter]);
+  }, [selectedMandi, statusFilter, selectedOrg]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
-    setForm({ ...defaultForm, mandi_id: selectedMandi });
+    setForm({ ...defaultForm, mandi_id: selectedMandi, org_id: selectedOrg });
     setDialogOpen(true);
   };
 
@@ -175,13 +218,15 @@ export const MandiGates: React.FC = () => {
     setIsEdit(true);
     setEditId(row.id);
     setForm({
+      org_id: row.org_id,
       mandi_id: String(row.mandi_id),
       gate_code: row.gate_code,
-      name_en: row.name,
-      is_entry_only: "N",
-      is_exit_only: "N",
-      is_weighbridge: "N",
-      allowed_vehicle_codes: "",
+      name_en: row.gate_name,
+      name_hi: "",
+      gate_direction: row.gate_direction || "BOTH",
+      gate_type: row.gate_type || "VEHICLE",
+      has_weighbridge: row.has_weighbridge || "N",
+      notes: "",
       is_active: row.is_active,
     });
     setDialogOpen(true);
@@ -191,15 +236,14 @@ export const MandiGates: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const payload: any = {
+      org_id: form.org_id || selectedOrg,
       mandi_id: Number(form.mandi_id || selectedMandi),
       gate_code: form.gate_code,
-      name_i18n: { en: form.name_en },
-      is_entry_only: form.is_entry_only,
-      is_exit_only: form.is_exit_only,
-      is_weighbridge: form.is_weighbridge,
-      allowed_vehicle_codes: form.allowed_vehicle_codes
-        ? form.allowed_vehicle_codes.split(",").map((s) => s.trim()).filter(Boolean)
-        : [],
+      name_i18n: { en: form.name_en, hi: form.name_hi },
+      gate_direction: form.gate_direction,
+      gate_type: form.gate_type,
+      has_weighbridge: form.has_weighbridge,
+      notes: form.notes,
       is_active: form.is_active,
     };
     if (isEdit && editId) {

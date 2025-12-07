@@ -354,6 +354,15 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
     },
     {
+      key: "mandiGates",
+      labelKey: "menu.mandiGates",
+      path: "/mandi-gates",
+      icon: React.createElement(QrCodeScannerOutlinedIcon),
+      resourceKey: "mandi_gates.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    },
+    {
       key: "gateDevices",
       labelKey: "menu.gateDevices",
       path: "/gate-devices",

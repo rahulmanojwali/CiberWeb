@@ -331,7 +331,7 @@ export const MandiGates: React.FC = () => {
           isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
           filterOptions={(opts) => opts}
           freeSolo
-          value={mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null}
+          value={selectedMandi ? mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null : null}
           onChange={(_, val: any) => {
             setSelectedMandi(val ? String(val.mandi_id) : "");
             setMandiSearchText(val ? val.label || String(val.mandi_id) : "");

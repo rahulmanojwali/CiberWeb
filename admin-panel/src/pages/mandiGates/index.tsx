@@ -5,16 +5,19 @@ import {
   Card,
   CardActions,
   CardContent,
+  Autocomplete,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   MenuItem,
+  Snackbar,
   Stack,
   TextField,
   Typography,
   useMediaQuery,
   useTheme,
+  Alert,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -95,6 +98,11 @@ export const MandiGates: React.FC = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [gateCodeDirty, setGateCodeDirty] = useState(false);
   const [gateCodeError, setGateCodeError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const canCreateMandiGate = useMemo(
     () => can(uiConfig.resources, "mandi_gates.create", "CREATE"),
@@ -404,15 +412,15 @@ export const MandiGates: React.FC = () => {
             options={mandiOptions}
             getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
             value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
-            onChange={(_, val) => {
+            onChange={(_, val: any) => {
               setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
             }}
             inputValue={createMandiSearch}
-            onInputChange={(_, val) => {
+            onInputChange={(_, val: string) => {
               setCreateMandiSearch(val);
               setMandiSearch(val);
             }}
-            renderInput={(params) => (
+            renderInput={(params: any) => (
               <TextField
                 {...params}
                 label="Mandi"
@@ -510,6 +518,16 @@ export const MandiGates: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3000}
+        onClose={() => setToast((t) => ({ ...t, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </PageContainer>
   );
 };

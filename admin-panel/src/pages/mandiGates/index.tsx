@@ -446,9 +446,11 @@ export const MandiGates: React.FC = () => {
               if (reason === "clear") {
                 setCreateMandiSearch("");
                 setForm((f) => ({ ...f, mandi_id: "" }));
+                setMandiSearchText("");
                 return;
               }
               setCreateMandiSearch(val);
+              setMandiSearchText(val);
             }}
             renderInput={(params: any) => (
               <TextField

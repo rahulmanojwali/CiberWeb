@@ -337,7 +337,12 @@ export const MandiGates: React.FC = () => {
             setMandiSearchText(val ? val.label || String(val.mandi_id) : "");
           }}
           inputValue={mandiSearchText}
-          onInputChange={(_, val: string) => {
+          onInputChange={(_, val: string, reason: string) => {
+            if (reason === "clear") {
+              setMandiSearchText("");
+              setSelectedMandi("");
+              return;
+            }
             setMandiSearchText(val);
           }}
           renderInput={(params: any) => (

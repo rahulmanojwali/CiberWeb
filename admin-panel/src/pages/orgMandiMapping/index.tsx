@@ -70,6 +70,7 @@ export const OrgMandiMapping: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMobile = fullScreenDialog;
   const roleSlug = uiConfig.role || "";
 
   const [rows, setRows] = useState<MappingRow[]>([]);
@@ -362,13 +363,48 @@ export const OrgMandiMapping: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.id} />
-          </Box>
-        </CardContent>
-      </Card>
+      {isMobile ? (
+        <Stack spacing={2}>
+          {rows.map((row) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Typography variant="h6">
+                  Org: {row.org_code || row.org_id}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Mandi: {row.mandi_slug || row.mandi_id} • Scope: {row.assignment_scope}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Active: {row.is_active}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  State: {row.state_code || "-"} • District: {row.district_name || "-"} • Pincode: {row.pincode || "-"}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                {canEdit && (
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                    Edit
+                  </Button>
+                )}
+                {canDeactivate && (
+                  <Button size="small" color="error" startIcon={<BlockIcon />} onClick={() => handleDeactivate(row.id)}>
+                    Deactivate
+                  </Button>
+                )}
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Card>
+          <CardContent>
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <ResponsiveDataGrid columns={columns} rows={rows} loading={loading} getRowId={(r) => r.id} />
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog
         open={dialogOpen}

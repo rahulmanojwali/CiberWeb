@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardActions,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -9,6 +12,9 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -71,6 +77,8 @@ export const MandiGates: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
@@ -288,12 +296,12 @@ export const MandiGates: React.FC = () => {
           onChange={(e) => setSelectedMandi(e.target.value)}
           sx={{ minWidth: 200 }}
         >
-          {mandiOptions.map((m: any) => (
-            <MenuItem key={m.mandi_id} value={m.mandi_id}>
-              {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-            </MenuItem>
-          ))}
-        </TextField>
+      {mandiOptions.map((m: any) => (
+          <MenuItem key={m.mandi_id} value={m.mandi_id}>
+            {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
+          </MenuItem>
+        ))}
+      </TextField>
         <TextField
           select
           label="Status"
@@ -308,11 +316,47 @@ export const MandiGates: React.FC = () => {
         </TextField>
       </Stack>
 
-      <Box sx={{ height: 520 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
-      </Box>
+      {isMobile ? (
+        <Stack spacing={2}>
+          {rows.map((row) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Code: {row.gate_code} • Direction: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Org: {row.org_name || row.org_id} • Mandi: {row.mandi_id}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Weighbridge: {row.has_weighbridge || "N"} • Active: {row.is_active}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Updated: {row.updated_on || "-"} by {row.updated_by || "-"}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                {canEdit && (
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                    Edit
+                  </Button>
+                )}
+                {canDeactivate && (
+                  <Button size="small" color="error" startIcon={<BlockIcon />} onClick={() => handleDeactivate(row.id)}>
+                    Deactivate
+                  </Button>
+                )}
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Box sx={{ height: 520 }}>
+          <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
+        </Box>
+      )}
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm" fullScreen={isMobile}>
         <DialogTitle>{isEdit ? "Edit Gate" : "Create Gate"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <TextField

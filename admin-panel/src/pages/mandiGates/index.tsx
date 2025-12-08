@@ -173,7 +173,7 @@ export const MandiGates: React.FC = () => {
       mandi_id: String(m.mandi_id),
       label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
     }));
-    const withAll = [{ mandi_id: "", label: "All Mandis" }, ...mapped];
+    const withAll = [{ mandi_id: "", label: "All" }, ...mapped];
     setMandiOptions(withAll);
     if (!selectedMandi) setSelectedMandi("");
   };
@@ -335,7 +335,7 @@ export const MandiGates: React.FC = () => {
             <TextField
               {...params}
               label="Mandi"
-              placeholder="All Mandis"
+              placeholder="All"
               fullWidth
             />
           )}

@@ -31,15 +31,23 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
   const masterOnly = options.masterOnly === true;
 
   const perms = useMemo(() => {
-    const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
-    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW") || can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
+    // VIEW on list / menu / detail
+    const viewList =
+      can(uiConfig.resources, `${resourceKey}.list`, "VIEW") ||
+      can(uiConfig.resources, `${resourceKey}.menu`, "VIEW");
+    const viewDetail =
+      can(uiConfig.resources, `${resourceKey}.detail`, "VIEW") ||
+      can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
+
     const view = viewList || viewDetail;
+
+    // Base actions from resources
     let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
     let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
     let deactivate = can(uiConfig.resources, `${resourceKey}.deactivate`, "DEACTIVATE");
 
+    // SUPER_ADMIN always gets full CRUD
     if (isSuperAdmin) {
-      // Super admin always has CRUD; view uses policy or default to true.
       return {
         canView: view || true,
         canViewDetail: true,
@@ -49,15 +57,25 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       };
     }
 
-    // Org-admin fallback for org-scoped commodity products when policies are missing create/edit/deactivate.
+    // Existing special-case: org-level commodity products
     if (resourceKey === "commodity_products" && roleSlug === "ORG_ADMIN" && uiConfig.scope?.org_code) {
       if (!create) create = true;
       if (!edit) edit = true;
       if (!deactivate) deactivate = true;
     }
 
+    // NEW: special-case for mandi_gates for ORG_ADMIN
+    // Your cm_admin_role_policies give ORG_ADMIN full CRUD on mandi_gates,
+    // but the admin UI config is not reflecting that. This fallback ensures
+    // ORG_ADMIN can create/edit/deactivate their gates in the UI.
+    if (resourceKey === "mandi_gates" && roleSlug === "ORG_ADMIN" && uiConfig.scope?.org_code) {
+      if (!create) create = true;
+      if (!edit) edit = true;
+      if (!deactivate) deactivate = true;
+    }
+
+    // Master data mode: read-only for non-super, regardless of policy.
     if (masterOnly) {
-      // Master data: non-super roles are read-only regardless of policy.
       return {
         canView: view,
         canViewDetail: viewDetail,
@@ -74,7 +92,7 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       canEdit: edit,
       canDeactivate: deactivate,
     };
-  }, [uiConfig.resources, resourceKey, isSuperAdmin, masterOnly]);
+  }, [uiConfig.resources, uiConfig.scope, resourceKey, roleSlug, isSuperAdmin, masterOnly]);
 
   return {
     ...perms,
@@ -82,3 +100,90 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
     isSuperAdmin,
   };
 }
+
+
+
+// import { useMemo } from "react";
+// import { useAdminUiConfig } from "../contexts/admin-ui-config";
+// import { can } from "./adminUiConfig";
+
+// type CrudPermissions = {
+//   canView: boolean;
+//   canViewDetail: boolean;
+//   canCreate: boolean;
+//   canEdit: boolean;
+//   canDeactivate: boolean;
+//   roleSlug: string;
+//   isSuperAdmin: boolean;
+// };
+
+// type CrudOptions = {
+//   /**
+//    * When true, create/edit/deactivate are allowed only for SUPER_ADMIN,
+//    * even if policies accidentally grant others. Useful for master data.
+//    */
+//   masterOnly?: boolean;
+// };
+
+// /**
+//  * Central helper to derive CRUD permissions from admin-ui-config resources and role.
+//  * It standardises the resource/action keys and applies SUPER_ADMIN shortcuts.
+//  */
+// export function useCrudPermissions(resourceKey: string, options: CrudOptions = {}): CrudPermissions {
+//   const uiConfig = useAdminUiConfig();
+//   const roleSlug = (uiConfig.role || (uiConfig.scope as any)?.role_slug || "").toUpperCase();
+//   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+//   const masterOnly = options.masterOnly === true;
+
+//   const perms = useMemo(() => {
+//     const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
+//     const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW") || can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
+//     const view = viewList || viewDetail;
+//     let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
+//     let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
+//     let deactivate = can(uiConfig.resources, `${resourceKey}.deactivate`, "DEACTIVATE");
+
+//     if (isSuperAdmin) {
+//       // Super admin always has CRUD; view uses policy or default to true.
+//       return {
+//         canView: view || true,
+//         canViewDetail: true,
+//         canCreate: true,
+//         canEdit: true,
+//         canDeactivate: true,
+//       };
+//     }
+
+//     // Org-admin fallback for org-scoped commodity products when policies are missing create/edit/deactivate.
+//     if (resourceKey === "commodity_products" && roleSlug === "ORG_ADMIN" && uiConfig.scope?.org_code) {
+//       if (!create) create = true;
+//       if (!edit) edit = true;
+//       if (!deactivate) deactivate = true;
+//     }
+
+//     if (masterOnly) {
+//       // Master data: non-super roles are read-only regardless of policy.
+//       return {
+//         canView: view,
+//         canViewDetail: viewDetail,
+//         canCreate: false,
+//         canEdit: false,
+//         canDeactivate: false,
+//       };
+//     }
+
+//     return {
+//       canView: view,
+//       canViewDetail: viewDetail,
+//       canCreate: create,
+//       canEdit: edit,
+//       canDeactivate: deactivate,
+//     };
+//   }, [uiConfig.resources, resourceKey, isSuperAdmin, masterOnly]);
+
+//   return {
+//     ...perms,
+//     roleSlug,
+//     isSuperAdmin,
+//   };
+// }

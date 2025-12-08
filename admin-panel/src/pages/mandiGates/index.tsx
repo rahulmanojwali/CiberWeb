@@ -119,7 +119,7 @@ export const MandiGates: React.FC = () => {
       { field: "gate_type", headerName: "Type", width: 120 },
       { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
       { field: "org_name", headerName: "Org", width: 160 },
-      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
+      { field: "mandi_name", headerName: "Mandi", width: 160 },
       { field: "is_active", headerName: "Active", width: 100 },
       { field: "updated_on", headerName: "Updated On", width: 160 },
       { field: "updated_by", headerName: "Updated By", width: 140 },
@@ -199,6 +199,7 @@ export const MandiGates: React.FC = () => {
         org_id: g.org_id,
         org_name: g.org_name || "",
         mandi_id: g.mandi_id,
+        mandi_name: g.mandi_name || "",
         gate_code: g.gate_code,
         gate_name: g?.name_i18n?.en || g.gate_code,
         gate_direction: g.gate_direction, // legacy, may be undefined in cm_mandi_gates

@@ -430,14 +430,25 @@ export const MandiGates: React.FC = () => {
             options={mandiOptions.filter((m: any) => m.mandi_id !== "")}
             getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
             isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-            value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
+            filterOptions={(opts) => opts}
+            freeSolo
+            value={
+              form.mandi_id
+                ? mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id)) || null
+                : null
+            }
             onChange={(_, val: any) => {
               setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
-          }}
+              setCreateMandiSearch(val ? val.label || String(val.mandi_id) : "");
+            }}
             inputValue={createMandiSearch}
-            onInputChange={(_, val: string) => {
+            onInputChange={(_, val: string, reason: string) => {
+              if (reason === "clear") {
+                setCreateMandiSearch("");
+                setForm((f) => ({ ...f, mandi_id: "" }));
+                return;
+              }
               setCreateMandiSearch(val);
-              setMandiSearchText(val);
             }}
             renderInput={(params: any) => (
               <TextField

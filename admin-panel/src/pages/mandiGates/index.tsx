@@ -361,13 +361,13 @@ export const MandiGates: React.FC = () => {
           {rows.map((row) => (
             <Card key={row.id} variant="outlined">
               <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
-                <Typography variant="body2" color="text.secondary">
+              <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
+              <Typography variant="body2" color="text.secondary">
                   Code: {row.gate_code} • Direction: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Org: {row.org_name || row.org_id} • Mandi: {row.mandi_id}
-                </Typography>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                  Org: {row.org_name || row.org_id} • Mandi: {row.mandi_name || row.mandi_id}
+              </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Weighbridge: {row.has_weighbridge || "N"} • Active: {row.is_active}
                 </Typography>

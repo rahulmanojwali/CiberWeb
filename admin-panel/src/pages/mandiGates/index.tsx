@@ -201,6 +201,7 @@ export const MandiGates: React.FC = () => {
   }, [selectedOrg]);
 
   useEffect(() => {
+    if (!selectedOrg || !selectedMandi) return;
     loadData();
   }, [selectedMandi, statusFilter, selectedOrg]);
 

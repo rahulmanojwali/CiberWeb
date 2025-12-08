@@ -174,6 +174,8 @@ export const MandiGates: React.FC = () => {
       },
     });
     const list = resp?.data?.gates || resp?.data?.items || [];
+    // eslint-disable-next-line no-console
+    console.log("[DEBUG:GATES_UI] API /getMandiGates returned:", list);
     setRows(
       list.map((g: any) => ({
         id: g._id,
@@ -182,9 +184,9 @@ export const MandiGates: React.FC = () => {
         mandi_id: g.mandi_id,
         gate_code: g.gate_code,
         gate_name: g?.name_i18n?.en || g.gate_code,
-        gate_direction: g.gate_direction,
+        gate_direction: g.gate_direction, // legacy, may be undefined in cm_mandi_gates
         gate_type: g.gate_type,
-        has_weighbridge: g.has_weighbridge,
+        has_weighbridge: g.is_weighbridge || g.has_weighbridge,
         is_active: g.is_active,
         updated_on: g.updated_on,
         updated_by: g.updated_by,

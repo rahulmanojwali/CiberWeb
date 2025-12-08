@@ -85,12 +85,16 @@ export const MandiGates: React.FC = () => {
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [selectedMandi, setSelectedMandi] = useState<string>("");
+  const [mandiSearch, setMandiSearch] = useState("");
+  const [createMandiSearch, setCreateMandiSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const [gateCodeDirty, setGateCodeDirty] = useState(false);
+  const [gateCodeError, setGateCodeError] = useState<string | null>(null);
 
   const canCreateMandiGate = useMemo(
     () => can(uiConfig.resources, "mandi_gates.create", "CREATE"),
@@ -154,11 +158,16 @@ export const MandiGates: React.FC = () => {
     const resp = await fetchMandis({
       username,
       language,
-      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000 },
+      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000, search: mandiSearch || undefined },
     });
     const mandis = resp?.data?.mandis || [];
-    setMandiOptions(mandis);
-    if (!selectedMandi && mandis.length) setSelectedMandi(String(mandis[0].mandi_id));
+    const mapped = mandis.map((m: any) => ({
+      mandi_id: String(m.mandi_id),
+      label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
+    }));
+    const withAll = [{ mandi_id: "", label: "All Mandis" }, ...mapped];
+    setMandiOptions(withAll);
+    if (!selectedMandi) setSelectedMandi("");
   };
 
   const loadData = async () => {
@@ -200,17 +209,19 @@ export const MandiGates: React.FC = () => {
 
   useEffect(() => {
     loadMandis();
-  }, [selectedOrg]);
+  }, [selectedOrg, mandiSearch]);
 
   useEffect(() => {
-    if (!selectedOrg || !selectedMandi) return;
+    if (!selectedOrg) return;
     loadData();
   }, [selectedMandi, statusFilter, selectedOrg]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
-    setForm({ ...defaultForm, mandi_id: selectedMandi, org_id: selectedOrg });
+    setGateCodeDirty(false);
+    setGateCodeError(null);
+    setForm({ ...defaultForm, mandi_id: selectedMandi === "" ? "" : selectedMandi, org_id: selectedOrg });
     setDialogOpen(true);
   };
 
@@ -228,6 +239,8 @@ export const MandiGates: React.FC = () => {
     setCreateOpen(false);
     setIsEdit(true);
     setEditId(row.id);
+    setGateCodeDirty(true);
+    setGateCodeError(null);
     setForm({
       org_id: row.org_id,
       mandi_id: String(row.mandi_id),
@@ -246,6 +259,16 @@ export const MandiGates: React.FC = () => {
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
+    const gateCodePattern = /^[a-z0-9_-]{2,32}$/;
+    if (!gateCodePattern.test(form.gate_code)) {
+      setGateCodeError("Gate code must be 2-32 chars, lowercase letters, numbers, _ or -");
+      return;
+    }
+    if (!form.mandi_id) {
+      setGateCodeError(null);
+      setToast({ open: true, message: "Select a Mandi", severity: "error" });
+      return;
+    }
     const payload: any = {
       org_id: form.org_id || selectedOrg,
       mandi_id: Number(form.mandi_id || selectedMandi),
@@ -376,30 +399,57 @@ export const MandiGates: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            select
-            label="Mandi"
-            value={form.mandi_id || selectedMandi}
-            onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
-            fullWidth
-            disabled={isEdit}
-          >
-            {mandiOptions.map((m: any) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Autocomplete
+            size="small"
+            options={mandiOptions}
+            getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
+            value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
+            onChange={(_, val) => {
+              setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
+            }}
+            inputValue={createMandiSearch}
+            onInputChange={(_, val) => {
+              setCreateMandiSearch(val);
+              setMandiSearch(val);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Mandi"
+                placeholder="Search mandi by name or slug"
+                fullWidth
+                disabled={isEdit}
+              />
+            )}
+          />
           <TextField
             label="Gate Code"
             value={form.gate_code}
-            onChange={(e) => setForm((f) => ({ ...f, gate_code: e.target.value }))}
+            onChange={(e) => {
+              setGateCodeDirty(true);
+              setGateCodeError(null);
+              setForm((f) => ({ ...f, gate_code: e.target.value }));
+            }}
+            error={!!gateCodeError}
+            helperText={gateCodeError || "Lowercase letters, numbers, _ or -"}
             fullWidth
           />
           <TextField
             label="Gate Name (EN)"
             value={form.name_en}
-            onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+            onChange={(e) => {
+              const val = e.target.value;
+              setForm((f) => ({ ...f, name_en: val }));
+              if (!gateCodeDirty) {
+                const slug = val
+                  .trim()
+                  .toLowerCase()
+                  .replace(/[^a-z0-9_-]+/g, "-")
+                  .replace(/^-+|-+$/g, "")
+                  .slice(0, 32);
+                setForm((f) => ({ ...f, name_en: val, gate_code: slug }));
+              }
+            }}
             fullWidth
           />
           <TextField

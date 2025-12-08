@@ -444,16 +444,19 @@ export const deactivateMandiGate = async ({
   username,
   language = DEFAULT_LANGUAGE,
   _id,
+  is_active,
 }: {
   username: string;
   language?: string;
   _id: string;
+  is_active?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateMandiGate, {
     api: API_TAGS.GATES.deactivate,
     username,
     language,
     _id,
+    ...(is_active ? { is_active } : {}),
   });
 
 // --- Hours templates ---

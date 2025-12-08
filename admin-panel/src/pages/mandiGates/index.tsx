@@ -29,7 +29,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
-import { useCrudPermissions } from "../../hooks/useCrudPermissions";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,

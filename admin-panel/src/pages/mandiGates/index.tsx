@@ -413,13 +413,13 @@ export const MandiGates: React.FC = () => {
             ))}
           </TextField>
           <Autocomplete
-          size="small"
-          options={mandiOptions}
-          getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-          isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-          value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
-          onChange={(_, val: any) => {
-            setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
+            size="small"
+            options={mandiOptions.filter((m: any) => m.mandi_id !== "")}
+            getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
+            isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+            value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
+            onChange={(_, val: any) => {
+              setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
           }}
             inputValue={createMandiSearch}
             onInputChange={(_, val: string) => {

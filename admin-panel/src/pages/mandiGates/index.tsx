@@ -222,7 +222,6 @@ export const MandiGates: React.FC = () => {
   }, [selectedOrg, mandiSearchText]);
 
   useEffect(() => {
-    if (!selectedOrg) return;
     loadData();
   }, [selectedMandi, statusFilter, selectedOrg]);
 

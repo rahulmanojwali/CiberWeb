@@ -28,8 +28,8 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
+// import { can } from "../../utils/adminUiConfig";
+//import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,
@@ -84,7 +84,20 @@ export const MandiGates: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_gates");
+ 
+ 
+  //const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_gates");
+  const roleSlug = (uiConfig.role || (uiConfig.scope as any)?.role_slug || "").toUpperCase();
+  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+  const isOrgAdmin = roleSlug === "ORG_ADMIN";
+  const isMandiAdmin = roleSlug === "MANDI_ADMIN";
+
+  // Final permissions used by THIS screen only
+  const canCreate = isSuperAdmin || isOrgAdmin || isMandiAdmin;
+  const canEdit = isSuperAdmin || isOrgAdmin || isMandiAdmin;
+  const canDeactivate = isSuperAdmin || isOrgAdmin || isMandiAdmin;
+
+// till here
 
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);

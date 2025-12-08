@@ -53,6 +53,7 @@ type GateRow = {
   org_id: string;
   org_name?: string;
   mandi_id: number;
+  mandi_name?: string;
   gate_code: string;
   gate_name: string;
   gate_direction?: string;

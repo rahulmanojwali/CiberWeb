@@ -28,8 +28,8 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-// import { can } from "../../utils/adminUiConfig";
-//import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,
@@ -84,20 +84,7 @@ export const MandiGates: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
- 
- 
-  //const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_gates");
-  const roleSlug = (uiConfig.role || (uiConfig.scope as any)?.role_slug || "").toUpperCase();
-  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
-  const isOrgAdmin = roleSlug === "ORG_ADMIN";
-  const isMandiAdmin = roleSlug === "MANDI_ADMIN";
-
-  // Final permissions used by THIS screen only
-  const canCreate = isSuperAdmin || isOrgAdmin || isMandiAdmin;
-  const canEdit = isSuperAdmin || isOrgAdmin || isMandiAdmin;
-  const canDeactivate = isSuperAdmin || isOrgAdmin || isMandiAdmin;
-
-// till here
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_gates");
 
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
@@ -144,7 +131,7 @@ export const MandiGates: React.FC = () => {
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => handleEditGate(params.row)}>
+              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
                 Edit
               </Button>
             )}
@@ -153,7 +140,7 @@ export const MandiGates: React.FC = () => {
                 size="small"
                 color={params.row.is_active === "Y" ? "error" : "primary"}
                 startIcon={<BlockIcon />}
-                onClick={() => handleToggleGateActive(params.row)}
+                onClick={() => handleDeactivate(params.row.id, params.row.is_active)}
               >
                 {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
               </Button>
@@ -408,7 +395,7 @@ export const MandiGates: React.FC = () => {
               </CardContent>
               <CardActions>
                 {canEdit && (
-                  <Button size="small" startIcon={<EditIcon />} onClick={() => handleEditGate(row)}>
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
                     Edit
                   </Button>
                 )}
@@ -417,7 +404,7 @@ export const MandiGates: React.FC = () => {
                     size="small"
                     color={row.is_active === "Y" ? "error" : "primary"}
                     startIcon={<BlockIcon />}
-                    onClick={() => handleToggleGateActive(row)}
+                    onClick={() => handleDeactivate(row.id, row.is_active)}
                   >
                     {row.is_active === "Y" ? "Deactivate" : "Activate"}
                   </Button>

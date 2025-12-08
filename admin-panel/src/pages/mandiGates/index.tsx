@@ -106,6 +106,7 @@ export const MandiGates: React.FC = () => {
     message: "",
     severity: "success",
   });
+  const [selectedGate, setSelectedGate] = useState<any | null>(null);
 
   const columns = useMemo<GridColDef<GateRow>[]>(
     () => [
@@ -130,7 +131,7 @@ export const MandiGates: React.FC = () => {
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
+              <Button size="small" startIcon={<EditIcon />} onClick={() => handleEditGate(params.row)}>
                 Edit
               </Button>
             )}
@@ -139,7 +140,7 @@ export const MandiGates: React.FC = () => {
                 size="small"
                 color={params.row.is_active === "Y" ? "error" : "primary"}
                 startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.id, params.row.is_active)}
+                onClick={() => handleToggleGateActive(params.row)}
               >
                 {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
               </Button>
@@ -243,7 +244,8 @@ export const MandiGates: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const openEdit = (row: GateRow) => {
+  const handleEditGate = (row: GateRow) => {
+    setSelectedGate(row);
     setCreateOpen(false);
     setIsEdit(true);
     setEditId(row.id);
@@ -296,6 +298,10 @@ export const MandiGates: React.FC = () => {
     }
     handleCloseDialog();
     await loadData();
+  };
+
+  const handleToggleGateActive = async (row: GateRow) => {
+    await handleDeactivate(row.id, row.is_active);
   };
 
   const handleDeactivate = async (id: string, currentActive?: string) => {
@@ -389,7 +395,7 @@ export const MandiGates: React.FC = () => {
               </CardContent>
               <CardActions>
                 {canEdit && (
-                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => handleEditGate(row)}>
                     Edit
                   </Button>
                 )}
@@ -398,7 +404,7 @@ export const MandiGates: React.FC = () => {
                     size="small"
                     color={row.is_active === "Y" ? "error" : "primary"}
                     startIcon={<BlockIcon />}
-                    onClick={() => handleDeactivate(row.id, row.is_active)}
+                    onClick={() => handleToggleGateActive(row)}
                   >
                     {row.is_active === "Y" ? "Deactivate" : "Activate"}
                   </Button>

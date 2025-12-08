@@ -29,6 +29,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../hooks/useCrudPermissions";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,
@@ -83,6 +84,7 @@ export const MandiGates: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_gates");
 
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
@@ -104,13 +106,6 @@ export const MandiGates: React.FC = () => {
     message: "",
     severity: "success",
   });
-
-  const canCreateMandiGate = useMemo(
-    () => can(uiConfig.resources, "mandi_gates.create", "CREATE"),
-    [uiConfig.resources],
-  );
-  const canEdit = useMemo(() => can(uiConfig.resources, "mandi_gates.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(() => can(uiConfig.resources, "mandi_gates.deactivate", "DEACTIVATE"), [uiConfig.resources]);
 
   const columns = useMemo<GridColDef<GateRow>[]>(
     () => [
@@ -138,11 +133,11 @@ export const MandiGates: React.FC = () => {
             {canDeactivate && (
               <Button
                 size="small"
-                color="error"
+                color={params.row.is_active === "Y" ? "error" : "primary"}
                 startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.id)}
+                onClick={() => handleDeactivate(params.row.id, params.row.is_active)}
               >
-                Deactivate
+                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
               </Button>
             )}
           </Stack>
@@ -299,10 +294,11 @@ export const MandiGates: React.FC = () => {
     await loadData();
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = async (id: string, currentActive?: string) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateMandiGate({ username, language, _id: id });
+    const next = currentActive === "Y" ? "N" : "Y";
+    await deactivateMandiGate({ username, language, _id: id, is_active: next });
     await loadData();
   };
 
@@ -310,7 +306,7 @@ export const MandiGates: React.FC = () => {
     <PageContainer
       title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
       actions={
-        canCreateMandiGate && (
+        canCreate && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -373,13 +369,13 @@ export const MandiGates: React.FC = () => {
           {rows.map((row) => (
             <Card key={row.id} variant="outlined">
               <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-              <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
-              <Typography variant="body2" color="text.secondary">
+                <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
+                <Typography variant="body2" color="text.secondary">
                   Code: {row.gate_code} • Direction: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
                   Org: {row.org_name || row.org_id} • Mandi: {row.mandi_name || row.mandi_id}
-              </Typography>
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Weighbridge: {row.has_weighbridge || "N"} • Active: {row.is_active}
                 </Typography>
@@ -394,8 +390,13 @@ export const MandiGates: React.FC = () => {
                   </Button>
                 )}
                 {canDeactivate && (
-                  <Button size="small" color="error" startIcon={<BlockIcon />} onClick={() => handleDeactivate(row.id)}>
-                    Deactivate
+                  <Button
+                    size="small"
+                    color={row.is_active === "Y" ? "error" : "primary"}
+                    startIcon={<BlockIcon />}
+                    onClick={() => handleDeactivate(row.id, row.is_active)}
+                  >
+                    {row.is_active === "Y" ? "Deactivate" : "Activate"}
                   </Button>
                 )}
               </CardActions>

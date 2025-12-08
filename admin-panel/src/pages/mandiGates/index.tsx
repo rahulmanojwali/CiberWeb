@@ -122,7 +122,11 @@ export const MandiGates: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        width: 170,
+        width: 200,
+        sortable: false,
+        filterable: false,
+        align: "center",
+        headerAlign: "center",
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (

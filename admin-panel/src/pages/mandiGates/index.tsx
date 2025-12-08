@@ -89,7 +89,7 @@ export const MandiGates: React.FC = () => {
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<string>("");
   const [selectedMandi, setSelectedMandi] = useState<string>("");
-  const [mandiSearch, setMandiSearch] = useState("");
+  const [mandiSearchText, setMandiSearchText] = useState("");
   const [createMandiSearch, setCreateMandiSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -219,7 +219,7 @@ export const MandiGates: React.FC = () => {
 
   useEffect(() => {
     loadMandis();
-  }, [selectedOrg, mandiSearch]);
+  }, [selectedOrg, mandiSearchText]);
 
   useEffect(() => {
     if (!selectedOrg) return;
@@ -331,9 +331,14 @@ export const MandiGates: React.FC = () => {
           isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
           filterOptions={(opts) => opts}
           value={mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null}
-          onChange={(_, val: any) => setSelectedMandi(val ? String(val.mandi_id) : "")}
-          inputValue={mandiSearch}
-          onInputChange={(_, val: string) => setMandiSearch(val)}
+          onChange={(_, val: any) => {
+            setSelectedMandi(val ? String(val.mandi_id) : "");
+            setMandiSearchText(val ? val.label || String(val.mandi_id) : "");
+          }}
+          inputValue={mandiSearchText}
+          onInputChange={(_, val: string) => {
+            setMandiSearchText(val);
+          }}
           renderInput={(params: any) => (
             <TextField
               {...params}

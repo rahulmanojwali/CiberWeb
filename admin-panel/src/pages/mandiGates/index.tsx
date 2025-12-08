@@ -247,7 +247,7 @@ export const MandiGates: React.FC = () => {
     setCreateOpen(false);
     setIsEdit(true);
     setEditId(row.id);
-    setGateCodeDirty(true);
+    setGateCodeDirty(false);
     setGateCodeError(null);
     setForm({
       org_id: row.org_id,
@@ -321,21 +321,26 @@ export const MandiGates: React.FC = () => {
         )
       }
     >
-      <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-        <TextField
-          select
-          label="Mandi"
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
+        <Autocomplete
           size="small"
-          value={selectedMandi}
-          onChange={(e) => setSelectedMandi(e.target.value)}
-          sx={{ minWidth: 200 }}
-        >
-      {mandiOptions.map((m: any) => (
-          <MenuItem key={m.mandi_id} value={m.mandi_id}>
-            {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-          </MenuItem>
-        ))}
-      </TextField>
+          options={mandiOptions}
+          getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
+          isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+          value={mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null}
+          onChange={(_, val: any) => setSelectedMandi(val ? String(val.mandi_id) : "")}
+          inputValue={mandiSearch}
+          onInputChange={(_, val: string) => setMandiSearch(val)}
+          renderInput={(params: any) => (
+            <TextField
+              {...params}
+              label="Mandi"
+              placeholder="All Mandis"
+              fullWidth
+            />
+          )}
+          sx={{ minWidth: 240 }}
+        />
         <TextField
           select
           label="Status"
@@ -408,13 +413,14 @@ export const MandiGates: React.FC = () => {
             ))}
           </TextField>
           <Autocomplete
-            size="small"
-            options={mandiOptions}
-            getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-            value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
-            onChange={(_, val: any) => {
-              setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
-            }}
+          size="small"
+          options={mandiOptions}
+          getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
+          isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+          value={mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id || selectedMandi)) || null}
+          onChange={(_, val: any) => {
+            setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
+          }}
             inputValue={createMandiSearch}
             onInputChange={(_, val: string) => {
               setCreateMandiSearch(val);
@@ -433,13 +439,9 @@ export const MandiGates: React.FC = () => {
           <TextField
             label="Gate Code"
             value={form.gate_code}
-            onChange={(e) => {
-              setGateCodeDirty(true);
-              setGateCodeError(null);
-              setForm((f) => ({ ...f, gate_code: e.target.value }));
-            }}
+            disabled
             error={!!gateCodeError}
-            helperText={gateCodeError || "Lowercase letters, numbers, _ or -"}
+            helperText={gateCodeError || "Auto-generated from Gate Name"}
             fullWidth
           />
           <TextField

@@ -167,7 +167,7 @@ export const MandiGates: React.FC = () => {
     const resp = await fetchMandis({
       username,
       language,
-      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000, search: mandiSearch || undefined },
+      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000, search: mandiSearchText || undefined },
     });
     const mandis = resp?.data?.mandis || [];
     const mapped = mandis.map((m: any) => ({
@@ -432,7 +432,7 @@ export const MandiGates: React.FC = () => {
             inputValue={createMandiSearch}
             onInputChange={(_, val: string) => {
               setCreateMandiSearch(val);
-              setMandiSearch(val);
+              setMandiSearchText(val);
             }}
             renderInput={(params: any) => (
               <TextField

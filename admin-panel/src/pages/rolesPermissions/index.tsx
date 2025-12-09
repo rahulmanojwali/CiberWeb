@@ -17,6 +17,13 @@ import {
   Checkbox,
   Button,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import { fetchRolePoliciesDashboardData } from "../../services/rolePoliciesApi";
 
@@ -39,6 +46,7 @@ const RolesPermissionsPage: React.FC = () => {
   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [selectedModule, setSelectedModule] = useState<string>("ALL");
+  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -161,7 +169,7 @@ const RolesPermissionsPage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={2} sx={{ position: "relative" }}>
+    <Stack spacing={2} sx={{ position: "relative", height: "100%", minHeight: "60vh" }}>
       <Paper
         sx={{
           position: "sticky",
@@ -212,9 +220,11 @@ const RolesPermissionsPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <Button variant="outlined" size="small" disabled>
-              Manage modules &amp; resources
-            </Button>
+            {selectedRole === "SUPER_ADMIN" && (
+              <Button variant="outlined" size="small" onClick={() => setModuleDialogOpen(true)}>
+                Manage modules &amp; resources
+              </Button>
+            )}
             {selectedRole && (
               <Button variant="contained" size="small" onClick={handleSave}>
                 Save changes
@@ -230,8 +240,8 @@ const RolesPermissionsPage: React.FC = () => {
         </Paper>
       ) : null}
 
-      <Paper sx={{ p: 2, overflowX: "auto" }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
+      <Paper sx={{ p: 0, flex: 1, minHeight: 0 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center" sx={{ mb: 2, p: 2 }}>
           <Typography variant="subtitle1" sx={{ flex: 1 }}>
             Editing role: <strong>{selectedRole || "—"}</strong>
           </Typography>
@@ -239,83 +249,106 @@ const RolesPermissionsPage: React.FC = () => {
             ✔ granted • empty = not granted
           </Typography>
         </Stack>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  position: "sticky",
-                  left: 0,
-                  zIndex: 3,
-                  backgroundColor: "background.paper",
-                  minWidth: 140,
-                }}
-              >
-                Module
-              </TableCell>
-              <TableCell
-                sx={{
-                  position: "sticky",
-                  left: 140,
-                  zIndex: 3,
-                  backgroundColor: "background.paper",
-                  minWidth: 220,
-                }}
-              >
-                Resource
-              </TableCell>
-              {ACTIONS.map((action) => (
-                <TableCell key={action} align="center">
-                  <Tooltip title={`${action.toLowerCase()} permission`}>
-                    <Box component="span">{action}</Box>
-                  </Tooltip>
+        <Box sx={{ maxHeight: "70vh", overflow: "auto", px: 2, pb: 2 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell
+                  sx={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 3,
+                    backgroundColor: "background.paper",
+                    minWidth: 140,
+                  }}
+                >
+                  Module
                 </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredResources.map((res) => {
-              const granted = rolePermsLookup[res.resource_key] || new Set<string>();
-              return (
-                <TableRow key={res.resource_key} hover>
-                  <TableCell
-                    sx={{
-                      position: "sticky",
-                      left: 0,
-                      backgroundColor: "background.paper",
-                      minWidth: 140,
-                      zIndex: 2,
-                    }}
-                  >
-                    {res.screen || "-"}
+                <TableCell
+                  sx={{
+                    position: "sticky",
+                    left: 140,
+                    zIndex: 3,
+                    backgroundColor: "background.paper",
+                    minWidth: 220,
+                  }}
+                >
+                  Resource
+                </TableCell>
+                {ACTIONS.map((action) => (
+                  <TableCell key={action} align="center">
+                    <Tooltip title={`${action.toLowerCase()} permission`}>
+                      <Box component="span">{action}</Box>
+                    </Tooltip>
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      position: "sticky",
-                      left: 140,
-                      backgroundColor: "background.paper",
-                      minWidth: 220,
-                      zIndex: 2,
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {res.resource_key}
-                  </TableCell>
-                  {ACTIONS.map((action) => (
-                    <TableCell key={action} align="center">
-                      <Checkbox
-                        size="small"
-                        checked={granted.has(action)}
-                        onChange={(e) => toggleAction(res.resource_key, action, e.target.checked)}
-                      />
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredResources.map((res) => {
+                const granted = rolePermsLookup[res.resource_key] || new Set<string>();
+                return (
+                  <TableRow key={res.resource_key} hover>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        left: 0,
+                        backgroundColor: "background.paper",
+                        minWidth: 140,
+                        zIndex: 2,
+                      }}
+                    >
+                      {res.screen || "-"}
                     </TableCell>
-                  ))}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        left: 140,
+                        backgroundColor: "background.paper",
+                        minWidth: 220,
+                        zIndex: 2,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {res.resource_key}
+                    </TableCell>
+                    {ACTIONS.map((action) => (
+                      <TableCell key={action} align="center">
+                        <Checkbox
+                          size="small"
+                          checked={granted.has(action)}
+                          onChange={(e) => toggleAction(res.resource_key, action, e.target.checked)}
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Box>
       </Paper>
+
+      <Dialog open={moduleDialogOpen} onClose={() => setModuleDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Modules &amp; resources (preview)</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Modules are derived from resource configuration. Editing from UI will be enabled later.
+          </Typography>
+          <List dense>
+            {moduleOptions
+              .filter((m) => m !== "ALL")
+              .map((m) => (
+                <ListItem key={m}>
+                  <ListItemText primary={m} secondary="From resource metadata" />
+                </ListItem>
+              ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModuleDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };

@@ -100,8 +100,8 @@ export const OrgMandiMapping: React.FC = () => {
     (): GridColDef<MappingRow>[] => [
       {
         field: "org_code",
-        headerName: "Org Code",
-        width: 160,
+        headerName: "Organisation",
+        width: 180,
         valueGetter: (params: any) => {
           const row = params.row;
           return row?.org_code || row?.org_name || row?.org_id;
@@ -109,9 +109,15 @@ export const OrgMandiMapping: React.FC = () => {
       },
       { field: "mandi_id", headerName: "Mandi ID", width: 110 },
       {
+        field: "mandi_name",
+        headerName: "Mandi Name",
+        width: 200,
+        valueGetter: (params: any) => params.row?.mandi_name || "",
+      },
+      {
         field: "mandi_slug",
-        headerName: "Mandi",
-        width: 220,
+        headerName: "Mandi Code",
+        width: 200,
         valueGetter: (params: any) => {
           const row = params.row;
           return row?.mandi_name || row?.mandi_slug || row?.mandi_id;

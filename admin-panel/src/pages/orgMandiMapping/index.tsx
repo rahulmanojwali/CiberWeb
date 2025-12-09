@@ -35,20 +35,10 @@ import {
 } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
 
+// Keep rows flexible – we just add `id`
 type MappingRow = {
   id: string;
-  org_id: string;
-  org_code: string | null;
-  org_name: string | null;
-  mandi_id: number;
-  mandi_slug: string | null;
-  mandi_name?: string | null;
-  mandi_active?: string | boolean | null; // allow boolean from API
-  state_code: string | null;
-  district_name: string | null;
-  pincode: string | null;
-  assignment_scope: string;
-  is_active: string;
+  [key: string]: any;
 };
 
 type OrgOption = { _id: string; org_code: string; org_name: string };
@@ -110,36 +100,109 @@ export const OrgMandiMapping: React.FC = () => {
   const columns = useMemo<GridColDef<MappingRow>[]>(
     (): GridColDef<MappingRow>[] => [
       {
-        field: "org_code",
-        headerName: "Org Code",
-        width: 160,
+        field: "org",
+        headerName: "Organisation",
+        width: 220,
         valueGetter: (params: any) => {
-          const row = params.row;
-          return row?.org_code || row?.org_name || row?.org_id;
+          const r = params.row as MappingRow;
+          const orgCode = r.org_code ?? r.orgCode ?? "";
+          const orgName = r.org_name ?? r.orgName ?? "";
+          if (orgCode && orgName) return `${orgCode} - ${orgName}`;
+          if (orgCode) return orgCode;
+          if (orgName) return orgName;
+          return r.org_id ?? r.orgId ?? "";
         },
       },
-      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
       {
-        field: "mandi_name",
+        field: "mandi_id",
+        headerName: "Mandi ID",
+        width: 110,
+        valueGetter: (params: any) => {
+          const r = params.row as MappingRow;
+          return (
+            r.mandi_id ??
+            r.mandiId ??
+            ""
+          );
+        },
+      },
+      {
+        field: "mandi",
         headerName: "Mandi",
         width: 220,
         valueGetter: (params: any) => {
-          const row = params.row;
-          return row?.mandi_name || row?.mandi_slug || row?.mandi_id;
+          const r = params.row as MappingRow;
+          const name =
+            r.mandi_name ??
+            r.mandiName ??
+            r.name_i18n?.en ??
+            r.name_i18n?.hi ??
+            "";
+          const slug = r.mandi_slug ?? r.mandiSlug ?? "";
+          const id = r.mandi_id ?? r.mandiId ?? "";
+          if (name) return name;
+          if (slug) return slug;
+          return id;
         },
       },
-      { field: "state_code", headerName: "State", width: 110 },
-      { field: "district_name", headerName: "District", width: 160 },
-      { field: "pincode", headerName: "Pincode", width: 110 },
-      { field: "assignment_scope", headerName: "Scope", width: 120 },
       {
-        field: "mandi_active",
+        field: "state_code",
+        headerName: "State",
+        width: 110,
+        valueGetter: (params: any) => {
+          const r = params.row as MappingRow;
+          return r.state_code ?? r.stateCode ?? "";
+        },
+      },
+      {
+        field: "district_name",
+        headerName: "District",
+        width: 160,
+        valueGetter: (params: any) => {
+          const r = params.row as MappingRow;
+          return (
+            r.district_name ??
+            r.districtName ??
+            r.district_name_en ??
+            r.districtNameEn ??
+            ""
+          );
+        },
+      },
+      {
+        field: "pincode",
+        headerName: "Pincode",
+        width: 110,
+        valueGetter: (params: any) => {
+          const r = params.row as MappingRow;
+          return r.pincode ?? r.pin_code ?? "";
+        },
+      },
+      {
+        field: "assignment_scope",
+        headerName: "Scope",
+        width: 120,
+        valueGetter: (params: any) => {
+          const r = params.row as MappingRow;
+          return r.assignment_scope ?? r.assignmentScope ?? "EXCLUSIVE";
+        },
+      },
+      {
+        field: "status",
         headerName: "Status",
         width: 120,
         renderCell: (params) => {
-          const raw: any = params.row.mandi_active ?? params.row.is_active;
+          const r = params.row as MappingRow;
+          const raw =
+            r.mandi_is_active ??
+            r.mandiIsActive ??
+            r.mandi_active ??
+            r.is_active ??
+            r.isActive;
           const normalized =
-            String(raw).trim().toUpperCase() === "Y" || raw === true ? "Y" : "N";
+            String(raw).trim().toUpperCase() === "Y" || raw === true
+              ? "Y"
+              : "N";
           const isActive = normalized === "Y";
 
           return (
@@ -159,9 +222,11 @@ export const OrgMandiMapping: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
-
-    const payload = resp?.data || resp?.response || resp;
-    const orgs = payload?.data?.organisations || payload?.organisations || [];
+    const payload = (resp as any)?.data || (resp as any)?.response || resp;
+    const orgs =
+      payload?.data?.organisations ||
+      payload?.organisations ||
+      [];
 
     setOrgOptions(
       orgs.map((o: any) => ({
@@ -180,14 +245,20 @@ export const OrgMandiMapping: React.FC = () => {
       language,
       filters: { is_active: true, page: 1, pageSize: 1000, search: mandiSearch },
     });
-
-    const payload = resp?.data || resp?.response || resp;
-    const mandis = payload?.data?.mandis || payload?.mandis || [];
+    const payload = (resp as any)?.data || (resp as any)?.response || resp;
+    const mandis =
+      payload?.data?.mandis ||
+      payload?.mandis ||
+      [];
 
     const mapped: MandiOption[] = mandis.map((m: any) => ({
-      mandi_id: m.mandi_id,
+      mandi_id: m.mandi_id ?? m.mandiId,
       name:
-        m.mandi_name || m.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+        m.mandi_name ||
+        m.mandiName ||
+        m.name_i18n?.en ||
+        m.mandi_slug ||
+        String(m.mandi_id ?? m.mandiId),
     }));
 
     if (
@@ -220,7 +291,7 @@ export const OrgMandiMapping: React.FC = () => {
         },
       });
 
-      const payload = resp?.data || resp?.response || resp;
+      const payload = (resp as any)?.data || (resp as any)?.response || resp;
       const list =
         payload?.data?.mappings ||
         payload?.mappings ||
@@ -229,34 +300,10 @@ export const OrgMandiMapping: React.FC = () => {
       console.log("OrgMandi mappings RAW from API:", list);
 
       const mappedRows: MappingRow[] = list.map((m: any) => {
-        const mandiActiveRaw =
-          m.mandi_is_active ??
-          m.mandi_active ??
-          m.is_active_mandi ??
-          m.is_active;
-
-        const normalized =
-          String(mandiActiveRaw).trim().toUpperCase() === "Y" ||
-          mandiActiveRaw === true
-            ? "Y"
-            : "N";
-
         const row: MappingRow = {
-          id: m._id,
-          org_id: m.org_id,
-          org_code: m.org_code || null,
-          org_name: m.org_name || null,
-          mandi_id: Number(m.mandi_id),
-          mandi_slug: m.mandi_slug || null,
-          mandi_name: m.mandi_name || null,
-          mandi_active: normalized,
-          state_code: m.state_code || null,
-          district_name: m.district_name || null,
-          pincode: m.pincode || null,
-          assignment_scope: m.assignment_scope || "EXCLUSIVE",
-          is_active: m.is_active || "Y",
+          ...m,
+          id: m._id ?? m.id,
         };
-
         console.log("OrgMandi row mapped for grid:", row);
         return row;
       });
@@ -322,7 +369,7 @@ export const OrgMandiMapping: React.FC = () => {
       });
       console.log("AddOrgMandi resp", resp);
 
-      const payload = resp?.data || resp?.response || resp;
+      const payload = (resp as any)?.data || (resp as any)?.response || resp;
       const code =
         payload?.response?.responsecode || payload?.responsecode || "1";
       const desc =
@@ -372,6 +419,7 @@ export const OrgMandiMapping: React.FC = () => {
         )}
       </Stack>
 
+      {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
@@ -428,10 +476,28 @@ export const OrgMandiMapping: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* List */}
       {isMobile ? (
         <Stack spacing={2}>
           {rows.map((row) => {
-            const raw: any = row.mandi_active ?? row.is_active;
+            const r = row as MappingRow;
+            const orgCode = r.org_code ?? r.orgCode ?? "";
+            const orgName = r.org_name ?? r.orgName ?? "";
+            const mandiName =
+              r.mandi_name ??
+              r.mandiName ??
+              r.mandi_slug ??
+              r.mandiSlug ??
+              r.mandi_id ??
+              r.mandiId ??
+              "";
+
+            const raw =
+              r.mandi_is_active ??
+              r.mandiIsActive ??
+              r.mandi_active ??
+              r.is_active ??
+              r.isActive;
             const normalized =
               String(raw).trim().toUpperCase() === "Y" || raw === true
                 ? "Y"
@@ -444,12 +510,14 @@ export const OrgMandiMapping: React.FC = () => {
                   sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
                 >
                   <Typography variant="h6">
-                    Org: {row.org_code || row.org_name || row.org_id}
+                    Org:{" "}
+                    {orgCode && orgName
+                      ? `${orgCode} - ${orgName}`
+                      : orgCode || orgName || r.org_id}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Mandi:{" "}
-                    {row.mandi_name || row.mandi_slug || row.mandi_id} • Scope:{" "}
-                    {row.assignment_scope}
+                    Mandi: {mandiName} • Scope:{" "}
+                    {r.assignment_scope ?? r.assignmentScope ?? "EXCLUSIVE"}
                   </Typography>
                   <Chip
                     size="small"
@@ -458,9 +526,13 @@ export const OrgMandiMapping: React.FC = () => {
                     sx={{ alignSelf: "flex-start" }}
                   />
                   <Typography variant="caption" color="text.secondary">
-                    State: {row.state_code || "-"} • District:{" "}
-                    {row.district_name || "-"} • Pincode:{" "}
-                    {row.pincode || "-"}
+                    State: {r.state_code ?? r.stateCode ?? "-"} • District:{" "}
+                    {r.district_name ??
+                      r.districtName ??
+                      r.district_name_en ??
+                      r.districtNameEn ??
+                      "-"}{" "}
+                    • Pincode: {r.pincode ?? r.pin_code ?? "-"}
                   </Typography>
                 </CardContent>
               </Card>

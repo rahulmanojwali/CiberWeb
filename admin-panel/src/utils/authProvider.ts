@@ -76,6 +76,7 @@ type ApiResponse = {
     description?: string;
     username?: string;
     usertype?: string;
+    role_slug?: string;
     roles_enabled?: Record<string, boolean>;
     roles_blocked?: Record<string, boolean>;
     token?: string; // JWT on success
@@ -141,6 +142,7 @@ export const authProvider: any = {
     const roleCandidate =
       resp?.default_role_code ??
       resp?.default_role ??
+      resp?.role_slug ??
       resp?.role ??
       resp?.role_code ??
       resp?.usertype ??
@@ -158,6 +160,7 @@ export const authProvider: any = {
     storage.setUser({
       username: resp?.username || username,
       usertype: resolvedRole,
+      role_slug: resp?.role_slug || resolvedRole,
       default_role_code: resolvedRole,
       org_code: resp?.org_code || resp?.orgCode || null,
       mandis: resp?.mandi_codes || resp?.mandis || [],

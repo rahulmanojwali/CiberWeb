@@ -119,6 +119,7 @@ export const getUserRoleFromStorage = (
     const primaryCandidate: unknown =
       parsed?.default_role_code ??
       parsed?.default_role ??
+      parsed?.role_slug ??
       parsed?.role ??
       parsed?.role_code ??
       parsed?.usertype ??

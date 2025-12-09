@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardActions,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,15 +13,15 @@ import {
   MenuItem,
   Snackbar,
   Stack,
-  Switch,
   TextField,
   Typography,
   useMediaQuery,
   useTheme,
+  Chip,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
+import VisibilityIcon from "@mui/icons-material/VisibilityOutlined";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -30,14 +29,8 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-import {
-  fetchOrgMandiMappings,
-  addOrgMandi,
-  removeOrgMandi,
-  fetchMandis,
-} from "../../services/mandiApi";
+import { fetchOrgMandiMappings, addOrgMandi, fetchMandis } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
 
 type MappingRow = {
   id: string;
@@ -46,6 +39,8 @@ type MappingRow = {
   org_name: string | null;
   mandi_id: number;
   mandi_slug: string | null;
+  mandi_name?: string | null;
+  mandi_active?: string | null;
   state_code: string | null;
   district_name: string | null;
   pincode: string | null;
@@ -101,48 +96,44 @@ export const OrgMandiMapping: React.FC = () => {
     () => can(uiConfig.resources, "org_mandi_mappings.create", "CREATE") || ["SUPER_ADMIN", "ORG_ADMIN"].includes(roleSlug),
     [uiConfig.resources, roleSlug],
   );
-  const canEdit = useMemo(() => can(uiConfig.resources, "org_mandi_mappings.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(
-    () => can(uiConfig.resources, "org_mandi_mappings.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
-  );
 
   const columns = useMemo<GridColDef<MappingRow>[]>(
     () => [
-      { field: "org_code", headerName: "Org Code", width: 140 },
+      { field: "org_code", headerName: "Org Code", width: 140, valueGetter: (params) => params.row.org_code || params.row.org_name },
       { field: "mandi_id", headerName: "Mandi ID", width: 110 },
-      { field: "mandi_slug", headerName: "Mandi", width: 180 },
+      { field: "mandi_slug", headerName: "Mandi", width: 200, valueGetter: (params) => params.row.mandi_name || params.row.mandi_slug },
       { field: "state_code", headerName: "State", width: 110 },
       { field: "district_name", headerName: "District", width: 160 },
       { field: "pincode", headerName: "Pincode", width: 110 },
       { field: "assignment_scope", headerName: "Scope", width: 120 },
       {
-        field: "is_active",
-        headerName: "Active",
-        width: 110,
-        renderCell: (params) => (
-          <Switch
-            size="small"
-            checked={params.value === "Y"}
-            onChange={() => handleDeactivate(params.row.id)}
-            disabled={!canDeactivate}
-          />
-        ),
+        field: "mandi_status",
+        headerName: "Status",
+        width: 120,
+        renderCell: (params) => {
+          const active = params.row.mandi_active ?? params.row.is_active;
+          const label = active === "Y" ? "Active" : "Inactive";
+          const color = active === "Y" ? "success" : "default";
+          return <Chip size="small" color={color === "success" ? "success" : undefined} label={label} />;
+        },
       },
       {
         field: "actions",
         headerName: "Actions",
         width: 140,
         sortable: false,
-        renderCell: (params) =>
-          canEdit ? (
-            <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-              Edit
-            </Button>
-          ) : null,
+        renderCell: (params) => (
+          <Button
+            size="small"
+            startIcon={<VisibilityIcon />}
+            href={`/mandis/${params.row.mandi_id}`}
+          >
+            View
+          </Button>
+        ),
       },
     ],
-    [canEdit, canDeactivate],
+    [],
   );
 
   const loadOrgs = async () => {
@@ -202,6 +193,8 @@ export const OrgMandiMapping: React.FC = () => {
           org_name: m.org_name,
           mandi_id: m.mandi_id,
           mandi_slug: m.mandi_slug || m.mandi_name || String(m.mandi_id),
+          mandi_name: m.mandi_name || m.name_i18n?.en || null,
+          mandi_active: m.mandi_is_active || m.mandi_active || m.is_active_mandi || m.is_active,
           state_code: m.state_code,
           district_name: m.district_name,
           pincode: m.pincode,
@@ -233,16 +226,6 @@ export const OrgMandiMapping: React.FC = () => {
 
   const openCreate = () => {
     setForm({ org_id: "", mandi_id: "", assignment_scope: "EXCLUSIVE", is_active: true });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (row: MappingRow) => {
-    setForm({
-      org_id: row.org_id,
-      mandi_id: String(row.mandi_id),
-      assignment_scope: row.assignment_scope,
-      is_active: row.is_active === "Y",
-    });
     setDialogOpen(true);
   };
 
@@ -280,13 +263,6 @@ export const OrgMandiMapping: React.FC = () => {
       console.error("AddOrgMandi error", err);
       setToast({ open: true, message: "Failed to save mapping", severity: "error" });
     }
-  };
-
-  const handleDeactivate = async (mappingId: string) => {
-    const username = currentUsername();
-    if (!username) return;
-    await removeOrgMandi({ username, language, mapping_id: mappingId });
-    await loadMappings();
   };
 
   return (
@@ -383,18 +359,6 @@ export const OrgMandiMapping: React.FC = () => {
                   State: {row.state_code || "-"} • District: {row.district_name || "-"} • Pincode: {row.pincode || "-"}
                 </Typography>
               </CardContent>
-              <CardActions>
-                {canEdit && (
-                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-                    Edit
-                  </Button>
-                )}
-                {canDeactivate && (
-                  <Button size="small" color="error" startIcon={<BlockIcon />} onClick={() => handleDeactivate(row.id)}>
-                    Deactivate
-                  </Button>
-                )}
-              </CardActions>
             </Card>
           ))}
         </Stack>

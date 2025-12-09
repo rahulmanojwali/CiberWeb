@@ -19,6 +19,7 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { can, type UiResource } from "../utils/adminUiConfig";
+import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 
 export type RoleSlug =
   | "SUPER_ADMIN"
@@ -135,6 +136,15 @@ export const APP_MENU: AppMenuItem[] = [
       resourceKey: "admin_users.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    },
+    {
+      key: "rolesPermissions",
+      labelKey: "menu.rolesPermissions",
+      path: "/system/roles-permissions",
+      icon: React.createElement(SecurityOutlinedIcon),
+      resourceKey: "admin_users.menu", // keep restricted; visible only to SUPER_ADMIN via roles
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN"],
     },
   ],
 },

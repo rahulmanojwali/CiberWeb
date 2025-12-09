@@ -143,6 +143,10 @@ export const API_TAGS = {
     update: "updateGateDeviceConfig",
     deactivate: "deactivateGateDeviceConfig",
   },
+  ROLE_POLICIES: {
+    dashboard: "getRolePoliciesDashboardData",
+    update: "updateRolePolicies",
+  },
   GATE_PASS_TOKENS: {
     list: "getGatePassTokens",
   },
@@ -321,6 +325,8 @@ export const API_ROUTES = {
     createGateDeviceConfig: "/admin/createGateDeviceConfig",
     updateGateDeviceConfig: "/admin/updateGateDeviceConfig",
     deactivateGateDeviceConfig: "/admin/deactivateGateDeviceConfig",
+    getRolePoliciesDashboardData: "/admin/getRolePoliciesDashboardData",
+    updateRolePolicies: "/admin/updateRolePolicies",
     getGatePassTokens: "/admin/getGatePassTokens",
     getGateEntryTokens: "/admin/getGateEntryTokens",
     getGateMovements: "/admin/getGateMovements",

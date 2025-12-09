@@ -98,10 +98,20 @@ export const OrgMandiMapping: React.FC = () => {
   );
 
   const columns = useMemo<GridColDef<MappingRow>[]>(
-    () => [
-      { field: "org_code", headerName: "Org Code", width: 140, valueGetter: (params) => params.row.org_code || params.row.org_name },
+    (): GridColDef<MappingRow>[] => [
+      {
+        field: "org_code",
+        headerName: "Org Code",
+        width: 140,
+        valueGetter: (params) => params.row.org_code || params.row.org_name,
+      },
       { field: "mandi_id", headerName: "Mandi ID", width: 110 },
-      { field: "mandi_slug", headerName: "Mandi", width: 200, valueGetter: (params) => params.row.mandi_name || params.row.mandi_slug },
+      {
+        field: "mandi_slug",
+        headerName: "Mandi",
+        width: 200,
+        valueGetter: (params) => params.row.mandi_name || params.row.mandi_slug,
+      },
       { field: "state_code", headerName: "State", width: 110 },
       { field: "district_name", headerName: "District", width: 160 },
       { field: "pincode", headerName: "Pincode", width: 110 },
@@ -123,11 +133,7 @@ export const OrgMandiMapping: React.FC = () => {
         width: 140,
         sortable: false,
         renderCell: (params) => (
-          <Button
-            size="small"
-            startIcon={<VisibilityIcon />}
-            href={`/mandis/${params.row.mandi_id}`}
-          >
+          <Button size="small" startIcon={<VisibilityIcon />} href={`/mandis/${params.row.mandi_id}`}>
             View
           </Button>
         ),

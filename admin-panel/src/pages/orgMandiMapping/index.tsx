@@ -356,11 +356,14 @@ export const OrgMandiMapping: React.FC = () => {
                   Org: {row.org_code || row.org_id}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Mandi: {row.mandi_slug || row.mandi_id} • Scope: {row.assignment_scope}
+                  Mandi: {row.mandi_name || row.mandi_slug || row.mandi_id} • Scope: {row.assignment_scope}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Active: {row.is_active}
-                </Typography>
+                <Chip
+                  size="small"
+                  color={(row.mandi_active ?? row.is_active) === "Y" ? "success" : undefined}
+                  label={(row.mandi_active ?? row.is_active) === "Y" ? "Active" : "Inactive"}
+                  sx={{ alignSelf: "flex-start" }}
+                />
                 <Typography variant="caption" color="text.secondary">
                   State: {row.state_code || "-"} • District: {row.district_name || "-"} • Pincode: {row.pincode || "-"}
                 </Typography>

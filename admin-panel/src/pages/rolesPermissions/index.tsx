@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
-  Divider,
   Paper,
   CircularProgress,
   Stack,
@@ -16,6 +15,8 @@ import {
   TableRow,
   TableCell,
   Checkbox,
+  Button,
+  Tooltip,
 } from "@mui/material";
 import { fetchRolePoliciesDashboardData } from "../../services/rolePoliciesApi";
 
@@ -37,6 +38,7 @@ const RolesPermissionsPage: React.FC = () => {
   const [policiesByRole, setPoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const [selectedModule, setSelectedModule] = useState<string>("ALL");
 
   useEffect(() => {
     const load = async () => {
@@ -76,7 +78,20 @@ const RolesPermissionsPage: React.FC = () => {
       map[key] = new Set((p.actions || []).map((a) => a.toUpperCase()));
     });
     return map;
-  }, [policiesByRole, selectedRole]);
+  }, [editablePoliciesByRole, selectedRole]);
+
+  const moduleOptions = useMemo(() => {
+    const set = new Set<string>();
+    resources.forEach((r) => {
+      if (r.screen) set.add(r.screen);
+    });
+    return ["ALL", ...Array.from(set).sort()];
+  }, [resources]);
+
+  const filteredResources = useMemo(() => {
+    if (selectedModule === "ALL") return resources;
+    return resources.filter((r) => (r.screen || "") === selectedModule);
+  }, [resources, selectedModule]);
 
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
@@ -146,8 +161,68 @@ const RolesPermissionsPage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="h5">Roles &amp; Permissions</Typography>
+    <Stack spacing={2} sx={{ position: "relative" }}>
+      <Paper
+        sx={{
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          p: 2,
+          bgcolor: "background.paper",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
+          <Box>
+            <Typography variant="h5">Roles &amp; Permissions</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select a role and module to view or edit permissions.
+            </Typography>
+          </Box>
+          <Box sx={{ flex: 1 }} />
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="role-select-label">Role</InputLabel>
+              <Select
+                labelId="role-select-label"
+                label="Role"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+              >
+                {roles.map((r) => (
+                  <MenuItem key={r.role_slug} value={r.role_slug}>
+                    {r.role_name || r.role_slug}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="module-select-label">Module</InputLabel>
+              <Select
+                labelId="module-select-label"
+                label="Module"
+                value={selectedModule}
+                onChange={(e) => setSelectedModule(e.target.value)}
+              >
+                {moduleOptions.map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {m === "ALL" ? "All modules" : m}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button variant="outlined" size="small" disabled>
+              Manage modules &amp; resources
+            </Button>
+            {selectedRole && (
+              <Button variant="contained" size="small" onClick={handleSave}>
+                Save changes
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
 
       {error ? (
         <Paper sx={{ p: 2, bgcolor: "error.light" }}>
@@ -155,73 +230,81 @@ const RolesPermissionsPage: React.FC = () => {
         </Paper>
       ) : null}
 
-      <Paper sx={{ p: 2 }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel id="role-select-label">Role</InputLabel>
-            <Select
-              labelId="role-select-label"
-              label="Role"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-            >
-              {roles.map((r) => (
-                <MenuItem key={r.role_slug} value={r.role_slug}>
-                  {r.role_name || r.role_slug}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Box sx={{ flex: 1 }} />
-          {selectedRole && (
-            <FormControl size="small">
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Box
-                  component="button"
-                  onClick={handleSave}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 6,
-                    border: "1px solid #1976d2",
-                    background: "#1976d2",
-                    color: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  Save changes for this role
-                </Box>
-              </Box>
-            </FormControl>
-          )}
-        </Stack>
-      </Paper>
-
       <Paper sx={{ p: 2, overflowX: "auto" }}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Permissions matrix (read-only)
-        </Typography>
-        <Table size="small">
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ flex: 1 }}>
+            Editing role: <strong>{selectedRole || "—"}</strong>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ✔ granted • empty = not granted
+          </Typography>
+        </Stack>
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Module</TableCell>
-              <TableCell>Resource</TableCell>
+              <TableCell
+                sx={{
+                  position: "sticky",
+                  left: 0,
+                  zIndex: 3,
+                  backgroundColor: "background.paper",
+                  minWidth: 140,
+                }}
+              >
+                Module
+              </TableCell>
+              <TableCell
+                sx={{
+                  position: "sticky",
+                  left: 140,
+                  zIndex: 3,
+                  backgroundColor: "background.paper",
+                  minWidth: 220,
+                }}
+              >
+                Resource
+              </TableCell>
               {ACTIONS.map((action) => (
                 <TableCell key={action} align="center">
-                  {action}
+                  <Tooltip title={`${action.toLowerCase()} permission`}>
+                    <Box component="span">{action}</Box>
+                  </Tooltip>
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {resources.map((res) => {
+            {filteredResources.map((res) => {
               const granted = rolePermsLookup[res.resource_key] || new Set<string>();
               return (
-                <TableRow key={res.resource_key}>
-                  <TableCell>{res.screen || "-"}</TableCell>
-                  <TableCell>{res.resource_key}</TableCell>
+                <TableRow key={res.resource_key} hover>
+                  <TableCell
+                    sx={{
+                      position: "sticky",
+                      left: 0,
+                      backgroundColor: "background.paper",
+                      minWidth: 140,
+                      zIndex: 2,
+                    }}
+                  >
+                    {res.screen || "-"}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      position: "sticky",
+                      left: 140,
+                      backgroundColor: "background.paper",
+                      minWidth: 220,
+                      zIndex: 2,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {res.resource_key}
+                  </TableCell>
                   {ACTIONS.map((action) => (
                     <TableCell key={action} align="center">
                       <Checkbox
+                        size="small"
                         checked={granted.has(action)}
                         onChange={(e) => toggleAction(res.resource_key, action, e.target.checked)}
                       />

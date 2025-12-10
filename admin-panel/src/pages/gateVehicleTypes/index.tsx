@@ -72,8 +72,8 @@ export const GateVehicleTypes: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const roleSlug = uiConfig.role || "";
-  const currentOrgId = uiConfig.org_id || null;
-  const currentMandiId = uiConfig.mandi_id || null;
+  const currentOrgId = (uiConfig as any)?.org_id || null;
+  const currentMandiId = (uiConfig as any)?.mandi_id || null;
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 

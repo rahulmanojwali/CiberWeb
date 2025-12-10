@@ -18,18 +18,21 @@ import {
   useMediaQuery,
   useTheme,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
 } from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-
-import { DataGrid } from "@mui/x-data-grid"; // add this import at the top
 import {
   fetchOrgMandiMappings,
   addOrgMandi,
@@ -112,61 +115,6 @@ export const OrgMandiMapping: React.FC = () => {
     [uiConfig.resources, roleSlug]
   );
 
-  // ---------------------- COLUMNS (no valueGetter!) ---------------------- //
-
-  const columns = useMemo<GridColDef<MappingRow>[]>(
-    (): GridColDef<MappingRow>[] => [
-      {
-        field: "org_display",
-        headerName: "Organisation",
-        width: 230,
-      },
-      {
-        field: "mandi_id",
-        headerName: "Mandi ID",
-        width: 110,
-      },
-      {
-        field: "mandi_display",
-        headerName: "Mandi",
-        width: 220,
-      },
-      {
-        field: "state_code",
-        headerName: "State",
-        width: 100,
-      },
-      {
-        field: "district_name",
-        headerName: "District",
-        width: 160,
-      },
-      {
-        field: "pincode",
-        headerName: "Pincode",
-        width: 110,
-      },
-      {
-        field: "assignment_scope",
-        headerName: "Scope",
-        width: 120,
-      },
-      {
-        field: "status_label",
-        headerName: "Status",
-        width: 120,
-        renderCell: (params) => (
-          <Chip
-            size="small"
-            color={params.row.status_color}
-            label={params.row.status_label}
-          />
-        ),
-      },
-    ],
-    []
-  );
-
   // ---------------------- LOAD ORGS ---------------------- //
 
   const loadOrgs = async () => {
@@ -207,7 +155,11 @@ export const OrgMandiMapping: React.FC = () => {
 
     const mapped: MandiOption[] = mandis.map((m: any) => ({
       mandi_id: m.mandi_id,
-      name: m.mandi_name || m.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+      name:
+        m.mandi_name ||
+        m.name_i18n?.en ||
+        m.mandi_slug ||
+        String(m.mandi_id),
     }));
 
     if (
@@ -302,7 +254,7 @@ export const OrgMandiMapping: React.FC = () => {
           status_color,
         };
 
-        console.log("OrgMandi row mapped for grid:", row);
+        console.log("OrgMandi row mapped for table:", row);
         return row;
       });
 
@@ -480,58 +432,64 @@ export const OrgMandiMapping: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Desktop vs Mobile */}
-      {isMobile ? (
-        <Stack spacing={2}>
-          {rows.map((row) => (
-            <Card key={row.id} variant="outlined">
-              <CardContent
-                sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
-              >
-                <Typography variant="h6">
-                  Org: {row.org_display || row.org_id}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Mandi: {row.mandi_display} • Scope: {row.assignment_scope}
-                </Typography>
-                <Chip
-                  size="small"
-                  color={row.status_color}
-                  label={row.status_label}
-                  sx={{ alignSelf: "flex-start" }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  State: {row.state_code || "-"} • District:{" "}
-                  {row.district_name || "-"} • Pincode:{" "}
-                  {row.pincode || "-"}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      ) : (
-        <Card>
-          <CardContent>
-            <Box sx={{ width: "100%", overflowX: "auto" }}>
-              {/* <ResponsiveDataGrid
-                columns={columns}
-                rows={rows}
-                loading={loading}
-                getRowId={(r) => r.id}
-              /> */}
-<DataGrid
-  autoHeight
-  columns={columns}
-  rows={rows}
-  loading={loading}
-  getRowId={(r) => r.id}
-/>
-
-
+      {/* List */}
+      <Card>
+        <CardContent>
+          {loading ? (
+            <Box
+              sx={{
+                py: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CircularProgress />
             </Box>
-          </CardContent>
-        </Card>
-      )}
+          ) : rows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No mappings found.
+            </Typography>
+          ) : (
+            <TableContainer sx={{ maxHeight: 500 }}>
+              <Table stickyHeader size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Organisation</TableCell>
+                    <TableCell>Mandi ID</TableCell>
+                    <TableCell>Mandi</TableCell>
+                    <TableCell>State</TableCell>
+                    <TableCell>District</TableCell>
+                    <TableCell>Pincode</TableCell>
+                    <TableCell>Scope</TableCell>
+                    <TableCell>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell>{row.org_display || row.org_id}</TableCell>
+                      <TableCell>{row.mandi_id}</TableCell>
+                      <TableCell>{row.mandi_display}</TableCell>
+                      <TableCell>{row.state_code || "-"}</TableCell>
+                      <TableCell>{row.district_name || "-"}</TableCell>
+                      <TableCell>{row.pincode || "-"}</TableCell>
+                      <TableCell>{row.assignment_scope}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          color={row.status_color}
+                          label={row.status_label}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create Mapping Dialog */}
       <Dialog

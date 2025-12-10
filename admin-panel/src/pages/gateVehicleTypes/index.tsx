@@ -210,34 +210,36 @@ export const GateVehicleTypes: React.FC = () => {
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
-    const payload: any = {
+    const items: any = {
+      username,
+      language,
       vehicle_type_code: form.vehicle_type_code,
       name_en: form.name_en,
       is_active: form.is_active,
       is_allowed: form.is_allowed,
       requires_permit: form.requires_permit,
     };
-    if (form.name_hi) payload.name_hi = form.name_hi;
-    if (form.axle_count !== "" && form.axle_count !== null) payload.axle_count = Number(form.axle_count);
-    if (form.max_gvw_tonnes !== "" && form.max_gvw_tonnes !== null) payload.max_gvw_tonnes = Number(form.max_gvw_tonnes);
+    if (form.name_hi) items.name_hi = form.name_hi;
+    if (form.axle_count !== "" && form.axle_count !== null) items.axle_count = Number(form.axle_count);
+    if (form.max_gvw_tonnes !== "" && form.max_gvw_tonnes !== null) items.max_gvw_tonnes = Number(form.max_gvw_tonnes);
     const dims = form.max_dims_m || {};
     if (dims.length || dims.width || dims.height) {
-      payload.max_dims_m = {
+      items.max_dims_m = {
         length: dims.length === "" ? null : Number(dims.length),
         width: dims.width === "" ? null : Number(dims.width),
         height: dims.height === "" ? null : Number(dims.height),
       };
     }
     if (roleSlug === "MANDI_ADMIN" && currentMandiId) {
-      payload.mandi_id = currentMandiId;
+      items.mandi_id = currentMandiId;
     }
     if (currentOrgId) {
-      payload.org_id = currentOrgId;
+      items.org_id = currentOrgId;
     }
     if (isEdit && editCode) {
-      await updateGateVehicleType({ username, language, payload });
+      await updateGateVehicleType(items);
     } else {
-      await createGateVehicleType({ username, language, ...payload });
+      await createGateVehicleType(items);
     }
     setDialogOpen(false);
     await loadData();

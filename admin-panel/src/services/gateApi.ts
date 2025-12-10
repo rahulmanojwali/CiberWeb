@@ -82,21 +82,21 @@ export const deactivateGateEntryReason = async ({
   });
 
 // Gate Vehicle Types
-export const fetchGateVehicleTypes = async ({
-  username,
-  language = DEFAULT_LANGUAGE,
-  filters = {},
-}: {
-  username: string;
-  language?: string;
-  filters?: Record<string, any>;
-}) =>
-  postEncrypted(API_ROUTES.admin.getGateVehicleTypes, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.list,
-    username,
-    language,
-    ...filters,
+export const fetchGateVehicleTypes = async (
+  items: {
+    username: string;
+    language?: string;
+    [key: string]: any;
+  },
+) => {
+  return postEncrypted(API_ROUTES.admin.getGateVehicleTypes, {
+    items: {
+      api: API_TAGS.GATE_VEHICLE_TYPES.list,
+      language: DEFAULT_LANGUAGE,
+      ...items,
+    },
   });
+};
 
 export const createGateVehicleType = async ({
   username,

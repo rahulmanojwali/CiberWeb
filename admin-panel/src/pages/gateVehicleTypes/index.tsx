@@ -71,6 +71,9 @@ export const GateVehicleTypes: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const roleSlug = uiConfig.role || "";
+  const currentOrgId = uiConfig.org_id || null;
+  const currentMandiId = uiConfig.mandi_id || null;
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -144,11 +147,15 @@ export const GateVehicleTypes: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
-      const resp = await fetchGateVehicleTypes({
+      const payload: any = {
         username,
         language,
-        filters: { is_active: status === "ALL" ? undefined : status },
-      });
+      };
+      if (status !== "ALL") payload.is_active = status;
+      if (currentOrgId) payload.org_id = currentOrgId;
+      if (roleSlug === "MANDI_ADMIN" && currentMandiId) payload.mandi_id = currentMandiId;
+
+      const resp = await fetchGateVehicleTypes(payload);
       const list = resp?.data?.vehicle_types || resp?.response?.data?.vehicle_types || [];
       setRows(
         list

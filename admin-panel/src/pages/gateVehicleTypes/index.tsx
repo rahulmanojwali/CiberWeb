@@ -228,10 +228,16 @@ export const GateVehicleTypes: React.FC = () => {
         height: dims.height === "" ? null : Number(dims.height),
       };
     }
+    if (roleSlug === "MANDI_ADMIN" && currentMandiId) {
+      payload.mandi_id = currentMandiId;
+    }
+    if (currentOrgId) {
+      payload.org_id = currentOrgId;
+    }
     if (isEdit && editCode) {
       await updateGateVehicleType({ username, language, payload });
     } else {
-      await createGateVehicleType({ username, language, payload });
+      await createGateVehicleType({ username, language, ...payload });
     }
     setDialogOpen(false);
     await loadData();

@@ -98,36 +98,22 @@ export const fetchGateVehicleTypes = async (
   });
 };
 
-export const createGateVehicleType = async ({
-  username,
-  language = DEFAULT_LANGUAGE,
-  payload,
-}: {
-  username: string;
-  language?: string;
-  payload: Record<string, any>;
-}) =>
+export const createGateVehicleType = async (items: Record<string, any>) =>
   postEncrypted(API_ROUTES.admin.createGateVehicleType, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.create,
-    username,
-    language,
-    ...payload,
+    items: {
+      api: API_TAGS.GATE_VEHICLE_TYPES.create,
+      language: DEFAULT_LANGUAGE,
+      ...items,
+    },
   });
 
-export const updateGateVehicleType = async ({
-  username,
-  language = DEFAULT_LANGUAGE,
-  payload,
-}: {
-  username: string;
-  language?: string;
-  payload: Record<string, any>;
-}) =>
+export const updateGateVehicleType = async (items: Record<string, any>) =>
   postEncrypted(API_ROUTES.admin.updateGateVehicleType, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.update,
-    username,
-    language,
-    ...payload,
+    items: {
+      api: API_TAGS.GATE_VEHICLE_TYPES.update,
+      language: DEFAULT_LANGUAGE,
+      ...items,
+    },
   });
 
 export const deactivateGateVehicleType = async ({

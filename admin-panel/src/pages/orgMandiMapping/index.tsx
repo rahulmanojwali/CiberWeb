@@ -35,10 +35,23 @@ import {
 } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
 
-// Keep rows flexible – we just add `id`
 type MappingRow = {
   id: string;
-  [key: string]: any;
+  org_id: string;
+  org_code: string | null;
+  org_name: string | null;
+  org_display: string;      // "CODE - Name"
+  mandi_id: number;
+  mandi_slug: string | null;
+  mandi_name: string | null;
+  mandi_display: string;    // "Name (ID)" or "Slug (ID)"
+  state_code: string | null;
+  district_name: string | null;
+  pincode: string | null;
+  assignment_scope: string;
+  is_active: string;
+  status_label: string;     // "Active"/"Inactive"
+  status_color: "success" | "default";
 };
 
 type OrgOption = { _id: string; org_code: string; org_name: string };
@@ -97,132 +110,69 @@ export const OrgMandiMapping: React.FC = () => {
     [uiConfig.resources, roleSlug]
   );
 
+  // ---------------------- COLUMNS (no valueGetter!) ---------------------- //
+
   const columns = useMemo<GridColDef<MappingRow>[]>(
     (): GridColDef<MappingRow>[] => [
       {
-        field: "org",
+        field: "org_display",
         headerName: "Organisation",
-        width: 220,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          const orgCode = r.org_code ?? r.orgCode ?? "";
-          const orgName = r.org_name ?? r.orgName ?? "";
-          if (orgCode && orgName) return `${orgCode} - ${orgName}`;
-          if (orgCode) return orgCode;
-          if (orgName) return orgName;
-          return r.org_id ?? r.orgId ?? "";
-        },
+        width: 230,
       },
       {
         field: "mandi_id",
         headerName: "Mandi ID",
         width: 110,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          return (
-            r.mandi_id ??
-            r.mandiId ??
-            ""
-          );
-        },
       },
       {
-        field: "mandi",
+        field: "mandi_display",
         headerName: "Mandi",
         width: 220,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          const name =
-            r.mandi_name ??
-            r.mandiName ??
-            r.name_i18n?.en ??
-            r.name_i18n?.hi ??
-            "";
-          const slug = r.mandi_slug ?? r.mandiSlug ?? "";
-          const id = r.mandi_id ?? r.mandiId ?? "";
-          if (name) return name;
-          if (slug) return slug;
-          return id;
-        },
       },
       {
         field: "state_code",
         headerName: "State",
-        width: 110,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          return r.state_code ?? r.stateCode ?? "";
-        },
+        width: 100,
       },
       {
         field: "district_name",
         headerName: "District",
         width: 160,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          return (
-            r.district_name ??
-            r.districtName ??
-            r.district_name_en ??
-            r.districtNameEn ??
-            ""
-          );
-        },
       },
       {
         field: "pincode",
         headerName: "Pincode",
         width: 110,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          return r.pincode ?? r.pin_code ?? "";
-        },
       },
       {
         field: "assignment_scope",
         headerName: "Scope",
         width: 120,
-        valueGetter: (params: any) => {
-          const r = params.row as MappingRow;
-          return r.assignment_scope ?? r.assignmentScope ?? "EXCLUSIVE";
-        },
       },
       {
-        field: "status",
+        field: "status_label",
         headerName: "Status",
         width: 120,
-        renderCell: (params) => {
-          const r = params.row as MappingRow;
-          const raw =
-            r.mandi_is_active ??
-            r.mandiIsActive ??
-            r.mandi_active ??
-            r.is_active ??
-            r.isActive;
-          const normalized =
-            String(raw).trim().toUpperCase() === "Y" || raw === true
-              ? "Y"
-              : "N";
-          const isActive = normalized === "Y";
-
-          return (
-            <Chip
-              size="small"
-              color={isActive ? "success" : "default"}
-              label={isActive ? "Active" : "Inactive"}
-            />
-          );
-        },
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            color={params.row.status_color}
+            label={params.row.status_label}
+          />
+        ),
       },
     ],
     []
   );
 
+  // ---------------------- LOAD ORGS ---------------------- //
+
   const loadOrgs = async () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
-    const payload = (resp as any)?.data || (resp as any)?.response || resp;
+
+    const payload: any = resp?.data || resp?.response || resp;
     const orgs =
       payload?.data?.organisations ||
       payload?.organisations ||
@@ -237,6 +187,8 @@ export const OrgMandiMapping: React.FC = () => {
     );
   };
 
+  // ---------------------- LOAD MANDIS FOR DIALOG ---------------------- //
+
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
@@ -245,20 +197,15 @@ export const OrgMandiMapping: React.FC = () => {
       language,
       filters: { is_active: true, page: 1, pageSize: 1000, search: mandiSearch },
     });
-    const payload = (resp as any)?.data || (resp as any)?.response || resp;
+    const payload: any = resp?.data || resp?.response || resp;
     const mandis =
       payload?.data?.mandis ||
       payload?.mandis ||
       [];
 
     const mapped: MandiOption[] = mandis.map((m: any) => ({
-      mandi_id: m.mandi_id ?? m.mandiId,
-      name:
-        m.mandi_name ||
-        m.mandiName ||
-        m.name_i18n?.en ||
-        m.mandi_slug ||
-        String(m.mandi_id ?? m.mandiId),
+      mandi_id: m.mandi_id,
+      name: m.mandi_name || m.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
     }));
 
     if (
@@ -277,6 +224,8 @@ export const OrgMandiMapping: React.FC = () => {
     }
   };
 
+  // ---------------------- LOAD MAPPINGS (MAIN LIST) ---------------------- //
+
   const loadMappings = async () => {
     const username = currentUsername();
     if (!username) return;
@@ -291,19 +240,66 @@ export const OrgMandiMapping: React.FC = () => {
         },
       });
 
-      const payload = (resp as any)?.data || (resp as any)?.response || resp;
-      const list =
+      const payload: any = resp?.data || resp?.response || resp;
+      const list: any[] =
         payload?.data?.mappings ||
         payload?.mappings ||
         [];
 
       console.log("OrgMandi mappings RAW from API:", list);
 
-      const mappedRows: MappingRow[] = list.map((m: any) => {
+      const mappedRows: MappingRow[] = list.map((m) => {
+        const org_code = m.org_code || null;
+        const org_name = m.org_name || null;
+        const org_display =
+          org_code && org_name
+            ? `${org_code} - ${org_name}`
+            : org_code || org_name || m.org_id || "";
+
+        const mandi_id = Number(m.mandi_id);
+        const mandi_name = m.mandi_name || null;
+        const mandi_slug = m.mandi_slug || null;
+        const mandi_display =
+          mandi_name
+            ? `${mandi_name} (${mandi_id})`
+            : mandi_slug
+            ? `${mandi_slug} (${mandi_id})`
+            : String(mandi_id);
+
+        const rawStatus =
+          m.mandi_is_active ??
+          m.mandi_active ??
+          m.is_active_mandi ??
+          m.is_active;
+
+        const normalizedStatus =
+          String(rawStatus).trim().toUpperCase() === "Y" || rawStatus === true
+            ? "Y"
+            : "N";
+
+        const status_label = normalizedStatus === "Y" ? "Active" : "Inactive";
+        const status_color: "success" | "default" =
+          normalizedStatus === "Y" ? "success" : "default";
+
         const row: MappingRow = {
-          ...m,
-          id: m._id ?? m.id,
+          id: String(m._id),
+          org_id: String(m.org_id),
+          org_code,
+          org_name,
+          org_display,
+          mandi_id,
+          mandi_slug,
+          mandi_name,
+          mandi_display,
+          state_code: m.state_code || null,
+          district_name: m.district_name || null,
+          pincode: m.pincode || null,
+          assignment_scope: m.assignment_scope || "EXCLUSIVE",
+          is_active: m.is_active || "Y",
+          status_label,
+          status_color,
         };
+
         console.log("OrgMandi row mapped for grid:", row);
         return row;
       });
@@ -321,6 +317,8 @@ export const OrgMandiMapping: React.FC = () => {
     }
   };
 
+  // ---------------------- EFFECTS ---------------------- //
+
   useEffect(() => {
     loadOrgs();
     loadMandis();
@@ -333,6 +331,8 @@ export const OrgMandiMapping: React.FC = () => {
   useEffect(() => {
     loadMandis();
   }, [mandiSearch]);
+
+  // ---------------------- DIALOG HANDLERS ---------------------- //
 
   const openCreate = () => {
     setForm({
@@ -369,7 +369,7 @@ export const OrgMandiMapping: React.FC = () => {
       });
       console.log("AddOrgMandi resp", resp);
 
-      const payload = (resp as any)?.data || (resp as any)?.response || resp;
+      const payload: any = resp?.data || resp?.response || resp;
       const code =
         payload?.response?.responsecode || payload?.responsecode || "1";
       const desc =
@@ -391,6 +391,8 @@ export const OrgMandiMapping: React.FC = () => {
       });
     }
   };
+
+  // ---------------------- RENDER ---------------------- //
 
   return (
     <PageContainer>
@@ -476,68 +478,34 @@ export const OrgMandiMapping: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* List */}
+      {/* Desktop vs Mobile */}
       {isMobile ? (
         <Stack spacing={2}>
-          {rows.map((row) => {
-            const r = row as MappingRow;
-            const orgCode = r.org_code ?? r.orgCode ?? "";
-            const orgName = r.org_name ?? r.orgName ?? "";
-            const mandiName =
-              r.mandi_name ??
-              r.mandiName ??
-              r.mandi_slug ??
-              r.mandiSlug ??
-              r.mandi_id ??
-              r.mandiId ??
-              "";
-
-            const raw =
-              r.mandi_is_active ??
-              r.mandiIsActive ??
-              r.mandi_active ??
-              r.is_active ??
-              r.isActive;
-            const normalized =
-              String(raw).trim().toUpperCase() === "Y" || raw === true
-                ? "Y"
-                : "N";
-            const isActive = normalized === "Y";
-
-            return (
-              <Card key={row.id} variant="outlined">
-                <CardContent
-                  sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
-                >
-                  <Typography variant="h6">
-                    Org:{" "}
-                    {orgCode && orgName
-                      ? `${orgCode} - ${orgName}`
-                      : orgCode || orgName || r.org_id}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Mandi: {mandiName} • Scope:{" "}
-                    {r.assignment_scope ?? r.assignmentScope ?? "EXCLUSIVE"}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color={isActive ? "success" : undefined}
-                    label={isActive ? "Active" : "Inactive"}
-                    sx={{ alignSelf: "flex-start" }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    State: {r.state_code ?? r.stateCode ?? "-"} • District:{" "}
-                    {r.district_name ??
-                      r.districtName ??
-                      r.district_name_en ??
-                      r.districtNameEn ??
-                      "-"}{" "}
-                    • Pincode: {r.pincode ?? r.pin_code ?? "-"}
-                  </Typography>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {rows.map((row) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent
+                sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
+              >
+                <Typography variant="h6">
+                  Org: {row.org_display || row.org_id}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Mandi: {row.mandi_display} • Scope: {row.assignment_scope}
+                </Typography>
+                <Chip
+                  size="small"
+                  color={row.status_color}
+                  label={row.status_label}
+                  sx={{ alignSelf: "flex-start" }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  State: {row.state_code || "-"} • District:{" "}
+                  {row.district_name || "-"} • Pincode:{" "}
+                  {row.pincode || "-"}
+                </Typography>
+              </CardContent>
+            </Card>
+          ))}
         </Stack>
       ) : (
         <Card>
@@ -650,6 +618,7 @@ export const OrgMandiMapping: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Toast */}
       <Snackbar
         open={toast.open}
         autoHideDuration={3000}

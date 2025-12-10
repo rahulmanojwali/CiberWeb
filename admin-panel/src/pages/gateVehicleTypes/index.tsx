@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -100,19 +101,40 @@ export const GateVehicleTypes: React.FC = () => {
         field: "is_allowed",
         headerName: "Allowed",
         width: 120,
-        valueGetter: (params: any) => (params?.row?.is_allowed === "Y" ? "Yes" : "No"),
+        renderCell: (params: any) => (
+          <Chip
+            size="small"
+            label={params?.row?.is_allowed === "Y" ? "Yes" : "No"}
+            color={params?.row?.is_allowed === "Y" ? "success" : "default"}
+            variant="outlined"
+          />
+        ),
       },
       {
         field: "requires_permit",
         headerName: "Permit",
         width: 120,
-        valueGetter: (params: any) => (params?.row?.requires_permit === "Y" ? "Required" : "No"),
+        renderCell: (params: any) => (
+          <Chip
+            size="small"
+            label={params?.row?.requires_permit === "Y" ? "Required" : "No"}
+            color={params?.row?.requires_permit === "Y" ? "warning" : "default"}
+            variant="outlined"
+          />
+        ),
       },
       {
         field: "is_active",
         headerName: "Active",
         width: 110,
-        valueGetter: (params: any) => (params?.row?.is_active === "Y" ? "Yes" : "No"),
+        renderCell: (params: any) => (
+          <Chip
+            size="small"
+            label={params?.row?.is_active === "Y" ? "Active" : "Inactive"}
+            color={params?.row?.is_active === "Y" ? "success" : "default"}
+            variant="outlined"
+          />
+        ),
       },
       {
         field: "actions",

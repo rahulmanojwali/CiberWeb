@@ -13,6 +13,14 @@ async function postEncrypted(path: string, items: Record<string, any>) {
   const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
   const url = `${API_BASE_URL}${path}`;
   const { data } = await axios.post(url, { encryptedData }, { headers: authHeaders() });
+  const rc = data?.response?.responsecode;
+  const desc = data?.response?.description || "Something went wrong.";
+  if (rc !== "0") {
+    const err: any = new Error(desc);
+    err.responseCode = rc;
+    err.rawResponse = data;
+    throw err;
+  }
   return data;
 }
 
@@ -90,30 +98,24 @@ export const fetchGateVehicleTypes = async (
   },
 ) => {
   return postEncrypted(API_ROUTES.admin.getGateVehicleTypes, {
-    items: {
-      api: API_TAGS.GATE_VEHICLE_TYPES.list,
-      language: DEFAULT_LANGUAGE,
-      ...items,
-    },
+    api: API_TAGS.GATE_VEHICLE_TYPES.list,
+    language: DEFAULT_LANGUAGE,
+    ...items,
   });
 };
 
 export const createGateVehicleType = async (items: Record<string, any>) =>
   postEncrypted(API_ROUTES.admin.createGateVehicleType, {
-    items: {
-      api: API_TAGS.GATE_VEHICLE_TYPES.create,
-      language: DEFAULT_LANGUAGE,
-      ...items,
-    },
+    api: API_TAGS.GATE_VEHICLE_TYPES.create,
+    language: DEFAULT_LANGUAGE,
+    ...items,
   });
 
 export const updateGateVehicleType = async (items: Record<string, any>) =>
   postEncrypted(API_ROUTES.admin.updateGateVehicleType, {
-    items: {
-      api: API_TAGS.GATE_VEHICLE_TYPES.update,
-      language: DEFAULT_LANGUAGE,
-      ...items,
-    },
+    api: API_TAGS.GATE_VEHICLE_TYPES.update,
+    language: DEFAULT_LANGUAGE,
+    ...items,
   });
 
 export const deactivateGateVehicleType = async ({

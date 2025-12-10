@@ -28,6 +28,8 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
+
+import { DataGrid } from "@mui/x-data-grid"; // add this import at the top
 import {
   fetchOrgMandiMappings,
   addOrgMandi,
@@ -511,12 +513,21 @@ export const OrgMandiMapping: React.FC = () => {
         <Card>
           <CardContent>
             <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
+              {/* <ResponsiveDataGrid
                 columns={columns}
                 rows={rows}
                 loading={loading}
                 getRowId={(r) => r.id}
-              />
+              /> */}
+<DataGrid
+  autoHeight
+  columns={columns}
+  rows={rows}
+  loading={loading}
+  getRowId={(r) => r.id}
+/>
+
+
             </Box>
           </CardContent>
         </Card>

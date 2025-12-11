@@ -235,10 +235,16 @@ export const OrgMandiMapping: React.FC = () => {
 
         // flags from backend
         const mandiFlagRaw =
+          m.master_is_active ??
           m.mandi_is_active ??
           m.mandi_active ??
-          m.is_active_mandi;
-        const mappingFlagRaw = m.is_active;
+          m.is_active_mandi ??
+          m.active_mandi ??
+          m.active_master;
+        const mappingFlagRaw =
+          m.org_mandi_is_active ??
+          m.mapping_is_active ??
+          m.is_active;
 
         const mandiFlag = normalizeFlag(mandiFlagRaw);
         const mappingFlag = normalizeFlag(mappingFlagRaw);

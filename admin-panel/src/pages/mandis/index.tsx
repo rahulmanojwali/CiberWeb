@@ -47,8 +47,6 @@ type MandiRow = {
   remarks?: string | null;
   district_id?: string | null;
   scope_type?: "GLOBAL" | "ORG" | string;
-  master_is_active?: boolean;
-  org_mandi_is_active?: "Y" | "N" | null;
   status_flag?: "Y" | "N";
 };
 
@@ -123,9 +121,7 @@ export const Mandis: React.FC = () => {
         width: 130,
         renderCell: (params) => {
           const row: any = params.row;
-          // Use pre-computed status_flag from row (set during mapping)
-          const effectiveFlag = row.status_flag || normalizeFlag(row.is_active);
-          const isActive = effectiveFlag === "Y";
+          const isActive = Boolean(row.is_active);
           const label = isActive ? "Active" : "Inactive";
           const color = isActive ? "success" : "default";
           return <Chip size="small" label={label} color={color} variant="outlined" />;
@@ -196,24 +192,9 @@ export const Mandis: React.FC = () => {
           state_code: m.state_code || "",
           district_name_en: m.district_name_en || "",
           pincode: m.pincode || "",
-          // Compute effective status once and reuse in render
-          master_is_active: normalizeFlag(m.master_is_active ?? m.is_active ?? m.active) === "Y",
-          org_mandi_is_active: m.org_mandi_is_active ?? null,
-          is_active:
-            normalizeFlag(
-              m.status ??
-                m.active ??
-                m.is_active ??
-                m.org_mandi_is_active ??
-                m.master_is_active,
-            ) === "Y",
-          status_flag: normalizeFlag(
-            m.status ??
-              m.active ??
-              m.is_active ??
-              m.org_mandi_is_active ??
-              m.master_is_active,
-          ),
+          // Effective status from API (single source of truth)
+          is_active: normalizeFlag(m.is_active) === "Y",
+          status_flag: normalizeFlag(m.is_active),
           address_line: m.address_line || "",
           contact_number: m.contact_number || "",
           remarks: m.remarks || "",

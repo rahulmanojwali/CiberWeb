@@ -45,6 +45,8 @@ type MandiRow = {
   remarks?: string | null;
   district_id?: string | null;
   scope_type?: "GLOBAL" | "ORG" | string;
+  master_is_active?: boolean;
+  org_mandi_is_active?: "Y" | "N" | null;
 };
 
 const defaultForm = {
@@ -113,10 +115,18 @@ export const Mandis: React.FC = () => {
       { field: "pincode", headerName: "Pincode", width: 110 },
       { field: "address_line", headerName: "Address", flex: 1.5 },
       {
-        field: "is_active",
+        field: "status",
         headerName: "Active",
-        width: 110,
-        valueFormatter: (value) => (value ? "Y" : "N"),
+        width: 130,
+        renderCell: (params) => {
+          const row: any = params.row;
+          const orgStatus = row.org_mandi_is_active;
+          // Prefer org-mandi mapping status if present, else master status
+          const isActive = orgStatus === "Y" || (orgStatus == null && row.master_is_active === true);
+          const label = isActive ? "Active" : "Inactive";
+          const color = isActive ? "success" : "default";
+          return <Chip size="small" label={label} color={color} variant="outlined" />;
+        },
       },
       {
         field: "actions",
@@ -184,6 +194,8 @@ export const Mandis: React.FC = () => {
           district_name_en: m.district_name_en || "",
           pincode: m.pincode || "",
           is_active: Boolean(m.is_active),
+          master_is_active: m.master_is_active === true || m.active === "Y",
+          org_mandi_is_active: m.org_mandi_is_active ?? null,
           address_line: m.address_line || "",
           contact_number: m.contact_number || "",
           remarks: m.remarks || "",

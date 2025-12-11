@@ -32,6 +32,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchOrgMandiMappings,
@@ -74,15 +75,6 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
-}
-
-function normalizeFlag(flag: any): "Y" | "N" {
-  if (flag === true) return "Y";
-  if (flag === false) return "N";
-  const s = String(flag ?? "").trim().toUpperCase();
-  if (s === "Y" || s === "YES" || s === "TRUE" || s === "1") return "Y";
-  if (s === "N" || s === "NO" || s === "FALSE" || s === "0") return "N";
-  return "N";
 }
 
 export const OrgMandiMapping: React.FC = () => {

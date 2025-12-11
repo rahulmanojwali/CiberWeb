@@ -32,6 +32,7 @@ import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../co
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
+import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 
 type MandiRow = {
@@ -62,15 +63,6 @@ const defaultForm = {
   remarks: "",
   is_active: true,
 };
-
-function normalizeFlag(flag: any): "Y" | "N" {
-  if (flag === true) return "Y";
-  if (flag === false) return "N";
-  const s = String(flag ?? "").trim().toUpperCase();
-  if (s === "Y" || s === "YES" || s === "TRUE" || s === "1") return "Y";
-  if (s === "N" || s === "NO" || s === "FALSE" || s === "0") return "N";
-  return "N";
-}
 
 function currentUsername(): string | null {
   try {

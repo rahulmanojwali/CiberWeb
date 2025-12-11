@@ -147,6 +147,11 @@ export const API_TAGS = {
     dashboard: "getRolePoliciesDashboardData",
     update: "updateRolePolicies",
   },
+  ADMIN_USER_ROLES: {
+    list: "getAdminUsersWithRoles",
+    assign: "assignUserRole",
+    deactivate: "deactivateUserRole",
+  },
   GATE_PASS_TOKENS: {
     list: "getGatePassTokens",
   },
@@ -327,6 +332,9 @@ export const API_ROUTES = {
     deactivateGateDeviceConfig: "/admin/deactivateGateDeviceConfig",
     getRolePoliciesDashboardData: "/admin/getRolePoliciesDashboardData",
     updateRolePolicies: "/admin/updateRolePolicies",
+    getAdminUsersWithRoles: "/admin/getAdminUsersWithRoles",
+    assignUserRole: "/admin/assignUserRole",
+    deactivateUserRole: "/admin/deactivateUserRole",
     getGatePassTokens: "/admin/getGatePassTokens",
     getGateEntryTokens: "/admin/getGateEntryTokens",
     getGateMovements: "/admin/getGateMovements",

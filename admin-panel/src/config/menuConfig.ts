@@ -149,6 +149,24 @@ export const APP_MENU: AppMenuItem[] = [
   ],
 },
 
+  {
+    key: "system",
+    labelKey: "menu.system",
+    icon: React.createElement(SettingsOutlinedIcon),
+    roles: ["SUPER_ADMIN"],
+    children: [
+      {
+        key: "userRoleManager",
+        labelKey: "menu.userRoleManager",
+        path: "/system/user-role-manager",
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: "admin_users.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+    ],
+  },
+
 
 
   // {

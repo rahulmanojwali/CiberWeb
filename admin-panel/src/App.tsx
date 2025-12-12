@@ -70,6 +70,7 @@ import { SubscriptionsPage } from "./pages/subscriptions";
 import { SubscriptionInvoices } from "./pages/subscriptionInvoices";
 import { SettlementsPage } from "./pages/settlements";
 import { PaymentsLog } from "./pages/paymentsLog";
+import ResourceRegistryPage from "./pages/resourceRegistry";
 
 import { Layout } from "./components/layout";
 
@@ -178,6 +179,7 @@ function App() {
                     <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                     <Route path="/gate-movements" element={<GateMovements />} />
                     <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
+                    <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                     <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                     <Route path="/auction-sessions" element={<AuctionSessions />} />
                     <Route path="/auction-lots" element={<AuctionLots />} />

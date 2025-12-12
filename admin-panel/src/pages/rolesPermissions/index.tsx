@@ -1,52 +1,51 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
-  Typography,
-  Paper,
+  Button,
+  Chip,
   CircularProgress,
-  Stack,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
+  Paper,
+  Select,
+  Stack,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
-  Checkbox,
-  Button,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItem,
-  ListItemText,
+  TableHead,
+  TableRow,
+  Typography,
 } from "@mui/material";
-import { fetchRolePoliciesDashboardData } from "../../services/rolePoliciesApi";
+import { useSnackbar } from "notistack";
+import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
 
 type PolicyEntry = { resource_key: string; actions: string[] };
 type RoleEntry = { role_slug: string; role_name?: string };
-type ResourceEntry = { resource_key: string; screen?: string; element?: string };
-
-const ACTIONS = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+type RegistryEntry = {
+  resource_key: string;
+  module?: string;
+  allowed_actions: string[];
+  description?: string;
+  aliases?: string[];
+};
 
 const RolesPermissionsPage: React.FC = () => {
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("cd_user") : null;
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
   const username: string = parsedUser?.username || "";
+  const { enqueueSnackbar } = useSnackbar();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<RoleEntry[]>([]);
-  const [resources, setResources] = useState<ResourceEntry[]>([]);
+  const [registry, setRegistry] = useState<RegistryEntry[]>([]);
   const [policiesByRole, setPoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [selectedModule, setSelectedModule] = useState<string>("ALL");
-  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<any>({});
 
   useEffect(() => {
     const load = async () => {
@@ -56,23 +55,24 @@ const RolesPermissionsPage: React.FC = () => {
         const resp = await fetchRolePoliciesDashboardData({ username: username || "" });
         const payload = resp?.data || resp || {};
         const rolesList: RoleEntry[] = payload.roles || [];
-        const resList: ResourceEntry[] = payload.resources || [];
+        const registryList: RegistryEntry[] = payload.registry || [];
         const pMap: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
 
         setRoles(rolesList);
-        setResources(resList);
+        setRegistry(registryList);
         setPoliciesByRole(pMap);
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(pMap)));
+        setDiagnostics(payload.diagnostics || {});
         if (rolesList.length > 0) {
           setSelectedRole(rolesList[0].role_slug);
         }
         if (resp?.response?.responsecode !== "0") {
           setError(resp?.response?.description || "Failed to load role policies");
         }
-        setLoading(false);
       } catch (err: any) {
-        setLoading(false);
         setError(err?.message || "Failed to load role policies");
+      } finally {
+        setLoading(false);
       }
     };
     if (username) load();
@@ -90,16 +90,16 @@ const RolesPermissionsPage: React.FC = () => {
 
   const moduleOptions = useMemo(() => {
     const set = new Set<string>();
-    resources.forEach((r) => {
-      if (r.screen) set.add(r.screen);
+    registry.forEach((r) => {
+      if (r.module) set.add(r.module);
     });
     return ["ALL", ...Array.from(set).sort()];
-  }, [resources]);
+  }, [registry]);
 
   const filteredResources = useMemo(() => {
-    if (selectedModule === "ALL") return resources;
-    return resources.filter((r) => (r.screen || "") === selectedModule);
-  }, [resources, selectedModule]);
+    if (selectedModule === "ALL") return registry;
+    return registry.filter((r) => (r.module || "") === selectedModule);
+  }, [registry, selectedModule]);
 
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
@@ -114,15 +114,13 @@ const RolesPermissionsPage: React.FC = () => {
           actions.add(action);
           next[idx] = { ...next[idx], actions: Array.from(actions) };
         }
-      } else {
-        if (idx !== -1) {
-          const actions = new Set(next[idx].actions || []);
-          actions.delete(action);
-          if (actions.size === 0) {
-            next.splice(idx, 1);
-          } else {
-            next[idx] = { ...next[idx], actions: Array.from(actions) };
-          }
+      } else if (idx !== -1) {
+        const actions = new Set(next[idx].actions || []);
+        actions.delete(action);
+        if (actions.size === 0) {
+          next.splice(idx, 1);
+        } else {
+          next[idx] = { ...next[idx], actions: Array.from(actions) };
         }
       }
       return { ...prev, [selectedRole]: next };
@@ -133,34 +131,36 @@ const RolesPermissionsPage: React.FC = () => {
     try {
       const payload = editablePoliciesByRole[selectedRole] || [];
       setLoading(true);
-      const resp = await import("../../services/rolePoliciesApi").then((m) =>
-        m.updateRolePolicies({
-          username,
-          role_slug: selectedRole,
-          permissions: payload,
-        })
-      );
-      setLoading(false);
+      const resp = await updateRolePolicies({
+        username,
+        role_slug: selectedRole,
+        permissions: payload,
+      });
       if (resp?.response?.responsecode === "0") {
-        // Refresh from server to stay in sync
+        enqueueSnackbar("Role policy updated.", { variant: "success" });
         const refreshed = await fetchRolePoliciesDashboardData({ username: username || "" });
         const payloadRef = refreshed?.data || refreshed || {};
         setPoliciesByRole(payloadRef.policiesByRole || {});
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));
+        setDiagnostics(payloadRef.diagnostics || {});
       } else {
-        setError(resp?.response?.description || "Failed to save role policies");
+        enqueueSnackbar(resp?.response?.description || "Failed to save role policies", { variant: "error" });
       }
     } catch (err: any) {
-      setLoading(false);
       setError(err?.message || "Failed to save role policies");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const unknownForRole = useMemo(() => diagnostics?.unknownByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
+  const missingForRole = useMemo(() => diagnostics?.missingByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
   }
 
-  if (loading) {
+  if (loading && !roles.length) {
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <CircularProgress size={20} /> <Typography>Loading...</Typography>
@@ -169,7 +169,7 @@ const RolesPermissionsPage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={2} sx={{ position: "relative", height: "100%", minHeight: "60vh" }}>
+    <Stack spacing={2} sx={{ position: "relative", minHeight: "60vh" }}>
       <Paper
         sx={{
           position: "sticky",
@@ -183,9 +183,9 @@ const RolesPermissionsPage: React.FC = () => {
       >
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
           <Box>
-            <Typography variant="h5">Roles &amp; Permissions</Typography>
+            <Typography variant="h5">Role Policy Manager</Typography>
             <Typography variant="body2" color="text.secondary">
-              Select a role and module to view or edit permissions.
+              Manage role permissions using the canonical resource registry.
             </Typography>
           </Box>
           <Box sx={{ flex: 1 }} />
@@ -220,135 +220,95 @@ const RolesPermissionsPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            {selectedRole === "SUPER_ADMIN" && (
-              <Button variant="outlined" size="small" onClick={() => setModuleDialogOpen(true)}>
-                Manage modules &amp; resources
-              </Button>
-            )}
-            {selectedRole && (
-              <Button variant="contained" size="small" onClick={handleSave}>
-                Save changes
-              </Button>
-            )}
+            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
           </Stack>
         </Stack>
       </Paper>
 
-      {error ? (
-        <Paper sx={{ p: 2, bgcolor: "error.light" }}>
-          <Typography color="error">{error}</Typography>
+      {error && (
+        <Paper sx={{ p: 2 }}>
+          <Alert severity="error">{error}</Alert>
         </Paper>
-      ) : null}
+      )}
 
-      <Paper sx={{ p: 0, flex: 1, minHeight: 0 }}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center" sx={{ mb: 2, p: 2 }}>
-          <Typography variant="subtitle1" sx={{ flex: 1 }}>
-            Editing role: <strong>{selectedRole || "—"}</strong>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            ✔ granted • empty = not granted
-          </Typography>
-        </Stack>
-        <Box sx={{ maxHeight: "70vh", overflow: "auto", px: 2, pb: 2 }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell
-                  sx={{
-                    position: "sticky",
-                    left: 0,
-                    zIndex: 3,
-                    backgroundColor: "background.paper",
-                    minWidth: 140,
-                  }}
-                >
-                  Module
-                </TableCell>
-                <TableCell
-                  sx={{
-                    position: "sticky",
-                    left: 140,
-                    zIndex: 3,
-                    backgroundColor: "background.paper",
-                    minWidth: 220,
-                  }}
-                >
-                  Resource
-                </TableCell>
-                {ACTIONS.map((action) => (
-                  <TableCell key={action} align="center">
-                    <Tooltip title={`${action.toLowerCase()} permission`}>
-                      <Box component="span">{action}</Box>
-                    </Tooltip>
+      <Paper sx={{ p: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Resource</TableCell>
+              <TableCell>Module</TableCell>
+              <TableCell>Allowed Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredResources.map((r) => {
+              const allowedActions = r.allowed_actions || [];
+              const granted = rolePermsLookup[r.resource_key] || new Set<string>();
+              return (
+                <TableRow key={r.resource_key}>
+                  <TableCell>
+                    <Stack spacing={0.25}>
+                      <Typography variant="body2">{r.resource_key}</Typography>
+                      {r.description && (
+                        <Typography variant="caption" color="text.secondary">
+                          {r.description}
+                        </Typography>
+                      )}
+                      {r.aliases?.length ? (
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                          {r.aliases.map((a) => (
+                            <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
+                          ))}
+                        </Stack>
+                      ) : null}
+                    </Stack>
                   </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredResources.map((res) => {
-                const granted = rolePermsLookup[res.resource_key] || new Set<string>();
-                return (
-                  <TableRow key={res.resource_key} hover>
-                    <TableCell
-                      sx={{
-                        position: "sticky",
-                        left: 0,
-                        backgroundColor: "background.paper",
-                        minWidth: 140,
-                        zIndex: 2,
-                      }}
-                    >
-                      {res.screen || "-"}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        position: "sticky",
-                        left: 140,
-                        backgroundColor: "background.paper",
-                        minWidth: 220,
-                        zIndex: 2,
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {res.resource_key}
-                    </TableCell>
-                    {ACTIONS.map((action) => (
-                      <TableCell key={action} align="center">
-                        <Checkbox
-                          size="small"
-                          checked={granted.has(action)}
-                          onChange={(e) => toggleAction(res.resource_key, action, e.target.checked)}
+                  <TableCell>{r.module || "-"}</TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {allowedActions.map((action) => (
+                        <Chip
+                          key={`${r.resource_key}-${action}`}
+                          label={action}
+                          color={granted.has(action) ? "primary" : "default"}
+                          variant={granted.has(action) ? "filled" : "outlined"}
+                          onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
+                          sx={{ cursor: "pointer" }}
                         />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
+                      ))}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </Paper>
 
-      <Dialog open={moduleDialogOpen} onClose={() => setModuleDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Modules &amp; resources (preview)</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Modules are derived from resource configuration. Editing from UI will be enabled later.
-          </Typography>
-          <List dense>
-            {moduleOptions
-              .filter((m) => m !== "ALL")
-              .map((m) => (
-                <ListItem key={m}>
-                  <ListItemText primary={m} secondary="From resource metadata" />
-                </ListItem>
-              ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModuleDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {(unknownForRole.length > 0 || missingForRole.length > 0) && (
+        <Paper sx={{ p: 2 }}>
+          <Stack spacing={1}>
+            {unknownForRole.length > 0 && (
+              <Alert severity="warning">
+                Unknown keys (not in registry):{" "}
+                {unknownForRole.map((u: string) => (
+                  <Chip key={u} label={u} size="small" sx={{ mr: 0.5 }} />
+                ))}
+              </Alert>
+            )}
+            {missingForRole.length > 0 && (
+              <Alert severity="info">
+                Missing keys (not granted yet):{" "}
+                {missingForRole.map((m: string) => (
+                  <Chip key={m} label={m} size="small" sx={{ mr: 0.5 }} />
+                ))}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
     </Stack>
   );
 };

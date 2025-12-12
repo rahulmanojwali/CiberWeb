@@ -52,7 +52,7 @@ const RolesPermissionsPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const resp = await fetchRolePoliciesDashboardData({ username: username || "" });
+        const resp = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
         const payload = resp?.data || resp || {};
         const rolesList: RoleEntry[] = payload.roles || [];
         const registryList: RegistryEntry[] = payload.registry || [];
@@ -133,12 +133,13 @@ const RolesPermissionsPage: React.FC = () => {
       setLoading(true);
       const resp = await updateRolePolicies({
         username,
+        country: "IN",
         role_slug: selectedRole,
         permissions: payload,
       });
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Role policy updated.", { variant: "success" });
-        const refreshed = await fetchRolePoliciesDashboardData({ username: username || "" });
+        const refreshed = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
         const payloadRef = refreshed?.data || refreshed || {};
         setPoliciesByRole(payloadRef.policiesByRole || {});
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));

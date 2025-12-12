@@ -36,14 +36,17 @@ async function postEncrypted(path: string, items: Record<string, any>) {
 export async function fetchRolePoliciesDashboardData({
   username,
   language = DEFAULT_LANGUAGE,
+  country = "IN",
 }: {
   username: string;
   language?: string;
+  country?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ROLE_POLICIES.dashboard,
     username,
     language,
+    country,
   };
 
   return postEncrypted(API_ROUTES.admin.getRolePoliciesDashboardData, items);
@@ -52,11 +55,13 @@ export async function fetchRolePoliciesDashboardData({
 export async function updateRolePolicies({
   username,
   language = DEFAULT_LANGUAGE,
+  country = "IN",
   role_slug,
   permissions,
 }: {
   username: string;
   language?: string;
+  country?: string;
   role_slug: string;
   permissions: any[];
 }) {
@@ -64,6 +69,7 @@ export async function updateRolePolicies({
     api: API_TAGS.ROLE_POLICIES.update,
     username,
     language,
+    country,
     role_slug,
     permissions,
   };

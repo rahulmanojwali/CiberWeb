@@ -92,12 +92,16 @@
   "auctionLots": "Auction Lots",
   "auctionResults": "Auction Results",
 "organisationsList": "Organisation List",
+"rolePermission": "Roles & Permissions",
 "mandisList": "Mandi List",
 "gateEntryReasonsMaster": "Gate Entry Reasons (Master)",
 "auctionMethodsMaster": "Auction Methods (Master)",
-"traderApprovalQueue": "Trader Approval Queue"
+"traderApprovalQueue": "Trader Approval Queue",
 
+"system": "System",
 
+"rolePermissions": "Roles & Permissions",
+"userRoleManager": "User Role Manager"
 
 
 }
@@ -379,3 +383,4 @@
     }
   }
 }
+

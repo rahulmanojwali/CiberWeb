@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import {
   RefineThemedLayoutSiderProps,
 } from "@refinedev/mui";
@@ -27,6 +27,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   filterMenuByResources,
+  filterMenuByRole,
   type MenuItem as NavMenuItem,
 } from "../config/menuConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
@@ -54,11 +55,35 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   console.log("[CustomSider] resolved role from cd_user:", storageRole, "config role:", configRole);
 
-  const navItems = useMemo<NavMenuItem[]>(() => {
-    const items = filterMenuByResources(resources, effectiveRole);
-    console.log("[CustomSider] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
-    return items;
-  }, [effectiveRole, resources]);
+  const [navItems, setNavItems] = useState<NavMenuItem[]>(() => filterMenuByRole(effectiveRole));
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const resourcesCount = resources?.length || 0;
+
+  useEffect(() => {
+    try {
+      const built = filterMenuByResources(resources, effectiveRole);
+      const builtCount = built.length;
+      console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });
+
+      if (resourcesCount > 0 && builtCount === 0) {
+        console.error("[menu] built menu empty despite resources; keeping previous", {
+          resourcesSample: (resources || []).slice(0, 5),
+        });
+        setMenuError("Menu config could not be built. Showing last known menu.");
+        return;
+      }
+
+      setMenuError(null);
+      setNavItems(builtCount > 0 ? built : filterMenuByRole(effectiveRole));
+    } catch (e) {
+      console.error("[sidebar] build failed", e, { resourcesSample: (resources || []).slice(0, 5) });
+      setMenuError("Menu failed to load. Showing last known menu.");
+    }
+  }, [effectiveRole, resources, resourcesCount]);
+
+  useEffect(() => {
+    console.log("[CustomSider] render", { hasUiConfig: resourcesCount > 0, menuLen: navItems.length });
+  }, [resourcesCount, navItems.length]);
 
   const username = getCurrentAdminUsername();
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
@@ -127,6 +152,18 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
+        <Box sx={{ px: 2, pb: 1 }}>
+          <Typography variant="caption" color="error">
+            CUSTOM SIDER ACTIVE
+          </Typography>
+        </Box>
+        {menuError && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <Typography variant="caption" color="error">
+              {menuError}
+            </Typography>
+          </Box>
+        )}
         <List
           component="nav"
           sx={{

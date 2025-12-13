@@ -813,14 +813,93 @@ export function filterMenuByRole(role: RoleSlug | null) {
 }
 
 export function filterMenuByResources(resources: UiResource[] | undefined, fallbackRole: RoleSlug | null) {
-  const hasResources = Array.isArray(resources) && resources.length > 0;
-  if (!hasResources) {
+  try {
+    const hasResources = Array.isArray(resources) && resources.length > 0;
+    if (!hasResources) {
+      return filterMenuByRole(fallbackRole);
+    }
+
+    let excludedNoRoute = 0;
+    let excludedNoGroup = 0;
+    let excludedNotMenu = 0;
+    let excludedUiType = 0;
+    const total = resources.length;
+
+    // Narrow to main sidebar menu entries with routes
+    const allowedRoutes = new Set(
+      resources
+        .filter((r) => {
+          const isMenu = r.ui_type === "menu";
+          if (!isMenu) excludedUiType += 1;
+          const inGroup = (r.metadata as any)?.group === "main_sidebar";
+          if (!inGroup) excludedNoGroup += 1;
+          const hasRoute = typeof r.route === "string" && r.route.length > 0;
+          if (!hasRoute) excludedNoRoute += 1;
+          const endsWithMenu =
+            typeof r.resource_key === "string" ? r.resource_key.endsWith(".menu") : true;
+          if (!endsWithMenu) excludedNotMenu += 1;
+          return isMenu && inGroup && hasRoute && endsWithMenu;
+        })
+        .map((r) => r.route),
+    );
+    // Allow matching by resource_key even if route is missing (some items return null route)
+    const allowedMenuKeys = new Set(
+      resources
+        .filter((r) => {
+          const isMenu = r.ui_type === "menu";
+          const inGroup = (r.metadata as any)?.group === "main_sidebar";
+          const endsWithMenu =
+            typeof r.resource_key === "string" ? r.resource_key.endsWith(".menu") : true;
+          return isMenu && inGroup && endsWithMenu;
+        })
+        .map((r) => r.resource_key),
+    );
+
+    // Deduplicate by route with safe ordering
+    const sortedResources = (resources || []).map((r) => ({
+      ...r,
+      order: typeof r.order === "number" ? r.order : 9999,
+    }));
+    const dedupedByRoute = new Map<string, UiResource>();
+    sortedResources.forEach((r) => {
+      const key = r.route || r.resource_key || "";
+      if (!key) return;
+      if (r.route && !allowedRoutes.has(r.route)) return;
+      const existing = dedupedByRoute.get(key);
+      if (!existing || r.order < (existing as any).order) {
+        dedupedByRoute.set(key, r);
+      }
+    });
+
+    const safeResources = Array.from(dedupedByRoute.values());
+
+    console.log("[menuConfig] filterMenuByResources diagnostic", {
+      total,
+      kept: safeResources.length,
+      excludedNoRoute,
+      excludedNoGroup,
+      excludedNotMenu,
+      excludedUiType,
+    });
+
+    return filterHierarchy(APP_MENU, (item) => {
+      if (!item.resourceKey) return true;
+      // Extra guard: ensure route is permitted if present
+      if (item.path && safeResources.length) {
+        const match = safeResources.find((r) => r.route === item.path);
+        if (!match) {
+          // fallback: allow if resource_key is explicitly present
+          const byKey = safeResources.find((r) => r.resource_key === item.resourceKey);
+          if (!byKey) return false;
+        }
+      }
+      if (allowedMenuKeys.has(item.resourceKey)) return true;
+      const action = item.requiredAction || "VIEW";
+      return can(safeResources, item.resourceKey, action);
+    });
+  } catch (e) {
+    console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });
+    // fallback: keep last-known menu by role rather than blanking
     return filterMenuByRole(fallbackRole);
   }
-
-  return filterHierarchy(APP_MENU, (item) => {
-    if (!item.resourceKey) return true;
-    const action = item.requiredAction || "VIEW";
-    return can(resources, item.resourceKey, action);
-  });
 }

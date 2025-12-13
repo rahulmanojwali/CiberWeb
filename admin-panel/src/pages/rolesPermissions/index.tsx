@@ -22,7 +22,7 @@ import { useSnackbar } from "notistack";
 import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
 
 type PolicyEntry = { resource_key: string; actions: string[] };
-type RoleEntry = { role_slug: string; role_name?: string };
+type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
 type RegistryEntry = {
   resource_key: string;
   module?: string;
@@ -156,6 +156,10 @@ const RolesPermissionsPage: React.FC = () => {
 
   const unknownForRole = useMemo(() => diagnostics?.unknownByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
   const missingForRole = useMemo(() => diagnostics?.missingByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
+  const isProtectedRole = useMemo(() => {
+    const current = roles.find((r) => r.role_slug === selectedRole);
+    return current?.is_protected === "Y" || current?.source === "SYSTEM";
+  }, [roles, selectedRole]);
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
@@ -201,7 +205,8 @@ const RolesPermissionsPage: React.FC = () => {
               >
                 {roles.map((r) => (
                   <MenuItem key={r.role_slug} value={r.role_slug}>
-                    {r.role_name || r.role_slug}
+                    {r.role_name || r.role_slug}{" "}
+                    {r.is_protected === "Y" || r.source === "SYSTEM" ? "(SYSTEM)" : ""}
                   </MenuItem>
                 ))}
               </Select>
@@ -221,12 +226,18 @@ const RolesPermissionsPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole}>
+            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole || isProtectedRole}>
               {loading ? "Saving..." : "Save"}
             </Button>
           </Stack>
         </Stack>
       </Paper>
+
+      {isProtectedRole && (
+        <Paper sx={{ p: 2 }}>
+          <Alert severity="warning">This role is protected and cannot be edited.</Alert>
+        </Paper>
+      )}
 
       {error && (
         <Paper sx={{ p: 2 }}>

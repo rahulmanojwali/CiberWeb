@@ -104,10 +104,14 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           api_name: "getAdminUiConfig",
           username,
           country,
+          language,
           api: API_TAGS.ADMIN_UI_CONFIG.getAdminUiConfig,
         },
-        language,
       };
+
+      // TEMP DEBUG LOG
+      // eslint-disable-next-line no-console
+      console.log("[adminUiConfig] request items", payload.items);
 
       const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
 
@@ -118,6 +122,8 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       const resp = data?.response || {};
+      // eslint-disable-next-line no-console
+      console.log("[adminUiConfig] response", resp);
       const code = String(resp?.responsecode ?? "");
       if (code !== "0") {
         const message = resp?.description || "Failed to load admin UI config.";

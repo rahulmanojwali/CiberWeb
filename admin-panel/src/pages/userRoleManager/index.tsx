@@ -34,6 +34,7 @@ type UserRow = {
   email?: string | null;
   mobile?: string | null;
   is_active?: string | null;
+  is_system_protected?: boolean;
   roles?: Array<{
     _id?: string;
     role_code: string;
@@ -49,6 +50,7 @@ type RoleMaster = {
   role_scope?: string | null;
   name?: string;
   description?: string | null;
+  is_protected?: string;
 };
 
 type OrgOption = {
@@ -156,6 +158,7 @@ const UserRoleManagerPage: React.FC = () => {
           const row = params.row;
           const hasActiveRole =
             (row.roles || []).filter((r) => normalizeFlag(r.is_active) === "Y").length > 0;
+          const isProtected = !!row.is_system_protected;
           return (
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" size="small" onClick={() => handleOpenAssign(row)}>
@@ -167,7 +170,7 @@ const UserRoleManagerPage: React.FC = () => {
                     variant="outlined"
                     size="small"
                     color="error"
-                    disabled={!hasActiveRole}
+                    disabled={!hasActiveRole || isProtected}
                     onClick={() => handleOpenDeactivate(row)}
                   >
                     Deactivate
@@ -204,7 +207,8 @@ const UserRoleManagerPage: React.FC = () => {
       }
       const list = resp?.data?.users || [];
       setRows(list);
-      setRoles(resp?.data?.roles || []);
+      const fetchedRoles = resp?.data?.roles || [];
+      setRoles(fetchedRoles);
       setOrgs(resp?.data?.organisations || []);
       setMandis(resp?.data?.mandis || []);
     } catch (err: any) {
@@ -378,19 +382,21 @@ const AssignRoleModal: React.FC<AssignRoleModalProps> = ({
 
           <FormControl fullWidth size="small">
             <InputLabel id="role-select-label">Role</InputLabel>
-            <Select
-              labelId="role-select-label"
-              value={roleCode}
-              label="Role"
-              onChange={(e) => setRoleCode(e.target.value)}
-            >
-              {roles.map((r) => (
-                <MenuItem key={r.role_code} value={r.role_code}>
-                  {r.role_code} {r.name ? `- ${r.name}` : ""}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <Select
+                labelId="role-select-label"
+                value={roleCode}
+                label="Role"
+                onChange={(e) => setRoleCode(e.target.value)}
+              >
+              {roles
+                .filter((r) => r.role_code !== "SUPER_ADMIN" && r.role_code !== "SUPERADMIN" && r.is_protected !== "Y")
+                .map((r) => (
+                  <MenuItem key={r.role_code} value={r.role_code}>
+                    {r.role_code} {r.name ? `- ${r.name}` : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
           {needsOrg && (
             <FormControl fullWidth size="small" error={!orgId}>

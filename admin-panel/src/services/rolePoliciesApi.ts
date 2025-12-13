@@ -43,11 +43,15 @@ export async function fetchRolePoliciesDashboardData({
   country?: string;
 }) {
   const items: Record<string, any> = {
-    api: API_TAGS.ROLE_POLICIES.dashboard,
+    api: "getRolePoliciesDashboardData",
     username,
     language,
     country,
   };
+
+  // TEMP DEBUG LOG
+  // eslint-disable-next-line no-console
+  console.log("[dashboard] items", items);
 
   return postEncrypted(API_ROUTES.admin.getRolePoliciesDashboardData, items);
 }
@@ -66,13 +70,17 @@ export async function updateRolePolicies({
   permissions: any[];
 }) {
   const items: Record<string, any> = {
-    api: API_TAGS.ROLE_POLICIES.update,
+    api: "updateRolePolicies",
     username,
     language,
     country,
     role_slug,
     permissions,
   };
+
+  // TEMP DEBUG LOG
+  // eslint-disable-next-line no-console
+  console.log("[updateRolePolicies] items", items);
 
   return postEncrypted(API_ROUTES.admin.updateRolePolicies, items);
 }

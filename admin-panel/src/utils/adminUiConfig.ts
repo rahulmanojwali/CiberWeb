@@ -45,5 +45,8 @@ export function can(
   const actions = Array.isArray(res.allowed_actions)
     ? res.allowed_actions.map((a) => (typeof a === "string" ? a.toUpperCase() : "")).filter(Boolean)
     : [];
-  return actions.includes(action.toUpperCase());
+  const target = action.toUpperCase();
+  if (actions.length === 0) return true; // permit when no explicit actions provided (SUPER_ADMIN payloads)
+  if (actions.includes("*")) return true;
+  return actions.includes(target);
 }

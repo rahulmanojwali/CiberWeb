@@ -97,14 +97,10 @@ export const Orgs: React.FC = () => {
   const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
   // Temporary debug for perms; remove after verifying
-  const debugPerm = uiConfig.resources?.find((r) => r.resource_key === "organisations.edit");
-  console.log("canEditOrg debug", {
-    role: uiConfig.role,
-    roleNormalized: (uiConfig.role || "").toUpperCase(),
-    resourcesCount: uiConfig.resources?.length || 0,
-    organisationsEditActions: debugPerm?.allowed_actions || (debugPerm as any)?.actions,
-    canUpdateOrgAction,
-  });
+  if ((uiConfig.role || "").toUpperCase() === "ORG_ADMIN") {
+    const orgActions = (uiConfig.resources || []).filter((r) => (r.resource_key || "").startsWith("organisations."));
+    console.log("ORG PAGE RBAC", { role: uiConfig.role, actions: orgActions });
+  }
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -364,19 +360,19 @@ export const Orgs: React.FC = () => {
         sortable: false,
         filterable: false,
         flex: 0.7,
-        renderCell: (params: GridRenderCellParams<OrgRow>) => (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => handleOpenEdit(params.row as OrgRow)}
-            disabled={isReadOnly || !canEditOrg(params.row)}
-          >
-            Edit
-          </Button>
-        ),
+        renderCell: (params: GridRenderCellParams<OrgRow>) =>
+          canUpdateOrgAction ? (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => handleOpenEdit(params.row as OrgRow)}
+            >
+              Edit
+            </Button>
+          ) : null,
       },
     ],
-    [isReadOnly, canEditOrg]
+    [canUpdateOrgAction, canEditOrg]
   );
 
   const filteredRows = rows.filter((r) => {
@@ -525,7 +521,7 @@ export const Orgs: React.FC = () => {
                   </Typography>
                 </Box>
 
-                {!isReadOnly && (
+                {canUpdateOrgAction && (
                   <Box
                     sx={{
                       display: "flex",
@@ -533,39 +529,21 @@ export const Orgs: React.FC = () => {
                       mt: 1,
                     }}
                   >
-                    {/* <Button
-                      variant="text"
+                    <Button
+                      variant="outlined"
                       size="small"
                       onClick={() => handleOpenEdit(row)}
                       sx={{
                         textTransform: "none",
                         fontSize: "0.8rem",
                         fontWeight: 600,
-                        color: "primary.main",
-                        px: 1,
+                        borderRadius: 1,
+                        px: 1.5,
+                        py: 0.3,
                       }}
                     >
                       Edit
-                    </Button> */}
-
-<Button
-  variant="outlined"
-  size="small"
-  onClick={() => handleOpenEdit(row)}
-  sx={{
-    textTransform: "none",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-    borderRadius: 1,
-    px: 1.5,
-    py: 0.3,
-  }}
->
-  Edit
-</Button>
-
-
-
+                    </Button>
                   </Box>
                 )}
               </Stack>

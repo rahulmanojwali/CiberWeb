@@ -209,7 +209,7 @@ export const Mandis: React.FC = () => {
           mandi_id: m.mandi_id,
           name: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
           state_code: m.state_code || "",
-          district_name_en: m.district_name_en || "",
+          district_name_en: m.district_name_en || m.district_name || "",
           pincode: m.pincode || "",
           // Effective status from API (single source of truth)
           is_active: normalizeFlag(m.is_active) === "Y",

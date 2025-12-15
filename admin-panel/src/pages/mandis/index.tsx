@@ -48,6 +48,9 @@ type MandiRow = {
   district_id?: string | null;
   scope_type?: "GLOBAL" | "ORG" | string;
   status_flag?: "Y" | "N";
+  is_system?: boolean;
+  can_edit?: boolean;
+  can_deactivate?: boolean;
 };
 
 const defaultForm = {
@@ -103,9 +106,11 @@ export const Mandis: React.FC = () => {
   });
   const [orgFilters, setOrgFilters] = useState<{ org_code: string; org_name: string }[]>([]);
   const [selectedOrg, setSelectedOrg] = useState("SYSTEM");
+  const [viewMode, setViewMode] = useState(false);
+  const pincodeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("mandis");
-  const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
+  const isReadOnly = useMemo(() => (isEdit && !canEdit) || viewMode, [isEdit, canEdit, viewMode]);
   const roleSlug = (uiConfig.role || "").toUpperCase();
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
   const canSeeOrgFilter = isSuperAdmin || roleSlug === "ORG_ADMIN" || roleSlug === "MANDI_ADMIN";
@@ -133,31 +138,35 @@ export const Mandis: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        width: 140,
+        width: 180,
         sortable: false,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEdit && (isSuperAdmin || params.row.scope_type !== "GLOBAL") && (
-              <Button
-                size="small"
-                startIcon={<EditIcon />}
-                onClick={() => openEdit(params.row)}
-              >
-                Edit
+        renderCell: (params) => {
+          const row = params.row as MandiRow;
+          const showEdit = Boolean(row.can_edit);
+          const showDeactivate = Boolean(row.can_deactivate);
+          return (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" onClick={() => openView(row)}>
+                View
               </Button>
-            )}
-            {canDeactivate && (isSuperAdmin || params.row.scope_type !== "GLOBAL") && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.mandi_id)}
-              >
-                Deactivate
-              </Button>
-            )}
-          </Stack>
-        ),
+              {showEdit && (
+                <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                  Edit
+                </Button>
+              )}
+              {showDeactivate && (
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<BlockIcon />}
+                  onClick={() => handleDeactivate(row.mandi_id)}
+                >
+                  Deactivate
+                </Button>
+              )}
+            </Stack>
+          );
+        },
       },
     ],
     [canEdit, canDeactivate, isSuperAdmin],
@@ -229,6 +238,7 @@ export const Mandis: React.FC = () => {
   const openCreate = () => {
     if (!canCreate) return;
     setIsEdit(false);
+    setViewMode(false);
     setForm(defaultForm);
     setPincodeError(null);
     setIsPincodeValid(false);
@@ -244,10 +254,30 @@ export const Mandis: React.FC = () => {
       return;
     }
     setIsEdit(true);
+    setViewMode(false);
     setSelectedId(row.mandi_id);
     setPincodeError(null);
     setIsPincodeResolving(false);
     setIsPincodeValid(Boolean(row.pincode && row.state_code && row.district_name_en));
+    setForm({
+      mandi_id: row.mandi_id,
+      name_en: row.name,
+      state_code: row.state_code,
+      district_name_en: row.district_name_en,
+      district_id: row.district_id || "",
+      address_line: row.address_line || "",
+      pincode: row.pincode,
+      contact_number: row.contact_number || "",
+      remarks: row.remarks || "",
+      is_active: row.is_active,
+    });
+    setDialogOpen(true);
+  };
+
+  const openView = (row: MandiRow) => {
+    setIsEdit(true);
+    setViewMode(true);
+    setSelectedId(row.mandi_id);
     setForm({
       mandi_id: row.mandi_id,
       name_en: row.name,
@@ -330,8 +360,13 @@ export const Mandis: React.FC = () => {
       setIsPincodeResolving(false);
       return;
     }
+    if (pincodeTimerRef.current) {
+      clearTimeout(pincodeTimerRef.current);
+    }
     setIsPincodeResolving(true);
-    handlePincodeLookup(numeric);
+    pincodeTimerRef.current = setTimeout(() => {
+      handlePincodeLookup(numeric);
+    }, 350);
   };
 
   const isCreateDisabled = () => {
@@ -375,6 +410,7 @@ export const Mandis: React.FC = () => {
         payload.mandi_id = selectedId;
         resp = await updateMandi({ username, language, payload });
       } else {
+        console.log("Create mandi submit payload", payload); // temp debug
         resp = await createMandi({ username, language, payload });
       }
       const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
@@ -557,12 +593,15 @@ export const Mandis: React.FC = () => {
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 0.5 }}>
-                  {canEdit && (isSuperAdmin || row.scope_type !== "GLOBAL") && (
+                  <Button size="small" variant="text" onClick={() => openView(row)} sx={{ textTransform: "none" }}>
+                    View
+                  </Button>
+                  {row.can_edit && (
                     <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
                       Edit
                     </Button>
                   )}
-                  {canDeactivate && (isSuperAdmin || row.scope_type !== "GLOBAL") && (
+                  {row.can_deactivate && (
                     <Button
                       size="small"
                       color="error"
@@ -571,11 +610,6 @@ export const Mandis: React.FC = () => {
                       sx={{ textTransform: "none" }}
                     >
                       Deactivate
-                    </Button>
-                  )}
-                  {!canEdit && canViewDetail && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      View
                     </Button>
                   )}
                 </Box>

@@ -101,11 +101,14 @@ export const Mandis: React.FC = () => {
     message: "",
     severity: "info",
   });
+  const [orgFilters, setOrgFilters] = useState<{ org_code: string; org_name: string }[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState("SYSTEM");
 
   const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("mandis");
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
   const roleSlug = (uiConfig.role || "").toUpperCase();
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+  const canSeeOrgFilter = isSuperAdmin || roleSlug === "ORG_ADMIN" || roleSlug === "MANDI_ADMIN";
 
   const columns = useMemo<GridColDef<MandiRow>[]>(
     () => [
@@ -165,8 +168,11 @@ export const Mandis: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
-      const orgCode = uiConfig.scope?.org_code || undefined;
-      const viewScope = orgCode ? "ALL" : "ALL";
+      const orgCode =
+        selectedOrg && selectedOrg !== "ALL"
+          ? selectedOrg
+          : uiConfig.scope?.org_code || undefined;
+      const viewScope = "ALL";
       const resp = await fetchMandis({
         username,
         language,
@@ -178,10 +184,14 @@ export const Mandis: React.FC = () => {
           search: debouncedSearch || undefined,
           state_code: filters.state_code || undefined,
           district_name_en: filters.district || undefined,
-          is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
+          is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE" ? "Y" : "N",
         },
       });
       const data = resp?.data || resp?.response?.data || {};
+      if (Array.isArray(data?.org_filters)) {
+        console.log("org_filters", data.org_filters); // temp debug
+        setOrgFilters(data.org_filters);
+      }
       const list = data?.mandis || [];
       const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
       setRowCount(total);
@@ -214,7 +224,7 @@ export const Mandis: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, filters.state_code, filters.district, filters.status, page, pageSize, debouncedSearch]);
+  }, [language, filters.state_code, filters.district, filters.status, page, pageSize, debouncedSearch, selectedOrg]);
 
   const openCreate = () => {
     if (!canCreate) return;
@@ -343,7 +353,10 @@ export const Mandis: React.FC = () => {
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
-    const orgCode = uiConfig.scope?.org_code || "";
+    const orgCode =
+      selectedOrg && selectedOrg !== "ALL"
+        ? selectedOrg
+        : uiConfig.scope?.org_code || "";
     const payload: any = {
       name_i18n: { en: form.name_en },
       state_code: form.state_code,
@@ -422,6 +435,27 @@ export const Mandis: React.FC = () => {
       <Card sx={{ mt: 2, mb: 2 }}>
         <CardContent>
           <Grid container spacing={2}>
+            {canSeeOrgFilter && (
+              <Grid item xs={12} md={4}>
+                <TextField
+                  select
+                  label="Organisation"
+                  size="small"
+                  value={selectedOrg}
+                  onChange={(e) => {
+                    setPage(0);
+                    setSelectedOrg(e.target.value);
+                  }}
+                  fullWidth
+                >
+                  {(orgFilters.length ? orgFilters : [{ org_code: "SYSTEM", org_name: "System Mandis (Default)" }]).map((o) => (
+                    <MenuItem key={o.org_code} value={o.org_code}>
+                      {o.org_name || o.org_code}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            )}
             <Grid item xs={12} md={4}>
               <TextField
                 label="Search code/name/pincode"

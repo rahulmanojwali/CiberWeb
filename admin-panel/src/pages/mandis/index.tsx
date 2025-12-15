@@ -142,9 +142,6 @@ export const Mandis: React.FC = () => {
         sortable: false,
         renderCell: (params) => {
           const row = params.row as MandiRow;
-          const showEdit = Boolean(row.can_edit);
-          const showDeactivate = Boolean(row.can_deactivate);
-          const row = params.row as MandiRow;
           const showEdit = Boolean(row.can_edit) && !row.is_system;
           const showDeactivate = Boolean(row.can_deactivate) && !row.is_system;
           return (

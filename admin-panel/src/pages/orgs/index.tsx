@@ -50,6 +50,8 @@ interface OrgRow {
   created_by?: string;
   updated_on?: string;
   updated_by?: string;
+  created_on_display?: string;
+  updated_on_display?: string;
 }
 
 type FormState = Omit<OrgRow, "id">;
@@ -114,7 +116,8 @@ export const Orgs: React.FC = () => {
   });
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [isEditMode, setIsEditMode] = React.useState(false);
+  type DialogMode = "CREATE" | "EDIT" | "VIEW";
+  const [dialogMode, setDialogMode] = React.useState<DialogMode>("CREATE");
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<FormState>({
     org_code: "",
@@ -126,7 +129,10 @@ export const Orgs: React.FC = () => {
     updated_on: "",
     updated_by: "",
   });
-
+  const isViewMode = dialogMode === "VIEW";
+  const isEditMode = dialogMode === "EDIT";
+  const isViewOnlyMode = isViewMode || isReadOnly;
+  
   const headers = React.useMemo(() => {
     const token = localStorage.getItem("cd_token");
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -180,6 +186,8 @@ export const Orgs: React.FC = () => {
         created_by: o.created_by,
         updated_on: o.updated_on,
         updated_by: o.updated_by,
+        created_on_display: formatDateTime(o.created_on),
+        updated_on_display: formatDateTime(o.updated_on),
       }));
       if (scopeOrgCode) {
         mapped = mapped.filter((o) => o.org_code === scopeOrgCode);
@@ -208,7 +216,7 @@ export const Orgs: React.FC = () => {
   );
 
   const handleOpenCreate = () => {
-    setIsEditMode(false);
+    setDialogMode("CREATE");
     setEditingId(null);
     setForm({
       org_code: "",
@@ -228,7 +236,23 @@ export const Orgs: React.FC = () => {
       setToast({ open: true, message: "You are not authorized to edit this organisation.", severity: "error" });
       return;
     }
-    setIsEditMode(true);
+    setDialogMode("EDIT");
+    setEditingId(row.id);
+    setForm({
+      org_code: row.org_code,
+      org_name: row.org_name,
+      country: row.country,
+      status: row.status,
+      created_on: row.created_on || "",
+      updated_on: row.updated_on || "",
+      created_by: row.created_by || "",
+      updated_by: row.updated_by || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleOpenView = (row: OrgRow) => {
+    setDialogMode("VIEW");
     setEditingId(row.id);
     setForm({
       org_code: row.org_code,
@@ -248,7 +272,7 @@ export const Orgs: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     // Auto-generate org_code from org_name on create
-    if (name === "org_name" && !isEditMode) {
+    if (name === "org_name" && dialogMode === "CREATE") {
       const generated = value
         .replace(/[^A-Za-z0-9]+/g, "_")
         .replace(/_+/g, "_")
@@ -262,7 +286,7 @@ export const Orgs: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (isReadOnly) {
+    if (isViewOnlyMode) {
       setDialogOpen(false);
       setToast({ open: true, message: "You are not authorized to modify organisations.", severity: "error" });
       return;
@@ -353,23 +377,35 @@ export const Orgs: React.FC = () => {
       { field: "org_name", headerName: "Organisation Name", flex: 1.2 },
       { field: "country", headerName: "Country", flex: 0.5 },
       { field: "status", headerName: "Status", flex: 0.6 },
-      { field: "created_on", headerName: "Created On", flex: 0.8 },
+      {
+        field: "created_on_display",
+        headerName: "Created On",
+        flex: 0.9,
+      },
+      {
+        field: "updated_on_display",
+        headerName: "Updated On",
+        flex: 0.9,
+      },
       {
         field: "actions",
         headerName: "Actions",
         sortable: false,
         filterable: false,
         flex: 0.7,
-        renderCell: (params: GridRenderCellParams<OrgRow>) =>
-          canUpdateOrgAction ? (
+        renderCell: (params: GridRenderCellParams<OrgRow>) => {
+          const row = params.row as OrgRow;
+          const editable = canUpdateOrgAction && canEditOrg(row);
+          return (
             <Button
               size="small"
               variant="outlined"
-              onClick={() => handleOpenEdit(params.row as OrgRow)}
+              onClick={() => (editable ? handleOpenEdit(row) : handleOpenView(row))}
             >
-              Edit
+              {editable ? "Edit" : "View"}
             </Button>
-          ) : null,
+          );
+        },
       },
     ],
     [canUpdateOrgAction, canEditOrg]
@@ -521,31 +557,31 @@ export const Orgs: React.FC = () => {
                   </Typography>
                 </Box>
 
-                {canUpdateOrgAction && (
-                  <Box
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    mt: 1,
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() =>
+                      canUpdateOrgAction && canEditOrg(row) ? handleOpenEdit(row) : handleOpenView(row)
+                    }
                     sx={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      mt: 1,
+                      textTransform: "none",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      borderRadius: 1,
+                      px: 1.5,
+                      py: 0.3,
                     }}
                   >
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleOpenEdit(row)}
-                      sx={{
-                        textTransform: "none",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
-                        borderRadius: 1,
-                        px: 1.5,
-                        py: 0.3,
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  </Box>
-                )}
+                    {canUpdateOrgAction && canEditOrg(row) ? "Edit" : "View"}
+                  </Button>
+                </Box>
               </Stack>
             </Card>
           ))}
@@ -579,8 +615,13 @@ export const Orgs: React.FC = () => {
         maxWidth="md"
         fullScreen={isSmallScreen}
       >
-        <DialogTitle>{isEditMode ? "Edit Organisation" : "Add Organisation"}</DialogTitle>
+        <DialogTitle>{dialogMode === "CREATE" ? "Add Organisation" : dialogMode === "EDIT" ? "Edit Organisation" : "View Organisation"}</DialogTitle>
         <DialogContent dividers>
+          {isViewOnlyMode && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              View only – insufficient permission.
+            </Alert>
+          )}
           <Grid container spacing={2} mt={1}>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -603,7 +644,7 @@ export const Orgs: React.FC = () => {
                 fullWidth
                 required
                 InputLabelProps={{ shrink: true }}
-                disabled={isReadOnly}
+                disabled={isViewOnlyMode}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -615,7 +656,7 @@ export const Orgs: React.FC = () => {
                 onChange={handleChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                disabled={isReadOnly}
+                disabled={isViewOnlyMode}
               >
                 <MenuItem value="IN">India (IN)</MenuItem>
               </TextField>
@@ -629,7 +670,7 @@ export const Orgs: React.FC = () => {
                 onChange={handleChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
-                disabled={isReadOnly}
+                disabled={isViewOnlyMode}
               >
                 <MenuItem value="ACTIVE">Active</MenuItem>
                 <MenuItem value="INACTIVE">Inactive</MenuItem>
@@ -639,7 +680,7 @@ export const Orgs: React.FC = () => {
               <TextField
                 label="Created On"
                 name="created_on"
-                value={form.created_on || ""}
+                value={formatDateTime(form.created_on)}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 disabled
@@ -649,7 +690,7 @@ export const Orgs: React.FC = () => {
               <TextField
                 label="Updated On"
                 name="updated_on"
-                value={form.updated_on || ""}
+                value={formatDateTime(form.updated_on)}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
                 disabled
@@ -678,10 +719,12 @@ export const Orgs: React.FC = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" disabled={isReadOnly || loading}>
-            {loading ? <CircularProgress size={18} /> : "Save"}
-          </Button>
+          <Button onClick={handleCloseDialog}>Close</Button>
+          {!isViewOnlyMode && (
+            <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+              {loading ? <CircularProgress size={18} /> : "Save"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

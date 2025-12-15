@@ -144,6 +144,9 @@ export const Mandis: React.FC = () => {
           const row = params.row as MandiRow;
           const showEdit = Boolean(row.can_edit);
           const showDeactivate = Boolean(row.can_deactivate);
+          const row = params.row as MandiRow;
+          const showEdit = Boolean(row.can_edit) && !row.is_system;
+          const showDeactivate = Boolean(row.can_deactivate) && !row.is_system;
           return (
             <Stack direction="row" spacing={1}>
               <Button size="small" onClick={() => openView(row)}>
@@ -596,12 +599,12 @@ export const Mandis: React.FC = () => {
                   <Button size="small" variant="text" onClick={() => openView(row)} sx={{ textTransform: "none" }}>
                     View
                   </Button>
-                  {row.can_edit && (
+                  {row.can_edit && !row.is_system && (
                     <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
                       Edit
                     </Button>
                   )}
-                  {row.can_deactivate && (
+                  {row.can_deactivate && !row.is_system && (
                     <Button
                       size="small"
                       color="error"

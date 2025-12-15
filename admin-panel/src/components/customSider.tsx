@@ -152,11 +152,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
       {/* Menu list */}
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
-        <Box sx={{ px: 2, pb: 1 }}>
-          <Typography variant="caption" color="error">
-            CUSTOM SIDER ACTIVE
-          </Typography>
-        </Box>
         {menuError && (
           <Box sx={{ px: 2, pb: 1 }}>
             <Typography variant="caption" color="error">

@@ -26,7 +26,12 @@ type CrudOptions = {
  */
 export function useCrudPermissions(resourceKey: string, options: CrudOptions = {}): CrudPermissions {
   const uiConfig = useAdminUiConfig();
-  const roleSlug = (uiConfig.role || (uiConfig.scope as any)?.role_slug || "").toUpperCase();
+  const normalizeRole = (raw?: string | null) =>
+    (raw || "")
+      .toString()
+      .toUpperCase()
+      .replace(/[\s-]+/g, "_");
+  const roleSlug = normalizeRole(uiConfig.role || (uiConfig.scope as any)?.role_slug || "");
   const isSuperAdmin = roleSlug === "SUPER_ADMIN";
   const masterOnly = options.masterOnly === true;
 

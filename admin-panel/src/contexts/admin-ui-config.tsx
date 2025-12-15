@@ -23,6 +23,15 @@ const STORAGE_KEY = "admin_ui_config_cache";
 
 const AdminUiConfigContext = createContext<AdminUiContextValue>(defaultValue);
 
+const canonicalRoleSlug = (role?: string | null) => {
+  if (!role) return null;
+  const r = String(role).trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (r === "SUPERADMIN") return "SUPER_ADMIN";
+  if (r === "ORGADMIN") return "ORG_ADMIN";
+  if (r === "MANDIADMIN") return "MANDI_ADMIN";
+  return r;
+};
+
 const readCachedConfig = (): AdminUiConfig | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -78,7 +87,7 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const cached = readCachedConfig();
     if (cached) {
-      setRole(cached.role);
+      setRole(canonicalRoleSlug(cached.role));
       setScope(normalizeScope(cached.scope));
       setResources(Array.isArray(cached.resources) ? cached.resources : []);
     }
@@ -132,7 +141,7 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       const respData = resp?.data || {};
-      const nextRole: string | null = respData?.role ?? null;
+      const nextRole: string | null = canonicalRoleSlug(respData?.role ?? null);
       const nextScope = normalizeScope(respData?.scope);
       const nextResources: UiResource[] = Array.isArray(respData?.resources)
         ? respData.resources

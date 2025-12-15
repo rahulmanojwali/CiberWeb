@@ -28,6 +28,7 @@ import {
 import Snackbar from "@mui/material/Snackbar";
 import axios from "axios";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
+import { can } from "../../utils/adminUiConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -84,10 +85,26 @@ export const Orgs: React.FC = () => {
   const orgPerms = useCrudPermissions("organisations");
   const scope = getUserScope("OrgsPage");
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const canCreateOrg = orgPerms.canCreate;
-  const canUpdateOrgAction = orgPerms.canEdit;
+  const isSuperAdmin = (uiConfig.role || "").toUpperCase() === "SUPER_ADMIN";
+  const canUpdateOrgAction = React.useMemo(
+    () => isSuperAdmin || can(uiConfig.resources, "organisations.edit", "UPDATE"),
+    [isSuperAdmin, uiConfig.resources],
+  );
+  const canCreateOrg = React.useMemo(
+    () => isSuperAdmin || can(uiConfig.resources, "organisations.create", "CREATE"),
+    [isSuperAdmin, uiConfig.resources],
+  );
   const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
+  // Temporary debug for perms; remove after verifying
+  const debugPerm = uiConfig.resources?.find((r) => r.resource_key === "organisations.edit");
+  console.log("canEditOrg debug", {
+    role: uiConfig.role,
+    roleNormalized: (uiConfig.role || "").toUpperCase(),
+    resourcesCount: uiConfig.resources?.length || 0,
+    organisationsEditActions: debugPerm?.allowed_actions || (debugPerm as any)?.actions,
+    canUpdateOrgAction,
+  });
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);

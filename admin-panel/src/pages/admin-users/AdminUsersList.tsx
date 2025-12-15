@@ -589,14 +589,40 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
-  const handleDeactivate = async (user: AdminUser) => {
-    if (!canDeactivateUserAction) return;
+  const handleToggleStatus = async (user: AdminUser) => {
+    // Temporary debug log – remove after verification
+    console.log("[adminUsers] toggle status", { username: user.username, is_active: user.is_active });
+
+    const username = currentUsername();
+    if (!username) return;
+
+    const isActive = user.is_active === "Y";
+    if (isActive && !canDeactivateUserAction) return;
+    if (!isActive && !canUpdateUserAction) return;
+
     try {
       setLoading(true);
-      const username = currentUsername();
-      if (!username) return;
-      const res = await deactivateAdminUser({ username, language, target_username: user.username });
-      const resp = res?.response || {};
+      let resp;
+
+      if (isActive) {
+        const res = await deactivateAdminUser({ username, language, target_username: user.username });
+        resp = res?.response || {};
+      } else {
+        if (!user.role_slug) {
+          handleToast("Cannot activate: missing role information.", "error");
+          setLoading(false);
+          return;
+        }
+        const payload: any = {
+          target_username: user.username,
+          status: "ACTIVE",
+          role_slug: user.role_slug,
+        };
+        if (user.org_code) payload.org_code = user.org_code;
+        const res = await updateAdminUser({ username, language, payload });
+        resp = res?.response || {};
+      }
+
       if (String(resp.responsecode ?? "") !== "0") {
         handleToast(resp.description || t("adminUsers.messages.updateFailed"), "error");
       } else {
@@ -731,7 +757,7 @@ const loadOrgs = useCallback(async () => {
             <IconButton
               size="small"
               color={isActive ? "error" : "success"}
-              onClick={() => handleDeactivate(row)}
+              onClick={() => handleToggleStatus(row)}
             >
               {isActive ? (
                 <BlockIcon fontSize="small" />
@@ -765,7 +791,6 @@ const loadOrgs = useCallback(async () => {
       canDeactivateUserAction,
       canResetPasswordAction,
       canUpdateUserAction,
-      handleDeactivate,
       handleOpenEdit,
       handleResetPassword,
       t,
@@ -972,7 +997,7 @@ const loadOrgs = useCallback(async () => {
                             <IconButton
                               size="small"
                               color={isActive ? "error" : "success"}
-                              onClick={() => handleDeactivate(row)}
+                              onClick={() => handleToggleStatus(row)}
                             >
                               {isActive ? (
                                 <BlockIcon fontSize="small" />

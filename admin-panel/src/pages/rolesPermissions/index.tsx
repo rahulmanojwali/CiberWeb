@@ -127,9 +127,61 @@ const RolesPermissionsPage: React.FC = () => {
     });
   };
 
+  const resourcesByKey = useMemo(() => {
+    const map: Record<string, any> = {};
+    registry.forEach((r: any) => {
+      if (r?.resource_key) map[r.resource_key] = r;
+    });
+    return map;
+  }, [registry]);
+
+  const setsEqual = (a?: Set<string>, b?: Set<string>) => {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.size !== b.size) return false;
+    for (const v of a) if (!b.has(v)) return false;
+    return true;
+  };
+
   const handleSave = async () => {
     try {
-      const payload = editablePoliciesByRole[selectedRole] || [];
+      const original = policiesByRole[selectedRole] || [];
+      const current = editablePoliciesByRole[selectedRole] || [];
+
+      const origMap = new Map<string, Set<string>>();
+      original.forEach((p: any) => {
+        origMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
+      });
+
+      const currentMap = new Map<string, Set<string>>();
+      current.forEach((p: any) => {
+        currentMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
+      });
+
+      const payload: any[] = [];
+
+      // additions/updates
+      currentMap.forEach((actionsSet, key) => {
+        if (!resourcesByKey[key]) return; // skip unknown keys defensively
+        const origSet = origMap.get(key);
+        if (actionsSet.size === 0) {
+          if (origSet && origSet.size > 0) {
+            payload.push({ resource_key: key, actions: [] }); // removal
+          }
+          return;
+        }
+        if (!setsEqual(actionsSet, origSet)) {
+          payload.push({ resource_key: key, actions: Array.from(actionsSet) });
+        }
+      });
+
+      // removals for keys no longer present
+      origMap.forEach((origSet, key) => {
+        if (!currentMap.has(key) && origSet.size > 0 && resourcesByKey[key]) {
+          payload.push({ resource_key: key, actions: [] });
+        }
+      });
+
       setLoading(true);
       const resp = await updateRolePolicies({
         username,

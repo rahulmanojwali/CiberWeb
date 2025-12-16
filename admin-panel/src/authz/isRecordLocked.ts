@@ -15,14 +15,26 @@ type AuthContext = {
   isSuper?: boolean;
 };
 
+const oidToString = (v: any): string | null => {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (v.$oid) return String(v.$oid);
+  if (v.oid) return String(v.oid);
+  try {
+    return String(v.toString());
+  } catch {
+    return null;
+  }
+};
+
 export function useRecordLock() {
   const checkLocked = (record: RecordLike | null | undefined, auth: AuthContext) => {
     if (!record) return { locked: false, reason: "" };
     const isProtected = String(record.is_protected || "").toUpperCase() === "Y";
     const orgScope = (record.org_scope || "").toUpperCase();
     const ownerType = (record.owner_type || "").toUpperCase();
-    const recOrgId = record.org_id ? String(record.org_id) : null;
-    const userOrgId = auth?.org_id ? String(auth.org_id) : null;
+    const recOrgId = oidToString(record.org_id || record.owner_org_id);
+    const userOrgId = oidToString(auth?.org_id);
     const isSuper = auth?.isSuper || auth?.role === "SUPER_ADMIN";
 
     if (isProtected || orgScope === "GLOBAL" || ownerType === "SYSTEM") {

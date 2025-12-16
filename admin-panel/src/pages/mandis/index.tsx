@@ -666,14 +666,14 @@ export const Mandis: React.FC = () => {
                 {debugAuth && (
                   <>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                      canEdit:{String(canUpdate)} canDeactivate:{String(canDeactivate)}
+                      canEdit:{String(can("mandis.edit","UPDATE"))} canDeactivate:{String(can("mandis.deactivate","DEACTIVATE"))}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                       {(() => {
                         const canEdit = can("mandis.edit", "UPDATE");
                         const canDeact = can("mandis.deactivate", "DEACTIVATE");
                         const lockedText = lockInfo.locked ? `locked (${lockInfo.reason || "rule"})` : "open";
-                        return `${lockedText} | canEdit:${canEdit} canDeact:${canDeact} permEdit:${JSON.stringify(permEdit)} permDeact:${JSON.stringify(permDeact)}`;
+                        return `${lockedText} | authOrgId:${String(authContext.org_id || "-")} rowOrgId:${String(row.org_id || row.owner_org_id || "-")} | canEdit:${canEdit} canDeact:${canDeact} permEdit:${JSON.stringify(permEdit)} permDeact:${JSON.stringify(permDeact)}`;
                       })()}
                     </Typography>
                   </>

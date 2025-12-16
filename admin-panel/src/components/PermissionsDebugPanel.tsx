@@ -24,6 +24,10 @@ export const PermissionsDebugPanel: React.FC = () => {
   const resources = uiConfig.resources || [];
   const mandisEdit = can("mandis.edit", "UPDATE");
   const mandisDeactivate = can("mandis.deactivate", "DEACTIVATE");
+  const mandisEditEntry = permissionsMap["mandis.edit"] ? { key: "mandis.edit", actions: Array.from(permissionsMap["mandis.edit"]) } : null;
+  const mandisDeactivateEntry = permissionsMap["mandis.deactivate"]
+    ? { key: "mandis.deactivate", actions: Array.from(permissionsMap["mandis.deactivate"]) }
+    : null;
 
   return (
     <Paper
@@ -54,6 +58,10 @@ export const PermissionsDebugPanel: React.FC = () => {
         </Typography>
         <Typography variant="caption">can(mandis.edit, UPDATE): {String(mandisEdit)}</Typography>
         <Typography variant="caption">can(mandis.deactivate, DEACTIVATE): {String(mandisDeactivate)}</Typography>
+        <Typography variant="caption">mandis.edit entry: {mandisEditEntry ? JSON.stringify(mandisEditEntry) : "NOT FOUND"}</Typography>
+        <Typography variant="caption">
+          mandis.deactivate entry: {mandisDeactivateEntry ? JSON.stringify(mandisDeactivateEntry) : "NOT FOUND"}
+        </Typography>
         <Divider />
         <Typography variant="caption" sx={{ fontWeight: 600 }}>
           Resources ({resources.length})

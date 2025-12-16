@@ -6,17 +6,18 @@ type Props = {
   resourceKey: string;
   action: string;
   record?: any;
+  hideIfLocked?: boolean;
   children: React.ReactNode;
 };
 
-export const ActionGate: React.FC<Props> = ({ resourceKey, action, record, children }) => {
+export const ActionGate: React.FC<Props> = ({ resourceKey, action, record, hideIfLocked = true, children }) => {
   const { can, authContext, isSuper } = usePermissions();
   const { isRecordLocked } = useRecordLock();
 
   const allowed = can(resourceKey, action);
   if (!allowed) return null;
 
-  if (record) {
+  if (record && hideIfLocked) {
     const { locked } = isRecordLocked(record, { ...authContext, isSuper });
     if (locked) return null;
   }

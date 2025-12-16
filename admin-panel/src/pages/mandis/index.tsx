@@ -13,6 +13,8 @@ import {
   Stack,
   TextField,
   Typography,
+  IconButton,
+  Tooltip,
   useMediaQuery,
   useTheme,
   Pagination,
@@ -24,6 +26,8 @@ import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -101,6 +105,7 @@ export const Mandis: React.FC = () => {
   const [form, setForm] = useState(defaultForm);
   const [filters, setFilters] = useState({ state_code: "", district: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [rowLoading, setRowLoading] = useState<Record<number, boolean>>({});
   const [pincodeError, setPincodeError] = useState<string | null>(null);
   const [isPincodeResolving, setIsPincodeResolving] = useState(false);
   const [isPincodeValid, setIsPincodeValid] = useState(false);
@@ -118,6 +123,7 @@ export const Mandis: React.FC = () => {
 
   const { can, authContext, isSuper, getPermissionEntry } = usePermissions();
   const { isRecordLocked } = useRecordLock();
+  const isOrgAdminRole = (uiConfig.role || "").toUpperCase() === "ORG_ADMIN";
   const canCreate = can("mandis.create", "CREATE");
   const canUpdate = can("mandis.edit", "UPDATE");
   const canDeactivate = can("mandis.deactivate", "DEACTIVATE");
@@ -185,14 +191,18 @@ export const Mandis: React.FC = () => {
               </ActionGate>
               <ActionGate resourceKey="mandis.deactivate" action="DEACTIVATE" record={row}>
                 {showDeactivate && (
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<BlockIcon />}
-                    onClick={() => handleDeactivate(row.mandi_id)}
-                  >
-                    Deactivate
-                  </Button>
+                  <Tooltip title={row.is_active ? "Deactivate" : "Activate"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        color={row.is_active ? "error" : "success"}
+                        disabled={!!rowLoading[row.mandi_id]}
+                        onClick={() => toggleMandiStatus(row, !row.is_active)}
+                      >
+                        {row.is_active ? <CancelIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 )}
               </ActionGate>
             </Stack>
@@ -464,6 +474,28 @@ export const Mandis: React.FC = () => {
     }
   };
 
+  const toggleMandiStatus = async (row: MandiRow, nextActive: boolean) => {
+    const username = currentUsername();
+    if (!username) return;
+    setRowLoading((m) => ({ ...m, [row.mandi_id]: true }));
+    try {
+      const resp = await updateMandi({ username, language, payload: { mandi_id: row.mandi_id, is_active: nextActive } });
+      const code = resp?.response?.responsecode || resp?.responsecode || "";
+      if (String(code) === "0") {
+        setRows((prev) =>
+          prev.map((r) => (r.mandi_id === row.mandi_id ? { ...r, is_active: nextActive, status_flag: nextActive ? "Y" : "N" } : r)),
+        );
+        await loadData();
+      } else {
+        setToast({ open: true, message: resp?.response?.description || "Status update failed", severity: "error" });
+      }
+    } catch (err: any) {
+      setToast({ open: true, message: err?.message || "Status update failed", severity: "error" });
+    } finally {
+      setRowLoading((m) => ({ ...m, [row.mandi_id]: false }));
+    }
+  };
+
   const handleDeactivate = async (mandi_id: number) => {
     const username = currentUsername();
     if (!username) return;
@@ -651,15 +683,18 @@ export const Mandis: React.FC = () => {
                   </ActionGate>
                   <ActionGate resourceKey="mandis.deactivate" action="DEACTIVATE" record={row}>
                     {!row.is_system && (
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="text"
-                        onClick={() => handleDeactivate(row.mandi_id)}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Deactivate
-                      </Button>
+                      <Tooltip title={row.is_active ? "Deactivate" : "Activate"}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color={row.is_active ? "error" : "success"}
+                            disabled={!!rowLoading[row.mandi_id]}
+                            onClick={() => toggleMandiStatus(row, !row.is_active)}
+                          >
+                            {row.is_active ? <CancelIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                     )}
                   </ActionGate>
                 </Box>
@@ -740,7 +775,7 @@ export const Mandis: React.FC = () => {
                 value={form.name_en}
                 onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
                 fullWidth
-                disabled={isReadOnly}
+                disabled={isReadOnly || isOrgAdminRole}
               />
             </Grid>
               <Grid item xs={12} sm={6}>

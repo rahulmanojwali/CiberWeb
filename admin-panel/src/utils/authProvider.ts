@@ -89,6 +89,8 @@ type ApiResponse = {
     role_code?: string;
     org_code?: string | null;
     orgCode?: string | null;
+    org_id?: string | null;
+    orgId?: string | null;
     mandi_codes?: string[];
     mandis?: string[];
   };
@@ -163,6 +165,7 @@ export const authProvider: any = {
       role_slug: resp?.role_slug || resolvedRole,
       default_role_code: resolvedRole,
       org_code: resp?.org_code || resp?.orgCode || null,
+      org_id: resp?.org_id || resp?.orgId || null,
       mandis: resp?.mandi_codes || resp?.mandis || [],
       language: LANGUAGE,
       country: country || COUNTRY_FALLBACK,

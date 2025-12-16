@@ -77,6 +77,7 @@ import { Layout } from "./components/layout";
 import { CustomSider } from "./components/customSider";
 import { getUserRoleFromStorage } from "./utils/roles";
 import { AdminUiConfigProvider } from "./contexts/admin-ui-config";
+import { PermissionsDebugPanel } from "./components/PermissionsDebugPanel";
 
 const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mutate: logout } = useLogout();
@@ -130,6 +131,7 @@ function App() {
                     element={
                       <AdminRoleGuard>
                         <AdminUiConfigProvider>
+                          <PermissionsDebugPanel />
                           <ThemedLayout Header={Header} Sider={CustomSider}>
                             <Outlet />
                           </ThemedLayout>

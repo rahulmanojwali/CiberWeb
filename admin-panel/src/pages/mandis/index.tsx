@@ -116,7 +116,7 @@ export const Mandis: React.FC = () => {
   const [viewMode, setViewMode] = useState(false);
   const pincodeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const { can, authContext, isSuper } = usePermissions();
+  const { can, authContext, isSuper, getPermissionEntry } = usePermissions();
   const { isRecordLocked } = useRecordLock();
   const canCreate = can("mandis.create", "CREATE");
   const canUpdate = can("mandis.edit", "UPDATE");
@@ -155,15 +155,20 @@ export const Mandis: React.FC = () => {
           const row = params.row as MandiRow;
           const showEdit = !row.is_system;
           const showDeactivate = !row.is_system;
+          const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
+          const canEdit = can("mandis.edit", "UPDATE");
+          const canDeact = can("mandis.deactivate", "DEACTIVATE");
           if (debugAuth) {
-            console.log("row auth", {
+            console.log("[mandis row auth]", {
               mandi_id: row.mandi_id,
-              can_edit: row.can_edit,
-              can_deactivate: row.can_deactivate,
-              is_system: row.is_system,
-              org_scope: (row as any).org_scope,
-              org_id: (row as any).org_id,
-              is_protected: (row as any).is_protected,
+              record_org_id: String((row as any).org_id || ""),
+              record_owner_org_id: String((row as any).owner_org_id || ""),
+              user_org_id: String(authContext.org_id || ""),
+              lock: lockInfo,
+              canEdit,
+              canDeact,
+              permEdit: getPermissionEntry("mandis.edit"),
+              permDeact: getPermissionEntry("mandis.deactivate"),
             });
           }
           return (
@@ -583,9 +588,18 @@ export const Mandis: React.FC = () => {
 
       {isSmallScreen ? (
         <Stack spacing={1.5} sx={{ maxWidth: 640, mx: "auto", width: "100%" }}>
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
+            const permEdit = getPermissionEntry("mandis.edit");
+            const permDeact = getPermissionEntry("mandis.deactivate");
+            return (
             <Card key={row.mandi_id} variant="outlined" sx={{ borderRadius: 2, px: 2, py: 1.5, boxShadow: 1 }}>
               <Stack spacing={1}>
+                {debugAuth && (
+                  <Typography variant="caption" color="text.secondary">
+                    scope:{row.org_scope || "-"} org_id:{String(row.org_id || "-")} owner_org:{String(row.owner_org_id || "-")} protected:{String(row.is_protected || "")}
+                  </Typography>
+                )}
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
                     {row.name}
@@ -656,15 +670,18 @@ export const Mandis: React.FC = () => {
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                       {(() => {
-                        const { locked, reason } = isRecordLocked(row as any, { ...authContext, isSuper });
-                        return locked ? `locked (${reason || "rule"})` : "open";
+                        const canEdit = can("mandis.edit", "UPDATE");
+                        const canDeact = can("mandis.deactivate", "DEACTIVATE");
+                        const lockedText = lockInfo.locked ? `locked (${lockInfo.reason || "rule"})` : "open";
+                        return `${lockedText} | canEdit:${canEdit} canDeact:${canDeact} permEdit:${JSON.stringify(permEdit)} permDeact:${JSON.stringify(permDeact)}`;
                       })()}
                     </Typography>
                   </>
                 )}
               </Stack>
             </Card>
-          ))}
+            );
+          })}
           {!rows.length && (
             <Typography variant="body2" color="text.secondary">
               No mandis found.

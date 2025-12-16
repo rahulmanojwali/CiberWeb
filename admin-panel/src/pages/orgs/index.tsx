@@ -35,6 +35,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { ActionGate } from "../../authz/ActionGate";
 
 
 
@@ -87,14 +88,13 @@ export const Orgs: React.FC = () => {
   const orgPerms = useCrudPermissions("organisations");
   const scope = getUserScope("OrgsPage");
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const isSuperAdmin = (uiConfig.role || "").toUpperCase() === "SUPER_ADMIN";
   const canUpdateOrgAction = React.useMemo(
-    () => isSuperAdmin || can(uiConfig.resources, "organisations.edit", "UPDATE"),
-    [isSuperAdmin, uiConfig.resources],
+    () => can(uiConfig.resources, "organisations.edit", "UPDATE"),
+    [uiConfig.resources],
   );
   const canCreateOrg = React.useMemo(
-    () => isSuperAdmin || can(uiConfig.resources, "organisations.create", "CREATE"),
-    [isSuperAdmin, uiConfig.resources],
+    () => can(uiConfig.resources, "organisations.create", "CREATE"),
+    [uiConfig.resources],
   );
   const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
@@ -397,13 +397,18 @@ export const Orgs: React.FC = () => {
           const row = params.row as OrgRow;
           const editable = canUpdateOrgAction && canEditOrg(row);
           return (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => (editable ? handleOpenEdit(row) : handleOpenView(row))}
-            >
-              {editable ? "Edit" : "View"}
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={() => handleOpenView(row)}>
+                View
+              </Button>
+              <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
+                {editable && (
+                  <Button size="small" variant="outlined" onClick={() => handleOpenEdit(row)}>
+                    Edit
+                  </Button>
+                )}
+              </ActionGate>
+            </Stack>
           );
         },
       },

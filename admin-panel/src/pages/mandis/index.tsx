@@ -30,7 +30,9 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
 import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
@@ -51,6 +53,11 @@ type MandiRow = {
   is_system?: boolean;
   can_edit?: boolean;
   can_deactivate?: boolean;
+  org_scope?: string | null;
+  org_id?: string | null;
+  owner_type?: string | null;
+  owner_org_id?: string | null;
+  is_protected?: string | null;
 };
 
 const defaultForm = {
@@ -109,11 +116,15 @@ export const Mandis: React.FC = () => {
   const [viewMode, setViewMode] = useState(false);
   const pincodeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("mandis");
-  const isReadOnly = useMemo(() => (isEdit && !canEdit) || viewMode, [isEdit, canEdit, viewMode]);
-  const roleSlug = (uiConfig.role || "").toUpperCase();
-  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
-  const canSeeOrgFilter = isSuperAdmin || roleSlug === "ORG_ADMIN" || roleSlug === "MANDI_ADMIN";
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
+  const canCreate = can("mandis.create", "CREATE");
+  const canUpdate = can("mandis.edit", "UPDATE");
+  const canDeactivate = can("mandis.deactivate", "DEACTIVATE");
+  const isReadOnly = useMemo(() => viewMode, [viewMode]);
+  const canSeeOrgFilter = true;
+
+  const debugAuth = typeof window !== "undefined" && window.location.search.includes("debugAuth=1");
 
   const columns = useMemo<GridColDef<MandiRow>[]>(
     () => [
@@ -142,34 +153,49 @@ export const Mandis: React.FC = () => {
         sortable: false,
         renderCell: (params) => {
           const row = params.row as MandiRow;
-          const showEdit = Boolean(row.can_edit) && !row.is_system;
-          const showDeactivate = Boolean(row.can_deactivate) && !row.is_system;
+          const showEdit = !row.is_system;
+          const showDeactivate = !row.is_system;
+          if (debugAuth) {
+            console.log("row auth", {
+              mandi_id: row.mandi_id,
+              can_edit: row.can_edit,
+              can_deactivate: row.can_deactivate,
+              is_system: row.is_system,
+              org_scope: (row as any).org_scope,
+              org_id: (row as any).org_id,
+              is_protected: (row as any).is_protected,
+            });
+          }
           return (
             <Stack direction="row" spacing={1}>
               <Button size="small" onClick={() => openView(row)}>
                 View
               </Button>
-              {showEdit && (
-                <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-                  Edit
-                </Button>
-              )}
-              {showDeactivate && (
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<BlockIcon />}
-                  onClick={() => handleDeactivate(row.mandi_id)}
-                >
-                  Deactivate
-                </Button>
-              )}
+              <ActionGate resourceKey="mandis.edit" action="UPDATE" record={row}>
+                {showEdit && (
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                    Edit
+                  </Button>
+                )}
+              </ActionGate>
+              <ActionGate resourceKey="mandis.deactivate" action="DEACTIVATE" record={row}>
+                {showDeactivate && (
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<BlockIcon />}
+                    onClick={() => handleDeactivate(row.mandi_id)}
+                  >
+                    Deactivate
+                  </Button>
+                )}
+              </ActionGate>
             </Stack>
           );
         },
       },
     ],
-    [canEdit, canDeactivate, isSuperAdmin],
+    [canUpdate, canDeactivate, debugAuth],
   );
 
   const loadData = async () => {
@@ -197,19 +223,21 @@ export const Mandis: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      if (Array.isArray(data?.org_filters)) {
-        console.log("org_filters", data.org_filters); // temp debug
-        setOrgFilters(data.org_filters);
+      const orgList = data?.filters?.org_filters || data?.org_filters;
+      if (Array.isArray(orgList)) {
+        if (debugAuth) console.log("org_filters", orgList);
+        setOrgFilters(orgList);
       }
       const list = data?.mandis || [];
-      const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
+      const totalMeta = Number.isFinite(Number(data?.meta?.totalCount)) ? Number(data.meta.totalCount) : null;
+      const total = totalMeta ?? (Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length);
       setRowCount(total);
       setRows(
         list.map((m: any) => ({
           mandi_id: m.mandi_id,
           name: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
           state_code: m.state_code || "",
-          district_name_en: m.district_name_en || m.district_name || "",
+          district_name_en: m.district_name || m.district_name_en || "",
           pincode: m.pincode || "",
           // Effective status from API (single source of truth)
           is_active: normalizeFlag(m.is_active) === "Y",
@@ -219,6 +247,14 @@ export const Mandis: React.FC = () => {
           remarks: m.remarks || "",
           district_id: m.district_id || null,
           scope_type: (m.scope_type || "").toUpperCase() as any,
+          org_scope: (m.org_scope || "").toUpperCase(),
+          org_id: m.org_id || null,
+          owner_type: m.owner_type || null,
+          owner_org_id: m.owner_org_id || null,
+          is_protected: m.is_protected || null,
+          is_system: Boolean(m.is_system),
+          can_edit: Boolean(m.can_edit),
+          can_deactivate: Boolean(m.can_deactivate),
         })),
       );
     } finally {
@@ -248,11 +284,7 @@ export const Mandis: React.FC = () => {
   };
 
   const openEdit = (row: MandiRow) => {
-    if (!canEdit) return;
-    if (!isSuperAdmin && row.scope_type === "GLOBAL") {
-      setToast({ open: true, message: "You are not authorized to edit global mandis.", severity: "error" });
-      return;
-    }
+    if (!canUpdate) return;
     setIsEdit(true);
     setViewMode(false);
     setSelectedId(row.mandi_id);
@@ -445,7 +477,7 @@ export const Mandis: React.FC = () => {
     }
   };
 
-  const canSubmit = isEdit ? canEdit : canCreate;
+  const canSubmit = isEdit ? canUpdate : canCreate;
 
   return (
     <PageContainer>
@@ -596,23 +628,40 @@ export const Mandis: React.FC = () => {
                   <Button size="small" variant="text" onClick={() => openView(row)} sx={{ textTransform: "none" }}>
                     View
                   </Button>
-                  {row.can_edit && !row.is_system && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      Edit
-                    </Button>
-                  )}
-                  {row.can_deactivate && !row.is_system && (
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="text"
-                      onClick={() => handleDeactivate(row.mandi_id)}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Deactivate
-                    </Button>
-                  )}
+                  <ActionGate resourceKey="mandis.edit" action="UPDATE" record={row}>
+                    {!row.is_system && (
+                      <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
+                        Edit
+                      </Button>
+                    )}
+                  </ActionGate>
+                  <ActionGate resourceKey="mandis.deactivate" action="DEACTIVATE" record={row}>
+                    {!row.is_system && (
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        onClick={() => handleDeactivate(row.mandi_id)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </ActionGate>
                 </Box>
+                {debugAuth && (
+                  <>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                      canEdit:{String(canUpdate)} canDeactivate:{String(canDeactivate)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                      {(() => {
+                        const { locked, reason } = isRecordLocked(row as any, { ...authContext, isSuper });
+                        return locked ? `locked (${reason || "rule"})` : "open";
+                      })()}
+                    </Typography>
+                  </>
+                )}
               </Stack>
             </Card>
           ))}

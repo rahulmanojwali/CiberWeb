@@ -14,6 +14,7 @@ export type UiResource = {
 
 export type AdminScope = {
   org_code: string | null;
+  org_id?: string | null;
   mandi_codes: string[];
   org_level?: string | null;
   mandi_level?: string | null;

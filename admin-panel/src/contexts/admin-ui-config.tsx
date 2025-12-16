@@ -69,6 +69,7 @@ const normalizeScope = (scope: any): AdminScope | null => {
   if (!scope || typeof scope !== "object") return null;
   return {
     org_code: scope.org_code ?? null,
+    org_id: scope.org_id ?? null,
     mandi_codes: Array.isArray(scope.mandi_codes) ? scope.mandi_codes : [],
     org_level: scope.org_level ?? null,
     mandi_level: scope.mandi_level ?? null,

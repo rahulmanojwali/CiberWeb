@@ -40,6 +40,7 @@ import { useRecordLock } from "../../authz/isRecordLocked";
 import { fetchMandis, createMandi, updateMandi, deactivateMandi } from "../../services/mandiApi";
 import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
+import { useScopedFilters } from "../../hooks/useScopedFilters";
 
 type MandiRow = {
   mandi_id: number;
@@ -117,12 +118,16 @@ export const Mandis: React.FC = () => {
     severity: "info",
   });
   const [orgFilters, setOrgFilters] = useState<{ org_code: string; org_name: string }[]>([]);
-  const [selectedOrg, setSelectedOrg] = useState("SYSTEM");
   const [viewMode, setViewMode] = useState(false);
   const pincodeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const { can, authContext, isSuper, getPermissionEntry } = usePermissions();
   const { isRecordLocked } = useRecordLock();
+  const { orgCode, viewScope, setOrgCode, defaultOrgCode } = useScopedFilters({
+    resourceKey: "mandis",
+    role: uiConfig.role || null,
+    org_code: uiConfig.scope?.org_code || null,
+  });
   const isOrgAdminRole = (uiConfig.role || "").toUpperCase() === "ORG_ADMIN";
   const canCreate = can("mandis.create", "CREATE");
   const canUpdate = can("mandis.edit", "UPDATE");
@@ -218,17 +223,17 @@ export const Mandis: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
-      const orgCode =
-        selectedOrg && selectedOrg !== "ALL"
-          ? selectedOrg
+      const effectiveOrg =
+        orgCode && orgCode !== "ALL"
+          ? orgCode
           : uiConfig.scope?.org_code || undefined;
-      const viewScope = "ALL";
+      const effectiveViewScope = viewScope || (isSuper ? "ALL" : "ORG_ASSIGNED");
       const resp = await fetchMandis({
         username,
         language,
         filters: {
-          org_code: orgCode,
-          view_scope: viewScope,
+          org_code: effectiveOrg,
+          view_scope: effectiveViewScope,
           page: page + 1, // API expects 1-based
           pageSize,
           search: debouncedSearch || undefined,
@@ -284,7 +289,7 @@ export const Mandis: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, filters.state_code, filters.district, filters.status, page, pageSize, debouncedSearch, selectedOrg]);
+  }, [language, filters.state_code, filters.district, filters.status, page, pageSize, debouncedSearch, orgCode, viewScope]);
 
   const openCreate = () => {
     if (!canCreate) return;
@@ -435,9 +440,9 @@ export const Mandis: React.FC = () => {
   const handleSave = async () => {
     const username = currentUsername();
     if (!username) return;
-    const orgCode =
-      selectedOrg && selectedOrg !== "ALL"
-        ? selectedOrg
+    const effectiveOrgCode =
+      orgCode && orgCode !== "ALL"
+        ? orgCode
         : uiConfig.scope?.org_code || "";
     const payload: any = {
       name_i18n: { en: form.name_en },
@@ -449,7 +454,7 @@ export const Mandis: React.FC = () => {
       contact_number: form.contact_number || null,
       remarks: form.remarks || null,
       is_active: form.is_active,
-      org_code: orgCode || undefined,
+      org_code: effectiveOrgCode || undefined,
     };
     try {
       let resp;
@@ -546,14 +551,17 @@ export const Mandis: React.FC = () => {
                   select
                   label="Organisation"
                   size="small"
-                  value={selectedOrg}
+                  value={orgCode || defaultOrgCode || "SYSTEM"}
                   onChange={(e) => {
                     setPage(0);
-                    setSelectedOrg(e.target.value);
+                    setOrgCode(e.target.value);
                   }}
                   fullWidth
                 >
-                  {(orgFilters.length ? orgFilters : [{ org_code: "SYSTEM", org_name: "System Mandis (Default)" }]).map((o) => (
+                  {(orgFilters.length
+                    ? orgFilters.filter((o) => (isSuper ? true : o.org_code === uiConfig.scope?.org_code))
+                    : [{ org_code: defaultOrgCode || "SYSTEM", org_name: "System Mandis (Default)" }]
+                  ).map((o) => (
                     <MenuItem key={o.org_code} value={o.org_code}>
                       {o.org_name || o.org_code}
                     </MenuItem>

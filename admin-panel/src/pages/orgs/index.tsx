@@ -28,14 +28,14 @@ import {
 import Snackbar from "@mui/material/Snackbar";
 import axios from "axios";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
-import { can } from "../../utils/adminUiConfig";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getUserScope } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
 
 
 
@@ -53,6 +53,11 @@ interface OrgRow {
   updated_by?: string;
   created_on_display?: string;
   updated_on_display?: string;
+  org_scope?: string | null;
+  org_id?: string | null;
+  owner_type?: string | null;
+  owner_org_id?: string | null;
+  is_protected?: string | null;
 }
 
 type FormState = Omit<OrgRow, "id">;
@@ -85,24 +90,14 @@ export const Orgs: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const uiConfig = useAdminUiConfig();
-  const orgPerms = useCrudPermissions("organisations");
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
   const scope = getUserScope("OrgsPage");
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const canUpdateOrgAction = React.useMemo(
-    () => can(uiConfig.resources, "organisations.edit", "UPDATE"),
-    [uiConfig.resources],
-  );
-  const canCreateOrg = React.useMemo(
-    () => can(uiConfig.resources, "organisations.create", "CREATE"),
-    [uiConfig.resources],
-  );
+  const canCreateOrg = can("organisations.create", "CREATE");
+  const canUpdateOrgAction = can("organisations.edit", "UPDATE");
   const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
   const showCreateButton = canCreateOrg;
-  // Temporary debug for perms; remove after verifying
-  if ((uiConfig.role || "").toUpperCase() === "ORG_ADMIN") {
-    const orgActions = (uiConfig.resources || []).filter((r) => (r.resource_key || "").startsWith("organisations."));
-    console.log("ORG PAGE RBAC", { role: uiConfig.role, actions: orgActions });
-  }
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -206,15 +201,6 @@ export const Orgs: React.FC = () => {
     loadOrgs();
   }, [loadOrgs]);
 
-  const canEditOrg = React.useCallback(
-    (row: OrgRow) => {
-      if (!canUpdateOrgAction) return false;
-      if (!scopeOrgCode) return true;
-      return row.org_code === scopeOrgCode;
-    },
-    [canUpdateOrgAction, scopeOrgCode],
-  );
-
   const handleOpenCreate = () => {
     setDialogMode("CREATE");
     setEditingId(null);
@@ -232,7 +218,8 @@ export const Orgs: React.FC = () => {
   };
 
   const handleOpenEdit = (row: OrgRow) => {
-    if (!canEditOrg(row)) {
+    const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
+    if (lockInfo.locked) {
       setToast({ open: true, message: "You are not authorized to edit this organisation.", severity: "error" });
       return;
     }
@@ -304,8 +291,8 @@ export const Orgs: React.FC = () => {
       setLoading(true);
       setError(null);
       if (isEditMode && editingId) {
-        const isOrgAllowed = canEditOrg({ ...form, id: editingId } as OrgRow);
-        if (!isOrgAllowed) {
+        const lockInfo = isRecordLocked({ org_id: editingId, org_scope: "ORG", owner_org_id: editingId } as any, { ...authContext, isSuper });
+        if (lockInfo.locked) {
           setToast({ open: true, message: "You are not authorized to edit this organisation.", severity: "error" });
           setLoading(false);
           return;
@@ -395,14 +382,14 @@ export const Orgs: React.FC = () => {
         flex: 0.7,
         renderCell: (params: GridRenderCellParams<OrgRow>) => {
           const row = params.row as OrgRow;
-          const editable = canUpdateOrgAction && canEditOrg(row);
+          const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
           return (
             <Stack direction="row" spacing={1}>
               <Button size="small" variant="outlined" onClick={() => handleOpenView(row)}>
                 View
               </Button>
               <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
-                {editable && (
+                {!lockInfo.locked && (
                   <Button size="small" variant="outlined" onClick={() => handleOpenEdit(row)}>
                     Edit
                   </Button>
@@ -413,7 +400,7 @@ export const Orgs: React.FC = () => {
         },
       },
     ],
-    [canUpdateOrgAction, canEditOrg]
+    [authContext, isSuper]
   );
 
   const filteredRows = rows.filter((r) => {
@@ -562,19 +549,28 @@ export const Orgs: React.FC = () => {
                   </Typography>
                 </Box>
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    mt: 1,
-                  }}
-                >
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                  <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleOpenEdit(row)}
+                      sx={{
+                        textTransform: "none",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        borderRadius: 1,
+                        px: 1.5,
+                        py: 0.3,
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </ActionGate>
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() =>
-                      canUpdateOrgAction && canEditOrg(row) ? handleOpenEdit(row) : handleOpenView(row)
-                    }
+                    onClick={() => handleOpenView(row)}
                     sx={{
                       textTransform: "none",
                       fontSize: "0.8rem",
@@ -582,9 +578,10 @@ export const Orgs: React.FC = () => {
                       borderRadius: 1,
                       px: 1.5,
                       py: 0.3,
+                      ml: 1,
                     }}
                   >
-                    {canUpdateOrgAction && canEditOrg(row) ? "Edit" : "View"}
+                    View
                   </Button>
                 </Box>
               </Stack>

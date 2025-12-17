@@ -21,6 +21,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 
 import { IconButton, Tooltip } from "@mui/material";
 import EditIcon from "@mui/icons-material/EditOutlined";
@@ -41,9 +42,10 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { getUserScope, isReadOnlyRole, isSuperAdmin, isOrgAdmin } from "../../utils/userScope";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
 import {
   createAdminUser,
   updateAdminUser,
@@ -136,54 +138,46 @@ const AdminUsersList: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
-  const scope = getUserScope("AdminUsersPage");
-  const effectiveRole = normalizeRoleSlug(scope.role || uiConfig.role || null);
-  const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
-  const isSuper = isSuperAdmin(effectiveRole);
-  const orgAdmin = isOrgAdmin(effectiveRole);
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
+  const scopeOrgCode = uiConfig.scope?.org_code || authContext.org_code || "";
 
-  const canCreateUser = useMemo(
-    () =>
-      uiConfig.resources.length
-        ? can(uiConfig.resources, "admin_users.create", "CREATE")
-        : isSuper || orgAdmin,
-    [uiConfig.resources, isSuper, orgAdmin],
-  );
-  const canUpdateUserAction = useMemo(
-    () =>
-      uiConfig.resources.length
-        ? can(uiConfig.resources, "admin_users.edit", "UPDATE")
-        : isSuper || orgAdmin,
-    [uiConfig.resources, isSuper, orgAdmin],
-  );
-  const canDeactivateUserAction = useMemo(
-    () =>
-      uiConfig.resources.length
-        ? can(uiConfig.resources, "admin_users.deactivate", "DEACTIVATE")
-        : isSuper,
-    [uiConfig.resources, isSuper],
-  );
-  const canResetPasswordAction = useMemo(
-    () =>
-      uiConfig.resources.length
-        ? can(uiConfig.resources, "admin_users.reset_password", "RESET_PASSWORD")
-        : isSuper || orgAdmin,
-    [uiConfig.resources, isSuper, orgAdmin],
-  );
-  const isReadOnly = useMemo(
-    () => (uiConfig.resources.length ? !canUpdateUserAction : isReadOnlyRole(effectiveRole)),
-    [uiConfig.resources, canUpdateUserAction, effectiveRole],
-  );
+  const canCreateUser = useMemo(() => can("admin_users.create", "CREATE"), [can]);
+  const canUpdateUserAction = useMemo(() => can("admin_users.edit", "UPDATE"), [can]);
+  const canDeactivateUserAction = useMemo(() => can("admin_users.deactivate", "DEACTIVATE"), [can]);
+  const canResetPasswordAction = useMemo(() => can("admin_users.reset_password", "RESET_PASSWORD"), [can]);
+  const isReadOnly = useMemo(() => !canUpdateUserAction, [canUpdateUserAction]);
 
   const [rows, setRows] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({ open: false, message: "", severity: "info" });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const readStored = (key: string): string | null => {
+    try {
+      const val = localStorage.getItem(key);
+      return val || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const initOrgCode =
+    searchParams.get("org_code") ||
+    readStored("adminUsers.org_code") ||
+    scopeOrgCode ||
+    (isSuper ? "" : scopeOrgCode || "");
+  const initStatus = (searchParams.get("status") as "ALL" | "ACTIVE" | "INACTIVE" | null) ||
+    (readStored("adminUsers.status") as any) ||
+    "ALL";
+  const initSearch = searchParams.get("search") || readStored("adminUsers.search") || "";
 
   const [filters, setFilters] = useState({
-    org_code: scopeOrgCode || "",
+    org_code: initOrgCode || "",
     role_slug: "",
-    status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE",
+    status: initStatus as "ALL" | "ACTIVE" | "INACTIVE",
+    search: initSearch,
   });
 
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
@@ -246,16 +240,11 @@ const loadRoles = useCallback(async () => {
       roles = roles.filter((r) => r !== "SUPER_ADMIN");
     }
 
-    // ORG_ADMIN can only assign a limited subset
-    if (orgAdmin) {
-      roles = roles.filter((r) => ORG_ADMIN_ALLOWED_ROLES.has(r));
-    }
-
     setRoleOptions(roles);
   } catch (e) {
     console.error("[admin_users] loadRoles", e);
   }
-}, [language, orgAdmin, isSuper]);
+}, [language, isSuper]);
 
 
 
@@ -343,6 +332,7 @@ const loadOrgs = useCallback(async () => {
       const orgCodeFilter = !isSuper ? scopeOrgCode || filters.org_code || "" : filters.org_code || "";
       if (orgCodeFilter) filtersPayload.org_code = orgCodeFilter;
       if (filters.role_slug) filtersPayload.role_slug = filters.role_slug;
+      if (filters.search) filtersPayload.search = filters.search;
       if (filters.status === "ACTIVE") filtersPayload.status = "ACTIVE";
       if (filters.status === "INACTIVE") filtersPayload.status = "INACTIVE";
 
@@ -370,6 +360,11 @@ const loadOrgs = useCallback(async () => {
           is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
           last_login_on: u.last_login_on || null,
           created_on: u.created_on || null,
+          org_scope: u.org_scope || null,
+          org_id: u.org_id || null,
+          owner_type: u.owner_type || null,
+          owner_org_id: u.owner_org_id || null,
+          is_protected: u.is_protected || null,
         };
       });
 
@@ -381,7 +376,24 @@ const loadOrgs = useCallback(async () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.org_code, filters.role_slug, filters.status, language, scopeOrgCode, t]);
+  }, [filters.org_code, filters.role_slug, filters.status, filters.search, language, scopeOrgCode, t]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (filters.org_code) next.set("org_code", filters.org_code);
+    else next.delete("org_code");
+    if (filters.status) next.set("status", filters.status);
+    if (filters.search) next.set("search", filters.search);
+    else next.delete("search");
+    setSearchParams(next, { replace: true });
+    try {
+      localStorage.setItem("adminUsers.org_code", filters.org_code || "");
+      localStorage.setItem("adminUsers.status", filters.status);
+      localStorage.setItem("adminUsers.search", filters.search || "");
+    } catch {
+      // ignore
+    }
+  }, [filters]);
 
   useEffect(() => {
     loadRoles();
@@ -395,16 +407,10 @@ const loadOrgs = useCallback(async () => {
   const canManageUser = useCallback(
     (user?: AdminUser | null) => {
       if (!canUpdateUserAction) return false;
-      if (isSuper) return true;
-      if (orgAdmin && scopeOrgCode) {
-        if (!user) return true;
-        const userOrg = user.org_code || "";
-        const allowedRolesOnly = ORG_ADMIN_ALLOWED_ROLES.has(user.role_slug);
-        return userOrg === scopeOrgCode && allowedRolesOnly;
-      }
-      return false;
+      const lockInfo = user ? isRecordLocked(user as any, { ...authContext, isSuper }) : { locked: false };
+      return !lockInfo.locked;
     },
-    [canUpdateUserAction, isSuper, orgAdmin, scopeOrgCode],
+    [canUpdateUserAction, authContext, isSuper, isRecordLocked],
   );
 
   const resetForm = (orgCode?: string) => {
@@ -420,6 +426,9 @@ const loadOrgs = useCallback(async () => {
       is_active: true,
     });
   };
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
 
   const handleOpenCreate = () => {
     if (!canCreateUser) {
@@ -465,10 +474,6 @@ const loadOrgs = useCallback(async () => {
 
   const handleRolesChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value as string;
-    if (orgAdmin && !isSuper && !ORG_ADMIN_ALLOWED_ROLES.has(value)) {
-      handleToast("You cannot assign that role.", "error");
-      return;
-    }
     setForm((prev) => ({ ...prev, role_slug: value }));
   };
 
@@ -511,13 +516,6 @@ const loadOrgs = useCallback(async () => {
       handleToast(t("adminUsers.messages.rolesRequired"), "error");
       return;
     }
-    if (!isSuper && orgAdmin && scopeOrgCode) {
-      if (form.org_code !== scopeOrgCode) {
-        handleToast("You cannot assign another organisation.", "error");
-        return;
-      }
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -636,19 +634,24 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
-  const handleResetPassword = async (user: AdminUser) => {
+  const handleResetPassword = async (user: AdminUser, newPassword?: string) => {
     if (!canResetPasswordAction) return;
     try {
       setLoading(true);
       const username = currentUsername();
       if (!username) return;
-      const res = await resetAdminUserPassword({ username, language, target_username: user.username });
+      const payload: any = { target_username: user.username };
+      if (newPassword) payload.new_password = newPassword;
+      const res = await resetAdminUserPassword({ username, language, ...payload });
       const resp = res?.response || {};
       if (String(resp.responsecode ?? "") !== "0") {
         handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
       } else {
         handleToast(t("adminUsers.messages.resetSuccess"), "success");
       }
+      setResetDialogOpen(false);
+      setResetUser(null);
+      setResetPassword("");
     } catch (e: any) {
       handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
@@ -738,15 +741,15 @@ const loadOrgs = useCallback(async () => {
 
     return (
       <Stack direction="row" spacing={0.5}>
-        {canUpdateUserAction && (
+        <ActionGate resourceKey="admin_users.edit" action="UPDATE" record={row}>
           <Tooltip title={t("adminUsers.actions.edit")}>
             <IconButton size="small" onClick={() => handleOpenEdit(row)}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        )}
+        </ActionGate>
 
-        {canDeactivateUserAction && (
+        <ActionGate resourceKey="admin_users.deactivate" action="DEACTIVATE" record={row}>
           <Tooltip
             title={
               isActive
@@ -766,19 +769,23 @@ const loadOrgs = useCallback(async () => {
               )}
             </IconButton>
           </Tooltip>
-        )}
+        </ActionGate>
 
-        {canResetPasswordAction && (
+        <ActionGate resourceKey="admin_users.reset_password" action="RESET_PASSWORD" record={row}>
           <Tooltip title={t("adminUsers.actions.reset")}>
             <IconButton
               size="small"
               color="primary"
-              onClick={() => handleResetPassword(row)}
+              onClick={() => {
+                setResetUser(row);
+                setResetPassword("");
+                setResetDialogOpen(true);
+              }}
             >
               <LockResetIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-        )}
+        </ActionGate>
       </Stack>
     );
   },
@@ -788,9 +795,6 @@ const loadOrgs = useCallback(async () => {
 
     ],
     [
-      canDeactivateUserAction,
-      canResetPasswordAction,
-      canUpdateUserAction,
       handleOpenEdit,
       handleResetPassword,
       t,
@@ -817,11 +821,13 @@ const loadOrgs = useCallback(async () => {
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadUsers}>
             {t("common.refresh")}
           </Button>
-          {canCreateUser && (
-            <Button variant="contained" onClick={handleOpenCreate}>
-              {t("adminUsers.actions.new")}
-            </Button>
-          )}
+          <ActionGate resourceKey="admin_users.create" action="CREATE">
+            {canCreateUser && (
+              <Button variant="contained" onClick={handleOpenCreate}>
+                {t("adminUsers.actions.new")}
+              </Button>
+            )}
+          </ActionGate>
         </Stack>
       </Stack>
 
@@ -1175,6 +1181,57 @@ const loadOrgs = useCallback(async () => {
           <Button onClick={handleSubmit} disabled={loading} variant="contained">
             {loading ? <CircularProgress size={18} /> : t("adminUsers.dialog.save")}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        fullScreen={isSmallScreen}
+        open={resetDialogOpen}
+        onClose={() => {
+          setResetDialogOpen(false);
+          setResetUser(null);
+          setResetPassword("");
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("adminUsers.actions.resetPassword", { defaultValue: "Reset Password" })}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              {resetUser ? resetUser.username : ""}
+            </Typography>
+            <TextField
+              label={t("adminUsers.fields.newPassword", { defaultValue: "New Password" })}
+              type="password"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+              fullWidth
+            />
+            <Alert severity="info">
+              {t("adminUsers.messages.resetInfo", { defaultValue: "Leave blank to auto-generate a temporary password." })}
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setResetDialogOpen(false);
+              setResetUser(null);
+              setResetPassword("");
+            }}
+          >
+            {t("common.cancel", { defaultValue: "Cancel" })}
+          </Button>
+          <ActionGate resourceKey="admin_users.reset_password" action="RESET_PASSWORD" record={resetUser || undefined}>
+            <Button
+              variant="contained"
+              disabled={!resetUser || loading}
+              onClick={() => resetUser && handleResetPassword(resetUser, resetPassword || undefined)}
+            >
+              {loading ? <CircularProgress size={18} /> : t("adminUsers.actions.reset", { defaultValue: "Reset" })}
+            </Button>
+          </ActionGate>
         </DialogActions>
       </Dialog>
 

@@ -20,6 +20,9 @@ import {
 } from "@mui/material";
 import { useSnackbar } from "notistack";
 import { fetchResourceRegistry, updateResourceRegistry } from "../../services/resourceRegistryApi";
+import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
 
 type RegistryEntry = {
   resource_key: string;
@@ -44,6 +47,10 @@ const ResourceRegistryPage: React.FC = () => {
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
   const username: string = parsedUser?.username || "";
   const { enqueueSnackbar } = useSnackbar();
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
+  const canCreate = can("resource_registry.create", "CREATE");
+  const canEdit = can("resource_registry.edit", "UPDATE");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,67 +139,71 @@ const ResourceRegistryPage: React.FC = () => {
 
       <Paper sx={{ p: 2 }}>
         <Stack spacing={2}>
-          <TextField
-            label="Resource Key"
-            value={editing.resource_key}
-            onChange={(e) => setEditing((prev) => ({ ...prev, resource_key: e.target.value }))}
-            size="small"
-          />
-          <TextField
-            label="Module"
-            value={editing.module}
-            onChange={(e) => setEditing((prev) => ({ ...prev, module: e.target.value }))}
-            size="small"
-          />
-          <TextField
-            label="Description"
-            value={editing.description}
-            onChange={(e) => setEditing((prev) => ({ ...prev, description: e.target.value }))}
-            size="small"
-          />
-          <TextField
-            label="Allowed Actions (comma separated)"
-            value={editing.allowed_actions.join(",")}
-            onChange={(e) =>
-              setEditing((prev) => ({
-                ...prev,
-                allowed_actions: e.target.value
-                  .split(",")
-                  .map((s) => s.trim().toUpperCase())
-                  .filter(Boolean),
-              }))
-            }
-            size="small"
-          />
-          <TextField
-            label="Aliases (comma separated)"
-            value={(editing.aliases || []).join(",")}
-            onChange={(e) =>
-              setEditing((prev) => ({
-                ...prev,
-                aliases: e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              }))
-            }
-            size="small"
-          />
-          <FormControl size="small">
-            <InputLabel id="is-active-label">Active</InputLabel>
-            <Select
-              labelId="is-active-label"
-              label="Active"
-              value={editing.is_active || "Y"}
-              onChange={(e) => setEditing((prev) => ({ ...prev, is_active: e.target.value }))}
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </Select>
-          </FormControl>
-          <Button variant="contained" onClick={handleSave} disabled={loading}>
-            {loading ? "Saving..." : "Save"}
-          </Button>
+          <ActionGate resourceKey="resource_registry.create" action="CREATE">
+            <Stack spacing={2}>
+              <TextField
+                label="Resource Key"
+                value={editing.resource_key}
+                onChange={(e) => setEditing((prev) => ({ ...prev, resource_key: e.target.value }))}
+                size="small"
+              />
+              <TextField
+                label="Module"
+                value={editing.module}
+                onChange={(e) => setEditing((prev) => ({ ...prev, module: e.target.value }))}
+                size="small"
+              />
+              <TextField
+                label="Description"
+                value={editing.description}
+                onChange={(e) => setEditing((prev) => ({ ...prev, description: e.target.value }))}
+                size="small"
+              />
+              <TextField
+                label="Allowed Actions (comma separated)"
+                value={editing.allowed_actions.join(",")}
+                onChange={(e) =>
+                  setEditing((prev) => ({
+                    ...prev,
+                    allowed_actions: e.target.value
+                      .split(",")
+                      .map((s) => s.trim().toUpperCase())
+                      .filter(Boolean),
+                  }))
+                }
+                size="small"
+              />
+              <TextField
+                label="Aliases (comma separated)"
+                value={(editing.aliases || []).join(",")}
+                onChange={(e) =>
+                  setEditing((prev) => ({
+                    ...prev,
+                    aliases: e.target.value
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                size="small"
+              />
+              <FormControl size="small">
+                <InputLabel id="is-active-label">Active</InputLabel>
+                <Select
+                  labelId="is-active-label"
+                  label="Active"
+                  value={editing.is_active || "Y"}
+                  onChange={(e) => setEditing((prev) => ({ ...prev, is_active: e.target.value }))}
+                >
+                  <MenuItem value="Y">Yes</MenuItem>
+                  <MenuItem value="N">No</MenuItem>
+                </Select>
+              </FormControl>
+              <Button variant="contained" onClick={handleSave} disabled={loading}>
+                {loading ? "Saving..." : "Save"}
+              </Button>
+            </Stack>
+          </ActionGate>
         </Stack>
       </Paper>
 
@@ -229,9 +240,11 @@ const ResourceRegistryPage: React.FC = () => {
                 </TableCell>
                 <TableCell>{r.is_active === "N" ? "Inactive" : "Active"}</TableCell>
                 <TableCell>
-                  <Button size="small" onClick={() => startEdit(r)}>
-                    Edit
-                  </Button>
+                  <ActionGate resourceKey="resource_registry.edit" action="UPDATE" record={r}>
+                    <Button size="small" onClick={() => startEdit(r)}>
+                      Edit
+                    </Button>
+                  </ActionGate>
                 </TableCell>
               </TableRow>
             ))}

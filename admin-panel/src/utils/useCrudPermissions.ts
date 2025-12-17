@@ -37,7 +37,7 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
 
   const perms = useMemo(() => {
     const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
-    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW") || can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
+    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
     const view = viewList || viewDetail;
     let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
     let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");

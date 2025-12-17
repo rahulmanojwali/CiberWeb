@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { useSnackbar } from "notistack";
 import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 
 type PolicyEntry = { resource_key: string; actions: string[] };
 type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
@@ -36,6 +37,7 @@ const RolesPermissionsPage: React.FC = () => {
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
   const username: string = parsedUser?.username || "";
   const { enqueueSnackbar } = useSnackbar();
+  const { refresh } = useAdminUiConfig();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,6 +198,7 @@ const RolesPermissionsPage: React.FC = () => {
         setPoliciesByRole(payloadRef.policiesByRole || {});
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));
         setDiagnostics(payloadRef.diagnostics || {});
+        await refresh({ invalidate: true });
       } else {
         enqueueSnackbar(resp?.response?.description || "Failed to save role policies", { variant: "error" });
       }

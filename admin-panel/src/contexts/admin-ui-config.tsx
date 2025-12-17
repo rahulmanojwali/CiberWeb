@@ -7,7 +7,7 @@ import type { AdminScope, AdminUiConfig, UiResource } from "../utils/adminUiConf
 type AdminUiContextValue = AdminUiConfig & {
   loading: boolean;
   error: string | null;
-  refresh: () => Promise<void>;
+  refresh: (opts?: { invalidate?: boolean }) => Promise<void>;
 };
 
 const defaultValue: AdminUiContextValue = {
@@ -76,6 +76,14 @@ const writeCachedConfig = (config: AdminUiConfig) => {
   }
 };
 
+const clearCachedConfig = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 const getStoredUser = () => {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -130,7 +138,10 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const fetchConfig = useCallback(async () => {
+  const fetchConfig = useCallback(async (opts?: { invalidate?: boolean }) => {
+    if (opts?.invalidate) {
+      clearCachedConfig();
+    }
     const user = getStoredUser();
     const username = user?.username;
     const country = user?.country || user?.country_code || DEFAULT_COUNTRY;
@@ -207,7 +218,7 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
       resources,
       loading,
       error,
-      refresh: fetchConfig,
+      refresh: (opts?: { invalidate?: boolean }) => fetchConfig(opts),
     }),
     [role, scope, resources, loading, error, fetchConfig],
   );

@@ -18,17 +18,17 @@ import {
   useMediaQuery,
   useTheme,
   Alert,
+  IconButton,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   fetchMandiGates,
@@ -37,6 +37,10 @@ import {
   deactivateMandiGate,
   fetchMandis,
 } from "../../services/mandiApi";
+import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
+import { useSearchParams } from "react-router-dom";
 
 function currentUsername(): string | null {
   try {
@@ -62,6 +66,10 @@ type GateRow = {
   is_active: string;
   updated_on?: string;
   updated_by?: string;
+  org_scope?: string | null;
+  owner_type?: string | null;
+  owner_org_id?: string | null;
+  is_protected?: string | null;
 };
 
 const defaultForm = {
@@ -80,18 +88,24 @@ const defaultForm = {
 export const MandiGates: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-  const [selectedOrg, setSelectedOrg] = useState<string>("");
-  const [selectedMandi, setSelectedMandi] = useState<string>("");
+  const storedOrg = searchParams.get("org_code") || localStorage.getItem("mandiGates.org_code") || authContext.org_code || "";
+  const storedMandi = searchParams.get("mandi_id") || localStorage.getItem("mandiGates.mandi_id") || "";
+  const storedStatus = (searchParams.get("status") as "ALL" | "Y" | "N" | null) || (localStorage.getItem("mandiGates.status") as any) || "ALL";
+  const storedSearch = searchParams.get("search") || localStorage.getItem("mandiGates.search") || "";
+  const [selectedOrg, setSelectedOrg] = useState<string>(storedOrg);
+  const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
   const [mandiSearchText, setMandiSearchText] = useState("");
   const [createMandiSearch, setCreateMandiSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
+  const [statusFilter, setStatusFilter] = useState(storedStatus as "ALL" | "Y" | "N");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
@@ -105,12 +119,9 @@ export const MandiGates: React.FC = () => {
     severity: "success",
   });
 
-  const canCreateMandiGate = useMemo(
-    () => can(uiConfig.resources, "mandi_gates.create", "CREATE"),
-    [uiConfig.resources],
-  );
-  const canEdit = useMemo(() => can(uiConfig.resources, "mandi_gates.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(() => can(uiConfig.resources, "mandi_gates.deactivate", "DEACTIVATE"), [uiConfig.resources]);
+  const canCreateMandiGate = useMemo(() => can("mandi_gates.create", "CREATE"), [can]);
+  const canEdit = useMemo(() => can("mandi_gates.edit", "UPDATE"), [can]);
+  const canDeactivate = useMemo(() => can("mandi_gates.deactivate", "DEACTIVATE"), [can]);
 
   const columns = useMemo<GridColDef<GateRow>[]>(
     () => [
@@ -128,28 +139,35 @@ export const MandiGates: React.FC = () => {
         field: "actions",
         headerName: "Actions",
         width: 170,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-                Edit
+        renderCell: (params) => {
+          const row = params.row as GateRow;
+          const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
+          const nextActive = row.is_active === "Y" ? "N" : "Y";
+          return (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" onClick={() => openEdit(row)}>
+                View
               </Button>
-            )}
-            {canDeactivate && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.id)}
-              >
-                Deactivate
-              </Button>
-            )}
-          </Stack>
-        ),
+              <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
+                {!lockInfo.locked && (
+                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                    Edit
+                  </Button>
+                )}
+              </ActionGate>
+              <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
+                {!lockInfo.locked && (
+                  <IconButton size="small" color={row.is_active === "Y" ? "error" : "success"} onClick={() => handleDeactivate(row.id, nextActive)}>
+                    {row.is_active === "Y" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                  </IconButton>
+                )}
+              </ActionGate>
+            </Stack>
+          );
+        },
       },
     ],
-    [canEdit, canDeactivate],
+    [authContext, isSuper],
   );
 
   const loadOrgs = async () => {
@@ -192,8 +210,6 @@ export const MandiGates: React.FC = () => {
       },
     });
     const list = resp?.data?.gates || resp?.data?.items || [];
-    // eslint-disable-next-line no-console
-    console.log("[DEBUG:GATES_UI] API /getMandiGates returned:", list);
     setRows(
       list.map((g: any) => ({
         id: g._id,
@@ -203,12 +219,16 @@ export const MandiGates: React.FC = () => {
         mandi_name: g.mandi_name || "",
         gate_code: g.gate_code,
         gate_name: g?.name_i18n?.en || g.gate_code,
-        gate_direction: g.gate_direction, // legacy, may be undefined in cm_mandi_gates
+        gate_direction: g.gate_direction,
         gate_type: g.gate_type,
         has_weighbridge: g.is_weighbridge || g.has_weighbridge,
         is_active: g.is_active,
         updated_on: g.updated_on,
         updated_by: g.updated_by,
+        org_scope: g.org_scope || null,
+        owner_type: g.owner_type || null,
+        owner_org_id: g.owner_org_id || null,
+        is_protected: g.is_protected || null,
       })),
     );
   };
@@ -223,7 +243,21 @@ export const MandiGates: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [selectedMandi, statusFilter, selectedOrg]);
+    const next = new URLSearchParams(searchParams.toString());
+    if (selectedOrg) next.set("org_code", selectedOrg); else next.delete("org_code");
+    if (selectedMandi) next.set("mandi_id", selectedMandi); else next.delete("mandi_id");
+    if (statusFilter) next.set("status", statusFilter);
+    if (mandiSearchText) next.set("search", mandiSearchText); else next.delete("search");
+    setSearchParams(next, { replace: true });
+    try {
+      localStorage.setItem("mandiGates.org_code", selectedOrg || "");
+      localStorage.setItem("mandiGates.mandi_id", selectedMandi || "");
+      localStorage.setItem("mandiGates.status", statusFilter);
+      localStorage.setItem("mandiGates.search", mandiSearchText || "");
+    } catch {
+      // ignore
+    }
+  }, [selectedMandi, statusFilter, selectedOrg, mandiSearchText]);
 
   const openCreate = () => {
     setIsEdit(false);
@@ -299,10 +333,10 @@ export const MandiGates: React.FC = () => {
     await loadData();
   };
 
-  const handleDeactivate = async (id: string) => {
+  const handleDeactivate = async (id: string, nextActive: string) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateMandiGate({ username, language, _id: id });
+    await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
     await loadData();
   };
 
@@ -310,16 +344,18 @@ export const MandiGates: React.FC = () => {
     <PageContainer
       title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
       actions={
-        canCreateMandiGate && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            disabled={createOpen}
-            onClick={handleOpenCreate}
-          >
-            {t("actions.create", { defaultValue: "Create" })}
-          </Button>
-        )
+        <ActionGate resourceKey="mandi_gates.create" action="CREATE">
+          {canCreateMandiGate && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              disabled={createOpen}
+              onClick={handleOpenCreate}
+            >
+              {t("actions.create", { defaultValue: "Create" })}
+            </Button>
+          )}
+        </ActionGate>
       }
     >
       <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
@@ -388,16 +424,21 @@ export const MandiGates: React.FC = () => {
                 </Typography>
               </CardContent>
               <CardActions>
-                {canEdit && (
+                <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
                     Edit
                   </Button>
-                )}
-                {canDeactivate && (
-                  <Button size="small" color="error" startIcon={<BlockIcon />} onClick={() => handleDeactivate(row.id)}>
-                    Deactivate
+                </ActionGate>
+                <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
+                  <Button
+                    size="small"
+                    color={row.is_active === "Y" ? "error" : "success"}
+                    startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
+                    onClick={() => handleDeactivate(row.id, row.is_active === "Y" ? "N" : "Y")}
+                  >
+                    {row.is_active === "Y" ? "Deactivate" : "Activate"}
                   </Button>
-                )}
+                </ActionGate>
               </CardActions>
             </Card>
           ))}

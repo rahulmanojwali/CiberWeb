@@ -252,14 +252,17 @@ export const deactivateGateDeviceConfig = async ({
   username,
   language = DEFAULT_LANGUAGE,
   config_id,
+  is_active,
 }: {
   username: string;
   language?: string;
   config_id: string;
+  is_active?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateGateDeviceConfig, {
     api: API_TAGS.GATE_DEVICE_CONFIGS.deactivate,
     username,
     language,
     config_id,
+    is_active,
   });

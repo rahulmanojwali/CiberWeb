@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,17 +13,22 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
+
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { fetchOrganisations } from "../../services/adminUsersApi";
+import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
 import {
   fetchGateDeviceConfigs,
   createGateDeviceConfig,
@@ -32,12 +36,11 @@ import {
   deactivateGateDeviceConfig,
   fetchGateDevices,
 } from "../../services/gateApi";
-import { fetchOrganisations } from "../../services/adminUsersApi";
-import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { ActionGate } from "../../authz/ActionGate";
+import { usePermissions } from "../../authz/usePermissions";
+import { useRecordLock } from "../../authz/isRecordLocked";
 
-function currentUsername(): string | null {
+const currentUsername = (): string | null => {
   try {
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
@@ -45,7 +48,19 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
-}
+};
+
+const oidToString = (v: any): string => {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if ((v as any).$oid) return String((v as any).$oid);
+  if ((v as any).oid) return String((v as any).oid);
+  try {
+    return String(v.toString());
+  } catch {
+    return "";
+  }
+};
 
 type ConfigRow = {
   id: string;
@@ -53,10 +68,15 @@ type ConfigRow = {
   mandi_id: number;
   gate_code: string;
   device_code: string;
-  is_active: string;
   qr_format?: string;
   qr_payload_template?: string;
+  rfid_protocol?: string | null;
+  is_active: string;
   updated_on?: string;
+  org_scope?: string | null;
+  owner_type?: string | null;
+  owner_org_id?: string | null;
+  is_protected?: string | null;
 };
 
 const defaultForm = {
@@ -74,18 +94,26 @@ const defaultForm = {
 export const GateDeviceConfigs: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { canView, canCreate, canEdit, canDeactivate, isSuperAdmin } = useCrudPermissions("gate_device_configs");
-  const orgCode = uiConfig?.scope?.org_code || "";
-  const orgCodes =
-    (Array.isArray((uiConfig as any)?.scope?.org_codes) && (uiConfig as any)?.scope?.org_codes) ||
-    (orgCode ? [orgCode] : []);
+  const { can, authContext, isSuper } = usePermissions();
+  const { isRecordLocked } = useRecordLock();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const debug = searchParams.get("debugAuth") === "1";
+
+  const stored = (key: string, fallback = "") =>
+    searchParams.get(key) || localStorage.getItem(`gateDeviceConfigs.${key}`) || fallback;
 
   const [rows, setRows] = useState<ConfigRow[]>([]);
-  const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
-  const [filters, setFilters] = useState({ org_id: "", mandi_id: "", gate_code: "", device_code: "" });
+  const [status, setStatus] = useState<"ALL" | "Y" | "N">(
+    (stored("status", "ALL") as "ALL" | "Y" | "N") || "ALL",
+  );
+  const [filters, setFilters] = useState({
+    org_id: stored("org_id", isSuper ? "" : authContext.org_id || ""),
+    mandi_id: stored("mandi_id", ""),
+    gate_code: stored("gate_code", ""),
+    device_code: stored("device_code", ""),
+  });
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
   const [gateOptions, setGateOptions] = useState<any[]>([]);
@@ -95,102 +123,50 @@ export const GateDeviceConfigs: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(10);
+  const [page, setPage] = useState<number>(Number(stored("page", "1")) || 1);
+  const [perPage, setPerPage] = useState<number>(Number(stored("pageSize", "10")) || 10);
   const [total, setTotal] = useState(0);
 
-  const orgLabel = (orgId?: string) => {
-    const found = orgOptions.find((o) => String(o._id) === String(orgId));
-    return found?.org_code || found?.org_name || "";
-  };
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    Object.entries({
+      org_id: filters.org_id,
+      mandi_id: filters.mandi_id,
+      gate_code: filters.gate_code,
+      device_code: filters.device_code,
+      status,
+      page: String(page),
+      pageSize: String(perPage),
+    }).forEach(([k, v]) => {
+      if (v) next.set(k, String(v));
+      else next.delete(k);
+      try {
+        if (v) localStorage.setItem(`gateDeviceConfigs.${k}`, String(v));
+      } catch {
+        // ignore
+      }
+    });
+    setSearchParams(next, { replace: true });
+  }, [filters, status, page, perPage]);
 
-  const mandiLabel = (mandiId?: number | string) => {
-    const found = mandiOptions.find((m: any) => String(m.mandi_id) === String(mandiId));
-    return found?.name_i18n?.en || found?.mandi_slug || mandiId;
-  };
-
-  const columns = useMemo<GridColDef<ConfigRow>[]>(
-    () => [
-      { field: "device_code", headerName: "Device Code", width: 180 },
-      {
-        field: "org_id",
-        headerName: "Org",
-        width: 140,
-        valueGetter: (params: any) => orgLabel(params.row.org_id),
-      },
-      {
-        field: "mandi_id",
-        headerName: "Mandi",
-        width: 140,
-        valueGetter: (params: any) => mandiLabel(params.row.mandi_id),
-      },
-      { field: "gate_code", headerName: "Gate", width: 130 },
-      {
-        field: "qr_format",
-        headerName: "QR Format",
-        width: 140,
-        valueGetter: (params: any) => params.row.qr_format || "—",
-      },
-      {
-        field: "qr_payload_template",
-        headerName: "QR Template",
-        flex: 1,
-        valueGetter: (params: any) => params.row.qr_payload_template || "—",
-      },
-      { field: "is_active", headerName: "Active", width: 110 },
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 200,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-                Edit
-              </Button>
-            )}
-            {canDeactivate && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.id)}
-              >
-                Deactivate
-              </Button>
-            )}
-          </Stack>
-        ),
-      },
-    ],
-    [canEdit, canDeactivate],
-  );
+  useEffect(() => {
+    setPage(1);
+  }, [filters.org_id, filters.mandi_id, filters.gate_code, filters.device_code, status]);
 
   const loadOrgs = async () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    const filtered = isSuperAdmin ? orgs : orgs.filter((o: any) => orgCodes.includes(o.org_code));
-    setOrgOptions(filtered);
-    if (!isSuperAdmin && filtered.length) {
-      setFilters((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
-      setForm((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
-    }
+    setOrgOptions(orgs);
   };
 
-  const loadMandis = async (orgId?: string) => {
+  const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchMandis({ username, language, filters: { is_active: true } });
     const mandis = resp?.data?.mandis || [];
-    const targetOrg = orgId ?? filters.org_id;
-    const filtered = targetOrg
-      ? mandis.filter(
-          (m: any) => String(m.org_id || "") === String(targetOrg) || String(m.org_code || "") === String(orgCode),
-        )
-      : mandis;
-    setMandiOptions(filtered);
+    setMandiOptions(mandis);
   };
 
   const loadGates = async (mandiId?: string | number) => {
@@ -200,26 +176,14 @@ export const GateDeviceConfigs: React.FC = () => {
     setGateOptions(resp?.data?.items || []);
   };
 
-  const loadDevices = async (mandiId?: string | number) => {
+  const loadDevices = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchGateDevices({
-      username,
-      language,
-      filters: {
-        org_id: filters.org_id || undefined,
-        mandi_id: mandiId ? Number(mandiId) : filters.mandi_id ? Number(filters.mandi_id) : undefined,
-        is_active: "Y",
-      },
-    });
-    const list = resp?.data?.devices || resp?.response?.data?.devices || [];
-    const filtered = filters.gate_code
-      ? list.filter((d: any) => String(d.gate_code || "") === String(filters.gate_code))
-      : list;
-    setDeviceOptions(filtered);
+    const resp = await fetchGateDevices({ username, language, filters: { is_active: "Y" } });
+    setDeviceOptions(resp?.data?.devices || []);
   };
 
-  const loadData = async () => {
+  const fetchData = async () => {
     const username = currentUsername();
     if (!username) return;
     setLoading(true);
@@ -233,29 +197,22 @@ export const GateDeviceConfigs: React.FC = () => {
           gate_code: filters.gate_code || undefined,
           device_code: filters.device_code || undefined,
           is_active: status === "ALL" ? undefined : status,
-          page: page + 1,
+          page,
           perPage,
         },
       });
-      const list = resp?.data?.configs || resp?.response?.data?.configs || [];
-      const pagination = resp?.data?.pagination || resp?.response?.data?.pagination;
-      if (pagination?.total !== undefined) {
-        setTotal(pagination.total);
-        setPerPage(pagination.perPage || perPage);
-      } else {
-        setTotal(list.length);
-      }
+      const configs = resp?.data?.configs || resp?.response?.data?.configs || [];
+      const meta = resp?.data?.meta || resp?.response?.data?.meta || resp?.response?.pagination || resp?.data?.pagination;
+      setTotal(meta?.totalCount || meta?.total || configs.length);
       setRows(
-        list.map((c: any) => ({
-          id: c._id,
-          org_id: c.org_id,
-          mandi_id: c.mandi_id,
-          gate_code: c.gate_code,
-          device_code: c.device_code,
-          is_active: c.is_active,
-          qr_format: c.qr_format,
-          qr_payload_template: c.qr_payload_template,
-          updated_on: c.updated_on,
+        configs.map((c: any) => ({
+          ...c,
+          id: c._id || c.id,
+          org_id: oidToString(c.org_id || c.owner_org_id),
+          org_scope: c.org_scope,
+          owner_type: c.owner_type,
+          owner_org_id: oidToString(c.owner_org_id),
+          is_protected: c.is_protected,
         })),
       );
     } finally {
@@ -266,25 +223,27 @@ export const GateDeviceConfigs: React.FC = () => {
   useEffect(() => {
     loadOrgs();
     loadMandis();
-  }, [language]);
+    loadDevices();
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [status, filters.org_id, filters.mandi_id, filters.gate_code, filters.device_code, language, page, perPage]);
+    if (filters.mandi_id) loadGates(filters.mandi_id);
+  }, [filters.mandi_id]);
 
   useEffect(() => {
-    loadMandis(filters.org_id);
-    setGateOptions([]);
-    setDeviceOptions([]);
-    setPage(0);
-  }, [filters.org_id]);
+    fetchData();
+  }, [filters, status, page, perPage]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
     setForm({
       ...defaultForm,
-      org_id: filters.org_id || (orgOptions[0]?._id || ""),
+      org_id: filters.org_id || "",
+      mandi_id: filters.mandi_id || "",
+      gate_code: filters.gate_code || "",
+      device_code: "",
+      is_active: "Y",
     });
     setDialogOpen(true);
   };
@@ -293,388 +252,340 @@ export const GateDeviceConfigs: React.FC = () => {
     setIsEdit(true);
     setEditId(row.id);
     setForm({
-      org_id: row.org_id || filters.org_id || "",
-      mandi_id: String(row.mandi_id),
-      gate_code: row.gate_code,
-      device_code: row.device_code,
-      qr_format: "",
+      org_id: row.org_id || "",
+      mandi_id: String(row.mandi_id || ""),
+      gate_code: row.gate_code || "",
+      device_code: row.device_code || "",
+      qr_format: row.qr_format || "",
       qr_payload_template: row.qr_payload_template || "",
-      rfid_protocol: "",
-      is_active: row.is_active,
+      rfid_protocol: row.rfid_protocol || "",
+      is_active: row.is_active || "Y",
       advanced_json: "",
-    });
-    loadGates(row.mandi_id);
-    loadDevices(row.mandi_id);
+    } as any);
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
+  const handleSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
-    let advanced: any = null;
-    if (form.advanced_json) {
-      try {
-        advanced = JSON.parse(form.advanced_json);
-      } catch {
-        advanced = null;
-      }
-    }
-    const payload: any = {
-      org_id: form.org_id || undefined,
-      mandi_id: Number(form.mandi_id),
-      gate_code: form.gate_code,
-      device_code: form.device_code,
-      qr_format: form.qr_format || undefined,
-      qr_payload_template: form.qr_payload_template || undefined,
-      rfid_protocol: form.rfid_protocol || undefined,
-      is_active: form.is_active,
-      notes: advanced ? JSON.stringify(advanced) : undefined,
-    };
+    const payload = { ...form, mandi_id: Number(form.mandi_id) || undefined };
     if (isEdit && editId) {
-      payload.config_id = editId;
-      await updateGateDeviceConfig({ username, language, payload });
+      await updateGateDeviceConfig({ username, language, payload: { ...payload, config_id: editId } });
     } else {
       await createGateDeviceConfig({ username, language, payload });
     }
     setDialogOpen(false);
-    await loadData();
+    fetchData();
   };
 
-  const handleDeactivate = async (config_id: string) => {
+  const handleToggle = async (row: ConfigRow) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateGateDeviceConfig({ username, language, config_id });
-    await loadData();
+    const nextStatus = row.is_active === "Y" ? "N" : "Y";
+    await deactivateGateDeviceConfig({ username, language, config_id: row.id, is_active: nextStatus });
+    fetchData();
   };
 
-  if (!canView) return null;
+  const orgLabel = (orgId?: string) => {
+    const found = orgOptions.find((o) => oidToString(o._id) === oidToString(orgId));
+    return found?.org_code || found?.org_name || "";
+  };
 
-  const grid = (
-    <ResponsiveDataGrid
-      columns={columns}
-      rows={rows}
-      loading={loading}
-      getRowId={(r) => r.id}
-      autoHeight
-      paginationMode="server"
-      rowCount={total}
-      paginationModel={{ page, pageSize: perPage }}
-      onPaginationModelChange={(model) => {
-        setPage(model.page);
-        if (model.pageSize !== perPage) {
-          setPerPage(model.pageSize);
-          setPage(0);
-        }
-      }}
-      pageSizeOptions={[10, 25, 50]}
-    />
+  const mandiLabel = (mandiId?: number | string) => {
+    const found = mandiOptions.find((m: any) => String(m.mandi_id) === String(mandiId));
+    return found?.name_i18n?.en || found?.mandi_slug || mandiId;
+  };
+
+  const columns = useMemo<GridColDef<ConfigRow>[]>(
+    () => [
+      { field: "device_code", headerName: "Device Code", width: 150 },
+      { field: "gate_code", headerName: "Gate", width: 120 },
+      {
+        field: "org_id",
+        headerName: "Org",
+        width: 140,
+        valueGetter: (params: any) => orgLabel(params.row.org_id),
+      },
+      {
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 140,
+        valueGetter: (params: any) => mandiLabel(params.row.mandi_id),
+      },
+      {
+        field: "qr_format",
+        headerName: "QR Format",
+        width: 140,
+        valueGetter: (params: any) => params.row.qr_format || "—",
+      },
+      {
+        field: "qr_payload_template",
+        headerName: "QR Template",
+        flex: 1,
+        valueGetter: (params: any) => params.row.qr_payload_template || "—",
+      },
+      {
+        field: "is_active",
+        headerName: "Active",
+        width: 110,
+        renderCell: (params: any) => (
+          <Stack direction="row" spacing={1} alignItems="center">
+            {params.row.is_active === "Y" ? <CheckCircleIcon color="success" fontSize="small" /> : <BlockIcon color="error" fontSize="small" />}
+            <Typography variant="body2">{params.row.is_active}</Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 240,
+        renderCell: (params: any) => {
+          const row = params.row as ConfigRow;
+          return (
+            <Stack direction="row" spacing={1}>
+              <ActionGate resourceKey="gate_device_configs.edit" action="UPDATE" record={row}>
+                <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
+                  Edit
+                </Button>
+              </ActionGate>
+              <ActionGate resourceKey="gate_device_configs.deactivate" action="DEACTIVATE" record={row}>
+                <Button
+                  size="small"
+                  color={row.is_active === "Y" ? "error" : "success"}
+                  startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
+                  onClick={() => handleToggle(row)}
+                >
+                  {row.is_active === "Y" ? "Deactivate" : "Activate"}
+                </Button>
+              </ActionGate>
+              {debug && (
+                <Typography variant="caption">
+                  canEdit:{String(can("gate_device_configs.edit", "UPDATE"))} | canDeact:
+                  {String(can("gate_device_configs.deactivate", "DEACTIVATE"))} | locked:
+                  {String(isRecordLocked(row, authContext).locked)} | org:{oidToString(authContext.org_id)} vs{" "}
+                  {oidToString(row.org_id || row.owner_org_id)}
+                </Typography>
+              )}
+            </Stack>
+          );
+        },
+      },
+    ],
+    [debug, authContext],
   );
 
-  return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.gateDeviceConfigs", { defaultValue: "Gate Device Configs" })}</Typography>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={1}
-          alignItems={{ xs: "stretch", sm: "center" }}
-          width={{ xs: "100%", sm: "auto" }}
-        >
-          <TextField
-            select
-            label="Organisation"
-            size="small"
-            value={filters.org_id}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "", device_code: "" }));
-              setPage(1);
-            }}
-            sx={{ minWidth: { sm: 180 } }}
-            fullWidth
-            disabled={!isSuperAdmin}
-          >
-            <MenuItem value="">All</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o._id} value={o._id}>
-                {o.org_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Mandi"
-            size="small"
-            value={filters.mandi_id}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, mandi_id: e.target.value, gate_code: "", device_code: "" }));
-              loadGates(e.target.value);
-              loadDevices(e.target.value);
-              setPage(1);
-            }}
-            sx={{ minWidth: { sm: 160 } }}
-            fullWidth
-          >
-            <MenuItem value="">All</MenuItem>
-            {mandiOptions.map((m: any) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Gate"
-            size="small"
-            value={filters.gate_code}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, gate_code: e.target.value, device_code: "" }));
-              setPage(1);
-            }}
-            sx={{ minWidth: { sm: 150 } }}
-            fullWidth
-          >
-            <MenuItem value="">All</MenuItem>
-            {gateOptions.map((g: any) => (
-              <MenuItem key={g.gate_code || g.gate_id || g._id} value={g.gate_code}>
-                {g.gate_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Device"
-            size="small"
-            value={filters.device_code}
-            onChange={(e) => {
-              setFilters((f) => ({ ...f, device_code: e.target.value }));
-              setPage(1);
-            }}
-            sx={{ minWidth: { sm: 150 } }}
-            fullWidth
-          >
-            <MenuItem value="">All</MenuItem>
-            {deviceOptions.map((d: any) => (
-              <MenuItem key={d.device_code} value={d.device_code}>
-                {d.device_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as any);
-              setPage(1);
-            }}
-            sx={{ minWidth: { sm: 140 } }}
-            fullWidth
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="Y">Active</MenuItem>
-            <MenuItem value="N">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} fullWidth>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </Stack>
-      </Stack>
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
 
-      {isMobile ? (
-        <Stack spacing={2}>
-          {(rows || []).map((row) => (
-            <Card key={row.id}>
-              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {row.device_code}
-                  </Typography>
-                  <Chip label="Config" size="small" />
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  Org: {orgLabel(row.org_id)} · Mandi: {mandiLabel(row.mandi_id)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Gate: {row.gate_code || "—"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  QR: {row.qr_format || "—"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Template: {row.qr_payload_template ? row.qr_payload_template.substring(0, 40) + "..." : "—"}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                  <Chip
-                    size="small"
-                    label={row.is_active === "Y" ? "Active" : "Inactive"}
-                    color={row.is_active === "Y" ? "success" : "default"}
-                  />
-                </Stack>
-                {row.updated_on && (
-                  <Typography variant="caption" color="text.secondary">
-                    Updated: {new Date(row.updated_on).toLocaleString()}
-                  </Typography>
-                )}
-                {(canEdit || canDeactivate) && (
-                  <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
-                    {canEdit && (
-                      <Button variant="text" size="small" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                        Edit
-                      </Button>
-                    )}
-                    {canDeactivate && (
-                      <Button
-                        variant="text"
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeactivate(row.id)}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Deactivate
-                      </Button>
-                    )}
-                  </Stack>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          <Box display="flex" justifyContent="center">
-            <Pagination
-              count={Math.max(1, Math.ceil(total / perPage))}
-              page={page + 1}
-              onChange={(_, p) => setPage(p - 1)}
+  return (
+    <PageContainer
+      title={t("Gate Device Configs")}
+      actions={
+        <ActionGate resourceKey="gate_device_configs.create" action="CREATE">
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            Add Config
+          </Button>
+        </ActionGate>
+      }
+    >
+      <Card>
+        <CardContent>
+          <Stack direction={isMobile ? "column" : "row"} spacing={2}>
+            <TextField
+              select
+              label="Status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              size="small"
+              sx={{ minWidth: 150 }}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="Organisation"
+              value={filters.org_id}
+              onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {orgOptions.map((org) => (
+                <MenuItem key={org._id} value={oidToString(org._id)}>
+                  {org.org_code || org.org_name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Mandi"
+              value={filters.mandi_id}
+              onChange={(e) => setFilters((f) => ({ ...f, mandi_id: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 150 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {mandiOptions.map((m: any) => (
+                <MenuItem key={m.mandi_id} value={m.mandi_id}>
+                  {m.name_i18n?.en || m.mandi_slug || m.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Gate"
+              value={filters.gate_code}
+              onChange={(e) => setFilters((f) => ({ ...f, gate_code: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {gateOptions.map((g: any) => (
+                <MenuItem key={g.mandi_id + g.gate_code} value={g.gate_code}>
+                  {g.gate_code}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Device Code"
+              value={filters.device_code}
+              onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 160 }}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Box mt={2}>
+        <ResponsiveDataGrid
+          autoHeight
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          getRowId={(row) => row.id}
+          hideFooter
+          density="compact"
+        />
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2}>
+          <Box />
+          <Pagination
+            page={page}
+            count={totalPages}
+            onChange={(_, p) => setPage(p)}
+            color="primary"
+            shape="rounded"
+            size="small"
+          />
+        </Stack>
+      </Box>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{isEdit ? "Edit Config" : "Create Config"}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <TextField
+              select
+              label="Organisation"
+              value={form.org_id}
+              onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">Select</MenuItem>
+              {orgOptions.map((org) => (
+                <MenuItem key={org._id} value={oidToString(org._id)}>
+                  {org.org_code || org.org_name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Mandi"
+              value={form.mandi_id}
+              onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">Select</MenuItem>
+              {mandiOptions.map((m: any) => (
+                <MenuItem key={m.mandi_id} value={m.mandi_id}>
+                  {m.name_i18n?.en || m.mandi_slug || m.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Gate"
+              value={form.gate_code}
+              onChange={(e) => setForm((f) => ({ ...f, gate_code: e.target.value }))}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">Select</MenuItem>
+              {gateOptions.map((g: any) => (
+                <MenuItem key={g.mandi_id + g.gate_code} value={g.gate_code}>
+                  {g.gate_code}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Device Code"
+              value={form.device_code}
+              onChange={(e) => setForm((f) => ({ ...f, device_code: e.target.value }))}
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">Select</MenuItem>
+              {deviceOptions.map((d: any) => (
+                <MenuItem key={d.device_code} value={d.device_code}>
+                  {d.device_code}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="QR Format"
+              value={form.qr_format}
+              onChange={(e) => setForm((f) => ({ ...f, qr_format: e.target.value }))}
+              fullWidth
               size="small"
             />
-          </Box>
-        </Stack>
-      ) : (
-        <Card>
-          <CardContent>{grid}</CardContent>
-        </Card>
-      )}
-
-      <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="md"
-        fullScreen={isMobile}
-        PaperProps={{ sx: { display: "flex", flexDirection: "column", maxHeight: isMobile ? "100vh" : "90vh" } }}
-      >
-        <DialogTitle>{isEdit ? "Edit Device Config" : "Create Device Config"}</DialogTitle>
-        <DialogContent
-          sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1, flex: 1, overflowY: "auto" }}
-        >
-          <TextField
-            select
-            label="Organisation"
-            value={form.org_id}
-            onChange={(e) => {
-              setForm((f) => ({ ...f, org_id: e.target.value, mandi_id: "", gate_code: "", device_code: "" }));
-              loadMandis(e.target.value);
-              setGateOptions([]);
-              setDeviceOptions([]);
-            }}
-            fullWidth
-            disabled={!isSuperAdmin}
-          >
-            <MenuItem value="">Not Set</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o._id} value={o._id}>
-                {o.org_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Mandi"
-            value={form.mandi_id}
-            onChange={(e) => {
-              setForm((f) => ({ ...f, mandi_id: e.target.value, gate_code: "", device_code: "" }));
-              loadGates(e.target.value);
-              loadDevices(e.target.value);
-            }}
-            fullWidth
-          >
-            {mandiOptions.map((m: any) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Gate"
-            value={form.gate_code}
-            onChange={(e) => setForm((f) => ({ ...f, gate_code: e.target.value }))}
-            fullWidth
-          >
-            {gateOptions.map((g: any) => (
-              <MenuItem key={g.gate_code || g.gate_id || g._id} value={g.gate_code}>
-                {g.gate_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Device"
-            value={form.device_code}
-            onChange={(e) => setForm((f) => ({ ...f, device_code: e.target.value }))}
-            fullWidth
-          >
-            {deviceOptions.map((d: any) => (
-              <MenuItem key={d.device_code} value={d.device_code}>
-                {d.device_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="QR Format"
-            value={form.qr_format}
-            onChange={(e) => setForm((f) => ({ ...f, qr_format: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="QR Payload Template"
-            value={form.qr_payload_template || ""}
-            onChange={(e) => setForm((f) => ({ ...f, qr_payload_template: e.target.value }))}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <TextField
-            label="RFID Protocol"
-            value={form.rfid_protocol}
-            onChange={(e) => setForm((f) => ({ ...f, rfid_protocol: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Advanced (JSON)"
-            value={form.advanced_json}
-            onChange={(e) => setForm((f) => ({ ...f, advanced_json: e.target.value }))}
-            fullWidth
-            multiline
-            minRows={3}
-          />
-          <TextField
-            select
-            label="Active"
-            value={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+            <TextField
+              label="QR Payload Template"
+              value={form.qr_payload_template}
+              onChange={(e) => setForm((f) => ({ ...f, qr_payload_template: e.target.value }))}
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+            />
+            <TextField
+              label="RFID Protocol"
+              value={form.rfid_protocol}
+              onChange={(e) => setForm((f) => ({ ...f, rfid_protocol: e.target.value }))}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              select
+              label="Active"
+              value={form.is_active}
+              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
+          </Stack>
         </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave}>
-          {isEdit ? "Update" : "Create"}
-        </Button>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {isEdit ? "Update" : "Create"}
+          </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

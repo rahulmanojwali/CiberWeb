@@ -429,6 +429,8 @@ const loadOrgs = useCallback(async () => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetUser, setResetUser] = useState<AdminUser | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetAutoGenerate, setResetAutoGenerate] = useState(true);
 
   const handleOpenCreate = () => {
     if (!canCreateUser) {
@@ -634,14 +636,26 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
-  const handleResetPassword = async (user: AdminUser, newPassword?: string) => {
+  const handleResetPassword = async (user: AdminUser, newPassword?: string, autoGenerate = true) => {
     if (!canResetPasswordAction) return;
+    if (!autoGenerate) {
+      const trimmed = (newPassword || "").trim();
+      if (!trimmed || trimmed.length < 8) {
+        handleToast(t("adminUsers.messages.resetInvalid", { defaultValue: "Password must be at least 8 characters." }), "error");
+        return;
+      }
+      if (trimmed !== resetConfirm.trim()) {
+        handleToast(t("adminUsers.messages.resetMismatch", { defaultValue: "Passwords do not match." }), "error");
+        return;
+      }
+    }
     try {
       setLoading(true);
       const username = currentUsername();
       if (!username) return;
       const payload: any = { target_username: user.username };
-      if (newPassword) payload.new_password = newPassword;
+      const toSend = autoGenerate && !newPassword ? undefined : newPassword;
+      if (toSend) payload.new_password = toSend;
       const res = await resetAdminUserPassword({ username, language, ...payload });
       const resp = res?.response || {};
       if (String(resp.responsecode ?? "") !== "0") {
@@ -652,6 +666,8 @@ const loadOrgs = useCallback(async () => {
       setResetDialogOpen(false);
       setResetUser(null);
       setResetPassword("");
+      setResetConfirm("");
+      setResetAutoGenerate(true);
     } catch (e: any) {
       handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
@@ -779,6 +795,8 @@ const loadOrgs = useCallback(async () => {
               onClick={() => {
                 setResetUser(row);
                 setResetPassword("");
+                setResetConfirm("");
+                setResetAutoGenerate(true);
                 setResetDialogOpen(true);
               }}
             >
@@ -1201,13 +1219,30 @@ const loadOrgs = useCallback(async () => {
             <Typography variant="body2" color="text.secondary">
               {resetUser ? resetUser.username : ""}
             </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Checkbox
+                checked={resetAutoGenerate}
+                onChange={(e) => setResetAutoGenerate(e.target.checked)}
+              />
+              <Typography variant="body2">{t("adminUsers.messages.autoGenerate", { defaultValue: "Auto-generate password if blank" })}</Typography>
+            </Stack>
             <TextField
               label={t("adminUsers.fields.newPassword", { defaultValue: "New Password" })}
               type="password"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
               fullWidth
+              disabled={resetAutoGenerate}
             />
+            {!resetAutoGenerate && (
+              <TextField
+                label={t("adminUsers.fields.confirmPassword", { defaultValue: "Confirm Password" })}
+                type="password"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+                fullWidth
+              />
+            )}
             <Alert severity="info">
               {t("adminUsers.messages.resetInfo", { defaultValue: "Leave blank to auto-generate a temporary password." })}
             </Alert>
@@ -1219,6 +1254,8 @@ const loadOrgs = useCallback(async () => {
               setResetDialogOpen(false);
               setResetUser(null);
               setResetPassword("");
+              setResetConfirm("");
+              setResetAutoGenerate(true);
             }}
           >
             {t("common.cancel", { defaultValue: "Cancel" })}
@@ -1227,7 +1264,14 @@ const loadOrgs = useCallback(async () => {
             <Button
               variant="contained"
               disabled={!resetUser || loading}
-              onClick={() => resetUser && handleResetPassword(resetUser, resetPassword || undefined)}
+              onClick={() =>
+                resetUser &&
+                handleResetPassword(
+                  resetUser,
+                  resetPassword || undefined,
+                  resetAutoGenerate,
+                )
+              }
             >
               {loading ? <CircularProgress size={18} /> : t("adminUsers.actions.reset", { defaultValue: "Reset" })}
             </Button>

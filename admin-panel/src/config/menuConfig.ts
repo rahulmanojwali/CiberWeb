@@ -826,7 +826,8 @@ export function filterMenuByResources(
     const total = resources.length;
 
     // Collect menu resources; visibility is governed by permissions (not routes).
-    const menuResources = resources.filter((r) => r.ui_type === "menu");
+    const isActive = (r: any) => r?.is_active === true || r?.is_active === "Y";
+    const menuResources = resources.filter((r) => r.ui_type === "menu" && isActive(r));
     const menuResourceKeys = new Set(
       menuResources
         .filter((r) => typeof r.resource_key === "string")

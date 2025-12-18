@@ -12,12 +12,14 @@ import {
 import { BRAND_COLORS } from "../config/appConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
+import { usePermissions } from "../authz/usePermissions";
 
 export const LeftSider: React.FC = () => {
   const location = useLocation();
   const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
   const role = getUserRoleFromStorage("LeftSider");
   const effectiveRole = (configRole as any) || role;
+  const { permissionsMap } = usePermissions();
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";
@@ -28,8 +30,13 @@ export const LeftSider: React.FC = () => {
       : 64;
 
   const items = useMemo<MenuItem[]>(
-    () => filterMenuByResources(ui_resources?.length ? ui_resources : compatResources || [], effectiveRole),
-    [effectiveRole, ui_resources, compatResources],
+    () =>
+      filterMenuByResources(
+        ui_resources?.length ? ui_resources : compatResources || [],
+        effectiveRole,
+        permissionsMap,
+      ),
+    [effectiveRole, ui_resources, compatResources, permissionsMap],
   );
 
   const flattenMenu = (menuItems: MenuItem[]): MenuItem[] => {

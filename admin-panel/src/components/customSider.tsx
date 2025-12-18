@@ -33,6 +33,7 @@ import {
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { getCurrentAdminUsername } from "../utils/session";
+import { usePermissions } from "../authz/usePermissions";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -52,6 +53,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
   const storageRole = getUserRoleFromStorage("CustomSider");
   const effectiveRole = (configRole as any) || storageRole;
+  const { permissionsMap } = usePermissions();
 
   console.log("[CustomSider] resolved role from cd_user:", storageRole, "config role:", configRole);
 
@@ -63,7 +65,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   useEffect(() => {
     try {
-      const built = filterMenuByResources(menuResources, effectiveRole);
+      const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
       const builtCount = built.length;
       console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });
       if (isDebug) {
@@ -94,7 +96,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       console.error("[sidebar] build failed", e, { resourcesSample: (menuResources || []).slice(0, 5) });
       setMenuError("Menu failed to load. Showing last known menu.");
     }
-  }, [effectiveRole, menuResources, resourcesCount]);
+  }, [effectiveRole, menuResources, resourcesCount, permissionsMap]);
 
   useEffect(() => {
     console.log("[CustomSider] render", { hasUiConfig: resourcesCount > 0, menuLen: navItems.length });

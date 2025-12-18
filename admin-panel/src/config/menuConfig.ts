@@ -803,7 +803,16 @@ export function filterMenuByRole(role: RoleSlug | null) {
   });
 }
 
-export function filterMenuByResources(resources: UiResource[] | undefined, fallbackRole: RoleSlug | null) {
+const normalizeKey = (key?: string | null) => {
+  if (!key) return "";
+  return String(key).trim().replace(/\s+/g, "").replace(/_{2,}/g, "_").toLowerCase();
+};
+
+export function filterMenuByResources(
+  resources: UiResource[] | undefined,
+  fallbackRole: RoleSlug | null,
+  permissionsMap?: Record<string, Set<string>>,
+) {
   try {
     const hasResources = Array.isArray(resources) && resources.length > 0;
     if (!hasResources) {
@@ -816,12 +825,12 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
     let excludedUiType = 0;
     const total = resources.length;
 
-    // Collect menu resources; do NOT filter them out by route. Visibility is governed by permissions.
+    // Collect menu resources; visibility is governed by permissions (not routes).
     const menuResources = resources.filter((r) => r.ui_type === "menu");
-    const allowedMenuKeys = new Set(
+    const menuResourceKeys = new Set(
       menuResources
-        .filter((r) => typeof r.resource_key === "string" && r.resource_key.endsWith(".menu"))
-        .map((r) => r.resource_key),
+        .filter((r) => typeof r.resource_key === "string")
+        .map((r) => normalizeKey(r.resource_key)),
     );
     // Deduplicate by resource_key for stable can() resolution
     const dedupedByKey = new Map<string, UiResource>();
@@ -860,7 +869,7 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
       // ignore debug errors
     }
 
-    // Prepare label overrides from resources
+    // Prepare label overrides from resources (ui_resources)
     const resourceMap = new Map<string, UiResource>();
     menuResources.forEach((r) => {
       if (r.resource_key) resourceMap.set(r.resource_key, r);
@@ -891,22 +900,34 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
         "resource_registry.menu",
       ]);
       if (item.resourceKey && watchKeys.has(item.resourceKey)) {
-        const hasResourceKey = allowedMenuKeys.has(item.resourceKey);
-        const canView = can(safeResources, item.resourceKey, item.requiredAction || "VIEW");
-        const result = hasResourceKey || canView;
+        const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
+        const canViewPerm = (() => {
+          if (permissionsMap) {
+            const set = permissionsMap[normalizeKey(item.resourceKey)];
+            return !!set && set.size > 0;
+          }
+          return can(safeResources, item.resourceKey, item.requiredAction || "VIEW");
+        })();
+        const result = hasResourceKey && canViewPerm;
         console.log("[menu debug watch]", {
           key: item.resourceKey,
           hasResourceKey,
-          canView,
+          canView: canViewPerm,
           finalIncluded: result,
         });
       }
       if (!item.resourceKey) return true;
-      // Extra guard: ensure route is permitted if present
-      // Do not hard-reject menu items purely on route mismatch; resourceKey + permission is enough.
-      if (allowedMenuKeys.has(item.resourceKey)) return true;
-      const action = item.requiredAction || "VIEW";
-      return can(safeResources, item.resourceKey, action);
+      const normalizedKey = normalizeKey(item.resourceKey);
+      if (permissionsMap) {
+        const set = permissionsMap[normalizedKey];
+        if (!set || set.size === 0) return false;
+      } else {
+        const action = item.requiredAction || "VIEW";
+        if (!can(safeResources, item.resourceKey, action)) return false;
+      }
+      // Require that the menu key exists in ui_resources (keeps unseen keys out)
+      if (!menuResourceKeys.has(normalizedKey)) return false;
+      return true;
     });
   } catch (e) {
     console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });

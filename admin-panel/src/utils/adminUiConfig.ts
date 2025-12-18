@@ -24,7 +24,9 @@ export type AdminScope = {
 export type AdminUiConfig = {
   role: string | null;
   scope: AdminScope | null;
-  resources: UiResource[];
+  ui_resources: UiResource[];
+  permissions: any[];
+  resources?: UiResource[]; // compatibility alias
 };
 
 export function getResource(

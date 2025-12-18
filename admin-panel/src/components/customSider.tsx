@@ -49,7 +49,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { resources, role: configRole } = useAdminUiConfig();
+  const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
   const storageRole = getUserRoleFromStorage("CustomSider");
   const effectiveRole = (configRole as any) || storageRole;
 
@@ -57,12 +57,13 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const [navItems, setNavItems] = useState<NavMenuItem[]>(() => filterMenuByRole(effectiveRole));
   const [menuError, setMenuError] = useState<string | null>(null);
-  const resourcesCount = resources?.length || 0;
+  const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
+  const resourcesCount = menuResources?.length || 0;
   const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
 
   useEffect(() => {
     try {
-      const built = filterMenuByResources(resources, effectiveRole);
+      const built = filterMenuByResources(menuResources, effectiveRole);
       const builtCount = built.length;
       console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });
       if (isDebug) {
@@ -81,7 +82,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
       if (resourcesCount > 0 && builtCount === 0) {
         console.error("[menu] built menu empty despite resources; keeping previous", {
-          resourcesSample: (resources || []).slice(0, 5),
+          resourcesSample: (menuResources || []).slice(0, 5),
         });
         setMenuError("Menu config could not be built. Showing last known menu.");
         return;
@@ -90,10 +91,10 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       setMenuError(null);
       setNavItems(builtCount > 0 ? built : filterMenuByRole(effectiveRole));
     } catch (e) {
-      console.error("[sidebar] build failed", e, { resourcesSample: (resources || []).slice(0, 5) });
+      console.error("[sidebar] build failed", e, { resourcesSample: (menuResources || []).slice(0, 5) });
       setMenuError("Menu failed to load. Showing last known menu.");
     }
-  }, [effectiveRole, resources, resourcesCount]);
+  }, [effectiveRole, menuResources, resourcesCount]);
 
   useEffect(() => {
     console.log("[CustomSider] render", { hasUiConfig: resourcesCount > 0, menuLen: navItems.length });

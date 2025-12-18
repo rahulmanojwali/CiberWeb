@@ -13,6 +13,8 @@ type AdminUiContextValue = AdminUiConfig & {
 const defaultValue: AdminUiContextValue = {
   role: null,
   scope: null,
+  ui_resources: [],
+  permissions: [],
   resources: [],
   loading: false,
   error: null,
@@ -55,7 +57,8 @@ const readCachedConfig = (): AdminUiConfig | null => {
     return {
       role: parsed.role ?? null,
       scope: parsed.scope ?? null,
-      resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+      ui_resources: Array.isArray(parsed.ui_resources) ? parsed.ui_resources : [],
+      permissions: Array.isArray(parsed.permissions) ? parsed.permissions : [],
     };
   } catch {
     return null;
@@ -124,7 +127,8 @@ const normalizeScope = (scope: any): AdminScope | null => {
 export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<string | null>(null);
   const [scope, setScope] = useState<AdminScope | null>(null);
-  const [resources, setResources] = useState<UiResource[]>([]);
+  const [uiResources, setUiResources] = useState<UiResource[]>([]);
+  const [permissions, setPermissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,7 +138,11 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
     if (cached) {
       setRole(canonicalRoleSlug(cached.role));
       setScope(normalizeScope(cached.scope));
-      setResources(Array.isArray(cached.resources) ? cached.resources : []);
+      setUiResources(Array.isArray(cached.ui_resources) ? cached.ui_resources : []);
+      setPermissions(Array.isArray(cached.permissions) ? cached.permissions : []);
+      if (Array.isArray((cached as any).resources) && uiResources.length === 0) {
+        setUiResources((cached as any).resources);
+      }
     }
   }, []);
 
@@ -191,14 +199,26 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
       const respData = resp?.data || {};
       const nextRole: string | null = canonicalRoleSlug(respData?.role ?? null);
       const nextScope = normalizeScope(respData?.scope);
-      const nextResources: UiResource[] = Array.isArray(respData?.resources)
-        ? respData.resources
+      const nextUiResources: UiResource[] = Array.isArray(respData?.ui_resources)
+        ? respData.ui_resources
+        : Array.isArray(respData?.resources)
+          ? respData.resources
+          : [];
+      const nextPermissions: any[] = Array.isArray(respData?.permissions)
+        ? respData.permissions
         : [];
 
       setRole(nextRole);
       setScope(nextScope);
-      setResources(nextResources);
-      writeCachedConfig({ role: nextRole, scope: nextScope, resources: nextResources });
+      setUiResources(nextUiResources);
+      setPermissions(nextPermissions);
+      writeCachedConfig({
+        role: nextRole,
+        scope: nextScope,
+        ui_resources: nextUiResources,
+        permissions: nextPermissions,
+        resources: nextUiResources,
+      });
       syncUserScope(nextScope);
     } catch (e: any) {
       setError(e?.message || "Network error while loading admin UI config.");
@@ -215,12 +235,14 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
     () => ({
       role,
       scope,
-      resources,
+      ui_resources: uiResources,
+      permissions,
+      resources: uiResources,
       loading,
       error,
       refresh: (opts?: { invalidate?: boolean }) => fetchConfig(opts),
     }),
-    [role, scope, resources, loading, error, fetchConfig],
+    [role, scope, uiResources, permissions, loading, error, fetchConfig],
   );
 
   return (

@@ -108,7 +108,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const currentLanguage = normalizeLanguageCode(
     i18n.language || DEFAULT_LANGUAGE,
   );
-  const { resources, role: configRole } = useAdminUiConfig();
+  const { ui_resources, role: configRole, resources: compatResources } = useAdminUiConfig();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuExpanded, setMenuExpanded] = useState<Record<string, boolean>>({});
@@ -118,10 +118,11 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   console.log("[Header] resolved role from cd_user:", role, "config role:", configRole);
 
   const navItems: NavMenuItem[] = useMemo(() => {
-    const items = filterMenuByResources(resources, effectiveRole);
-    console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: resources.length }, items);
+    const source = ui_resources?.length ? ui_resources : compatResources || [];
+    const items = filterMenuByResources(source, effectiveRole);
+    console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: source.length }, items);
     return items;
-  }, [effectiveRole, resources]);
+  }, [effectiveRole, ui_resources, compatResources]);
   const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
   const handleToggleGroup = useCallback((key: string) => {
     setMenuExpanded((prev) => ({ ...prev, [key]: !prev[key] }));

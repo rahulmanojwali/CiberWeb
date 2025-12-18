@@ -40,7 +40,10 @@ export function usePermissions() {
 
   const permissionsMap = useMemo(() => {
     const map: Record<string, Set<string>> = {};
-    (uiConfig.resources || []).forEach((res: any) => {
+    const permSource = uiConfig.permissions || [];
+    const fallback = (uiConfig as any).resources || [];
+    const merged = permSource.length ? permSource : fallback;
+    merged.forEach((res: any) => {
       const key = normalizeResourceKey(res.resource_key || res.resource || "");
       if (!key) return;
       const actionsRaw = res.allowed_actions ?? res.actions ?? res.permissions ?? [];
@@ -50,7 +53,7 @@ export function usePermissions() {
       map[key] = set;
     });
     return map;
-  }, [uiConfig.resources]);
+  }, [uiConfig.permissions, (uiConfig as any).resources]);
 
   const can = (resourceKey: string, action: Action) => {
     const normKey = normalizeResourceKey(resourceKey);

@@ -15,7 +15,7 @@ import { useAdminUiConfig } from "../contexts/admin-ui-config";
 
 export const LeftSider: React.FC = () => {
   const location = useLocation();
-  const { resources, role: configRole } = useAdminUiConfig();
+  const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
   const role = getUserRoleFromStorage("LeftSider");
   const effectiveRole = (configRole as any) || role;
   const theme = useTheme();
@@ -28,8 +28,8 @@ export const LeftSider: React.FC = () => {
       : 64;
 
   const items = useMemo<MenuItem[]>(
-    () => filterMenuByResources(resources, effectiveRole),
-    [effectiveRole, resources],
+    () => filterMenuByResources(ui_resources?.length ? ui_resources : compatResources || [], effectiveRole),
+    [effectiveRole, ui_resources, compatResources],
   );
 
   const flattenMenu = (menuItems: MenuItem[]): MenuItem[] => {

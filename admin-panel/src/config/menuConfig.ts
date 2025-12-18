@@ -142,7 +142,7 @@ export const APP_MENU: AppMenuItem[] = [
       labelKey: "menu.rolePermissions",
       path: "/system/roles-permissions",
       icon: React.createElement(SecurityOutlinedIcon),
-      resourceKey: "admin_users.menu", // keep restricted; visible only to SUPER_ADMIN via roles
+      resourceKey: "role_policies.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN"],
     },

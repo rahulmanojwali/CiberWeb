@@ -128,7 +128,7 @@ export const Mandis: React.FC = () => {
     role: uiConfig.role || null,
     org_code: uiConfig.scope?.org_code || null,
   });
-  const isOrgAdminRole = (uiConfig.role || "").toUpperCase() === "ORG_ADMIN";
+  const isOrgAdminRole = false; // role-based gating removed; rely on permissions + record lock
   const canCreate = can("mandis.create", "CREATE");
   const canUpdate = can("mandis.edit", "UPDATE");
   const canDeactivate = can("mandis.deactivate", "DEACTIVATE");
@@ -783,7 +783,7 @@ export const Mandis: React.FC = () => {
                 value={form.name_en}
                 onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
                 fullWidth
-                disabled={isReadOnly || isOrgAdminRole}
+                disabled={isReadOnly}
               />
             </Grid>
               <Grid item xs={12} sm={6}>

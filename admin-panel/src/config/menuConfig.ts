@@ -147,23 +147,23 @@ export const APP_MENU: AppMenuItem[] = [
     roles: ["SUPER_ADMIN"],
     children: [
       {
-      key: "userRoleManager",
-      labelKey: "menu.userRoleManager",
-      path: "/system/user-role-manager",
-      icon: React.createElement(SecurityOutlinedIcon),
-      resourceKey: "user_roles.menu",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN"],
-    },
-    {
-      key: "rolesPermissions",
-      labelKey: "menu.rolePermissions",
-      path: "/system/role-policy-manager",
-      icon: React.createElement(SecurityOutlinedIcon),
-      resourceKey: "menu.role_policies",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN"],
-    },
+        key: "userRoleManager",
+        labelKey: "menu.userRoleManager",
+        path: "/system/user-role-manager",
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: "user_roles.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
+        key: "rolesPermissions",
+        labelKey: "menu.rolePermissions",
+        path: "/system/role-policy-manager",
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: "menu.role_policies",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
       {
         key: "resourceRegistry",
         labelKey: "menu.resourceRegistry",
@@ -816,53 +816,21 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
     let excludedUiType = 0;
     const total = resources.length;
 
-    // Narrow to main sidebar menu entries with routes
-    const allowedRoutes = new Set(
-      resources
-        .filter((r) => {
-          const isMenu = r.ui_type === "menu";
-          if (!isMenu) excludedUiType += 1;
-          const inGroup = (r.metadata as any)?.group === "main_sidebar";
-          if (!inGroup) excludedNoGroup += 1;
-          const hasRoute = typeof r.route === "string" && r.route.length > 0;
-          if (!hasRoute) excludedNoRoute += 1;
-          const endsWithMenu =
-            typeof r.resource_key === "string" ? r.resource_key.endsWith(".menu") : true;
-          if (!endsWithMenu) excludedNotMenu += 1;
-          return isMenu && inGroup && hasRoute && endsWithMenu;
-        })
-        .map((r) => r.route),
-    );
-    // Allow matching by resource_key even if route is missing (some items return null route)
+    // Collect menu resources; do NOT filter them out by route. Visibility is governed by permissions.
+    const menuResources = resources.filter((r) => r.ui_type === "menu");
     const allowedMenuKeys = new Set(
-      resources
-        .filter((r) => {
-          const isMenu = r.ui_type === "menu";
-          const inGroup = (r.metadata as any)?.group === "main_sidebar";
-          const endsWithMenu =
-            typeof r.resource_key === "string" ? r.resource_key.endsWith(".menu") : true;
-          return isMenu && inGroup && endsWithMenu;
-        })
+      menuResources
+        .filter((r) => typeof r.resource_key === "string" && r.resource_key.endsWith(".menu"))
         .map((r) => r.resource_key),
     );
-
-    // Deduplicate by route with safe ordering
-    const sortedResources = (resources || []).map((r) => ({
-      ...r,
-      order: typeof r.order === "number" ? r.order : 9999,
-    }));
-    const dedupedByRoute = new Map<string, UiResource>();
-    sortedResources.forEach((r) => {
-      const key = r.route || r.resource_key || "";
+    // Deduplicate by resource_key for stable can() resolution
+    const dedupedByKey = new Map<string, UiResource>();
+    menuResources.forEach((r) => {
+      const key = r.resource_key || r.route || "";
       if (!key) return;
-      if (r.route && !allowedRoutes.has(r.route)) return;
-      const existing = dedupedByRoute.get(key);
-      if (!existing || r.order < (existing as any).order) {
-        dedupedByRoute.set(key, r);
-      }
+      if (!dedupedByKey.has(key)) dedupedByKey.set(key, r);
     });
-
-    const safeResources = Array.from(dedupedByRoute.values());
+    const safeResources = Array.from(dedupedByKey.values());
 
     console.log("[menuConfig] filterMenuByResources diagnostic", {
       total,
@@ -873,28 +841,69 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
       excludedUiType,
     });
 
-    return filterHierarchy(APP_MENU, (item) => {
-      if (item.resourceKey === "menu.role_policies") {
-        const hasItem = !!item;
-        const hasResourceKey = allowedMenuKeys.has("menu.role_policies");
-        const canView = can(safeResources, "menu.role_policies", item.requiredAction || "VIEW");
-        console.log("[menu debug role_policies]", {
-          hasItem,
+    // Debug: system menu config visibility (only when debugAuth=1)
+    try {
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      if (params?.get("debugAuth") === "1") {
+        const systemConfig = APP_MENU.find((g) => g.key === "system");
+        console.log("[menuConfig debug system config]", {
+          hasSystemConfig: !!systemConfig,
+          children: systemConfig?.children?.map((c) => ({
+            key: c.key,
+            path: c.path,
+            resourceKey: c.resourceKey,
+            requiredAction: c.requiredAction,
+          })),
+        });
+      }
+    } catch (_) {
+      // ignore debug errors
+    }
+
+    // Prepare label overrides from resources
+    const resourceMap = new Map<string, UiResource>();
+    menuResources.forEach((r) => {
+      if (r.resource_key) resourceMap.set(r.resource_key, r);
+    });
+    const lang =
+      (typeof navigator !== "undefined" && navigator.language
+        ? navigator.language.split("-")[0]
+        : "en") || "en";
+    const applyResourceLabels = (items: AppMenuItem[]): AppMenuItem[] =>
+      items.map((it) => {
+        const res = it.resourceKey ? resourceMap.get(it.resourceKey) : undefined;
+        const labelOverride =
+          (res as any)?.label_i18n?.[lang] ||
+          (res as any)?.element ||
+          it.labelKey;
+        const children = it.children ? applyResourceLabels(it.children) : undefined;
+        return cloneMenuItem(it, {
+          labelKey: labelOverride,
+          children,
+        });
+      });
+    const labeledMenu = applyResourceLabels(APP_MENU);
+
+    return filterHierarchy(labeledMenu, (item) => {
+      const watchKeys = new Set([
+        "menu.role_policies",
+        "user_roles.menu",
+        "resource_registry.menu",
+      ]);
+      if (item.resourceKey && watchKeys.has(item.resourceKey)) {
+        const hasResourceKey = allowedMenuKeys.has(item.resourceKey);
+        const canView = can(safeResources, item.resourceKey, item.requiredAction || "VIEW");
+        const result = hasResourceKey || canView;
+        console.log("[menu debug watch]", {
+          key: item.resourceKey,
           hasResourceKey,
           canView,
-          routeMatch: safeResources.find((r) => r.route === item.path)?.resource_key,
+          finalIncluded: result,
         });
       }
       if (!item.resourceKey) return true;
       // Extra guard: ensure route is permitted if present
-      if (item.path && safeResources.length) {
-        const match = safeResources.find((r) => r.route === item.path);
-        if (!match) {
-          // fallback: allow if resource_key is explicitly present
-          const byKey = safeResources.find((r) => r.resource_key === item.resourceKey);
-          if (!byKey) return false;
-        }
-      }
+      // Do not hard-reject menu items purely on route mismatch; resourceKey + permission is enough.
       if (allowedMenuKeys.has(item.resourceKey)) return true;
       const action = item.requiredAction || "VIEW";
       return can(safeResources, item.resourceKey, action);

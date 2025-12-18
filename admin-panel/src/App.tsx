@@ -103,7 +103,7 @@ const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <RefineKbarProvider>
         <ColorModeContextProvider>
           <CssBaseline />

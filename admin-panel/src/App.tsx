@@ -181,6 +181,7 @@ function App() {
                     <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                     <Route path="/gate-movements" element={<GateMovements />} />
                     <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
+                    <Route path="/system/role-policy-manager" element={<RolesPermissionsPage />} />
                     <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                     <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                     <Route path="/auction-sessions" element={<AuctionSessions />} />

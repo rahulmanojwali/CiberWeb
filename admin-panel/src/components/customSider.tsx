@@ -58,12 +58,26 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const [navItems, setNavItems] = useState<NavMenuItem[]>(() => filterMenuByRole(effectiveRole));
   const [menuError, setMenuError] = useState<string | null>(null);
   const resourcesCount = resources?.length || 0;
+  const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
 
   useEffect(() => {
     try {
       const built = filterMenuByResources(resources, effectiveRole);
       const builtCount = built.length;
       console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });
+      if (isDebug) {
+        const systemGroup = built.find((g) => g.key === "system");
+        console.log("[sider debug] system group", {
+          totalGroups: built.length,
+          systemChildCount: systemGroup?.children?.length || 0,
+          systemChildren: systemGroup?.children?.map((c) => ({
+            key: c.key,
+            label: (c as any).label || c.labelKey,
+            path: c.path,
+            resourceKey: c.resourceKey,
+          })),
+        });
+      }
 
       if (resourcesCount > 0 && builtCount === 0) {
         console.error("[menu] built menu empty despite resources; keeping previous", {

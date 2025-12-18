@@ -43,7 +43,7 @@ export function usePermissions() {
     (uiConfig.resources || []).forEach((res: any) => {
       const key = normalizeResourceKey(res.resource_key || res.resource || "");
       if (!key) return;
-      const actionsRaw = res.allowed_actions ?? res.actions ?? [];
+      const actionsRaw = res.allowed_actions ?? res.actions ?? res.permissions ?? [];
       const actions = normalizeActionsArray(actionsRaw);
       const set = new Set<string>();
       actions.forEach((val: string) => set.add(val));

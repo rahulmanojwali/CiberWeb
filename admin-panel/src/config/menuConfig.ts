@@ -137,15 +137,6 @@ export const APP_MENU: AppMenuItem[] = [
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
     },
-    {
-      key: "rolesPermissions",
-      labelKey: "menu.rolePermissions",
-      path: "/system/roles-permissions",
-      icon: React.createElement(SecurityOutlinedIcon),
-      resourceKey: "role_policies.menu",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN"],
-    },
   ],
 },
 
@@ -156,19 +147,28 @@ export const APP_MENU: AppMenuItem[] = [
     roles: ["SUPER_ADMIN"],
     children: [
       {
-        key: "userRoleManager",
-        labelKey: "menu.userRoleManager",
-        path: "/system/user-role-manager",
-        icon: React.createElement(SecurityOutlinedIcon),
-      resourceKey: "admin_users.menu",
+      key: "userRoleManager",
+      labelKey: "menu.userRoleManager",
+      path: "/system/user-role-manager",
+      icon: React.createElement(SecurityOutlinedIcon),
+      resourceKey: "user_roles.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN"],
     },
     {
-      key: "resourceRegistry",
-      labelKey: "menu.resourceRegistry",
-      path: "/system/resource-registry",
+      key: "rolesPermissions",
+      labelKey: "menu.rolePermissions",
+      path: "/system/role-policy-manager",
       icon: React.createElement(SecurityOutlinedIcon),
+      resourceKey: "menu.role_policies",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN"],
+    },
+      {
+        key: "resourceRegistry",
+        labelKey: "menu.resourceRegistry",
+        path: "/system/resource-registry",
+        icon: React.createElement(SecurityOutlinedIcon),
         resourceKey: "resource_registry.menu",
         requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
@@ -874,6 +874,17 @@ export function filterMenuByResources(resources: UiResource[] | undefined, fallb
     });
 
     return filterHierarchy(APP_MENU, (item) => {
+      if (item.resourceKey === "menu.role_policies") {
+        const hasItem = !!item;
+        const hasResourceKey = allowedMenuKeys.has("menu.role_policies");
+        const canView = can(safeResources, "menu.role_policies", item.requiredAction || "VIEW");
+        console.log("[menu debug role_policies]", {
+          hasItem,
+          hasResourceKey,
+          canView,
+          routeMatch: safeResources.find((r) => r.route === item.path)?.resource_key,
+        });
+      }
       if (!item.resourceKey) return true;
       // Extra guard: ensure route is permitted if present
       if (item.path && safeResources.length) {

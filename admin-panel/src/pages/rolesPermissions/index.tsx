@@ -30,6 +30,7 @@ type RegistryEntry = {
   allowed_actions: string[];
   description?: string;
   aliases?: string[];
+  ui_only?: boolean;
 };
 
 const RolesPermissionsPage: React.FC = () => {
@@ -37,7 +38,7 @@ const RolesPermissionsPage: React.FC = () => {
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
   const username: string = parsedUser?.username || "";
   const { enqueueSnackbar } = useSnackbar();
-  const { refresh } = useAdminUiConfig();
+  const { refresh, ui_resources } = useAdminUiConfig();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,23 +91,44 @@ const RolesPermissionsPage: React.FC = () => {
     return map;
   }, [editablePoliciesByRole, selectedRole]);
 
+  const mergedRegistry = useMemo(() => {
+    const baseKeys = new Set(registry.map((r) => r.resource_key));
+    const uiExtras =
+      ui_resources
+        ?.filter((u: any) => u?.resource_key && !baseKeys.has(u.resource_key))
+        .map((u: any) => ({
+          resource_key: u.resource_key,
+          module: u.module || "UI resource",
+          allowed_actions: u.allowed_actions || [],
+          description: "UI resource not registered in resource registry",
+          aliases: u.aliases || [],
+          is_active: u.is_active,
+          ui_only: true,
+        })) || [];
+    return [...registry, ...uiExtras];
+  }, [registry, ui_resources]);
+
   const moduleOptions = useMemo(() => {
     const set = new Set<string>();
-    registry.forEach((r) => {
+    mergedRegistry.forEach((r) => {
       if (r.module) set.add(r.module);
     });
     return ["ALL", ...Array.from(set).sort()];
-  }, [registry]);
+  }, [mergedRegistry]);
 
   const filteredResources = useMemo(() => {
-    if (selectedModule === "ALL") return registry;
-    return registry.filter((r) => (r.module || "") === selectedModule);
-  }, [registry, selectedModule]);
+    if (selectedModule === "ALL") return mergedRegistry;
+    return mergedRegistry.filter((r) => (r.module || "") === selectedModule);
+  }, [mergedRegistry, selectedModule]);
 
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
       const current = prev[selectedRole] || [];
       const next = [...current];
+      const regEntry = resourcesByKey[resourceKey];
+      if (regEntry?.ui_only) {
+        return prev; // do not allow toggling unregistered resources
+      }
       const idx = next.findIndex((p) => p.resource_key === resourceKey);
       if (checked) {
         if (idx === -1) {
@@ -131,11 +153,11 @@ const RolesPermissionsPage: React.FC = () => {
 
   const resourcesByKey = useMemo(() => {
     const map: Record<string, any> = {};
-    registry.forEach((r: any) => {
+    mergedRegistry.forEach((r: any) => {
       if (r?.resource_key) map[r.resource_key] = r;
     });
     return map;
-  }, [registry]);
+  }, [mergedRegistry]);
 
   const setsEqual = (a?: Set<string>, b?: Set<string>) => {
     if (!a && !b) return true;
@@ -311,8 +333,8 @@ const RolesPermissionsPage: React.FC = () => {
           </TableHead>
           <TableBody>
             {filteredResources.map((r) => {
-              const allowedActions = r.allowed_actions || [];
-              const granted = rolePermsLookup[r.resource_key] || new Set<string>();
+      const allowedActions = r.allowed_actions || [];
+      const granted = rolePermsLookup[r.resource_key] || new Set<string>();
               return (
                 <TableRow key={r.resource_key}>
                   <TableCell>
@@ -323,9 +345,12 @@ const RolesPermissionsPage: React.FC = () => {
                           {r.description}
                         </Typography>
                       )}
+                      {r.ui_only && (
+                        <Chip size="small" color="warning" label="Not in registry" />
+                      )}
                       {r.aliases?.length ? (
                         <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                          {r.aliases.map((a) => (
+                          {r.aliases.map((a: string) => (
                             <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
                           ))}
                         </Stack>
@@ -335,16 +360,20 @@ const RolesPermissionsPage: React.FC = () => {
                   <TableCell>{r.module || "-"}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {allowedActions.map((action) => (
-                        <Chip
-                          key={`${r.resource_key}-${action}`}
-                          label={action}
-                          color={granted.has(action) ? "primary" : "default"}
-                          variant={granted.has(action) ? "filled" : "outlined"}
-                          onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
-                          sx={{ cursor: "pointer" }}
-                        />
-                      ))}
+                      {allowedActions.length === 0 && r.ui_only ? (
+                        <Chip label="N/A (register first)" size="small" variant="outlined" />
+                      ) : (
+                        allowedActions.map((action: string) => (
+                          <Chip
+                            key={`${r.resource_key}-${action}`}
+                            label={action}
+                            color={granted.has(action) ? "primary" : "default"}
+                            variant={granted.has(action) ? "filled" : "outlined"}
+                            onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
+                            sx={{ cursor: "pointer" }}
+                          />
+                        ))
+                      )}
                     </Stack>
                   </TableCell>
                 </TableRow>

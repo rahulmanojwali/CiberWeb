@@ -300,6 +300,48 @@ const RolesPermissionsPage: React.FC = () => {
     return augmented;
   };
 
+  const finalizePayloadKeys = (entries: { resource_key: string; actions: string[] }[]) => {
+    const errors: string[] = [];
+    const mapped: { resource_key: string; actions: string[] }[] = [];
+    entries.forEach((p) => {
+      const normKey = normalizeKey(p.resource_key);
+      let key = normKey;
+      if (!resourcesByKey[key]) {
+        if (key.endsWith(".edit")) {
+          const base = key.replace(/\.edit$/, "");
+          const candidate = `${base}.update`;
+          if (resourcesByKey[candidate]) key = candidate;
+        } else if (key.endsWith(".update")) {
+          const base = key.replace(/\.update$/, "");
+          const candidate = `${base}.edit`;
+          if (resourcesByKey[candidate]) key = candidate;
+        }
+      }
+      if (!resourcesByKey[key]) {
+        errors.push(key);
+        return;
+      }
+      const allowedSet = augmentAllowedByKey(
+        key,
+        new Set<string>((resourcesByKey[key]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase())),
+      );
+      const normActions = Array.from(
+        new Set(
+          (p.actions || []).map((a) => {
+            const upper = String(a || "").toUpperCase();
+            if (upper === "EDIT") return "UPDATE";
+            if (upper === "VIEW_DETAIL") return allowedSet.has("VIEW_DETAIL") ? "VIEW_DETAIL" : "VIEW";
+            const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];
+            if (specials.includes(upper)) return allowedSet.has("UPDATE") ? "UPDATE" : upper;
+            return upper;
+          }),
+        ),
+      ).filter((a) => !allowedSet.size || allowedSet.has(a));
+      mapped.push({ resource_key: key, actions: normActions });
+    });
+    return { mapped, errors };
+  };
+
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
       const current = prev[selectedRole] || [];
@@ -436,12 +478,20 @@ const RolesPermissionsPage: React.FC = () => {
         }
       });
 
+      // Final canonical rewrite against registry truth
+      const { mapped, errors } = finalizePayloadKeys(payload);
+      if (errors.length) {
+        setError(`Invalid registry key(s): ${errors.join(", ")}`);
+        return;
+      }
+      const finalPayload = mapped;
+
       setLoading(true);
       const resp = await updateRolePolicies({
         username,
         country: "IN",
         role_slug: selectedRole,
-        permissions: payload,
+        permissions: finalPayload,
       });
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Role policy updated.", { variant: "success" });

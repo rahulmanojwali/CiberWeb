@@ -83,18 +83,17 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       }
 
       if (resourcesCount > 0 && builtCount === 0) {
-        console.error("[menu] built menu empty despite resources; keeping previous", {
-          resourcesSample: (menuResources || []).slice(0, 5),
-        });
-        setMenuError("Menu config could not be built. Showing last known menu.");
+        console.warn("[menu] built menu empty after pruning; showing empty state");
+        setMenuError("No menu access assigned. Contact admin.");
+        setNavItems([]);
         return;
       }
 
       setMenuError(null);
-      setNavItems(builtCount > 0 ? built : filterMenuByRole(effectiveRole));
+      setNavItems(builtCount > 0 ? built : []);
     } catch (e) {
       console.error("[sidebar] build failed", e, { resourcesSample: (menuResources || []).slice(0, 5) });
-      setMenuError("Menu failed to load. Showing last known menu.");
+      setMenuError("Menu failed to load.");
     }
   }, [effectiveRole, menuResources, resourcesCount, permissionsMap]);
 
@@ -184,6 +183,15 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             pb: 2,
           }}
         >
+          {menuError && navItems.length === 0 && (
+            <ListItem disablePadding>
+              <ListItemText
+                primary={menuError}
+                primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
+                sx={{ px: 1.5, py: 0.5 }}
+              />
+            </ListItem>
+          )}
           {navItems.map((item) => {
             const isGroup = !!item.children?.length && !item.path;
             const labelKey = item.key || item.labelKey || item.path;

@@ -73,6 +73,14 @@ export const LeftSider: React.FC = () => {
       }}
     >
       <Box component="ul" sx={{ listStyle: "none", m: 0, p: 1 }}>
+        {navigableItems.length === 0 && (
+          <Box
+            component="li"
+            sx={{ px: 1, py: 1, color: "text.secondary", fontSize: "0.85rem" }}
+          >
+            {t("layout.sider.noMenuAccess", { defaultValue: "No menu access assigned. Contact admin." })}
+          </Box>
+        )}
         {navigableItems.map((item) => {
           const active = location.pathname === item.path;
           return (

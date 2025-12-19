@@ -573,10 +573,13 @@ const RolesPermissionsPage: React.FC = () => {
             )}
             {missingForRole.length > 0 && (
               <Alert severity="info">
-                Missing keys (not granted yet):{" "}
+                Policy keys not present in UI resources (debug only):{" "}
                 {missingForRole.map((m: string) => (
                   <Chip key={m} label={m} size="small" sx={{ mr: 0.5 }} />
-                ))}
+                ))}{" "}
+                <Typography variant="caption" display="block" color="text.secondary">
+                  These are valid registry/policy actions that may not have UI menu entries. They remain assignable and are used for button gating.
+                </Typography>
               </Alert>
             )}
           </Stack>

@@ -33,6 +33,100 @@ type RegistryEntry = {
   ui_only?: boolean;
 };
 
+const normalizeKey = (key: string): string => {
+  const k = String(key || '').trim();
+  if (!k) return '';
+  const lower = k.toLowerCase().replace(/\s+/g, '');
+  if (lower.endsWith('.update')) return lower.replace(/\.update$/, '.edit');
+  if (lower.endsWith('.delete') || lower.endsWith('.disable') || lower.endsWith('.toggle')) {
+    return lower.replace(/\.(delete|disable|toggle)$/, '.deactivate');
+  }
+  return lower;
+};
+
+const resolveModuleName = (key: string): string => {
+  if (!key) return 'Misc';
+  const k = normalizeKey(key);
+  const starts = (p: string) => k.startsWith(p);
+
+  if (starts('menu.role_policies') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
+    return 'System Administration';
+  }
+  if (starts('organisations.') || starts('org_mandi_mappings.')) {
+    return 'Organisation Management';
+  }
+  if (starts('commodities.') || starts('commodity_products.')) {
+    return 'Masters – Commodities';
+  }
+  if (
+    starts('auction_methods_masters.') ||
+    starts('auction_rounds_masters.') ||
+    starts('cm_mandi_auction_policies.') ||
+    starts('auction_sessions.') ||
+    starts('auction_lots.') ||
+    starts('auction_results.')
+  ) {
+    return 'Auctions';
+  }
+  if (
+    starts('mandis.') ||
+    starts('mandi_facilities.') ||
+    starts('mandi_hours.') ||
+    starts('mandi_coverage.') ||
+    starts('mandi_prices.')
+  ) {
+    return 'Mandi Setup & Configuration';
+  }
+  if (
+    starts('mandi_gates.') ||
+    starts('gate_entry_reasons_masters.') ||
+    starts('gate_vehicle_types_masters.') ||
+    starts('cm_gate_devices.') ||
+    starts('gate_entry_tokens.') ||
+    starts('gate_pass_tokens.') ||
+    starts('weighment_tickets.') ||
+    starts('gate_movements_log.') ||
+    starts('gate_device_configs.')
+  ) {
+    return 'Gate & Yard';
+  }
+  if (starts('traders.') || starts('farmers.') || starts('trader_approvals.')) {
+    return 'Participants';
+  }
+  if (
+    starts('payment_models.') ||
+    starts('payment_modes.') ||
+    starts('org_payment_settings.') ||
+    starts('mandi_payment_settings.') ||
+    starts('commodity_fees.') ||
+    starts('custom_fees.') ||
+    starts('role_custom_fees.') ||
+    starts('settlements.') ||
+    starts('payments_log.') ||
+    starts('subscriptions.') ||
+    starts('subscription_invoices.')
+  ) {
+    return 'Payments & Finance';
+  }
+  if (starts('reports.')) {
+    return 'Reports';
+  }
+  return 'Misc';
+};
+
+const moduleOrder = [
+  'System Administration',
+  'Organisation Management',
+  'Masters – Commodities',
+  'Auctions',
+  'Mandi Setup & Configuration',
+  'Gate & Yard',
+  'Participants',
+  'Payments & Finance',
+  'Reports',
+  'Misc',
+];
+
 const RolesPermissionsPage: React.FC = () => {
   const rawUser = typeof window !== "undefined" ? localStorage.getItem("cd_user") : null;
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
@@ -59,8 +153,18 @@ const RolesPermissionsPage: React.FC = () => {
         const resp = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
         const payload = resp?.data || resp || {};
         const rolesList: RoleEntry[] = payload.roles || [];
-        const registryList: RegistryEntry[] = payload.registry || [];
-        const pMap: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
+        const registryList: RegistryEntry[] = (payload.registry || []).map((r: any) => ({
+          ...r,
+          resource_key: normalizeKey(r.resource_key),
+        }));
+        const pMapRaw: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
+        const pMap: Record<string, PolicyEntry[]> = {};
+        Object.keys(pMapRaw || {}).forEach((roleKey) => {
+          pMap[roleKey] = (pMapRaw[roleKey] || []).map((p: any) => ({
+            resource_key: normalizeKey(p.resource_key),
+            actions: (p.actions || []).map((a: string) => a.toUpperCase()),
+          }));
+        });
 
         setRoles(rolesList);
         setRegistry(registryList);
@@ -86,7 +190,7 @@ const RolesPermissionsPage: React.FC = () => {
     const selectedPerms = editablePoliciesByRole[selectedRole] || [];
     const map: Record<string, Set<string>> = {};
     selectedPerms.forEach((p) => {
-      const key = p.resource_key;
+      const key = normalizeKey(p.resource_key);
       map[key] = new Set((p.actions || []).map((a) => a.toUpperCase()));
     });
     return map;
@@ -96,17 +200,22 @@ const RolesPermissionsPage: React.FC = () => {
     const baseKeys = new Set(registry.map((r) => r.resource_key));
     const uiExtras =
       ui_resources
-        ?.filter((u: any) => u?.resource_key && !baseKeys.has(u.resource_key))
+        ?.filter((u: any) => u?.resource_key && !baseKeys.has(normalizeKey(u.resource_key)))
         .map((u: any) => ({
-          resource_key: u.resource_key,
-          module: u.module || "UI resource",
+          resource_key: normalizeKey(u.resource_key),
+          module: resolveModuleName(u.resource_key) || u.module || "UI resource",
           allowed_actions: u.allowed_actions || [],
           description: "UI resource not registered in resource registry",
           aliases: u.aliases || [],
           is_active: u.is_active,
           ui_only: true,
         })) || [];
-    return [...registry, ...uiExtras];
+    const normalizedRegistry = registry.map((r) => ({
+      ...r,
+      resource_key: normalizeKey(r.resource_key),
+      module: resolveModuleName(r.resource_key) || r.module,
+    }));
+    return [...normalizedRegistry, ...uiExtras];
   }, [registry, ui_resources]);
 
   const registeredResources = useMemo(

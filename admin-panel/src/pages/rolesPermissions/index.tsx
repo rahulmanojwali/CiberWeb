@@ -275,13 +275,21 @@ const RolesPermissionsPage: React.FC = () => {
         return prev; // do not allow toggling unregistered resources
       }
 
-      const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
-      const targetKey = resolveKeyForAction(resourceKey, normalizedAction);
+      const targetKey = resolveKeyForAction(resourceKey, action);
       if (!targetKey) {
-        setError(`Registry is missing an entry for ${resourceKey} (action ${normalizedAction}).`);
+        setError(`Registry is missing an entry for ${resourceKey} (action ${action}).`);
         return prev;
       }
       const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
+      const normalizedAction = (() => {
+        const upper = action.toUpperCase();
+        if (upper === "EDIT") return "UPDATE";
+        if (upper === "VIEW_DETAIL") {
+          if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
+          if (allowedSet.has("VIEW")) return "VIEW";
+        }
+        return upper;
+      })();
       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
         setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
         return prev;
@@ -350,12 +358,21 @@ const RolesPermissionsPage: React.FC = () => {
             return;
           }
           const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
-          if (allowedSet.size && !allowedSet.has(action)) {
-            setError(`Action ${action} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
+          const normalizedAction = (() => {
+            const upper = action.toUpperCase();
+            if (upper === "EDIT") return "UPDATE";
+            if (upper === "VIEW_DETAIL") {
+              if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
+              if (allowedSet.has("VIEW")) return "VIEW";
+            }
+            return upper;
+          })();
+          if (allowedSet.size && !allowedSet.has(normalizedAction)) {
+            setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
             return;
           }
           const existing = normalizedCurrentMap.get(targetKey) || new Set<string>();
-          existing.add(action);
+          existing.add(normalizedAction);
           normalizedCurrentMap.set(targetKey, existing);
         }
       }

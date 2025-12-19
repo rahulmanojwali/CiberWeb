@@ -266,6 +266,27 @@ const RolesPermissionsPage: React.FC = () => {
     return null;
   };
 
+  const normalizeActionForAllowed = (action: string, allowedSet: Set<string>) => {
+    const upper = action.toUpperCase();
+    if (upper === "EDIT") return "UPDATE";
+    if (upper === "VIEW_DETAIL") {
+      if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
+      if (allowedSet.has("VIEW")) return "VIEW";
+    }
+    // Special cases that should map to UPDATE when registry allows UPDATE
+    const specialUpdate = [
+      "APPROVE",
+      "REJECT",
+      "REQUEST_MORE_INFO",
+      "UPDATE_STATUS",
+      "RESET_PASSWORD",
+    ];
+    if (specialUpdate.includes(upper) && allowedSet.has("UPDATE")) {
+      return "UPDATE";
+    }
+    return upper;
+  };
+
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
       const current = prev[selectedRole] || [];
@@ -281,15 +302,7 @@ const RolesPermissionsPage: React.FC = () => {
         return prev;
       }
       const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
-      const normalizedAction = (() => {
-        const upper = action.toUpperCase();
-        if (upper === "EDIT") return "UPDATE";
-        if (upper === "VIEW_DETAIL") {
-          if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
-          if (allowedSet.has("VIEW")) return "VIEW";
-        }
-        return upper;
-      })();
+      const normalizedAction = normalizeActionForAllowed(action, allowedSet);
       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
         setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
         return prev;
@@ -358,15 +371,7 @@ const RolesPermissionsPage: React.FC = () => {
             return;
           }
           const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
-          const normalizedAction = (() => {
-            const upper = action.toUpperCase();
-            if (upper === "EDIT") return "UPDATE";
-            if (upper === "VIEW_DETAIL") {
-              if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
-              if (allowedSet.has("VIEW")) return "VIEW";
-            }
-            return upper;
-          })();
+          const normalizedAction = normalizeActionForAllowed(action, allowedSet);
           if (allowedSet.size && !allowedSet.has(normalizedAction)) {
             setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
             return;

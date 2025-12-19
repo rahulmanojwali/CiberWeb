@@ -48,6 +48,7 @@ const RolesPermissionsPage: React.FC = () => {
   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [selectedModule, setSelectedModule] = useState<string>("ALL");
+  const [activeTab, setActiveTab] = useState<"registered" | "unregistered">("registered");
   const [diagnostics, setDiagnostics] = useState<any>({});
 
   useEffect(() => {
@@ -108,18 +109,27 @@ const RolesPermissionsPage: React.FC = () => {
     return [...registry, ...uiExtras];
   }, [registry, ui_resources]);
 
+  const registeredResources = useMemo(
+    () => mergedRegistry.filter((r) => !r.ui_only),
+    [mergedRegistry],
+  );
+  const unregisteredResources = useMemo(
+    () => mergedRegistry.filter((r) => r.ui_only),
+    [mergedRegistry],
+  );
+
   const moduleOptions = useMemo(() => {
     const set = new Set<string>();
-    mergedRegistry.forEach((r) => {
+    registeredResources.forEach((r) => {
       if (r.module) set.add(r.module);
     });
     return ["ALL", ...Array.from(set).sort()];
-  }, [mergedRegistry]);
+  }, [registeredResources]);
 
   const filteredResources = useMemo(() => {
-    if (selectedModule === "ALL") return mergedRegistry;
-    return mergedRegistry.filter((r) => (r.module || "") === selectedModule);
-  }, [mergedRegistry, selectedModule]);
+    if (selectedModule === "ALL") return registeredResources;
+    return registeredResources.filter((r) => (r.module || "") === selectedModule);
+  }, [registeredResources, selectedModule]);
 
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
@@ -295,6 +305,7 @@ const RolesPermissionsPage: React.FC = () => {
                 label="Module"
                 value={selectedModule}
                 onChange={(e) => setSelectedModule(e.target.value)}
+                disabled={activeTab === "unregistered"}
               >
                 {moduleOptions.map((m) => (
                   <MenuItem key={m} value={m}>
@@ -303,12 +314,29 @@ const RolesPermissionsPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole || isProtectedRole}>
+            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole || isProtectedRole || activeTab === "unregistered"}>
               {loading ? "Saving..." : "Save"}
             </Button>
           </Stack>
         </Stack>
       </Paper>
+
+      <Stack direction="row" spacing={1}>
+        <Button
+          variant={activeTab === "registered" ? "contained" : "outlined"}
+          onClick={() => setActiveTab("registered")}
+          size="small"
+        >
+          Registered (assignable)
+        </Button>
+        <Button
+          variant={activeTab === "unregistered" ? "contained" : "outlined"}
+          onClick={() => setActiveTab("unregistered")}
+          size="small"
+        >
+          Unregistered UI resources
+        </Button>
+      </Stack>
 
       {isProtectedRole && (
         <Paper sx={{ p: 2 }}>
@@ -322,48 +350,43 @@ const RolesPermissionsPage: React.FC = () => {
         </Paper>
       )}
 
-      <Paper sx={{ p: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Resource</TableCell>
-              <TableCell>Module</TableCell>
-              <TableCell>Allowed Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredResources.map((r) => {
-      const allowedActions = r.allowed_actions || [];
-      const granted = rolePermsLookup[r.resource_key] || new Set<string>();
-              return (
-                <TableRow key={r.resource_key}>
-                  <TableCell>
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2">{r.resource_key}</Typography>
-                      {r.description && (
-                        <Typography variant="caption" color="text.secondary">
-                          {r.description}
-                        </Typography>
-                      )}
-                      {r.ui_only && (
-                        <Chip size="small" color="warning" label="Not in registry" />
-                      )}
-                      {r.aliases?.length ? (
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                          {r.aliases.map((a: string) => (
-                            <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
-                          ))}
-                        </Stack>
-                      ) : null}
-                    </Stack>
-                  </TableCell>
-                  <TableCell>{r.module || "-"}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {allowedActions.length === 0 && r.ui_only ? (
-                        <Chip label="N/A (register first)" size="small" variant="outlined" />
-                      ) : (
-                        allowedActions.map((action: string) => (
+      {activeTab === "registered" ? (
+        <Paper sx={{ p: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Resource</TableCell>
+                <TableCell>Module</TableCell>
+                <TableCell>Allowed Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredResources.map((r) => {
+                const allowedActions = r.allowed_actions || [];
+                const granted = rolePermsLookup[r.resource_key] || new Set<string>();
+                return (
+                  <TableRow key={r.resource_key}>
+                    <TableCell>
+                      <Stack spacing={0.25}>
+                        <Typography variant="body2">{r.resource_key}</Typography>
+                        {r.description && (
+                          <Typography variant="caption" color="text.secondary">
+                            {r.description}
+                          </Typography>
+                        )}
+                        {r.aliases?.length ? (
+                          <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                            {r.aliases.map((a: string) => (
+                              <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
+                            ))}
+                          </Stack>
+                        ) : null}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>{r.module || "-"}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {allowedActions.map((action: string) => (
                           <Chip
                             key={`${r.resource_key}-${action}`}
                             label={action}
@@ -372,16 +395,58 @@ const RolesPermissionsPage: React.FC = () => {
                             onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
                             sx={{ cursor: "pointer" }}
                           />
-                        ))
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Paper>
+                        ))}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
+      ) : (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Unregistered UI resources (maintenance only)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            These keys exist in UI resources but are not in the canonical resource registry. They are not assignable.
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Resource</TableCell>
+                <TableCell>Module / Family</TableCell>
+                <TableCell>Notes</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {unregisteredResources.map((r) => {
+                const family = r.resource_key.split('.')[0] || 'misc';
+                return (
+                  <TableRow key={r.resource_key}>
+                    <TableCell>
+                      <Typography variant="body2">{r.resource_key}</Typography>
+                    </TableCell>
+                    <TableCell>{r.module || family}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip size="small" color="warning" label="Unregistered" />
+                        {r.resource_key.startsWith("org_mandi.") && (
+                          <Chip size="small" color="error" label="Alias / skipped" />
+                        )}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Suggested: disable in UI resources or register under canonical key family.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
 
       {(unknownForRole.length > 0 || missingForRole.length > 0) && (
         <Paper sx={{ p: 2 }}>

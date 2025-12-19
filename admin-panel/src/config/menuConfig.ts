@@ -769,11 +769,15 @@ function cloneMenuItem(item: AppMenuItem, overrides: Partial<AppMenuItem> = {}):
   };
 }
 
-function filterHierarchy(items: AppMenuItem[], predicate: (item: AppMenuItem) => boolean): AppMenuItem[] {
+function filterHierarchy(
+  items: AppMenuItem[],
+  predicate: (item: AppMenuItem, hasChildren: boolean) => boolean,
+): AppMenuItem[] {
   const results: AppMenuItem[] = [];
   for (const item of items) {
     const filteredChildren = item.children ? filterHierarchy(item.children, predicate) : [];
-    const visible = predicate(item) || filteredChildren.length > 0;
+    const hasChildren = filteredChildren.length > 0;
+    const visible = predicate(item, hasChildren) || hasChildren;
     if (visible) {
       const node: AppMenuItem = cloneMenuItem(item, {
         children: filteredChildren.length ? filteredChildren : undefined,
@@ -797,7 +801,9 @@ export function filterMenuByRole(role: RoleSlug | null) {
     );
   }
 
-  return filterHierarchy(APP_MENU, (item) => {
+  return filterHierarchy(APP_MENU, (item, hasChildren) => {
+    // For group containers without their own permission role check, hide if no visible children.
+    if (!item.path && !item.resourceKey && !hasChildren) return false;
     if (!item.roles || item.roles.length === 0) return true;
     return item.roles.includes(effectiveRole);
   });
@@ -894,7 +900,7 @@ export function filterMenuByResources(
       });
     const labeledMenu = applyResourceLabels(APP_MENU);
 
-    return filterHierarchy(labeledMenu, (item) => {
+    const filtered = filterHierarchy(labeledMenu, (item, hasChildren) => {
       const watchKeys = new Set([
         "menu.role_policies",
         "user_roles.menu",
@@ -917,7 +923,7 @@ export function filterMenuByResources(
           finalIncluded: result,
         });
       }
-      if (!item.resourceKey) return true;
+      if (!item.resourceKey) return hasChildren;
       const normalizedKey = normalizeKey(item.resourceKey);
       if (permissionsMap) {
         const set = permissionsMap[normalizedKey];
@@ -930,6 +936,28 @@ export function filterMenuByResources(
       if (!menuResourceKeys.has(normalizedKey)) return false;
       return true;
     });
+
+    // Debug summary of visible menu groups
+    try {
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      if (params?.get("debugAuth") === "1") {
+        const visibleKeys: string[] = [];
+        const groupSummaries: { key?: string; childCount: number }[] = [];
+        filtered.forEach((item) => {
+          if (item.children?.length) {
+            groupSummaries.push({ key: item.key || item.labelKey, childCount: item.children.length });
+            item.children.forEach((c) => c.resourceKey && visibleKeys.push(c.resourceKey));
+          } else if (item.resourceKey) {
+            visibleKeys.push(item.resourceKey);
+          }
+        });
+        console.log("[menu debug] visible groups and keys", { groupSummaries, visibleKeys });
+      }
+    } catch (_) {
+      // ignore debug errors
+    }
+
+    return filtered;
   } catch (e) {
     console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });
     // fallback: keep last-known menu by role rather than blanking

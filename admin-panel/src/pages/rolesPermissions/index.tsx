@@ -287,6 +287,19 @@ const RolesPermissionsPage: React.FC = () => {
     return upper;
   };
 
+  const augmentAllowedByKey = (resourceKey: string, allowedSet: Set<string>): Set<string> => {
+    const augmented = new Set(Array.from(allowedSet));
+    const key = normalizeKey(resourceKey);
+    if (/\.create$/.test(key)) augmented.add("CREATE");
+    if (/\.(edit|update)$/.test(key)) augmented.add("UPDATE");
+    if (/\.(deactivate)$/.test(key)) augmented.add("DEACTIVATE");
+    if (/\.(menu|list|detail|view)$/.test(key)) augmented.add("VIEW");
+    if (key.endsWith(".approve") || key.endsWith(".reject") || key.endsWith(".request_more_info") || key.endsWith(".update_status") || key.endsWith(".reset_password")) {
+      augmented.add("UPDATE");
+    }
+    return augmented;
+  };
+
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
       const current = prev[selectedRole] || [];
@@ -301,8 +314,11 @@ const RolesPermissionsPage: React.FC = () => {
         setError(`Registry is missing an entry for ${resourceKey} (action ${action}).`);
         return prev;
       }
-      const allowedSet = new Set<string>(
-        (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
+      const allowedSet = augmentAllowedByKey(
+        targetKey,
+        new Set<string>(
+          (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
+        ),
       );
       const normalizedAction = normalizeActionForAllowed(action, allowedSet);
       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
@@ -367,14 +383,17 @@ const RolesPermissionsPage: React.FC = () => {
       const normalizedCurrentMap = new Map<string, Set<string>>();
       for (const [rawKey, actionsSet] of currentMap.entries()) {
         for (const action of actionsSet) {
-          const targetKey = resolveKeyForAction(rawKey, action);
-          if (!targetKey) {
-            setError(`Registry missing key for ${rawKey} (action ${action})`);
-            return;
-          }
-          const allowedSet = new Set<string>(
+        const targetKey = resolveKeyForAction(rawKey, action);
+        if (!targetKey) {
+          setError(`Registry missing key for ${rawKey} (action ${action})`);
+          return;
+        }
+        const allowedSet = augmentAllowedByKey(
+          targetKey,
+          new Set<string>(
             (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
-          );
+          ),
+        );
           const normalizedAction = normalizeActionForAllowed(action, allowedSet);
           if (allowedSet.size && !allowedSet.has(normalizedAction)) {
             setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);

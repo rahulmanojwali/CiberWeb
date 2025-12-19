@@ -198,9 +198,26 @@ const RolesPermissionsPage: React.FC = () => {
 
   const mergedRegistry = useMemo(() => {
     const baseKeys = new Set(registry.map((r) => r.resource_key));
-    const uiExtras =
+    const normalizedRegistry = registry.map((r) => ({
+      ...r,
+      resource_key: normalizeKey(r.resource_key),
+      module: resolveModuleName(r.resource_key) || r.module,
+    }));
+    return normalizedRegistry;
+  }, [registry, ui_resources]);
+
+  const registeredResources = useMemo(() => mergedRegistry, [mergedRegistry]);
+
+  const unregisteredResources = useMemo(() => {
+    const registryKeys = new Set(registeredResources.map((r) => r.resource_key));
+    const uiOnly =
       ui_resources
-        ?.filter((u: any) => u?.resource_key && !baseKeys.has(normalizeKey(u.resource_key)))
+        ?.filter(
+          (u: any) =>
+            u?.is_active &&
+            u.resource_key &&
+            !registryKeys.has(normalizeKey(u.resource_key)),
+        )
         .map((u: any) => ({
           resource_key: normalizeKey(u.resource_key),
           module: resolveModuleName(u.resource_key) || u.module || "UI resource",
@@ -210,22 +227,8 @@ const RolesPermissionsPage: React.FC = () => {
           is_active: u.is_active,
           ui_only: true,
         })) || [];
-    const normalizedRegistry = registry.map((r) => ({
-      ...r,
-      resource_key: normalizeKey(r.resource_key),
-      module: resolveModuleName(r.resource_key) || r.module,
-    }));
-    return [...normalizedRegistry, ...uiExtras];
-  }, [registry, ui_resources]);
-
-  const registeredResources = useMemo(
-    () => mergedRegistry.filter((r) => !r.ui_only),
-    [mergedRegistry],
-  );
-  const unregisteredResources = useMemo(
-    () => mergedRegistry.filter((r) => r.ui_only),
-    [mergedRegistry],
-  );
+    return uiOnly;
+  }, [ui_resources, registeredResources]);
 
   const moduleOptions = useMemo(() => {
     const set = new Set<string>();

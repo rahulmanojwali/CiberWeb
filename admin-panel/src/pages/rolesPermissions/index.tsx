@@ -310,6 +310,15 @@ const RolesPermissionsPage: React.FC = () => {
     return true;
   };
 
+  const resolveUpdateKey = (key: string): string | null => {
+    const base = key.replace(/\.(edit|update)$/, "");
+    const updateKey = `${base}.update`;
+    const editKey = `${base}.edit`;
+    if (resourcesByKey[updateKey]) return updateKey;
+    if (resourcesByKey[editKey]) return editKey;
+    return null;
+  };
+
   const handleSave = async () => {
     try {
       const original = policiesByRole[selectedRole] || [];
@@ -325,10 +334,34 @@ const RolesPermissionsPage: React.FC = () => {
         currentMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
       });
 
+      // Normalize keys based on registry truth before diffing
+      const normalizedCurrentMap = new Map<string, Set<string>>();
+      for (const [rawKey, actionsSet] of currentMap.entries()) {
+        let key = rawKey;
+        if (actionsSet.has("UPDATE")) {
+          const resolved = resolveUpdateKey(rawKey);
+          if (!resolved) {
+            setError(`Registry missing UPDATE key for ${rawKey}`);
+            return;
+          }
+          key = resolved;
+        }
+        const existing = normalizedCurrentMap.get(key) || new Set<string>();
+        actionsSet.forEach((a) => existing.add(a));
+        normalizedCurrentMap.set(key, existing);
+      }
+
+      const debugAuth =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("debugAuth") === "1";
+      if (debugAuth) {
+        console.log("[rolePolicies debug] submitting keys", Array.from(normalizedCurrentMap.keys()));
+      }
+
       const payload: any[] = [];
 
       // additions/updates
-      currentMap.forEach((actionsSet, key) => {
+      normalizedCurrentMap.forEach((actionsSet, key) => {
         if (!resourcesByKey[key]) return; // skip unknown keys defensively
         const origSet = origMap.get(key);
         if (actionsSet.size === 0) {
@@ -344,7 +377,7 @@ const RolesPermissionsPage: React.FC = () => {
 
       // removals for keys no longer present
       origMap.forEach((origSet, key) => {
-        if (!currentMap.has(key) && origSet.size > 0 && resourcesByKey[key]) {
+        if (!normalizedCurrentMap.has(key) && origSet.size > 0 && resourcesByKey[key]) {
           payload.push({ resource_key: key, actions: [] });
         }
       });

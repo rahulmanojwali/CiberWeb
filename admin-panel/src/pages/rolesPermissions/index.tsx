@@ -301,7 +301,9 @@ const RolesPermissionsPage: React.FC = () => {
         setError(`Registry is missing an entry for ${resourceKey} (action ${action}).`);
         return prev;
       }
-      const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
+      const allowedSet = new Set<string>(
+        (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
+      );
       const normalizedAction = normalizeActionForAllowed(action, allowedSet);
       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
         setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
@@ -370,7 +372,9 @@ const RolesPermissionsPage: React.FC = () => {
             setError(`Registry missing key for ${rawKey} (action ${action})`);
             return;
           }
-          const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
+          const allowedSet = new Set<string>(
+            (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
+          );
           const normalizedAction = normalizeActionForAllowed(action, allowedSet);
           if (allowedSet.size && !allowedSet.has(normalizedAction)) {
             setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);

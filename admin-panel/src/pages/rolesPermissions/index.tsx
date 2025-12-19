@@ -257,18 +257,33 @@ const RolesPermissionsPage: React.FC = () => {
       if (regEntry?.ui_only) {
         return prev; // do not allow toggling unregistered resources
       }
-      const idx = next.findIndex((p) => p.resource_key === resourceKey);
+
+      // Normalize action name and resolve the proper resource key based on registry
+      const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
+
+      let targetKey = resourceKey;
+      if (normalizedAction === "UPDATE") {
+        const updateKey = resourceKey.endsWith(".update") ? resourceKey : `${resourceKey}.update`;
+        const editKey = resourceKey.endsWith(".edit") ? resourceKey : `${resourceKey}.edit`;
+        if (resourcesByKey[updateKey]) {
+          targetKey = updateKey;
+        } else if (resourcesByKey[editKey]) {
+          targetKey = editKey;
+        }
+      }
+
+      const idx = next.findIndex((p) => p.resource_key === targetKey);
       if (checked) {
         if (idx === -1) {
-          next.push({ resource_key: resourceKey, actions: [action] });
+          next.push({ resource_key: targetKey, actions: [normalizedAction] });
         } else {
           const actions = new Set(next[idx].actions || []);
-          actions.add(action);
+          actions.add(normalizedAction);
           next[idx] = { ...next[idx], actions: Array.from(actions) };
         }
       } else if (idx !== -1) {
         const actions = new Set(next[idx].actions || []);
-        actions.delete(action);
+        actions.delete(normalizedAction);
         if (actions.size === 0) {
           next.splice(idx, 1);
         } else {

@@ -82,7 +82,7 @@ export const Commodities: React.FC = () => {
     severity: "info",
   });
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("commodities", { masterOnly: true });
+  const { canCreate, canEdit, canDeactivate, canView } = useCrudPermissions("commodities", { masterOnly: true });
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 
   const columns = useMemo<GridColDef<CommodityRow>[]>(
@@ -275,7 +275,7 @@ export const Commodities: React.FC = () => {
                 p: 2,
                 boxShadow: 1,
               }}
-              onClick={() => canViewDetail && openEdit(row)}
+              onClick={() => canView && openEdit(row)}
             >
               <Stack spacing={1.25}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -328,7 +328,7 @@ export const Commodities: React.FC = () => {
                       Deactivate
                     </Button>
                   )}
-                  {!canEdit && canViewDetail && (
+                  {!canEdit && canView && (
                     <Button
                       size="small"
                       variant="text"

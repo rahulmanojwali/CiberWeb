@@ -84,7 +84,7 @@ export const GateEntryReasons: React.FC = () => {
   const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
   const isMobile = fullScreenDialog;
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail } = useCrudPermissions("gate_entry_reasons");
+  const { canCreate, canEdit, canDeactivate, canView } = useCrudPermissions("gate_entry_reasons");
   const [rows, setRows] = useState<ReasonRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
   const [loading, setLoading] = useState(false);
@@ -134,7 +134,7 @@ export const GateEntryReasons: React.FC = () => {
                 Edit
               </Button>
             )}
-            {!canEdit && canViewDetail && (
+            {!canEdit && canView && (
               <Button size="small" startIcon={<VisibilityIcon />} onClick={() => openEdit(params.row)}>
                 View
               </Button>
@@ -153,7 +153,7 @@ export const GateEntryReasons: React.FC = () => {
         ),
       },
     ],
-    [canEdit, canDeactivate, canViewDetail],
+    [canEdit, canDeactivate, canView],
   );
 
   const loadData = async () => {
@@ -308,7 +308,7 @@ export const GateEntryReasons: React.FC = () => {
                         Edit
                       </Button>
                     )}
-                    {!canEdit && canViewDetail && (
+                    {!canEdit && canView && (
                       <Button size="small" startIcon={<VisibilityIcon />} onClick={() => openEdit(row)}>
                         View
                       </Button>

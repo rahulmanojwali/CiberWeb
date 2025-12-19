@@ -94,7 +94,7 @@ export const CommodityProducts: React.FC = () => {
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [orgFilterCode, setOrgFilterCode] = useState<string>(orgCode || "ALL");
 
-  const { canCreate, canEdit, canDeactivate, canViewDetail, isSuperAdmin } = useCrudPermissions("commodity_products");
+  const { canCreate, canEdit, canDeactivate, canView, isSuperAdmin } = useCrudPermissions("commodity_products");
 
   const resolveOrgLabel = useCallback(
     (code?: string | null) => {
@@ -265,7 +265,7 @@ export const CommodityProducts: React.FC = () => {
                   Deactivate
                 </Button>
               )}
-              {!canEditRow && canViewDetail && (
+              {!canEditRow && canView && (
                 <Button size="small" onClick={() => openEdit(row)}>
                   View
                 </Button>
@@ -275,7 +275,7 @@ export const CommodityProducts: React.FC = () => {
         },
       },
     ],
-    [canEdit, canDeactivate, canViewDetail, isSuperAdmin, orgCode, openEdit, handleDeactivate],
+    [canEdit, canDeactivate, canView, isSuperAdmin, orgCode, openEdit, handleDeactivate],
   );
 
   const listContent = useMemo(() => {
@@ -291,7 +291,7 @@ export const CommodityProducts: React.FC = () => {
                 p: 2,
                 boxShadow: 1,
               }}
-              onClick={() => canViewDetail && openEdit(row)}
+              onClick={() => canView && openEdit(row)}
             >
               <Stack spacing={1.25}>
                 <Box>
@@ -348,7 +348,7 @@ export const CommodityProducts: React.FC = () => {
                       </Button>
                     )}
                   {!(canEdit && (isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code))) &&
-                    canViewDetail && (
+                    canView && (
                       <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
                         View
                       </Button>
@@ -406,7 +406,7 @@ export const CommodityProducts: React.FC = () => {
     isSmallScreen,
     rows,
     theme.palette.divider,
-    canViewDetail,
+    canView,
     canEdit,
     canDeactivate,
     handleDeactivate,

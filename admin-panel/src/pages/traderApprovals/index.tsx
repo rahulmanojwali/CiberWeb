@@ -88,7 +88,7 @@ export const TraderApprovals: React.FC = () => {
 
   const canMenu = useMemo(() => can(uiConfig.resources, "trader_approvals.menu", "VIEW"), [uiConfig.resources]);
   const canList = useMemo(() => can(uiConfig.resources, "trader_approvals.list", "VIEW"), [uiConfig.resources]);
-  const canDetail = useMemo(() => can(uiConfig.resources, "trader_approvals.detail", "VIEW_DETAIL"), [uiConfig.resources]);
+  const canDetail = useMemo(() => can(uiConfig.resources, "trader_approvals.detail", "VIEW"), [uiConfig.resources]);
   const canApprove = useMemo(() => can(uiConfig.resources, "trader_approvals.approve", "APPROVE"), [uiConfig.resources]);
   const canReject = useMemo(() => can(uiConfig.resources, "trader_approvals.reject", "REJECT"), [uiConfig.resources]);
   const canRequestInfo = useMemo(

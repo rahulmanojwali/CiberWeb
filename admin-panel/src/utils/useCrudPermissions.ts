@@ -4,7 +4,6 @@ import { can } from "./adminUiConfig";
 
 type CrudPermissions = {
   canView: boolean;
-  canViewDetail: boolean;
   canCreate: boolean;
   canEdit: boolean;
   canDeactivate: boolean;
@@ -37,7 +36,7 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
 
   const perms = useMemo(() => {
     const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
-    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW_DETAIL");
+    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW");
     const view = viewList || viewDetail;
     let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
     let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
@@ -47,7 +46,6 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       // Super admin always has CRUD; view uses policy or default to true.
       return {
         canView: view || true,
-        canViewDetail: true,
         canCreate: true,
         canEdit: true,
         canDeactivate: true,
@@ -65,7 +63,6 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       // Master data: non-super roles are read-only regardless of policy.
       return {
         canView: view,
-        canViewDetail: viewDetail,
         canCreate: false,
         canEdit: false,
         canDeactivate: false,
@@ -74,7 +71,6 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
 
     return {
       canView: view,
-      canViewDetail: viewDetail,
       canCreate: create,
       canEdit: edit,
       canDeactivate: deactivate,

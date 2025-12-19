@@ -144,6 +144,12 @@ const RolesPermissionsPage: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<string>("ALL");
   const [activeTab, setActiveTab] = useState<"registered" | "unregistered">("registered");
   const [diagnostics, setDiagnostics] = useState<any>({});
+  const [showDebug, setShowDebug] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const saved = localStorage.getItem("rp_show_debug");
+    return saved === "true";
+  });
+  const [debugExpanded, setDebugExpanded] = useState<boolean>(false);
 
   useEffect(() => {
     const load = async () => {
@@ -572,14 +578,80 @@ const RolesPermissionsPage: React.FC = () => {
               </Alert>
             )}
             {missingForRole.length > 0 && (
-              <Alert severity="info">
-                Policy keys not present in UI resources (debug only):{" "}
-                {missingForRole.map((m: string) => (
-                  <Chip key={m} label={m} size="small" sx={{ mr: 0.5 }} />
-                ))}{" "}
+              <Alert
+                severity="info"
+                action={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const expected = missingForRole
+                          .filter((m: string) =>
+                            /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
+                          );
+                        const suspicious = missingForRole.filter((m: string) => !expected.includes(m));
+                        const payload = {
+                          expected,
+                          suspicious,
+                        };
+                        try {
+                          navigator?.clipboard?.writeText(JSON.stringify(payload, null, 2));
+                        } catch (_) {
+                          // ignore
+                        }
+                      }}
+                    >
+                      Copy
+                    </Button>
+                    <Button size="small" onClick={() => setDebugExpanded((prev) => !prev)}>
+                      {debugExpanded ? "Hide list" : "Show list"}
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const next = !showDebug;
+                        setShowDebug(next);
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("rp_show_debug", next ? "true" : "false");
+                        }
+                      }}
+                    >
+                      {showDebug ? "Hide debug" : "Show debug"}
+                    </Button>
+                  </Stack>
+                }
+              >
+                Debug: {missingForRole.length} policy keys not in UI resources (click to expand)
                 <Typography variant="caption" display="block" color="text.secondary">
                   These are valid registry/policy actions that may not have UI menu entries. They remain assignable and are used for button gating.
                 </Typography>
+                {showDebug && debugExpanded && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="subtitle2">Expected (actions-only)</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {missingForRole
+                        .filter((m: string) =>
+                          /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
+                        )
+                        .map((m: string) => (
+                          <Chip key={m} label={m} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                        ))}
+                    </Stack>
+                    <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                      Suspicious (legacy/typo families)
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {missingForRole
+                        .filter(
+                          (m: string) =>
+                            !/\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
+                        )
+                        .map((m: string) => (
+                          <Chip key={m} label={m} size="small" color="warning" sx={{ mr: 0.5, mb: 0.5 }} />
+                        ))}
+                    </Stack>
+                  </Box>
+                )}
               </Alert>
             )}
           </Stack>

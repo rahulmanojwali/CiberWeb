@@ -44,7 +44,7 @@ const normalizeKey = (key: string): string => {
   return lower;
 };
 
-const resolveModuleName = (key: string): string => {
+  const resolveModuleName = (key: string): string => {
   if (!key) return 'Misc';
   const k = normalizeKey(key);
   const starts = (p: string) => k.startsWith(p);
@@ -249,6 +249,23 @@ const RolesPermissionsPage: React.FC = () => {
     return registeredResources.filter((r) => (r.module || "") === selectedModule);
   }, [registeredResources, selectedModule]);
 
+  const resolveKeyForAction = (resourceKey: string, action: string): string | null => {
+    const normalizedKey = normalizeKey(resourceKey);
+    if (resourcesByKey[normalizedKey]) {
+      return normalizedKey;
+    }
+    const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
+    // Only try edit/update mapping when suffix matches edit/update
+    if (normalizedAction === "UPDATE" && /\.(edit|update)$/.test(normalizedKey)) {
+      const base = normalizedKey.replace(/\.(edit|update)$/, "");
+      const updateKey = `${base}.update`;
+      const editKey = `${base}.edit`;
+      if (resourcesByKey[updateKey]) return updateKey;
+      if (resourcesByKey[editKey]) return editKey;
+    }
+    return null;
+  };
+
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
     setEditablePoliciesByRole((prev) => {
       const current = prev[selectedRole] || [];
@@ -258,18 +275,16 @@ const RolesPermissionsPage: React.FC = () => {
         return prev; // do not allow toggling unregistered resources
       }
 
-      // Normalize action name and resolve the proper resource key based on registry
       const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
-
-      let targetKey = resourceKey;
-      if (normalizedAction === "UPDATE") {
-        const updateKey = resourceKey.endsWith(".update") ? resourceKey : `${resourceKey}.update`;
-        const editKey = resourceKey.endsWith(".edit") ? resourceKey : `${resourceKey}.edit`;
-        if (resourcesByKey[updateKey]) {
-          targetKey = updateKey;
-        } else if (resourcesByKey[editKey]) {
-          targetKey = editKey;
-        }
+      const targetKey = resolveKeyForAction(resourceKey, normalizedAction);
+      if (!targetKey) {
+        setError(`Registry is missing an entry for ${resourceKey} (action ${normalizedAction}).`);
+        return prev;
+      }
+      const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
+      if (allowedSet.size && !allowedSet.has(normalizedAction)) {
+        setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
+        return prev;
       }
 
       const idx = next.findIndex((p) => p.resource_key === targetKey);
@@ -310,15 +325,6 @@ const RolesPermissionsPage: React.FC = () => {
     return true;
   };
 
-  const resolveUpdateKey = (key: string): string | null => {
-    const base = key.replace(/\.(edit|update)$/, "");
-    const updateKey = `${base}.update`;
-    const editKey = `${base}.edit`;
-    if (resourcesByKey[updateKey]) return updateKey;
-    if (resourcesByKey[editKey]) return editKey;
-    return null;
-  };
-
   const handleSave = async () => {
     try {
       const original = policiesByRole[selectedRole] || [];
@@ -337,18 +343,21 @@ const RolesPermissionsPage: React.FC = () => {
       // Normalize keys based on registry truth before diffing
       const normalizedCurrentMap = new Map<string, Set<string>>();
       for (const [rawKey, actionsSet] of currentMap.entries()) {
-        let key = rawKey;
-        if (actionsSet.has("UPDATE")) {
-          const resolved = resolveUpdateKey(rawKey);
-          if (!resolved) {
-            setError(`Registry missing UPDATE key for ${rawKey}`);
+        for (const action of actionsSet) {
+          const targetKey = resolveKeyForAction(rawKey, action);
+          if (!targetKey) {
+            setError(`Registry missing key for ${rawKey} (action ${action})`);
             return;
           }
-          key = resolved;
+          const allowedSet = new Set((resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => a.toUpperCase()));
+          if (allowedSet.size && !allowedSet.has(action)) {
+            setError(`Action ${action} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
+            return;
+          }
+          const existing = normalizedCurrentMap.get(targetKey) || new Set<string>();
+          existing.add(action);
+          normalizedCurrentMap.set(targetKey, existing);
         }
-        const existing = normalizedCurrentMap.get(key) || new Set<string>();
-        actionsSet.forEach((a) => existing.add(a));
-        normalizedCurrentMap.set(key, existing);
       }
 
       const debugAuth =

@@ -530,12 +530,13 @@ const RolesPermissionsPage: React.FC = () => {
       <Paper
         sx={{
           position: "sticky",
-          top: 0,
-          zIndex: 5,
+          top: (theme) => theme.spacing(1),
+          zIndex: (theme) => theme.zIndex.appBar + 1,
           p: 2,
           bgcolor: "background.paper",
           borderBottom: "1px solid",
           borderColor: "divider",
+          boxShadow: 2,
         }}
       >
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>

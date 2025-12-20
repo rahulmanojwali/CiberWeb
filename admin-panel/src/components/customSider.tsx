@@ -124,6 +124,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         width: siderWidth,
         flexShrink: 0,
         height: "100vh",
+        position: "sticky",
+        top: 0,
         borderRight: `1px solid ${theme.palette.divider}`,
         bgcolor: theme.palette.background.paper,
         display: "flex",

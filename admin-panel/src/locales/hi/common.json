@@ -65,6 +65,11 @@
     "gateTokens": "गेट एंट्री",
     "weighmentTickets": "वज़न",
     "gateMovements": "मूवमेंट",
+    "gateEntryReasons": "प्रवेश कारण",
+    "gateVehicleTypes": "वाहन प्रकार",
+    "gateDeviceConfigs": "डिवाइस कॉन्फ़िग्स",
+    "gateDevices": "गेट डिवाइस",
+    "mandiGates": "गेट्स",
     "auctionSessions": "नीलामी सत्र",
     "auctionLots": "नीलामी लॉट",
     "auctionResults": "नीलामी परिणाम"

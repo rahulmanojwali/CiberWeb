@@ -18,7 +18,7 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import { can, type UiResource } from "../utils/adminUiConfig";
+import { type UiResource } from "../utils/adminUiConfig";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 
 export type RoleSlug =
@@ -368,7 +368,7 @@ export const APP_MENU: AppMenuItem[] = [
 
 {
   key: "gateYard",
-  labelKey: "menu.gateEntryReasons",
+  labelKey: "menu.gateYard",
   icon: React.createElement(QrCodeScannerOutlinedIcon),
   roles: ALL_ROLES,
   children: [
@@ -822,7 +822,14 @@ export function filterMenuByResources(
   try {
     const hasResources = Array.isArray(resources) && resources.length > 0;
     if (!hasResources) {
-      return filterMenuByRole(fallbackRole);
+      return [];
+    }
+    const hasPermissions =
+      permissionsMap && Object.keys(permissionsMap).length > 0;
+    // If permissions have not been loaded yet, do not render a temporary menu –
+    // this avoids the “full menu then collapse” flicker for limited roles.
+    if (!hasPermissions) {
+      return [];
     }
 
     let excludedNoRoute = 0;
@@ -888,10 +895,11 @@ export function filterMenuByResources(
     const applyResourceLabels = (items: AppMenuItem[]): AppMenuItem[] =>
       items.map((it) => {
         const res = it.resourceKey ? resourceMap.get(it.resourceKey) : undefined;
+        // Keep existing translation key as primary; only fall back to UI resource labels when key is missing.
         const labelOverride =
+          it.labelKey ||
           (res as any)?.label_i18n?.[lang] ||
-          (res as any)?.element ||
-          it.labelKey;
+          (res as any)?.element;
         const children = it.children ? applyResourceLabels(it.children) : undefined;
         return cloneMenuItem(it, {
           labelKey: labelOverride,
@@ -925,13 +933,8 @@ export function filterMenuByResources(
       }
       if (!item.resourceKey) return hasChildren;
       const normalizedKey = normalizeKey(item.resourceKey);
-      if (permissionsMap) {
-        const set = permissionsMap[normalizedKey];
-        if (!set || set.size === 0) return false;
-      } else {
-        const action = item.requiredAction || "VIEW";
-        if (!can(safeResources, item.resourceKey, action)) return false;
-      }
+      const set = permissionsMap[normalizedKey];
+      if (!set || set.size === 0) return false;
       // Require that the menu key exists in ui_resources (keeps unseen keys out)
       if (!menuResourceKeys.has(normalizedKey)) return false;
       return true;

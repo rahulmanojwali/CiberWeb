@@ -57,7 +57,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   console.log("[CustomSider] resolved role from cd_user:", storageRole, "config role:", configRole);
 
-  const [navItems, setNavItems] = useState<NavMenuItem[]>(() => filterMenuByRole(effectiveRole));
+  const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
   const [menuError, setMenuError] = useState<string | null>(null);
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const resourcesCount = menuResources?.length || 0;
@@ -65,6 +65,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   useEffect(() => {
     try {
+      if (resourcesCount === 0) {
+        setMenuError(null);
+        setNavItems([]);
+        return;
+      }
       const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
       const builtCount = built.length;
       console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });

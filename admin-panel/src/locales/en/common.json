@@ -75,16 +75,18 @@
   "commodities": "Commodities",
   "commodityProducts": "Commodity Products",
   "mandiFacilities": "Mandi Facilities",
-  "mandiGates": "Mandi Gates",
+  "mandiGates": "Gates",
   "mandiHoursTemplates": "Mandi Hours Templates",
-  "gateEntryReasons": "Gate Entry Reasons",
-  "gateVehicleTypes": "Gate Vehicle Types",
+    "gateEntryReasons": "Entry Reasons",
+    "gateYard": "Gate & Yard",
+  "gateVehicleTypes": "Vehicle Types",
   "gateDevices": "Gate Devices",
-  "gateDeviceConfigs": "Gate Device Configs",
+  "gateDeviceConfigs": "Device Configs",
 
-  "gateTokens": "Gate Tokens",
-  "weighmentTickets": "Weighment Tickets",
-  "gateMovements": "Gate Movements",
+  "gateEntries": "Gate Entry",
+  "gateTokens": "Gate Entry",
+  "weighmentTickets": "Weighment",
+  "gateMovements": "Movements",
   "auctionMethods": "Auction Methods",
   "auctionRounds": "Auction Rounds",
   "auctionPolicies": "Auction Policies",
@@ -94,7 +96,7 @@
 "organisationsList": "Organisation List",
 "rolePermission": "Roles & Permissions",
 "mandisList": "Mandi List",
-"gateEntryReasonsMaster": "Gate Entry Reasons (Master)",
+"gateEntryReasonsMaster": "Entry Reasons (Master)",
 "auctionMethodsMaster": "Auction Methods (Master)",
 "traderApprovalQueue": "Trader Approval Queue",
 
@@ -383,4 +385,3 @@
     }
   }
 }
-

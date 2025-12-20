@@ -916,13 +916,8 @@ export function filterMenuByResources(
       ]);
       if (item.resourceKey && watchKeys.has(item.resourceKey)) {
         const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
-        const canViewPerm = (() => {
-          if (permissionsMap) {
-            const set = permissionsMap[normalizeKey(item.resourceKey)];
-            return !!set && set.size > 0;
-          }
-          return can(safeResources, item.resourceKey, item.requiredAction || "VIEW");
-        })();
+        const set = permissionsMap![normalizeKey(item.resourceKey)];
+        const canViewPerm = !!set && set.size > 0;
         const result = hasResourceKey && canViewPerm;
         console.log("[menu debug watch]", {
           key: item.resourceKey,
@@ -933,7 +928,7 @@ export function filterMenuByResources(
       }
       if (!item.resourceKey) return hasChildren;
       const normalizedKey = normalizeKey(item.resourceKey);
-      const set = permissionsMap[normalizedKey];
+      const set = permissionsMap![normalizedKey];
       if (!set || set.size === 0) return false;
       // Require that the menu key exists in ui_resources (keeps unseen keys out)
       if (!menuResourceKeys.has(normalizedKey)) return false;

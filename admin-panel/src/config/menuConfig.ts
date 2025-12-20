@@ -418,22 +418,13 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
     },
     {
-      key: "gateTokens",
-      labelKey: "menu.gateTokens",
-      path: "/gate-tokens",
-      icon: React.createElement(QrCodeScannerOutlinedIcon),
-      resourceKey: "gate_pass_tokens.view",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
-    },
-    {
       key: "gateEntries",
       labelKey: "menu.gateEntries",
-      path: "/gate-entries",
+      path: "/gate-tokens",
       icon: React.createElement(TimelineOutlinedIcon),
       resourceKey: "gate_entry_tokens.list",
       requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
     },
     {
       key: "gateMovements",
@@ -442,7 +433,7 @@ export const APP_MENU: AppMenuItem[] = [
       icon: React.createElement(TimelineOutlinedIcon),
       resourceKey: "gate_movements_log.view",
       requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
     },
     {
       key: "weighmentTickets",
@@ -451,7 +442,7 @@ export const APP_MENU: AppMenuItem[] = [
       icon: React.createElement(ScaleOutlinedIcon),
       resourceKey: "weighment_tickets.view",
       requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "WEIGHBRIDGE_OPERATOR"],
     },
   ],
 },
@@ -930,8 +921,13 @@ export function filterMenuByResources(
       const normalizedKey = normalizeKey(item.resourceKey);
       const set = permissionsMap![normalizedKey];
       if (!set || set.size === 0) return false;
-      // Require that the menu key exists in ui_resources (keeps unseen keys out)
-      if (!menuResourceKeys.has(normalizedKey)) return false;
+      // Require that the menu key exists in ui_resources (keeps unseen keys out),
+      // except for known keys that currently have no ui_resource but are permissioned (e.g., gate_entry_tokens.list).
+      const hasUiResource = menuResourceKeys.has(normalizedKey);
+      if (!hasUiResource) {
+        const allowMissingUiResource = normalizedKey === "gate_entry_tokens.list";
+        if (!allowMissingUiResource) return false;
+      }
       return true;
     });
 
@@ -962,3 +958,969 @@ export function filterMenuByResources(
     return filterMenuByRole(fallbackRole);
   }
 }
+
+
+// import * as React from "react";
+// import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+// import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
+// import StoreMallDirectoryOutlinedIcon from "@mui/icons-material/StoreMallDirectoryOutlined";
+// import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
+// import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+// import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+// import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
+// import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+// import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
+// import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
+// import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
+// import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
+// import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+// import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
+// import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+// import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
+// import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+// import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+// import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+// import { type UiResource } from "../utils/adminUiConfig";
+// import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+
+// export type RoleSlug =
+//   | "SUPER_ADMIN"
+//   | "ORG_ADMIN"
+//   | "ORG_VIEWER"
+//   | "MANDI_ADMIN"
+//   | "MANDI_MANAGER"
+//   | "AUCTIONEER"
+//   | "GATE_OPERATOR"
+//   | "WEIGHBRIDGE_OPERATOR"
+//   | "AUDITOR"
+//   | "VIEWER";
+
+// export type AppMenuItem = {
+//   key?: string;
+//   labelKey: string;
+//   path?: string;
+//   icon?: React.ReactNode;
+//   resourceKey?: string;
+//   requiredAction?: string;
+//   roles?: RoleSlug[];
+//   children?: AppMenuItem[];
+// };
+
+// const ALL_ROLES: RoleSlug[] = [
+//   "SUPER_ADMIN",
+//   "ORG_ADMIN",
+//   "ORG_VIEWER",
+//   "MANDI_ADMIN",
+//   "MANDI_MANAGER",
+//   "AUCTIONEER",
+//   "GATE_OPERATOR",
+//   "WEIGHBRIDGE_OPERATOR",
+//   "AUDITOR",
+//   "VIEWER",
+// ];
+
+// export const APP_MENU: AppMenuItem[] = [
+//   {
+//     key: "dashboard",
+//     labelKey: "menu.dashboard",
+//     path: "/dashboard",
+//     icon: React.createElement(DashboardOutlinedIcon),
+//     resourceKey: "dashboard.menu",
+//     requiredAction: "VIEW",
+//     roles: ALL_ROLES,
+//   },
+  
+//   // {
+//   //   key: "organisationsAccess",
+//   //   labelKey: "menu.organisations",
+//   //   icon: React.createElement(ApartmentOutlinedIcon),
+//   //   roles: ALL_ROLES,
+//   //   children: [
+//   //     {
+//   //       key: "organisations",
+//   //       labelKey: "menu.organisations",
+//   //       path: "/orgs",
+//   //       icon: React.createElement(ApartmentOutlinedIcon),
+//   //       resourceKey: "organisations.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "orgMandiMapping",
+//   //       labelKey: "menu.orgMandi",
+//   //       path: "/org-mandi-mapping",
+//   //       icon: React.createElement(HubOutlinedIcon),
+//   //       resourceKey: "org_mandi_mapping.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "adminUsers",
+//   //       labelKey: "menu.adminUsers",
+//   //       path: "/admin-users",
+//   //       icon: React.createElement(GroupsOutlinedIcon),
+//   //       resourceKey: "admin_users.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//   //     },
+//   //   ],
+//   // },
+
+//   {
+//   key: "organisationsAccess",
+//   labelKey: "menu.organisations",
+//   icon: React.createElement(ApartmentOutlinedIcon),
+//   roles: ALL_ROLES,
+//   children: [
+//     {
+//       key: "organisations",
+//       labelKey: "menu.organisationsList",   // 👈 changed
+//       path: "/orgs",
+//       icon: React.createElement(ApartmentOutlinedIcon),
+//       resourceKey: "organisations.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//     },
+//     {
+//       key: "orgMandiMapping",
+//       labelKey: "menu.orgMandi",
+//       path: "/org-mandi-mapping",
+//       icon: React.createElement(HubOutlinedIcon),
+//       resourceKey: "org_mandi_mappings.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//     },
+//     {
+//       key: "adminUsers",
+//       labelKey: "menu.adminUsers",
+//       path: "/admin-users",
+//       icon: React.createElement(GroupsOutlinedIcon),
+//       resourceKey: "admin_users.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//     },
+//   ],
+// },
+
+//   {
+//     key: "system",
+//     labelKey: "menu.system",
+//     icon: React.createElement(SettingsOutlinedIcon),
+//     roles: ["SUPER_ADMIN"],
+//     children: [
+//       {
+//         key: "userRoleManager",
+//         labelKey: "menu.userRoleManager",
+//         path: "/system/user-role-manager",
+//         icon: React.createElement(SecurityOutlinedIcon),
+//         resourceKey: "user_roles.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN"],
+//       },
+//       {
+//         key: "rolesPermissions",
+//         labelKey: "menu.rolePermissions",
+//         path: "/system/role-policy-manager",
+//         icon: React.createElement(SecurityOutlinedIcon),
+//         resourceKey: "menu.role_policies",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN"],
+//       },
+//       {
+//         key: "resourceRegistry",
+//         labelKey: "menu.resourceRegistry",
+//         path: "/system/resource-registry",
+//         icon: React.createElement(SecurityOutlinedIcon),
+//         resourceKey: "resource_registry.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN"],
+//       },
+//     ],
+//   },
+
+
+
+//   // {
+//   //   key: "mandisGroup",
+//   //   labelKey: "menu.mandis",
+//   //   icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //   roles: ALL_ROLES,
+//   //   children: [
+//   //     {
+//   //       key: "mandis",
+//   //       labelKey: "menu.mandis",
+//   //       path: "/mandis",
+//   //       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //       resourceKey: "mandis.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//   //     },
+//   //     {
+//   //       key: "commodities",
+//   //       labelKey: "menu.commodities",
+//   //       path: "/commodities",
+//   //       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //       resourceKey: "commodities.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "commodityProducts",
+//   //       labelKey: "menu.commodityProducts",
+//   //       path: "/commodity-products",
+//   //       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //       resourceKey: "commodity_products.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "mandiFacilities",
+//   //       labelKey: "menu.mandiFacilities",
+//   //       path: "/mandi-facilities",
+//   //       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //       resourceKey: "mandi_facilities.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "mandiGates",
+//   //       labelKey: "menu.mandiGates",
+//   //       path: "/mandi-gates",
+//   //       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   //       resourceKey: "mandi_gates.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//   //     },
+//   //     {
+//   //       key: "mandiHours",
+//   //       labelKey: "menu.mandiHoursTemplates",
+//   //       path: "/mandi-hours-templates",
+//   //       icon: React.createElement(Inventory2OutlinedIcon),
+//   //       resourceKey: "mandi_hours.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+//   //     },
+//   //   ],
+//   // },
+//   {
+//   key: "mandisGroup",
+//   labelKey: "menu.mandis",
+//   icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//   roles: ALL_ROLES,
+//   children: [
+//     {
+//       key: "mandis",
+//       labelKey: "menu.mandisList",  // 👈 changed
+//       path: "/mandis",
+//       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//       resourceKey: "mandis.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//     },
+//     {
+//       key: "commodities",
+//       labelKey: "menu.commodities",
+//       path: "/commodities",
+//       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//       resourceKey: "commodities.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//     },
+//     {
+//       key: "commodityProducts",
+//       labelKey: "menu.commodityProducts",
+//       path: "/commodity-products",
+//       icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//       resourceKey: "commodity_products.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//     },
+//     {
+//       key: "mandiFacilities",
+//       labelKey: "menu.mandiFacilities",
+//       path: "/mandi-facilities",
+//       icon: React.createElement(Inventory2OutlinedIcon),
+//       resourceKey: "mandi_facilities.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//     },
+//     {
+//       key: "mandiHours",
+//       labelKey: "menu.mandiHoursTemplates",
+//       path: "/mandi-hours-templates",
+//       icon: React.createElement(Inventory2OutlinedIcon),
+//       resourceKey: "mandi_hours.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR"],
+//     },
+//   ],
+// },
+
+//   // {
+//   //   key: "gateYard",
+//   //   labelKey: "menu.gateEntryReasons",
+//   //   icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //   roles: ALL_ROLES,
+//   //   children: [
+//   //     {
+//   //       key: "gateEntryReasons",
+//   //       labelKey: "menu.gateEntryReasons",
+//   //       path: "/gate-entry-reasons",
+//   //       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //       resourceKey: "gate_entry_reasons_masters.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "gateVehicleTypes",
+//   //       labelKey: "menu.gateVehicleTypes",
+//   //       path: "/gate-vehicle-types",
+//   //       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //       resourceKey: "gate_vehicle_types_masters.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "gateDevices",
+//   //       labelKey: "menu.gateDevices",
+//   //       path: "/gate-devices",
+//   //       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //       resourceKey: "cm_gate_devices.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "gateDeviceConfigs",
+//   //       labelKey: "menu.gateDeviceConfigs",
+//   //       path: "/gate-device-configs",
+//   //       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //       resourceKey: "gate_device_configs.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "gateTokens",
+//   //       labelKey: "menu.gateTokens",
+//   //       path: "/gate-tokens",
+//   //       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   //       resourceKey: "gate_pass_tokens.view",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "gateMovements",
+//   //       labelKey: "menu.gateMovements",
+//   //       path: "/gate-movements",
+//   //       icon: React.createElement(TimelineOutlinedIcon),
+//   //       resourceKey: "gate_movements_log.view",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "weighmentTickets",
+//   //       labelKey: "menu.weighmentTickets",
+//   //       path: "/weighment-tickets",
+//   //       icon: React.createElement(ScaleOutlinedIcon),
+//   //       resourceKey: "weighment_tickets.view",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//   //     },
+//   //   ],
+//   // },
+
+// {
+//   key: "gateYard",
+//   labelKey: "menu.gateYard",
+//   icon: React.createElement(QrCodeScannerOutlinedIcon),
+//   roles: ALL_ROLES,
+//   children: [
+//     {
+//       key: "gateEntryReasons",
+//       labelKey: "menu.gateEntryReasonsMaster",  // 👈 changed
+//       path: "/gate-entry-reasons",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "gate_entry_reasons_masters.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "gateVehicleTypes",
+//       labelKey: "menu.gateVehicleTypes",
+//       path: "/gate-vehicle-types",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "gate_vehicle_types_masters.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "mandiGates",
+//       labelKey: "menu.mandiGates",
+//       path: "/mandi-gates",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "mandi_gates.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "gateDevices",
+//       labelKey: "menu.gateDevices",
+//       path: "/gate-devices",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "cm_gate_devices.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "gateDeviceConfigs",
+//       labelKey: "menu.gateDeviceConfigs",
+//       path: "/gate-device-configs",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "gate_device_configs.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "gateTokens",
+//       labelKey: "menu.gateTokens",
+//       path: "/gate-tokens",
+//       icon: React.createElement(QrCodeScannerOutlinedIcon),
+//       resourceKey: "gate_pass_tokens.view",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
+//     },
+//     {
+//       key: "gateEntries",
+//       labelKey: "menu.gateEntries",
+//       path: "/gate-entries",
+//       icon: React.createElement(TimelineOutlinedIcon),
+//       resourceKey: "gate_entry_tokens.list",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
+//     },
+//     {
+//       key: "gateMovements",
+//       labelKey: "menu.gateMovements",
+//       path: "/gate-movements",
+//       icon: React.createElement(TimelineOutlinedIcon),
+//       resourceKey: "gate_movements_log.view",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "weighmentTickets",
+//       labelKey: "menu.weighmentTickets",
+//       path: "/weighment-tickets",
+//       icon: React.createElement(ScaleOutlinedIcon),
+//       resourceKey: "weighment_tickets.view",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//   ],
+// },
+
+//   // {
+//   //   key: "auctions",
+//   //   labelKey: "menu.auctionMethods",
+//   //   icon: React.createElement(GavelOutlinedIcon),
+//   //   roles: ALL_ROLES,
+//   //   children: [
+//   //     {
+//   //       key: "auctionMethods",
+//   //       labelKey: "menu.auctionMethods",
+//   //       path: "/auction-methods",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "auction_methods_masters.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "auctionRounds",
+//   //       labelKey: "menu.auctionRounds",
+//   //       path: "/auction-rounds",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "auction_rounds_masters.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "auctionPolicies",
+//   //       labelKey: "menu.auctionPolicies",
+//   //       path: "/auction-policies",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "cm_mandi_auction_policies.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//   //     },
+//   //     {
+//   //       key: "auctionSessions",
+//   //       labelKey: "menu.auctionSessions",
+//   //       path: "/auction-sessions",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "auction_sessions.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "auctionLots",
+//   //       labelKey: "menu.auctionLots",
+//   //       path: "/auction-lots",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "auction_lots.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+//   //     },
+//   //     {
+//   //       key: "auctionResults",
+//   //       labelKey: "menu.auctionResults",
+//   //       path: "/auction-results",
+//   //       icon: React.createElement(GavelOutlinedIcon),
+//   //       resourceKey: "auction_results.menu",
+//   //       requiredAction: "VIEW",
+//   //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+//   //     },
+//   //   ],
+//   // },
+
+// {
+//   key: "auctions",
+//   labelKey: "menu.auctionMethods",
+//   icon: React.createElement(GavelOutlinedIcon),
+//   roles: ALL_ROLES,
+//   children: [
+//     {
+//       key: "auctionMethods",
+//       labelKey: "menu.auctionMethodsMaster",  // 👈 changed
+//       path: "/auction-methods",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_methods_masters.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//     },
+//     {
+//       key: "auctionRounds",
+//       labelKey: "menu.auctionRounds",
+//       path: "/auction-rounds",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_rounds_masters.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//     },
+//     {
+//       key: "auctionPolicies",
+//       labelKey: "menu.auctionPolicies",
+//       path: "/auction-policies",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_policies_masters.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+//     },
+//     {
+//       key: "auctionSessions",
+//       labelKey: "menu.auctionSessions",
+//       path: "/auction-sessions",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_sessions.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUCTIONEER", "AUDITOR"],
+//     },
+//     {
+//       key: "auctionLots",
+//       labelKey: "menu.auctionLots",
+//       path: "/auction-lots",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_lots.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUCTIONEER", "AUDITOR"],
+//     },
+//     {
+//       key: "auctionResults",
+//       labelKey: "menu.auctionResults",
+//       path: "/auction-results",
+//       icon: React.createElement(GavelOutlinedIcon),
+//       resourceKey: "auction_results.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUDITOR"],
+//     },
+//   ],
+// },
+
+
+
+
+// {
+//   key: "parties",
+//   labelKey: "menu.traderApprovals",
+//   icon: React.createElement(TaskAltOutlinedIcon),
+//   roles: ALL_ROLES,
+//   children: [
+//     {
+//       key: "traderApprovals",
+//       labelKey: "menu.traderApprovalQueue",  // 👈 changed
+//       path: "/trader-approvals",
+//       icon: React.createElement(TaskAltOutlinedIcon),
+//       resourceKey: "trader_approvals.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+//     },
+//     {
+//       key: "traders",
+//       labelKey: "menu.traders",
+//       path: "/traders",
+//       icon: React.createElement(BadgeOutlinedIcon),
+//       resourceKey: "traders.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//     },
+//     {
+//       key: "farmers",
+//       labelKey: "menu.farmers",
+//       path: "/farmers",
+//       icon: React.createElement(BadgeOutlinedIcon),
+//       resourceKey: "farmers.menu",
+//       requiredAction: "VIEW",
+//       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "ORG_VIEWER", "AUDITOR"],
+//     },
+//   ],
+// },
+
+
+
+//   {
+//     key: "payments",
+//     labelKey: "menu.paymentsAndSettlements",
+//     icon: React.createElement(AccountBalanceWalletOutlinedIcon),
+//     roles: ALL_ROLES,
+//     children: [
+//       {
+//         key: "paymentModels",
+//         labelKey: "menu.paymentModels",
+//         path: "/payment-models",
+//         icon: React.createElement(AccountBalanceWalletOutlinedIcon),
+//         resourceKey: "payment_models.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "orgPaymentSettings",
+//         labelKey: "menu.orgPaymentSettings",
+//         path: "/org-payment-settings",
+//         icon: React.createElement(AccountBalanceOutlinedIcon),
+//         resourceKey: "org_payment_settings.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "mandiPaymentSettings",
+//         labelKey: "menu.mandiPaymentSettings",
+//         path: "/mandi-payment-settings",
+//         icon: React.createElement(StoreMallDirectoryOutlinedIcon),
+//         resourceKey: "mandi_payment_settings.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "commodityFees",
+//         labelKey: "menu.commodityFeeSettings",
+//         path: "/commodity-fees",
+//         icon: React.createElement(Inventory2OutlinedIcon),
+//         resourceKey: "commodity_fees.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "paymentModes",
+//         labelKey: "menu.paymentModes",
+//         path: "/payment-modes",
+//         icon: React.createElement(SettingsOutlinedIcon),
+//         resourceKey: "payment_modes.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "customFees",
+//         labelKey: "menu.customFees",
+//         path: "/custom-fees",
+//         icon: React.createElement(ReceiptLongOutlinedIcon),
+//         resourceKey: "custom_fees.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "roleCustomFees",
+//         labelKey: "menu.roleCustomFees",
+//         path: "/role-custom-fees",
+//         icon: React.createElement(GroupsOutlinedIcon),
+//         resourceKey: "role_custom_fees.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "subscriptions",
+//         labelKey: "menu.subscriptions",
+//         path: "/subscriptions",
+//         icon: React.createElement(AccountBalanceOutlinedIcon),
+//         resourceKey: "subscriptions.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "subscriptionInvoices",
+//         labelKey: "menu.subscriptionInvoices",
+//         path: "/subscription-invoices",
+//         icon: React.createElement(ReceiptLongOutlinedIcon),
+//         resourceKey: "subscription_invoices.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "settlements",
+//         labelKey: "menu.settlements",
+//         path: "/settlements",
+//         icon: React.createElement(AssessmentOutlinedIcon),
+//         resourceKey: "settlements.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//       {
+//         key: "paymentsLog",
+//         labelKey: "menu.paymentsLog",
+//         path: "/payments-log",
+//         icon: React.createElement(ReceiptLongOutlinedIcon),
+//         resourceKey: "payments_log.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+//       },
+//     ],
+//   },
+
+
+
+
+//   {
+//     key: "reports",
+//     labelKey: "menu.reports",
+//     icon: React.createElement(MapOutlinedIcon),
+//     roles: ALL_ROLES,
+//     children: [
+//       {
+//         key: "mandiCoverage",
+//         labelKey: "menu.mandiCoverage",
+//         path: "/mandi-coverage",
+//         icon: React.createElement(MapOutlinedIcon),
+//         resourceKey: "mandi_coverage.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "MANDI_ADMIN", "MANDI_MANAGER", "AUDITOR", "VIEWER"],
+//       },
+//       {
+//         key: "mandiPrices",
+//         labelKey: "menu.mandiPrices",
+//         path: "/mandi-prices",
+//         icon: React.createElement(PriceChangeOutlinedIcon),
+//         resourceKey: "mandi_prices.menu",
+//         requiredAction: "VIEW",
+//         roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "MANDI_ADMIN", "MANDI_MANAGER", "AUCTIONEER", "AUDITOR", "VIEWER"],
+//       },
+//     ],
+//   },
+// ];
+
+// function cloneMenuItem(item: AppMenuItem, overrides: Partial<AppMenuItem> = {}): AppMenuItem {
+//   return {
+//     ...item,
+//     ...overrides,
+//   };
+// }
+
+// function filterHierarchy(
+//   items: AppMenuItem[],
+//   predicate: (item: AppMenuItem, hasChildren: boolean) => boolean,
+// ): AppMenuItem[] {
+//   const results: AppMenuItem[] = [];
+//   for (const item of items) {
+//     const filteredChildren = item.children ? filterHierarchy(item.children, predicate) : [];
+//     const hasChildren = filteredChildren.length > 0;
+//     const visible = predicate(item, hasChildren) || hasChildren;
+//     if (visible) {
+//       const node: AppMenuItem = cloneMenuItem(item, {
+//         children: filteredChildren.length ? filteredChildren : undefined,
+//       });
+//       results.push(node);
+//     }
+//   }
+//   return results;
+// }
+
+// export type MenuItem = AppMenuItem;
+
+// export function filterMenuByRole(role: RoleSlug | null) {
+//   const knownRole = role && ALL_ROLES.includes(role);
+//   const effectiveRole: RoleSlug = knownRole ? role : "VIEWER";
+
+//   if (!knownRole) {
+//     console.warn(
+//       "[menuConfig/filterMenuByRole] Unknown or missing role; using VIEWER fallback.",
+//       { inputRole: role },
+//     );
+//   }
+
+//   return filterHierarchy(APP_MENU, (item, hasChildren) => {
+//     // For group containers without their own permission role check, hide if no visible children.
+//     if (!item.path && !item.resourceKey && !hasChildren) return false;
+//     if (!item.roles || item.roles.length === 0) return true;
+//     return item.roles.includes(effectiveRole);
+//   });
+// }
+
+// const normalizeKey = (key?: string | null) => {
+//   if (!key) return "";
+//   return String(key).trim().replace(/\s+/g, "").replace(/_{2,}/g, "_").toLowerCase();
+// };
+
+// export function filterMenuByResources(
+//   resources: UiResource[] | undefined,
+//   fallbackRole: RoleSlug | null,
+//   permissionsMap?: Record<string, Set<string>>,
+// ) {
+//   try {
+//     const hasResources = Array.isArray(resources) && resources.length > 0;
+//     if (!hasResources) {
+//       return [];
+//     }
+//     const hasPermissions =
+//       permissionsMap && Object.keys(permissionsMap).length > 0;
+//     // If permissions have not been loaded yet, do not render a temporary menu –
+//     // this avoids the “full menu then collapse” flicker for limited roles.
+//     if (!hasPermissions) {
+//       return [];
+//     }
+
+//     let excludedNoRoute = 0;
+//     let excludedNoGroup = 0;
+//     let excludedNotMenu = 0;
+//     let excludedUiType = 0;
+//     const total = resources.length;
+
+//     // Collect menu resources; visibility is governed by permissions (not routes).
+//     const isActive = (r: any) => r?.is_active === true || r?.is_active === "Y";
+//     const menuResources = resources.filter((r) => r.ui_type === "menu" && isActive(r));
+//     const menuResourceKeys = new Set(
+//       menuResources
+//         .filter((r) => typeof r.resource_key === "string")
+//         .map((r) => normalizeKey(r.resource_key)),
+//     );
+//     // Deduplicate by resource_key for stable can() resolution
+//     const dedupedByKey = new Map<string, UiResource>();
+//     menuResources.forEach((r) => {
+//       const key = r.resource_key || r.route || "";
+//       if (!key) return;
+//       if (!dedupedByKey.has(key)) dedupedByKey.set(key, r);
+//     });
+//     const safeResources = Array.from(dedupedByKey.values());
+
+//     console.log("[menuConfig] filterMenuByResources diagnostic", {
+//       total,
+//       kept: safeResources.length,
+//       excludedNoRoute,
+//       excludedNoGroup,
+//       excludedNotMenu,
+//       excludedUiType,
+//     });
+
+//     // Debug: system menu config visibility (only when debugAuth=1)
+//     try {
+//       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+//       if (params?.get("debugAuth") === "1") {
+//         const systemConfig = APP_MENU.find((g) => g.key === "system");
+//         console.log("[menuConfig debug system config]", {
+//           hasSystemConfig: !!systemConfig,
+//           children: systemConfig?.children?.map((c) => ({
+//             key: c.key,
+//             path: c.path,
+//             resourceKey: c.resourceKey,
+//             requiredAction: c.requiredAction,
+//           })),
+//         });
+//       }
+//     } catch (_) {
+//       // ignore debug errors
+//     }
+
+//     // Prepare label overrides from resources (ui_resources)
+//     const resourceMap = new Map<string, UiResource>();
+//     menuResources.forEach((r) => {
+//       if (r.resource_key) resourceMap.set(r.resource_key, r);
+//     });
+//     const lang =
+//       (typeof navigator !== "undefined" && navigator.language
+//         ? navigator.language.split("-")[0]
+//         : "en") || "en";
+//     const applyResourceLabels = (items: AppMenuItem[]): AppMenuItem[] =>
+//       items.map((it) => {
+//         const res = it.resourceKey ? resourceMap.get(it.resourceKey) : undefined;
+//         // Keep existing translation key as primary; only fall back to UI resource labels when key is missing.
+//         const labelOverride =
+//           it.labelKey ||
+//           (res as any)?.label_i18n?.[lang] ||
+//           (res as any)?.element;
+//         const children = it.children ? applyResourceLabels(it.children) : undefined;
+//         return cloneMenuItem(it, {
+//           labelKey: labelOverride,
+//           children,
+//         });
+//       });
+//     const labeledMenu = applyResourceLabels(APP_MENU);
+
+//     const filtered = filterHierarchy(labeledMenu, (item, hasChildren) => {
+//       const watchKeys = new Set([
+//         "menu.role_policies",
+//         "user_roles.menu",
+//         "resource_registry.menu",
+//       ]);
+//       if (item.resourceKey && watchKeys.has(item.resourceKey)) {
+//         const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
+//         const set = permissionsMap![normalizeKey(item.resourceKey)];
+//         const canViewPerm = !!set && set.size > 0;
+//         const result = hasResourceKey && canViewPerm;
+//         console.log("[menu debug watch]", {
+//           key: item.resourceKey,
+//           hasResourceKey,
+//           canView: canViewPerm,
+//           finalIncluded: result,
+//         });
+//       }
+//       if (!item.resourceKey) return hasChildren;
+//       const normalizedKey = normalizeKey(item.resourceKey);
+//       const set = permissionsMap![normalizedKey];
+//       if (!set || set.size === 0) return false;
+//       // Require that the menu key exists in ui_resources (keeps unseen keys out)
+//       if (!menuResourceKeys.has(normalizedKey)) return false;
+//       return true;
+//     });
+
+//     // Debug summary of visible menu groups
+//     try {
+//       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+//       if (params?.get("debugAuth") === "1") {
+//         const visibleKeys: string[] = [];
+//         const groupSummaries: { key?: string; childCount: number }[] = [];
+//         filtered.forEach((item) => {
+//           if (item.children?.length) {
+//             groupSummaries.push({ key: item.key || item.labelKey, childCount: item.children.length });
+//             item.children.forEach((c) => c.resourceKey && visibleKeys.push(c.resourceKey));
+//           } else if (item.resourceKey) {
+//             visibleKeys.push(item.resourceKey);
+//           }
+//         });
+//         console.log("[menu debug] visible groups and keys", { groupSummaries, visibleKeys });
+//       }
+//     } catch (_) {
+//       // ignore debug errors
+//     }
+
+//     return filtered;
+//   } catch (e) {
+//     console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });
+//     // fallback: keep last-known menu by role rather than blanking
+//     return filterMenuByRole(fallbackRole);
+//   }
+// }

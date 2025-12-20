@@ -22,10 +22,10 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchGatePassTokens, fetchGateEntryTokens } from "../../services/gateOpsApi";
 import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
+import { usePermissions } from "../../authz/usePermissions";
 
 type TokenRow = {
   id: string;
@@ -65,6 +65,7 @@ export const GateTokens: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const { can, permissionsMap } = usePermissions();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
@@ -87,13 +88,26 @@ export const GateTokens: React.FC = () => {
   });
 
   const canViewPass = useMemo(
-    () => can(uiConfig.resources, "gate_pass_tokens.view", "VIEW"),
-    [uiConfig.resources],
+    () => can("gate_pass_tokens.view", "VIEW"),
+    [can],
   );
   const canViewEntry = useMemo(
-    () => can(uiConfig.resources, "gate_entry_tokens.view", "VIEW"),
-    [uiConfig.resources],
+    () => can("gate_entry_tokens.view", "VIEW"),
+    [can],
   );
+  const canCreateEntry = useMemo(
+    () => can("gate_entry_tokens.create", "CREATE"),
+    [can],
+  );
+  const canUpdateEntry = useMemo(
+    () => can("gate_entry_tokens.update", "UPDATE"),
+    [can],
+  );
+  const canCreatePass = useMemo(
+    () => can("gate_pass_tokens.create", "CREATE"),
+    [can],
+  );
+  const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
 
   useEffect(() => {
     setFilters((prev) => {
@@ -157,7 +171,7 @@ export const GateTokens: React.FC = () => {
         headerName: "Actions",
         sortable: false,
         filterable: false,
-        width: 140,
+        width: 200,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             <Button
@@ -170,11 +184,19 @@ export const GateTokens: React.FC = () => {
             <Button size="small" onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}#movements`)}>
               Movements
             </Button>
+            {canUpdateEntry && params.row.token_type === "ENTRY" && (
+              <Button
+                size="small"
+                onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}?mode=edit`)}
+              >
+                Update
+              </Button>
+            )}
           </Stack>
         ),
       },
     ],
-    [],
+    [canUpdateEntry, navigate],
   );
 
   const loadOrganisations = async () => {
@@ -343,10 +365,25 @@ export const GateTokens: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Combined view of gate pass and entry tokens (read-only).
           </Typography>
+          {isDebug && (
+            <Typography variant="caption" color="text.secondary">
+              canCreateEntry: {String(canCreateEntry)} | canCreatePass: {String(canCreatePass)} | canUpdateEntry: {String(canUpdateEntry)} | permKeys: {Object.keys(permissionsMap || {}).length}
+            </Typography>
+          )}
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {(canCreateEntry || canCreatePass) && (
+            <Button
+              variant="contained"
+              onClick={() => navigate("/gate-entries/create")}
+            >
+              Create Token
+            </Button>
+          )}
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Stack

@@ -50,6 +50,7 @@ import { AuctionPolicies } from "./pages/auctionPolicies";
 import { GateDevices } from "./pages/gateDevices";
 import { GateDeviceConfigs } from "./pages/gateDeviceConfigs";
 import { GateTokens } from "./pages/gateTokens";
+import { GateEntryCreate } from "./pages/gateEntries/create";
 import { WeighmentTickets } from "./pages/weighmentTickets";
 import { GateMovements } from "./pages/gateMovements";
 import GateTokenDetail from "./pages/gateTokens/detail";
@@ -177,6 +178,8 @@ function App() {
                     <Route path="/gate-devices" element={<GateDevices />} />
                     <Route path="/gate-device-configs" element={<GateDeviceConfigs />} />
                     <Route path="/gate-tokens" element={<GateTokens />} />
+                    <Route path="/gate-entries" element={<GateTokens />} />
+                    <Route path="/gate-entries/create" element={<GateEntryCreate />} />
                     <Route path="/gate-tokens/:tokenCode" element={<GateTokenDetail />} />
                     <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                     <Route path="/gate-movements" element={<GateMovements />} />

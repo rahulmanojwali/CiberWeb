@@ -45,6 +45,13 @@ export function can(
   if (!Array.isArray(resources) || !resources.length) return false;
   const res = getResource(resources, key);
   if (!res) return false;
+  const normalizeAction = (val: string) => {
+    const upper = (val || "").toUpperCase();
+    if (upper === "EDIT") return "UPDATE";
+    if (upper === "DELETE" || upper === "DISABLE" || upper === "TOGGLE") return "DEACTIVATE";
+    if (upper === "VIEW_DETAIL") return "VIEW";
+    return upper;
+  };
   const actionsSrc: any[] =
     Array.isArray((res as any).allowed_actions) && (res as any).allowed_actions.length
       ? (res as any).allowed_actions
@@ -52,9 +59,9 @@ export function can(
         ? (res as any).actions
         : [];
   const actions = actionsSrc
-    .map((a) => (typeof a === "string" ? a.toUpperCase() : ""))
+    .map((a) => (typeof a === "string" ? normalizeAction(a) : ""))
     .filter(Boolean);
-  const target = action.toUpperCase();
+  const target = normalizeAction(action);
   if (actions.length === 0) return true; // permit when no explicit actions provided (SUPER_ADMIN payloads)
   if (actions.includes("*")) return true;
   return actions.includes(target);

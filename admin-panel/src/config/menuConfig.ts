@@ -431,7 +431,7 @@ export const APP_MENU: AppMenuItem[] = [
       labelKey: "menu.gateEntries",
       path: "/gate-entries",
       icon: React.createElement(TimelineOutlinedIcon),
-      resourceKey: "gate_entry_tokens.view",
+      resourceKey: "gate_entry_tokens.list",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "GATE_OPERATOR"],
     },

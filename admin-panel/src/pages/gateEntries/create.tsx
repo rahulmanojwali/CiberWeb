@@ -15,9 +15,11 @@ import { useSnackbar } from "notistack";
 
 import { PageContainer } from "../../components/PageContainer";
 import { usePermissions } from "../../authz/usePermissions";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchMandiGates } from "../../services/mandiApi";
 import { fetchGateEntryReasons, fetchGateVehicleTypes } from "../../services/gateApi";
 import { normalizeLanguageCode } from "../../config/languages";
+import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 
 type SelectOption = { value: string; label: string };
 
@@ -34,8 +36,9 @@ function currentUsername(): string | null {
 export const GateEntryCreate: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const { can, permissionsMap, uiConfig } = usePermissions();
-  const language = normalizeLanguageCode(uiConfig?.language || "en");
+  const { can, permissionsMap } = usePermissions();
+  useAdminUiConfig(); // keep subscription for consistency, even if not used directly
+  const language = normalizeLanguageCode(DEFAULT_LANGUAGE);
 
   const canCreate = useMemo(
     () => can("gate_entry_tokens.create", "CREATE"),

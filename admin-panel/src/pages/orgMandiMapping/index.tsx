@@ -40,6 +40,7 @@ import {
   fetchMandis,
 } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
+import type { AutocompleteInputChangeReason } from "@mui/material/Autocomplete";
 
 type MappingRow = {
   id: string;
@@ -88,7 +89,12 @@ export const OrgMandiMapping: React.FC = () => {
 
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
   const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
+  const [mandiPage, setMandiPage] = useState(1);
+  const [mandiHasMore, setMandiHasMore] = useState(true);
+  const [mandiLoading, setMandiLoading] = useState(false);
+  const [mandiError, setMandiError] = useState<string | null>(null);
   const [mandiSearch, setMandiSearch] = useState("");
   const [selectedMandi, setSelectedMandi] = useState<MandiOption | null>(null);
   const [filters, setFilters] = useState({
@@ -120,66 +126,148 @@ export const OrgMandiMapping: React.FC = () => {
     [uiConfig.resources, roleSlug]
   );
 
+  const scopedOrgId = uiConfig.scope?.org_id ? String(uiConfig.scope.org_id) : "";
+  const scopedOrgCode = uiConfig.scope?.org_code ? String(uiConfig.scope.org_code) : "";
+  const isOrgScoped = Boolean(scopedOrgId || scopedOrgCode);
+
   // ---------------------- LOAD ORGS ---------------------- //
 
   const loadOrgs = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchOrganisations({ username, language });
+    setOrgLoadError(null);
+    try {
+      const resp = await fetchOrganisations({ username, language });
 
-    const payload: any = resp?.data || resp?.response || resp;
-    const orgs =
-      payload?.data?.organisations ||
-      payload?.organisations ||
-      [];
+      const payload: any = resp?.data || resp?.response || resp;
+      const orgs =
+        payload?.data?.organisations ||
+        payload?.organisations ||
+        [];
 
-    setOrgOptions(
-      orgs.map((o: any) => ({
-        _id: o._id,
-        org_code: o.org_code,
-        org_name: o.org_name,
-      }))
-    );
+      console.log("[OrgMandiMapping] loadOrgs received", { count: orgs?.length });
+
+      const mapped: OrgOption[] = orgs.map((o: any) => ({
+          _id: o._id,
+          org_code: o.org_code,
+          org_name: o.org_name,
+        }));
+
+      const hasOrgFromScope = isOrgScoped && (scopedOrgId || scopedOrgCode);
+      const fallbackOrg =
+        hasOrgFromScope && mapped.length === 0
+          ? [
+              {
+                _id: scopedOrgId || scopedOrgCode,
+                org_code: scopedOrgCode || scopedOrgId,
+                org_name: "",
+              },
+            ]
+          : [];
+
+      const finalOptions = mapped.length ? mapped : fallbackOrg;
+      setOrgOptions(finalOptions);
+
+      if (finalOptions.length === 1) {
+        const only = finalOptions[0];
+        setFilters((f) => ({ ...f, org_id: only._id }));
+        setForm((f) => ({ ...f, org_id: only._id }));
+      } else if (hasOrgFromScope) {
+        const match = finalOptions.find((o) => o._id === scopedOrgId || o.org_code === scopedOrgCode);
+        if (match) {
+          setFilters((f) => ({ ...f, org_id: match._id }));
+          setForm((f) => ({ ...f, org_id: match._id }));
+        }
+      }
+    } catch (err: any) {
+      const message = err?.message || "Unable to load organisations";
+      setOrgLoadError(message);
+      console.error("[OrgMandiMapping] loadOrgs error", err);
+      if (isOrgScoped && scopedOrgId) {
+        setOrgOptions([
+          { _id: scopedOrgId, org_code: scopedOrgCode || scopedOrgId, org_name: "" },
+        ]);
+        setFilters((f) => ({ ...f, org_id: scopedOrgId }));
+        setForm((f) => ({ ...f, org_id: scopedOrgId }));
+      }
+    }
   };
 
   // ---------------------- LOAD MANDIS FOR DIALOG ---------------------- //
 
-  const loadMandis = async () => {
+  const loadMandis = async ({ reset = false } = {}) => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({
-      username,
-      language,
-      filters: { is_active: true, page: 1, pageSize: 1000, search: mandiSearch },
-    });
-    const payload: any = resp?.data || resp?.response || resp;
-    const mandis =
-      payload?.data?.mandis ||
-      payload?.mandis ||
-      [];
+    const pageSize = 100;
+    const nextPage = reset ? 1 : mandiPage;
+    const filtersPayload: Record<string, any> = {
+      is_active: true,
+      page: nextPage,
+      pageSize,
+      search: mandiSearch || undefined,
+      org_id: form.org_id || filters.org_id || scopedOrgId || undefined,
+    };
 
-    const mapped: MandiOption[] = mandis.map((m: any) => ({
-      mandi_id: m.mandi_id,
-      name:
-        m.mandi_name ||
-        m.name_i18n?.en ||
-        m.mandi_slug ||
-        String(m.mandi_id),
-    }));
-
-    if (
-      selectedMandi &&
-      !mapped.find((m) => m.mandi_id === selectedMandi.mandi_id)
-    ) {
-      mapped.push(selectedMandi);
+    console.log("[OrgMandiMapping] loadMandis params", filtersPayload);
+    if (reset) {
+      setMandiOptions([]);
+      setSelectedMandi(null);
     }
-    setMandiOptions(mapped);
+    setMandiLoading(true);
+    setMandiError(null);
 
-    if (!selectedMandi && form.mandi_id) {
-      const found = mapped.find(
-        (m) => String(m.mandi_id) === String(form.mandi_id)
-      );
-      if (found) setSelectedMandi(found);
+    try {
+      const resp = await fetchMandis({
+        username,
+        language,
+        filters: filtersPayload,
+      });
+      const payload: any = resp?.data || resp?.response || resp;
+      const mandis =
+        payload?.data?.mandis ||
+        payload?.mandis ||
+        [];
+      const mapped: MandiOption[] = mandis.map((m: any) => ({
+        mandi_id: m.mandi_id,
+        name:
+          m.mandi_name ||
+          m.name_i18n?.en ||
+          m.mandi_slug ||
+          String(m.mandi_id),
+      }));
+
+      const existing = reset ? [] : mandiOptions;
+      const mergedMap = new Map<number, MandiOption>();
+      [...existing, ...mapped].forEach((m) => {
+        if (!mergedMap.has(m.mandi_id)) mergedMap.set(m.mandi_id, m);
+      });
+      const mergedList = Array.from(mergedMap.values());
+      setMandiOptions(mergedList);
+
+      const hasMoreServer =
+        payload?.data?.hasMore ??
+        payload?.response?.hasMore ??
+        mapped.length >= pageSize;
+      setMandiHasMore(Boolean(hasMoreServer));
+      setMandiPage(hasMoreServer ? nextPage + 1 : nextPage);
+
+      if (!selectedMandi && form.mandi_id) {
+        const found = mergedList.find(
+          (m) => String(m.mandi_id) === String(form.mandi_id)
+        );
+        if (found) setSelectedMandi(found);
+      }
+      console.log("[OrgMandiMapping] loadMandis received", {
+        count: mapped.length,
+        merged: mergedList.length,
+        hasMore: hasMoreServer,
+      });
+    } catch (err: any) {
+      const message = err?.message || "Unable to load mandis";
+      setMandiError(message);
+      console.error("[OrgMandiMapping] loadMandis error", err);
+    } finally {
+      setMandiLoading(false);
     }
   };
 
@@ -291,7 +379,7 @@ export const OrgMandiMapping: React.FC = () => {
 
   useEffect(() => {
     loadOrgs();
-    loadMandis();
+    loadMandis({ reset: true });
   }, []);
 
   useEffect(() => {
@@ -299,8 +387,10 @@ export const OrgMandiMapping: React.FC = () => {
   }, [filters.org_id, filters.status]);
 
   useEffect(() => {
-    loadMandis();
-  }, [mandiSearch]);
+    setMandiPage(1);
+    setMandiHasMore(true);
+    loadMandis({ reset: true });
+  }, [mandiSearch, form.org_id]);
 
   // ---------------------- DIALOG HANDLERS ---------------------- //
 
@@ -561,10 +651,10 @@ export const OrgMandiMapping: React.FC = () => {
                 label="Organisation"
                 size="small"
                 value={form.org_id}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, org_id: e.target.value }))
-                }
+                onChange={(e) => handleOrgInputChange(null, e.target.value)}
                 fullWidth
+                disabled={orgDisabled}
+                helperText={orgLoadError ? `Unable to load organisations: ${orgLoadError}` : undefined}
               >
                 {orgOptions.map((o) => (
                   <MenuItem key={o._id} value={o._id}>
@@ -581,7 +671,11 @@ export const OrgMandiMapping: React.FC = () => {
                   `${option.name} (${option.mandi_id})`
                 }
                 inputValue={mandiSearch}
-                onInputChange={(_, value) => setMandiSearch(value)}
+                onInputChange={(_: any, value: string, reason: AutocompleteInputChangeReason) => {
+                  if (reason === "input" || reason === "clear") {
+                    setMandiSearch(value);
+                  }
+                }}
                 value={selectedMandi}
                 onChange={(_, val) => {
                   setSelectedMandi(val);
@@ -590,12 +684,16 @@ export const OrgMandiMapping: React.FC = () => {
                     mandi_id: val ? String(val.mandi_id) : "",
                   }));
                 }}
+                ListboxProps={{ onScroll: handleMandiScroll }}
+                loading={mandiLoading}
+                noOptionsText={mandiError ? `Unable to load mandis: ${mandiError}` : "No mandis found"}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Mandi"
                     placeholder="Search mandi by name or slug"
                     fullWidth
+                    helperText={mandiError ? "Unable to load mandis. See console for details." : undefined}
                   />
                 )}
               />
@@ -1264,3 +1362,17 @@ export const OrgMandiMapping: React.FC = () => {
 //     </PageContainer>
 //   );
 // };
+  const handleMandiScroll: React.UIEventHandler<HTMLUListElement> = (event) => {
+    const list = event.currentTarget;
+    if (!mandiHasMore || mandiLoading) return;
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 16) {
+      loadMandis();
+    }
+  };
+
+  const handleOrgInputChange = (_: any, value: string) => {
+    setFilters((f) => ({ ...f, org_id: value }));
+    setForm((f) => ({ ...f, org_id: value }));
+  };
+
+  const orgDisabled = orgOptions.length === 1 && isOrgScoped;

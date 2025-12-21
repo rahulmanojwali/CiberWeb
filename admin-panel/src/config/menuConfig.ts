@@ -18,7 +18,7 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import { type UiResource } from "../utils/adminUiConfig";
+import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 
 export type RoleSlug =
@@ -124,7 +124,7 @@ export const APP_MENU: AppMenuItem[] = [
       labelKey: "menu.orgMandi",
       path: "/org-mandi-mapping",
       icon: React.createElement(HubOutlinedIcon),
-      resourceKey: "org_mandi_mappings.menu",
+      resourceKey: "org_mandi_mapping.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
     },
@@ -801,8 +801,7 @@ export function filterMenuByRole(role: RoleSlug | null) {
 }
 
 const normalizeKey = (key?: string | null) => {
-  if (!key) return "";
-  return String(key).trim().replace(/\s+/g, "").replace(/_{2,}/g, "_").toLowerCase();
+  return canonicalizeResourceKey(key);
 };
 
 export function filterMenuByResources(
@@ -840,7 +839,7 @@ export function filterMenuByResources(
     // Deduplicate by resource_key for stable can() resolution
     const dedupedByKey = new Map<string, UiResource>();
     menuResources.forEach((r) => {
-      const key = r.resource_key || r.route || "";
+      const key = r.resource_key ? canonicalizeResourceKey(r.resource_key) : r.route || "";
       if (!key) return;
       if (!dedupedByKey.has(key)) dedupedByKey.set(key, r);
     });
@@ -877,7 +876,7 @@ export function filterMenuByResources(
     // Prepare label overrides from resources (ui_resources)
     const resourceMap = new Map<string, UiResource>();
     menuResources.forEach((r) => {
-      if (r.resource_key) resourceMap.set(r.resource_key, r);
+      if (r.resource_key) resourceMap.set(canonicalizeResourceKey(r.resource_key), r);
     });
     const lang =
       (typeof navigator !== "undefined" && navigator.language
@@ -885,7 +884,8 @@ export function filterMenuByResources(
         : "en") || "en";
     const applyResourceLabels = (items: AppMenuItem[]): AppMenuItem[] =>
       items.map((it) => {
-        const res = it.resourceKey ? resourceMap.get(it.resourceKey) : undefined;
+        const resKey = it.resourceKey ? canonicalizeResourceKey(it.resourceKey) : undefined;
+        const res = resKey ? resourceMap.get(resKey) : undefined;
         // Keep existing translation key as primary; only fall back to UI resource labels when key is missing.
         const labelOverride =
           it.labelKey ||
@@ -1086,7 +1086,7 @@ export function filterMenuByResources(
 //       labelKey: "menu.orgMandi",
 //       path: "/org-mandi-mapping",
 //       icon: React.createElement(HubOutlinedIcon),
-//       resourceKey: "org_mandi_mappings.menu",
+//       resourceKey: "org_mandi_mapping.menu",
 //       requiredAction: "VIEW",
 //       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
 //     },

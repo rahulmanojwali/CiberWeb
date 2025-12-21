@@ -21,6 +21,7 @@ import {
 import { useSnackbar } from "notistack";
 import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
+import { canonicalizeResourceKey } from "../../utils/adminUiConfig";
 
 type PolicyEntry = { resource_key: string; actions: string[] };
 type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
@@ -34,16 +35,15 @@ type RegistryEntry = {
 };
 
 const normalizeKey = (key: string): string => {
-  const k = String(key || '').trim();
+  const k = canonicalizeResourceKey(key);
   if (!k) return '';
-  const lower = k.toLowerCase().replace(/\s+/g, '');
-  if (lower.endsWith('.delete') || lower.endsWith('.disable') || lower.endsWith('.toggle')) {
-    return lower.replace(/\.(delete|disable|toggle)$/, '.deactivate');
+  if (k.endsWith('.delete') || k.endsWith('.disable') || k.endsWith('.toggle')) {
+    return k.replace(/\.(delete|disable|toggle)$/, '.deactivate');
   }
-  return lower;
+  return k;
 };
 
-  const resolveModuleName = (key: string): string => {
+const resolveModuleName = (key: string): string => {
   if (!key) return 'Misc';
   const k = normalizeKey(key);
   const starts = (p: string) => k.startsWith(p);
@@ -51,7 +51,7 @@ const normalizeKey = (key: string): string => {
   if (starts('menu.role_policies') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
     return 'System Administration';
   }
-  if (starts('organisations.') || starts('org_mandi_mappings.')) {
+  if (starts('organisations.') || starts('org_mandi_mapping.')) {
     return 'Organisation Management';
   }
   if (starts('commodities.') || starts('commodity_products.')) {

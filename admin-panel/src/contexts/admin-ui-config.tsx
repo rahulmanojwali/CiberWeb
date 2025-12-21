@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import axios from "axios";
 import { API_BASE_URL, API_ROUTES, API_TAGS, DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../config/appConfig";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
-import type { AdminScope, AdminUiConfig, UiResource } from "../utils/adminUiConfig";
+import { canonicalizeResourceKey, type AdminScope, type AdminUiConfig, type UiResource } from "../utils/adminUiConfig";
 
 type AdminUiContextValue = AdminUiConfig & {
   loading: boolean;
@@ -124,6 +124,87 @@ const normalizeScope = (scope: any): AdminScope | null => {
   };
 };
 
+const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
+  const normalized = (resources || []).map((r) => ({
+    ...r,
+    resource_key: canonicalizeResourceKey(r.resource_key),
+    parent_resource_key: canonicalizeResourceKey(r.parent_resource_key) || null,
+  }));
+
+  const deduped = new Map<string, UiResource>();
+  normalized.forEach((r) => {
+    const key = canonicalizeResourceKey(r.resource_key);
+    if (!key) return;
+    if (!deduped.has(key)) deduped.set(key, r);
+  });
+
+  const ensure = (payload: UiResource) => {
+    const key = canonicalizeResourceKey(payload.resource_key);
+    if (!key || deduped.has(key)) return;
+    deduped.set(key, { ...payload, resource_key: key, parent_resource_key: canonicalizeResourceKey(payload.parent_resource_key) || null });
+  };
+
+  const mandiView = ["VIEW"];
+  const mandiCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+  ensure({
+    resource_key: "org_mandi_mapping.menu",
+    screen: "Org-Mandi Mapping",
+    element: "Org-Mandi menu",
+    ui_type: "menu",
+    route: "/org-mandi-mapping",
+    parent_resource_key: null,
+    allowed_actions: mandiView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mapping.list",
+    screen: "Org-Mandi Mapping",
+    element: "Org-Mandi list",
+    ui_type: "table",
+    route: "/org-mandi-mapping",
+    parent_resource_key: "org_mandi_mapping.menu",
+    allowed_actions: mandiView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mapping.create",
+    screen: "Org-Mandi Mapping",
+    element: "Create org-mandi mapping",
+    ui_type: "button",
+    route: "/org-mandi-mapping",
+    parent_resource_key: "org_mandi_mapping.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mapping.edit",
+    screen: "Org-Mandi Mapping",
+    element: "Edit org-mandi mapping",
+    ui_type: "button",
+    route: "/org-mandi-mapping",
+    parent_resource_key: "org_mandi_mapping.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mapping.deactivate",
+    screen: "Org-Mandi Mapping",
+    element: "Deactivate org-mandi mapping",
+    ui_type: "button",
+    route: "/org-mandi-mapping",
+    parent_resource_key: "org_mandi_mapping.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+
+  return Array.from(deduped.values());
+};
+
 export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<string | null>(null);
   const [scope, setScope] = useState<AdminScope | null>(null);
@@ -136,13 +217,13 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const cached = readCachedConfig();
     if (cached) {
+      const normalizedCachedResources = normalizeUiResources(
+        Array.isArray(cached.ui_resources) ? cached.ui_resources : Array.isArray((cached as any).resources) ? (cached as any).resources : [],
+      );
       setRole(canonicalRoleSlug(cached.role));
       setScope(normalizeScope(cached.scope));
-      setUiResources(Array.isArray(cached.ui_resources) ? cached.ui_resources : []);
+      setUiResources(normalizedCachedResources);
       setPermissions(Array.isArray(cached.permissions) ? cached.permissions : []);
-      if (Array.isArray((cached as any).resources) && uiResources.length === 0) {
-        setUiResources((cached as any).resources);
-      }
     }
   }, []);
 
@@ -204,20 +285,21 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
         : Array.isArray(respData?.resources)
           ? respData.resources
           : [];
+      const normalizedUiResources = normalizeUiResources(nextUiResources);
       const nextPermissions: any[] = Array.isArray(respData?.permissions)
         ? respData.permissions
         : [];
 
       setRole(nextRole);
       setScope(nextScope);
-      setUiResources(nextUiResources);
+      setUiResources(normalizedUiResources);
       setPermissions(nextPermissions);
       writeCachedConfig({
         role: nextRole,
         scope: nextScope,
-        ui_resources: nextUiResources,
+        ui_resources: normalizedUiResources,
         permissions: nextPermissions,
-        resources: nextUiResources,
+        resources: normalizedUiResources,
       });
       syncUserScope(nextScope);
     } catch (e: any) {

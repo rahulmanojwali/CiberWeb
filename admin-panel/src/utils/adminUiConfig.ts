@@ -29,12 +29,23 @@ export type AdminUiConfig = {
   resources?: UiResource[]; // compatibility alias
 };
 
+// Normalise resource keys to a single canonical form used across UI checks.
+export function canonicalizeResourceKey(key?: string | null): string {
+  if (!key) return "";
+  const base = String(key).trim().replace(/\s+/g, "").replace(/-{1,}/g, "_").replace(/_{2,}/g, "_").toLowerCase();
+  // Alias older variants to the canonical org_mandi_mapping.* prefix.
+  if (base.startsWith("org_mandi_mappings.")) return base.replace(/^org_mandi_mappings/, "org_mandi_mapping");
+  if (base.startsWith("org_mandi.")) return base.replace(/^org_mandi/, "org_mandi_mapping");
+  return base;
+}
+
 export function getResource(
   resources: UiResource[] | undefined,
   key: string,
 ): UiResource | undefined {
   if (!Array.isArray(resources) || !resources.length) return undefined;
-  return resources.find((r) => r.resource_key === key);
+  const target = canonicalizeResourceKey(key);
+  return resources.find((r) => canonicalizeResourceKey(r.resource_key) === target);
 }
 
 export function can(
@@ -43,7 +54,7 @@ export function can(
   action: string,
 ): boolean {
   if (!Array.isArray(resources) || !resources.length) return false;
-  const res = getResource(resources, key);
+  const res = getResource(resources, canonicalizeResourceKey(key));
   if (!res) return false;
   const normalizeAction = (val: string) => {
     const upper = (val || "").toUpperCase();

@@ -115,7 +115,7 @@ export const OrgMandiMapping: React.FC = () => {
 
   const canCreate = useMemo(
     () =>
-      can(uiConfig.resources, "org_mandi_mappings.create", "CREATE") ||
+      can(uiConfig.resources, "org_mandi_mapping.create", "CREATE") ||
       ["SUPER_ADMIN", "ORG_ADMIN"].includes(roleSlug),
     [uiConfig.resources, roleSlug]
   );

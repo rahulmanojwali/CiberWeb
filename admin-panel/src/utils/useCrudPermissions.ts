@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
-import { can } from "./adminUiConfig";
+import { can, canonicalizeResourceKey } from "./adminUiConfig";
 
 type CrudPermissions = {
   canView: boolean;
@@ -25,6 +25,7 @@ type CrudOptions = {
  */
 export function useCrudPermissions(resourceKey: string, options: CrudOptions = {}): CrudPermissions {
   const uiConfig = useAdminUiConfig();
+  const canonicalKey = canonicalizeResourceKey(resourceKey);
   const normalizeRole = (raw?: string | null) =>
     (raw || "")
       .toString()
@@ -35,12 +36,12 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
   const masterOnly = options.masterOnly === true;
 
   const perms = useMemo(() => {
-    const viewList = can(uiConfig.resources, `${resourceKey}.list`, "VIEW");
-    const viewDetail = can(uiConfig.resources, `${resourceKey}.detail`, "VIEW");
+    const viewList = can(uiConfig.resources, `${canonicalKey}.list`, "VIEW");
+    const viewDetail = can(uiConfig.resources, `${canonicalKey}.detail`, "VIEW");
     const view = viewList || viewDetail;
-    let create = can(uiConfig.resources, `${resourceKey}.create`, "CREATE");
-    let edit = can(uiConfig.resources, `${resourceKey}.edit`, "UPDATE");
-    let deactivate = can(uiConfig.resources, `${resourceKey}.deactivate`, "DEACTIVATE");
+    let create = can(uiConfig.resources, `${canonicalKey}.create`, "CREATE");
+    let edit = can(uiConfig.resources, `${canonicalKey}.edit`, "UPDATE");
+    let deactivate = can(uiConfig.resources, `${canonicalKey}.deactivate`, "DEACTIVATE");
 
     if (isSuperAdmin) {
       // Super admin always has CRUD; view uses policy or default to true.
@@ -57,6 +58,14 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       if (!create) create = true;
       if (!edit) edit = true;
       if (!deactivate) deactivate = true;
+    }
+    if (roleSlug === "MANDI_ADMIN") {
+      const mandiKeys = new Set(["mandis", "org_mandi_mapping"]);
+      if (mandiKeys.has(canonicalKey)) {
+        create = true;
+        edit = true;
+        deactivate = true;
+      }
     }
 
     if (masterOnly) {
@@ -75,7 +84,7 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       canEdit: edit,
       canDeactivate: deactivate,
     };
-  }, [uiConfig.resources, resourceKey, isSuperAdmin, masterOnly]);
+  }, [uiConfig.resources, canonicalKey, resourceKey, roleSlug, isSuperAdmin, masterOnly]);
 
   return {
     ...perms,

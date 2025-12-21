@@ -122,9 +122,9 @@ export const APP_MENU: AppMenuItem[] = [
     {
       key: "orgMandiMapping",
       labelKey: "menu.orgMandi",
-      path: "/org-mandi-mapping",
+      path: "/org-mandi",
       icon: React.createElement(HubOutlinedIcon),
-      resourceKey: "org_mandi_mapping.menu",
+      resourceKey: "org_mandi_mappings.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
     },

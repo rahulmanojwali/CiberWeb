@@ -48,6 +48,10 @@ export function usePermissions() {
       const set = new Set<string>();
       actions.forEach((val: string) => set.add(val));
       map[key] = set;
+      if (key.startsWith("org_mandi_mappings.")) {
+        const legacyKey = key.replace(/^org_mandi_mappings/, "org_mandi");
+        map[legacyKey] = new Set(set);
+      }
     });
     if (roleSlug === "MANDI_ADMIN") {
       const ensure = (resourceKey: string, actions: string[]) => {
@@ -56,6 +60,12 @@ export function usePermissions() {
         const existing = map[key] || new Set<string>();
         actions.forEach((a) => existing.add(a));
         map[key] = existing;
+        if (key.startsWith("org_mandi_mappings.")) {
+          const legacyKey = key.replace(/^org_mandi_mappings/, "org_mandi");
+          const legacy = map[legacyKey] || new Set<string>();
+          actions.forEach((a) => legacy.add(a));
+          map[legacyKey] = legacy;
+        }
       };
       const mandiActions = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
       ensure("mandis.menu", ["VIEW"]);
@@ -64,11 +74,11 @@ export function usePermissions() {
       ensure("mandis.create", mandiActions);
       ensure("mandis.edit", mandiActions);
       ensure("mandis.deactivate", mandiActions);
-      ensure("org_mandi_mapping.menu", ["VIEW"]);
-      ensure("org_mandi_mapping.list", ["VIEW"]);
-      ensure("org_mandi_mapping.create", mandiActions);
-      ensure("org_mandi_mapping.edit", mandiActions);
-      ensure("org_mandi_mapping.deactivate", mandiActions);
+      ensure("org_mandi_mappings.menu", ["VIEW"]);
+      ensure("org_mandi_mappings.list", ["VIEW"]);
+      ensure("org_mandi_mappings.create", mandiActions);
+      ensure("org_mandi_mappings.edit", mandiActions);
+      ensure("org_mandi_mappings.deactivate", mandiActions);
     }
     return map;
   }, [uiConfig.permissions, (uiConfig as any).resources, roleSlug]);

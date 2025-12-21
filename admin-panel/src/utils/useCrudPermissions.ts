@@ -60,7 +60,7 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       if (!deactivate) deactivate = true;
     }
     if (roleSlug === "MANDI_ADMIN") {
-      const mandiKeys = new Set(["mandis", "org_mandi_mapping"]);
+      const mandiKeys = new Set(["mandis", "org_mandi_mappings"]);
       if (mandiKeys.has(canonicalKey)) {
         create = true;
         edit = true;

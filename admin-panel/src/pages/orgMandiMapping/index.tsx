@@ -41,6 +41,7 @@ import {
 } from "../../services/mandiApi";
 import Autocomplete from "@mui/material/Autocomplete";
 import type { AutocompleteInputChangeReason } from "@mui/material/Autocomplete";
+import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 
 type MappingRow = {
   id: string;
@@ -96,6 +97,7 @@ export const OrgMandiMapping: React.FC = () => {
   const [mandiLoading, setMandiLoading] = useState(false);
   const [mandiError, setMandiError] = useState<string | null>(null);
   const [mandiSearch, setMandiSearch] = useState("");
+  const [mandiSource, setMandiSource] = useState<"ORG" | "ALL">(() => (uiConfig.scope?.org_id ? "ORG" : "ALL"));
   const [selectedMandi, setSelectedMandi] = useState<MandiOption | null>(null);
   const [filters, setFilters] = useState({
     org_id: "",
@@ -121,7 +123,7 @@ export const OrgMandiMapping: React.FC = () => {
 
   const canCreate = useMemo(
     () =>
-      can(uiConfig.resources, "org_mandi_mapping.create", "CREATE") ||
+      can(uiConfig.resources, "org_mandi_mappings.create", "CREATE") ||
       ["SUPER_ADMIN", "ORG_ADMIN"].includes(roleSlug),
     [uiConfig.resources, roleSlug]
   );
@@ -129,6 +131,14 @@ export const OrgMandiMapping: React.FC = () => {
   const scopedOrgId = uiConfig.scope?.org_id ? String(uiConfig.scope.org_id) : "";
   const scopedOrgCode = uiConfig.scope?.org_code ? String(uiConfig.scope.org_code) : "";
   const isOrgScoped = Boolean(scopedOrgId || scopedOrgCode);
+  const selectedOrgCode = useMemo(() => {
+    const byForm = orgOptions.find((o) => o._id === form.org_id);
+    if (byForm?.org_code) return byForm.org_code;
+    const byFilter = orgOptions.find((o) => o._id === filters.org_id);
+    if (byFilter?.org_code) return byFilter.org_code;
+    if (scopedOrgCode) return scopedOrgCode;
+    return "";
+  }, [form.org_id, filters.org_id, orgOptions, scopedOrgCode]);
 
   // ---------------------- LOAD ORGS ---------------------- //
 
@@ -198,17 +208,30 @@ export const OrgMandiMapping: React.FC = () => {
   const loadMandis = async ({ reset = false } = {}) => {
     const username = currentUsername();
     if (!username) return;
-    const pageSize = 100;
+    const pageSize = 50;
     const nextPage = reset ? 1 : mandiPage;
+    const orgFilter = form.org_id || filters.org_id || scopedOrgId || undefined;
+    const orgCode = mandiSource === "ORG" ? selectedOrgCode || scopedOrgCode || undefined : "SYSTEM";
     const filtersPayload: Record<string, any> = {
       is_active: true,
       page: nextPage,
       pageSize,
       search: mandiSearch || undefined,
-      org_id: form.org_id || filters.org_id || scopedOrgId || undefined,
+      org_id: mandiSource === "ORG" ? orgFilter : undefined,
+      owner_type: mandiSource === "ORG" ? "ORG" : undefined,
+      owner_org_id: mandiSource === "ORG" ? orgFilter : undefined,
+    org_code: orgCode,
     };
 
-    console.log("[OrgMandiMapping] loadMandis params", filtersPayload);
+    console.log("[OrgMandiMapping] loadMandis params", {
+      source: mandiSource,
+      orgId: orgFilter,
+      orgCode,
+      search: mandiSearch,
+      page: nextPage,
+      pageSize,
+      payload: filtersPayload,
+    });
     if (reset) {
       setMandiOptions([]);
       setSelectedMandi(null);
@@ -261,6 +284,7 @@ export const OrgMandiMapping: React.FC = () => {
         count: mapped.length,
         merged: mergedList.length,
         hasMore: hasMoreServer,
+        source: mandiSource,
       });
     } catch (err: any) {
       const message = err?.message || "Unable to load mandis";
@@ -378,9 +402,21 @@ export const OrgMandiMapping: React.FC = () => {
   // ---------------------- EFFECTS ---------------------- //
 
   useEffect(() => {
-    loadOrgs();
+    if (isOrgScoped && scopedOrgId) {
+      const fallback = {
+        _id: scopedOrgId,
+        org_code: scopedOrgCode || scopedOrgId,
+        org_name: "",
+      };
+      setOrgOptions([fallback]);
+      setFilters((f) => ({ ...f, org_id: scopedOrgId }));
+      setForm((f) => ({ ...f, org_id: scopedOrgId }));
+      setMandiSource("ORG");
+    } else {
+      loadOrgs();
+    }
     loadMandis({ reset: true });
-  }, []);
+  }, [isOrgScoped, scopedOrgId, scopedOrgCode]);
 
   useEffect(() => {
     loadMappings();
@@ -390,7 +426,7 @@ export const OrgMandiMapping: React.FC = () => {
     setMandiPage(1);
     setMandiHasMore(true);
     loadMandis({ reset: true });
-  }, [mandiSearch, form.org_id]);
+  }, [mandiSearch, form.org_id, mandiSource]);
 
   const handleMandiScroll: React.UIEventHandler<HTMLUListElement> = (event) => {
     const list = event.currentTarget;
@@ -411,7 +447,7 @@ export const OrgMandiMapping: React.FC = () => {
 
   const openCreate = () => {
     setForm({
-      org_id: "",
+      org_id: filters.org_id || scopedOrgId || "",
       mandi_id: "",
       assignment_scope: "EXCLUSIVE",
       is_active: true,
@@ -679,39 +715,58 @@ export const OrgMandiMapping: React.FC = () => {
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <Autocomplete
-                size="small"
-                options={mandiOptions}
-                getOptionLabel={(option) =>
-                  `${option.name} (${option.mandi_id})`
-                }
-                inputValue={mandiSearch}
-                onInputChange={(_: any, value: string, reason: AutocompleteInputChangeReason) => {
-                  if (reason === "input" || reason === "clear") {
-                    setMandiSearch(value);
+              <Stack spacing={1}>
+                <ToggleButtonGroup
+                  size="small"
+                  value={mandiSource}
+                  exclusive
+                  onChange={(_, val) => {
+                    if (val === null) return;
+                    setMandiSource(val);
+                  }}
+                  aria-label="Mandi scope"
+                >
+                  <ToggleButton value="ORG" aria-label="Org Mandis">
+                    My Org Mandis
+                  </ToggleButton>
+                  <ToggleButton value="ALL" aria-label="All Mandis">
+                    All System Mandis
+                  </ToggleButton>
+                </ToggleButtonGroup>
+                <Autocomplete
+                  size="small"
+                  options={mandiOptions}
+                  getOptionLabel={(option) =>
+                    `${option.name} (${option.mandi_id})`
                   }
-                }}
-                value={selectedMandi}
-                onChange={(_, val) => {
-                  setSelectedMandi(val);
-                  setForm((f) => ({
-                    ...f,
-                    mandi_id: val ? String(val.mandi_id) : "",
-                  }));
-                }}
-                ListboxProps={{ onScroll: handleMandiScroll }}
-                loading={mandiLoading}
-                noOptionsText={mandiError ? `Unable to load mandis: ${mandiError}` : "No mandis found"}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Mandi"
-                    placeholder="Search mandi by name or slug"
-                    fullWidth
-                    helperText={mandiError ? "Unable to load mandis. See console for details." : undefined}
-                  />
-                )}
-              />
+                  inputValue={mandiSearch}
+                  onInputChange={(_: any, value: string, reason: AutocompleteInputChangeReason) => {
+                    if (reason === "input" || reason === "clear") {
+                      setMandiSearch(value);
+                    }
+                  }}
+                  value={selectedMandi}
+                  onChange={(_, val) => {
+                    setSelectedMandi(val);
+                    setForm((f) => ({
+                      ...f,
+                      mandi_id: val ? String(val.mandi_id) : "",
+                    }));
+                  }}
+                  ListboxProps={{ onScroll: handleMandiScroll }}
+                  loading={mandiLoading}
+                  noOptionsText={mandiError ? `Unable to load mandis: ${mandiError}` : "No mandis found"}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Mandi"
+                      placeholder="Search mandi by name or slug"
+                      fullWidth
+                      helperText={mandiError ? "Unable to load mandis. See console for details." : undefined}
+                    />
+                  )}
+                />
+              </Stack>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField

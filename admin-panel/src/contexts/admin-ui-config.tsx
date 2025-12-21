@@ -147,59 +147,114 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
   const mandiView = ["VIEW"];
   const mandiCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
   ensure({
-    resource_key: "org_mandi_mapping.menu",
+    resource_key: "org_mandi_mappings.menu",
     screen: "Org-Mandi Mapping",
     element: "Org-Mandi menu",
     ui_type: "menu",
-    route: "/org-mandi-mapping",
+    route: "/org-mandi",
     parent_resource_key: null,
     allowed_actions: mandiView,
     is_active: true,
     metadata: { injected: true },
   } as UiResource);
   ensure({
-    resource_key: "org_mandi_mapping.list",
+    resource_key: "org_mandi.menu",
+    screen: "Org-Mandi Mapping",
+    element: "Org-Mandi menu (legacy key)",
+    ui_type: "menu",
+    route: "/org-mandi",
+    parent_resource_key: null,
+    allowed_actions: mandiView,
+    is_active: true,
+    metadata: { injected: true, alias_for: "org_mandi_mappings.menu" },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mappings.list",
     screen: "Org-Mandi Mapping",
     element: "Org-Mandi list",
     ui_type: "table",
-    route: "/org-mandi-mapping",
-    parent_resource_key: "org_mandi_mapping.menu",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi_mappings.menu",
     allowed_actions: mandiView,
     is_active: true,
     metadata: { injected: true },
   } as UiResource);
   ensure({
-    resource_key: "org_mandi_mapping.create",
+    resource_key: "org_mandi.list",
+    screen: "Org-Mandi Mapping",
+    element: "Org-Mandi list (legacy key)",
+    ui_type: "table",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi.menu",
+    allowed_actions: mandiView,
+    is_active: true,
+    metadata: { injected: true, alias_for: "org_mandi_mappings.list" },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mappings.create",
     screen: "Org-Mandi Mapping",
     element: "Create org-mandi mapping",
     ui_type: "button",
-    route: "/org-mandi-mapping",
-    parent_resource_key: "org_mandi_mapping.menu",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi_mappings.menu",
     allowed_actions: mandiCrud,
     is_active: true,
     metadata: { injected: true },
   } as UiResource);
   ensure({
-    resource_key: "org_mandi_mapping.edit",
+    resource_key: "org_mandi.create",
+    screen: "Org-Mandi Mapping",
+    element: "Create org-mandi mapping (legacy key)",
+    ui_type: "button",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true, alias_for: "org_mandi_mappings.create" },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mappings.edit",
     screen: "Org-Mandi Mapping",
     element: "Edit org-mandi mapping",
     ui_type: "button",
-    route: "/org-mandi-mapping",
-    parent_resource_key: "org_mandi_mapping.menu",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi_mappings.menu",
     allowed_actions: mandiCrud,
     is_active: true,
     metadata: { injected: true },
   } as UiResource);
   ensure({
-    resource_key: "org_mandi_mapping.deactivate",
+    resource_key: "org_mandi.edit",
+    screen: "Org-Mandi Mapping",
+    element: "Edit org-mandi mapping (legacy key)",
+    ui_type: "button",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true, alias_for: "org_mandi_mappings.edit" },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi_mappings.deactivate",
     screen: "Org-Mandi Mapping",
     element: "Deactivate org-mandi mapping",
     ui_type: "button",
-    route: "/org-mandi-mapping",
-    parent_resource_key: "org_mandi_mapping.menu",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi_mappings.menu",
     allowed_actions: mandiCrud,
     is_active: true,
     metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "org_mandi.deactivate",
+    screen: "Org-Mandi Mapping",
+    element: "Deactivate org-mandi mapping (legacy key)",
+    ui_type: "button",
+    route: "/org-mandi",
+    parent_resource_key: "org_mandi.menu",
+    allowed_actions: mandiCrud,
+    is_active: true,
+    metadata: { injected: true, alias_for: "org_mandi_mappings.deactivate" },
   } as UiResource);
 
   return Array.from(deduped.values());

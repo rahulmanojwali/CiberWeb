@@ -51,7 +51,7 @@ const resolveModuleName = (key: string): string => {
   if (starts('menu.role_policies') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
     return 'System Administration';
   }
-  if (starts('organisations.') || starts('org_mandi_mapping.')) {
+  if (starts('organisations.') || starts('org_mandi_mappings.')) {
     return 'Organisation Management';
   }
   if (starts('commodities.') || starts('commodity_products.')) {

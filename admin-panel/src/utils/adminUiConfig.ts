@@ -33,9 +33,9 @@ export type AdminUiConfig = {
 export function canonicalizeResourceKey(key?: string | null): string {
   if (!key) return "";
   const base = String(key).trim().replace(/\s+/g, "").replace(/-{1,}/g, "_").replace(/_{2,}/g, "_").toLowerCase();
-  // Alias older variants to the canonical org_mandi_mapping.* prefix.
-  if (base.startsWith("org_mandi_mappings.")) return base.replace(/^org_mandi_mappings/, "org_mandi_mapping");
-  if (base.startsWith("org_mandi.")) return base.replace(/^org_mandi/, "org_mandi_mapping");
+  // Alias variants to the canonical org_mandi_mappings.* prefix.
+  if (base.startsWith("org_mandi_mapping.")) return base.replace(/^org_mandi_mapping/, "org_mandi_mappings");
+  if (base.startsWith("org_mandi.")) return base.replace(/^org_mandi/, "org_mandi_mappings");
   return base;
 }
 

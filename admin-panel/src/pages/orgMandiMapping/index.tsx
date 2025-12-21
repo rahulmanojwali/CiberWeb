@@ -392,6 +392,20 @@ export const OrgMandiMapping: React.FC = () => {
     loadMandis({ reset: true });
   }, [mandiSearch, form.org_id]);
 
+  const handleMandiScroll: React.UIEventHandler<HTMLUListElement> = (event) => {
+    const list = event.currentTarget;
+    if (!mandiHasMore || mandiLoading) return;
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 16) {
+      loadMandis();
+    }
+  };
+
+  const handleOrgInputChange = (_: any, value: string) => {
+    setFilters((f) => ({ ...f, org_id: value }));
+    setForm((f) => ({ ...f, org_id: value }));
+  };
+
+  const orgDisabled = orgOptions.length === 1 && isOrgScoped;
 
   // ---------------------- DIALOG HANDLERS ---------------------- //
 
@@ -1363,17 +1377,3 @@ export const OrgMandiMapping: React.FC = () => {
 //     </PageContainer>
 //   );
 // };
-  const handleMandiScroll: React.UIEventHandler<HTMLUListElement> = (event) => {
-    const list = event.currentTarget;
-    if (!mandiHasMore || mandiLoading) return;
-    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 16) {
-      loadMandis();
-    }
-  };
-
-  const handleOrgInputChange = (_: any, value: string) => {
-    setFilters((f) => ({ ...f, org_id: value }));
-    setForm((f) => ({ ...f, org_id: value }));
-  };
-
-  const orgDisabled = orgOptions.length === 1 && isOrgScoped;

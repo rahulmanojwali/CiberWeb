@@ -102,7 +102,7 @@ export const MandiGates: React.FC = () => {
   const storedMandi = searchParams.get("mandi_id") || localStorage.getItem("mandiGates.mandi_id") || "";
   const storedStatus = (searchParams.get("status") as "ALL" | "Y" | "N" | null) || (localStorage.getItem("mandiGates.status") as any) || "ALL";
   const storedSearch = searchParams.get("search") || localStorage.getItem("mandiGates.search") || "";
-  const isScopedOrg = !isSuper && !!authContext.org_id;
+  const isScopedOrg = authContext.role === "MANDI_ADMIN" || (!isSuper && !!authContext.org_id);
   const [selectedOrgId, setSelectedOrgId] = useState<string>(storedOrgId || "");
   const [selectedOrgCode, setSelectedOrgCode] = useState<string>(authContext.org_code || "");
   const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
@@ -177,18 +177,27 @@ export const MandiGates: React.FC = () => {
   const loadOrgs = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchOrganisations({ username, language });
-    const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    if (orgs.length === 0 && isScopedOrg) {
-      setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-      setSelectedOrgId(String(authContext.org_id));
-      setSelectedOrgCode(String(authContext.org_code || ""));
-      return;
-    }
-    setOrgOptions(orgs);
-    if (!selectedOrgId && orgs.length) {
-      setSelectedOrgId(String(orgs[0]._id));
-      setSelectedOrgCode(String(orgs[0].org_code || ""));
+    try {
+      const resp = await fetchOrganisations({ username, language });
+      const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+      if (orgs.length === 0 && isScopedOrg) {
+        setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
+        setSelectedOrgId(String(authContext.org_id));
+        setSelectedOrgCode(String(authContext.org_code || ""));
+        return;
+      }
+      setOrgOptions(orgs);
+      if (!selectedOrgId && orgs.length) {
+        setSelectedOrgId(String(orgs[0]._id));
+        setSelectedOrgCode(String(orgs[0].org_code || ""));
+      }
+    } catch (err) {
+      console.error("[mandiGates] loadOrgs failed", err);
+      if (isScopedOrg && authContext.org_id) {
+        setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
+        setSelectedOrgId(String(authContext.org_id));
+        setSelectedOrgCode(String(authContext.org_code || ""));
+      }
     }
   };
 
@@ -205,72 +214,88 @@ export const MandiGates: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const orgCodeParam = mandiSource === "ORG" ? selectedOrgCode || authContext.org_code || undefined : "SYSTEM";
-    const resp = await fetchMandis({
-      username,
-      language,
-      filters: {
-        is_active: true,
-        org_code: orgCodeParam,
-        page: 1,
-        pageSize: 1000,
-        search: mandiSearchText || undefined,
-      },
-    });
-    const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
-    const mapped = mandis.map((m: any) => ({
-      mandi_id: String(m.mandi_id),
-      label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
-    }));
-    const withAll = [{ mandi_id: "", label: "All" }, ...mapped];
-    setMandiOptions(withAll);
-    if (!selectedMandi) setSelectedMandi("");
+    try {
+      const resp = await fetchMandis({
+        username,
+        language,
+        filters: {
+          is_active: true,
+          org_code: orgCodeParam,
+          page: 1,
+          pageSize: 1000,
+          search: mandiSearchText || undefined,
+        },
+      });
+      const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+      const mapped = mandis.map((m: any) => ({
+        mandi_id: String(m.mandi_id),
+        label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
+      }));
+      const withAll = [{ mandi_id: "", label: "All" }, ...mapped];
+      setMandiOptions(withAll);
+      if (!selectedMandi) setSelectedMandi("");
+    } catch (err) {
+      console.error("[mandiGates] loadMandis failed", err);
+      setMandiOptions([]);
+    }
   };
 
   const loadData = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandiGates({
-      username,
-      language,
-      filters: {
-        org_id: selectedOrgId || undefined,
-        mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
-        is_active: statusFilter === "ALL" ? undefined : statusFilter,
-      },
-    });
-    const list = resp?.data?.gates || resp?.data?.items || [];
-    setRows(
-      list.map((g: any) => ({
-        id: g._id,
-        org_id: g.org_id,
-        org_name: g.org_name || "",
-        mandi_id: g.mandi_id,
-        mandi_name: g.mandi_name || "",
-        gate_code: g.gate_code,
-        gate_name: g?.name_i18n?.en || g.gate_code,
-        gate_direction:
-          g.gate_direction ||
-          (g.is_entry_only === "Y" && g.is_exit_only === "N"
-            ? "ENTRY"
-            : g.is_entry_only === "N" && g.is_exit_only === "Y"
-              ? "EXIT"
-              : "BOTH"),
-        gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
-        has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-        is_active: g.is_active,
-        updated_on: g.updated_on,
-        updated_by: g.updated_by,
-        org_scope: g.org_scope || null,
-        owner_type: g.owner_type || null,
-        owner_org_id: g.owner_org_id || null,
-        is_protected: g.is_protected || null,
-      })),
-    );
+    try {
+      const resp = await fetchMandiGates({
+        username,
+        language,
+        filters: {
+          org_id: selectedOrgId || undefined,
+          mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
+          is_active: statusFilter === "ALL" ? undefined : statusFilter,
+        },
+      });
+      const list = resp?.data?.gates || resp?.data?.items || [];
+      setRows(
+        list.map((g: any) => ({
+          id: g._id,
+          org_id: g.org_id,
+          org_name: g.org_name || "",
+          mandi_id: g.mandi_id,
+          mandi_name: g.mandi_name || "",
+          gate_code: g.gate_code,
+          gate_name: g?.name_i18n?.en || g.gate_code,
+          gate_direction:
+            g.gate_direction ||
+            (g.is_entry_only === "Y" && g.is_exit_only === "N"
+              ? "ENTRY"
+              : g.is_entry_only === "N" && g.is_exit_only === "Y"
+                ? "EXIT"
+                : "BOTH"),
+          gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
+          has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
+          is_active: g.is_active,
+          updated_on: g.updated_on,
+          updated_by: g.updated_by,
+          org_scope: g.org_scope || null,
+          owner_type: g.owner_type || null,
+          owner_org_id: g.owner_org_id || null,
+          is_protected: g.is_protected || null,
+        })),
+      );
+    } catch (err) {
+      console.error("[mandiGates] loadData failed", err);
+      setRows([]);
+    }
   };
 
   useEffect(() => {
-    loadOrgs();
-  }, []);
+    if (isScopedOrg && authContext.org_id) {
+      setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
+      setSelectedOrgId(String(authContext.org_id));
+      setSelectedOrgCode(String(authContext.org_code || ""));
+    } else {
+      loadOrgs();
+    }
+  }, [isScopedOrg, authContext.org_id, authContext.org_code]);
 
   // Ensure scoped users always have at least their own org option visible
   useEffect(() => {
@@ -369,7 +394,7 @@ export const MandiGates: React.FC = () => {
       gate_direction: form.gate_direction,
       gate_type: form.gate_type,
       has_weighbridge: form.has_weighbridge,
-      allowed_vehicle_codes: [form.gate_type.toLowerCase()],
+      allowed_vehicle_codes: [form.gate_type.toLowerCase() || "general"],
       is_entry_only: form.gate_direction === "ENTRY" ? "Y" : "N",
       is_exit_only: form.gate_direction === "EXIT" ? "Y" : "N",
       notes: form.notes,

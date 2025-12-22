@@ -64,6 +64,7 @@ type GateRow = {
   gate_direction?: string;
   gate_type?: string;
   has_weighbridge?: string;
+  description?: string | null;
   is_active: string;
   updated_on?: string;
   updated_by?: string;
@@ -270,13 +271,14 @@ export const MandiGates: React.FC = () => {
               : g.is_entry_only === "N" && g.is_exit_only === "Y"
                 ? "EXIT"
                 : "BOTH"),
-          gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
-          has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-          is_active: g.is_active,
-          updated_on: g.updated_on,
-          updated_by: g.updated_by,
-          org_scope: g.org_scope || null,
-          owner_type: g.owner_type || null,
+        gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
+        has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
+        description: g.description || null,
+        is_active: g.is_active,
+        updated_on: g.updated_on,
+        updated_by: g.updated_by,
+        org_scope: g.org_scope || null,
+        owner_type: g.owner_type || null,
           owner_org_id: g.owner_org_id || null,
           is_protected: g.is_protected || null,
         })),
@@ -365,9 +367,9 @@ export const MandiGates: React.FC = () => {
       name_en: row.gate_name,
       name_hi: "",
       gate_direction: row.gate_direction || "BOTH",
-      gate_type: row.gate_type || "VEHICLE",
+      gate_type: (row.gate_type || "").toUpperCase() || "VEHICLE",
       has_weighbridge: row.has_weighbridge || "N",
-      notes: "",
+      notes: row.description || "",
       is_active: row.is_active,
     });
     setDialogOpen(true);

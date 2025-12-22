@@ -142,6 +142,7 @@ export const API_TAGS = {
     create: "createGateDeviceConfig",
     update: "updateGateDeviceConfig",
     deactivate: "deactivateGateDeviceConfig",
+    mandisWithGates: "getMandisWithGatesSummary",
   },
   ROLE_POLICIES: {
     dashboard: "getRolePoliciesDashboardData",
@@ -297,6 +298,7 @@ export const API_ROUTES = {
     addMandiGate: "/admin/addMandiGate",
     editMandiGate: "/admin/editMandiGate",
     deactivateMandiGate: "/admin/mandi-gates/toggle-active",
+    getMandisWithGatesSummary: "/admin/getMandisWithGatesSummary",
     getMandiHoursMasters: "/admin/getMandiHoursMasters",
     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",
     updateMandiHoursTemplate: "/admin/updateMandiHoursTemplate",

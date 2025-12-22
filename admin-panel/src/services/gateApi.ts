@@ -216,6 +216,22 @@ export const fetchGateDeviceConfigs = async ({
     ...filters,
   });
 
+export const fetchMandisWithGatesSummary = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getMandisWithGatesSummary, {
+    api: API_TAGS.GATE_DEVICE_CONFIGS.mandisWithGates,
+    username,
+    language,
+    ...filters,
+  });
+
 export const createGateDeviceConfig = async ({
   username,
   language = DEFAULT_LANGUAGE,

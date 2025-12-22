@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Autocomplete,
   Dialog,
   DialogActions,
   DialogContent,
@@ -84,9 +85,9 @@ const defaultForm = {
   mandi_id: "",
   gate_code: "",
   device_code: "",
-  qr_format: "",
+  qr_format: "JSON",
   qr_payload_template: "",
-  rfid_protocol: "",
+  rfid_protocol: "NONE",
   is_active: "Y",
   advanced_json: "",
 };
@@ -104,12 +105,25 @@ export const GateDeviceConfigs: React.FC = () => {
   const stored = (key: string, fallback = "") =>
     searchParams.get(key) || localStorage.getItem(`gateDeviceConfigs.${key}`) || fallback;
 
+  const roleScope = (authContext as any)?.role_scope || (authContext as any)?.roleScope;
+  const orgName = (authContext as any)?.org_name;
+  const orgCode = authContext.org_code;
+  const isScopedUser = !isSuper;
+  const isOrgScoped = isScopedUser && (!!authContext.org_id || authContext.role === "MANDI_ADMIN");
+  const initialOrgId = isOrgScoped ? oidToString(authContext.org_id) : stored("org_id", "");
+
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(initialOrgId);
+  const [selectedOrgCode, setSelectedOrgCode] = useState<string>(isOrgScoped ? authContext.org_code || "" : "");
+  const [mandiSource, setMandiSource] = useState<"ORG" | "SYSTEM">("ORG");
+  const [mandiSearchText, setMandiSearchText] = useState("");
+  const [mandiLoading, setMandiLoading] = useState(false);
+  const lastMandiParams = React.useRef<string>("");
+
   const [rows, setRows] = useState<ConfigRow[]>([]);
   const [status, setStatus] = useState<"ALL" | "Y" | "N">(
     (stored("status", "ALL") as "ALL" | "Y" | "N") || "ALL",
   );
   const [filters, setFilters] = useState({
-    org_id: stored("org_id", isSuper ? "" : authContext.org_id || ""),
     mandi_id: stored("mandi_id", ""),
     gate_code: stored("gate_code", ""),
     device_code: stored("device_code", ""),
@@ -127,10 +141,12 @@ export const GateDeviceConfigs: React.FC = () => {
   const [perPage, setPerPage] = useState<number>(Number(stored("pageSize", "10")) || 10);
   const [total, setTotal] = useState(0);
 
+  const currentSearchStr = searchParams.toString();
+
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(currentSearchStr);
     Object.entries({
-      org_id: filters.org_id,
+      org_id: selectedOrgId,
       mandi_id: filters.mandi_id,
       gate_code: filters.gate_code,
       device_code: filters.device_code,
@@ -146,41 +162,113 @@ export const GateDeviceConfigs: React.FC = () => {
         // ignore
       }
     });
-    setSearchParams(next, { replace: true });
-  }, [filters, status, page, perPage]);
+    const nextStr = next.toString();
+    if (nextStr !== currentSearchStr) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [filters, status, page, perPage, selectedOrgId, setSearchParams, currentSearchStr]);
 
   useEffect(() => {
     setPage(1);
-  }, [filters.org_id, filters.mandi_id, filters.gate_code, filters.device_code, status]);
+  }, [selectedOrgId, filters.mandi_id, filters.gate_code, filters.device_code, status]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      // avoid firing until org code (or SYSTEM) is known to prevent tight loops
+      if (mandiSource === "SYSTEM" || selectedOrgCode || isOrgScoped) {
+        loadMandis(mandiSearchText);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [mandiSearchText, mandiSource, selectedOrgCode, isOrgScoped]);
 
   const loadOrgs = async () => {
+    // Only SUPER_ADMIN should fetch organisations; scoped users rely on auth context
+    if (isScopedUser) {
+      const single = {
+        _id: oidToString(authContext.org_id),
+        org_code: orgCode,
+        org_name: orgName,
+      };
+      setOrgOptions(single._id ? [single] : []);
+      if (single._id && single._id !== selectedOrgId) setSelectedOrgId(single._id);
+      if (orgCode && orgCode !== selectedOrgCode) setSelectedOrgCode(orgCode);
+      return;
+    }
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchOrganisations({ username, language });
-    const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    setOrgOptions(orgs);
+    try {
+      const resp = await fetchOrganisations({ username, language });
+      const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+      setOrgOptions(orgs);
+    } catch (err) {
+      console.warn("[gateDeviceConfigs] loadOrgs failed", err);
+    }
   };
 
-  const loadMandis = async () => {
+  const loadMandis = async (search?: string) => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const mandis = resp?.data?.mandis || [];
-    setMandiOptions(mandis);
+    const org_code = mandiSource === "SYSTEM" ? "SYSTEM" : selectedOrgCode || authContext.org_code || undefined;
+    if (!org_code && mandiSource !== "SYSTEM") return;
+    const key = `${org_code || "ORG"}|${mandiSource}|${search || mandiSearchText || ""}`;
+    if (key === lastMandiParams.current) return;
+    lastMandiParams.current = key;
+    setMandiLoading(true);
+    try {
+      const resp = await fetchMandis({
+        username,
+        language,
+        filters: {
+          ...(org_code ? { org_code } : {}),
+          search: search || mandiSearchText || undefined,
+          page: 1,
+          pageSize: 50,
+          is_active: true,
+        },
+      });
+      const mandis = resp?.data?.mandis || [];
+      setMandiOptions(mandis);
+    } catch (err) {
+      console.warn("[gateDeviceConfigs] loadMandis failed", err);
+    } finally {
+      setMandiLoading(false);
+    }
   };
 
   const loadGates = async (mandiId?: string | number) => {
     const username = currentUsername();
-    if (!username || !mandiId) return;
-    const resp = await fetchMandiGates({ username, language, filters: { mandi_id: Number(mandiId), is_active: "Y" } });
-    setGateOptions(resp?.data?.items || []);
+    if (!username || !mandiId || !selectedOrgId) return;
+    try {
+      const resp = await fetchMandiGates({
+        username,
+        language,
+        filters: { org_id: selectedOrgId, mandi_id: Number(mandiId), is_active: "Y" },
+      });
+      setGateOptions(resp?.data?.items || resp?.response?.data?.items || []);
+    } catch (err) {
+      console.warn("[gateDeviceConfigs] loadGates failed", err);
+    }
   };
 
-  const loadDevices = async () => {
+  const loadDevices = async (mandiId?: string | number, gateCode?: string) => {
     const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchGateDevices({ username, language, filters: { is_active: "Y" } });
-    setDeviceOptions(resp?.data?.devices || []);
+    if (!username || !selectedOrgId) return;
+    try {
+      const resp = await fetchGateDevices({
+        username,
+        language,
+        filters: {
+          org_id: selectedOrgId,
+          mandi_id: mandiId ? Number(mandiId) : undefined,
+          gate_code: gateCode || undefined,
+          is_active: "Y",
+        },
+      });
+      setDeviceOptions(resp?.data?.devices || resp?.response?.data?.devices || []);
+    } catch (err) {
+      console.warn("[gateDeviceConfigs] loadDevices failed", err);
+    }
   };
 
   const fetchData = async () => {
@@ -188,33 +276,35 @@ export const GateDeviceConfigs: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
-      const resp = await fetchGateDeviceConfigs({
-        username,
-        language,
-        filters: {
-          org_id: filters.org_id || undefined,
-          mandi_id: filters.mandi_id || undefined,
-          gate_code: filters.gate_code || undefined,
-          device_code: filters.device_code || undefined,
-          is_active: status === "ALL" ? undefined : status,
-          page,
-          perPage,
-        },
-      });
-      const configs = resp?.data?.configs || resp?.response?.data?.configs || [];
-      const meta = resp?.data?.meta || resp?.response?.data?.meta || resp?.response?.pagination || resp?.data?.pagination;
-      setTotal(meta?.totalCount || meta?.total || configs.length);
-      setRows(
-        configs.map((c: any) => ({
-          ...c,
-          id: c._id || c.id,
-          org_id: oidToString(c.org_id || c.owner_org_id),
-          org_scope: c.org_scope,
-          owner_type: c.owner_type,
-          owner_org_id: oidToString(c.owner_org_id),
-          is_protected: c.is_protected,
-        })),
-      );
+    const resp = await fetchGateDeviceConfigs({
+      username,
+      language,
+      filters: {
+        org_id: selectedOrgId || undefined,
+        mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
+        gate_code: filters.gate_code || undefined,
+        device_code: filters.device_code || undefined,
+        is_active: status === "ALL" ? undefined : status,
+        page,
+        perPage,
+      },
+    });
+    const configs = resp?.data?.configs || resp?.response?.data?.configs || [];
+    const meta = resp?.data?.meta || resp?.response?.data?.meta || resp?.response?.pagination || resp?.data?.pagination;
+    setTotal(meta?.totalCount || meta?.total || configs.length);
+    setRows(
+      configs.map((c: any) => ({
+        ...c,
+        id: c._id || c.id,
+        org_id: oidToString(c.org_id || c.owner_org_id),
+        org_scope: c.org_scope,
+        owner_type: c.owner_type,
+        owner_org_id: oidToString(c.owner_org_id),
+        is_protected: c.is_protected,
+      })),
+    );
+    } catch (err) {
+      console.warn("[gateDeviceConfigs] fetchData failed", err);
     } finally {
       setLoading(false);
     }
@@ -222,24 +312,44 @@ export const GateDeviceConfigs: React.FC = () => {
 
   useEffect(() => {
     loadOrgs();
-    loadMandis();
-    loadDevices();
   }, []);
 
   useEffect(() => {
-    if (filters.mandi_id) loadGates(filters.mandi_id);
-  }, [filters.mandi_id]);
+    if (!isOrgScoped && selectedOrgId) {
+      const org = orgOptions.find((o) => oidToString(o._id) === oidToString(selectedOrgId));
+      const nextCode = org?.org_code || "";
+      if (nextCode && nextCode !== selectedOrgCode) setSelectedOrgCode(nextCode);
+    }
+  }, [orgOptions, selectedOrgId, isOrgScoped, selectedOrgCode]);
+
+  useEffect(() => {
+    loadMandis();
+  }, [mandiSource, selectedOrgCode]);
+
+  useEffect(() => {
+    if (filters.mandi_id) {
+      loadGates(filters.mandi_id);
+      loadDevices(filters.mandi_id, filters.gate_code);
+    }
+  }, [filters.mandi_id, filters.gate_code, selectedOrgId]);
+
+  useEffect(() => {
+    if (dialogOpen && form.mandi_id) {
+      loadGates(form.mandi_id);
+      loadDevices(form.mandi_id, form.gate_code);
+    }
+  }, [dialogOpen, form.mandi_id, form.gate_code, selectedOrgId]);
 
   useEffect(() => {
     fetchData();
-  }, [filters, status, page, perPage]);
+  }, [filters, status, page, perPage, selectedOrgId]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
     setForm({
       ...defaultForm,
-      org_id: filters.org_id || "",
+      org_id: selectedOrgId || "",
       mandi_id: filters.mandi_id || "",
       gate_code: filters.gate_code || "",
       device_code: "",
@@ -268,7 +378,12 @@ export const GateDeviceConfigs: React.FC = () => {
   const handleSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
-    const payload = { ...form, mandi_id: Number(form.mandi_id) || undefined };
+    const payload = {
+      ...form,
+      org_id: form.org_id || selectedOrgId,
+      mandi_id: Number(form.mandi_id) || undefined,
+      device_code: form.device_code,
+    };
     if (isEdit && editId) {
       await updateGateDeviceConfig({ username, language, payload: { ...payload, config_id: editId } });
     } else {
@@ -404,34 +519,84 @@ export const GateDeviceConfigs: React.FC = () => {
             </TextField>
             <TextField
               select
-              label="Organisation"
-              value={filters.org_id}
-              onChange={(e) => setFilters((f) => ({ ...f, org_id: e.target.value }))}
+              label="Mandi Source"
+              value={mandiSource}
+              onChange={(e) => setMandiSource(e.target.value as "ORG" | "SYSTEM")}
               size="small"
-              sx={{ minWidth: 180 }}
+              sx={{ minWidth: 170 }}
             >
-              <MenuItem value="">All</MenuItem>
-              {orgOptions.map((org) => (
-                <MenuItem key={org._id} value={oidToString(org._id)}>
-                  {org.org_code || org.org_name}
-                </MenuItem>
-              ))}
+              <MenuItem value="ORG">Organisation Mandis</MenuItem>
+              <MenuItem value="SYSTEM">System Mandis</MenuItem>
             </TextField>
-            <TextField
-              select
-              label="Mandi"
-              value={filters.mandi_id}
-              onChange={(e) => setFilters((f) => ({ ...f, mandi_id: e.target.value }))}
+            {!isOrgScoped && (
+              <TextField
+                select
+                label="Organisation"
+                value={selectedOrgId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedOrgId(val);
+                  const org = orgOptions.find((o) => oidToString(o._id) === oidToString(val));
+                  setSelectedOrgCode(org?.org_code || "");
+                }}
+                size="small"
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {orgOptions.map((org) => (
+                  <MenuItem key={org._id} value={oidToString(org._id)}>
+                    {org.org_code || org.org_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+            {isOrgScoped && (
+              <TextField
+                label="Organisation"
+                value={orgName || orgCode || ""}
+                size="small"
+                InputProps={{ readOnly: true }}
+                sx={{ minWidth: 200 }}
+              />
+            )}
+            <Autocomplete
               size="small"
-              sx={{ minWidth: 150 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              {mandiOptions.map((m: any) => (
-                <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                  {m.name_i18n?.en || m.mandi_slug || m.mandi_id}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={mandiOptions}
+              loading={mandiLoading}
+              getOptionLabel={(option: any) => option.name_i18n?.en || option.mandi_slug || String(option.mandi_id)}
+              isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+              value={
+                filters.mandi_id
+                  ? mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id)) || null
+                  : null
+              }
+              onChange={(_, val: any) => {
+                const nextId = val ? String(val.mandi_id) : "";
+                if (nextId === filters.mandi_id) return;
+                setFilters((f) => ({ ...f, mandi_id: nextId }));
+                if (val) {
+                  loadGates(val.mandi_id);
+                  loadDevices(val.mandi_id);
+                } else {
+                  setGateOptions([]);
+                  setDeviceOptions([]);
+                }
+              }}
+              inputValue={mandiSearchText}
+              onInputChange={(_, val) => {
+                if (val === mandiSearchText) return;
+                setMandiSearchText(val);
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Mandi"
+                  placeholder="Search mandis"
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                />
+              )}
+            />
             <TextField
               select
               label="Gate"
@@ -485,41 +650,79 @@ export const GateDeviceConfigs: React.FC = () => {
         <DialogTitle>{isEdit ? "Edit Config" : "Create Config"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
-            <TextField
-              select
-              label="Organisation"
-              value={form.org_id}
-              onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
+            {!isOrgScoped && (
+              <TextField
+                select
+                label="Organisation"
+                value={form.org_id || selectedOrgId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm((f) => ({ ...f, org_id: val }));
+                  const org = orgOptions.find((o) => oidToString(o._id) === oidToString(val));
+                  setSelectedOrgId(val);
+                  setSelectedOrgCode(org?.org_code || "");
+                }}
+                fullWidth
+                size="small"
+              >
+                <MenuItem value="">Select</MenuItem>
+                {orgOptions.map((org) => (
+                  <MenuItem key={org._id} value={oidToString(org._id)}>
+                    {org.org_code || org.org_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+            {isOrgScoped && (
+              <TextField
+                label="Organisation"
+                value={orgName || orgCode || ""}
+                fullWidth
+                size="small"
+                InputProps={{ readOnly: true }}
+              />
+            )}
+            <Autocomplete
               fullWidth
               size="small"
-            >
-              <MenuItem value="">Select</MenuItem>
-              {orgOptions.map((org) => (
-                <MenuItem key={org._id} value={oidToString(org._id)}>
-                  {org.org_code || org.org_name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Mandi"
-              value={form.mandi_id}
-              onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="">Select</MenuItem>
-              {mandiOptions.map((m: any) => (
-                <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                  {m.name_i18n?.en || m.mandi_slug || m.mandi_id}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={mandiOptions}
+              loading={mandiLoading}
+              getOptionLabel={(option: any) => option.name_i18n?.en || option.mandi_slug || String(option.mandi_id)}
+              isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+              value={
+                form.mandi_id
+                  ? mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id)) || null
+                  : null
+              }
+              onChange={(_, val: any) => {
+                const nextId = val ? String(val.mandi_id) : "";
+                if (nextId === form.mandi_id) return;
+                setForm((f) => ({ ...f, mandi_id: nextId }));
+                if (val) {
+                  loadGates(val.mandi_id);
+                  loadDevices(val.mandi_id);
+                } else {
+                  setGateOptions([]);
+                  setDeviceOptions([]);
+                }
+              }}
+              inputValue={mandiSearchText}
+              onInputChange={(_, val) => {
+                if (val === mandiSearchText) return;
+                setMandiSearchText(val);
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Mandi" placeholder="Select mandi" size="small" />
+              )}
+            />
             <TextField
               select
               label="Gate"
               value={form.gate_code}
-              onChange={(e) => setForm((f) => ({ ...f, gate_code: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, gate_code: e.target.value }));
+                if (form.mandi_id) loadDevices(form.mandi_id, e.target.value);
+              }}
               fullWidth
               size="small"
             >
@@ -546,12 +749,17 @@ export const GateDeviceConfigs: React.FC = () => {
               ))}
             </TextField>
             <TextField
+              select
               label="QR Format"
               value={form.qr_format}
               onChange={(e) => setForm((f) => ({ ...f, qr_format: e.target.value }))}
               fullWidth
               size="small"
-            />
+            >
+              <MenuItem value="JSON">JSON</MenuItem>
+              <MenuItem value="PLAIN_TEXT">Plain Text</MenuItem>
+              <MenuItem value="URL_QUERY">URL Query</MenuItem>
+            </TextField>
             <TextField
               label="QR Payload Template"
               value={form.qr_payload_template}
@@ -559,15 +767,32 @@ export const GateDeviceConfigs: React.FC = () => {
               fullWidth
               size="small"
               multiline
-              minRows={2}
+              minRows={3}
+              placeholder={`{
+  "v": 1,
+  "org_id": "{{org_id}}",
+  "mandi_id": "{{mandi_id}}",
+  "gate_code": "{{gate_code}}",
+  "token_id": "{{token_id}}",
+  "vehicle_no": "{{vehicle_no}}",
+  "ts": "{{timestamp}}"
+}`}
             />
             <TextField
+              select
               label="RFID Protocol"
               value={form.rfid_protocol}
               onChange={(e) => setForm((f) => ({ ...f, rfid_protocol: e.target.value }))}
               fullWidth
               size="small"
-            />
+            >
+              <MenuItem value="NONE">None</MenuItem>
+              <MenuItem value="EPC_GEN2_UHF">EPC GEN2 UHF</MenuItem>
+              <MenuItem value="MIFARE_CLASSIC">MIFARE CLASSIC</MenuItem>
+              <MenuItem value="MIFARE_DESFIRE">MIFARE DESFIRE</MenuItem>
+              <MenuItem value="ISO14443_A">ISO14443-A</MenuItem>
+              <MenuItem value="ISO15693">ISO15693</MenuItem>
+            </TextField>
             <TextField
               select
               label="Active"

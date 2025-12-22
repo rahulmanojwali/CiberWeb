@@ -748,9 +748,12 @@ const [form, setForm] = useState({
                 <Autocomplete
                   size="small"
                   options={mandiOptions}
-                  getOptionLabel={(option) =>
-                    `${option.name} (${option.mandi_id})`
-                  }
+                  getOptionLabel={(option) => {
+                    if (!option) return "";
+                    const label = (option as any)?.name_i18n?.en || option.name || (option as any)?.mandi_slug;
+                    const idPart = option.mandi_id ? ` (${option.mandi_id})` : "";
+                    return `${label || ""}${idPart}`.trim();
+                  }}
                   inputValue={mandiSearch}
                   onInputChange={(_: any, value: string, reason: AutocompleteInputChangeReason) => {
                     if (reason === "input" || reason === "clear") {
@@ -780,6 +783,9 @@ const [form, setForm] = useState({
                     />
                   )}
                 />
+                <Typography variant="caption" color="text.secondary">
+                  Debug: selectedMandi={selectedMandi ? selectedMandi.mandi_id : "none"} | form.mandi_id={form.mandi_id || "none"}
+                </Typography>
               </Stack>
             </Grid>
             <Grid item xs={12} sm={6}>

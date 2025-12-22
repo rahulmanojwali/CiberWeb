@@ -16,28 +16,32 @@ export const ResponsiveDataGrid: React.FC<ResponsiveDataGridProps> = ({
   ...rest
 }) => {
   return (
-    <Box sx={{ width: "100%", overflowX: "auto" }}>
-      <Box sx={{ minWidth }}>
-        <DataGrid
-          autoHeight={autoHeight}
-          density={density}
-          sx={{
-            border: 0,
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "rgba(47, 166, 82, 0.08)",
-              borderRadius: 0,
-            },
-            "& .MuiDataGrid-cell": {
-              borderBottom: "1px solid rgba(0,0,0,0.05)",
-            },
-            "& .MuiDataGrid-virtualScroller": {
-              minHeight: 240,
-            },
-            ...sx,
-          }}
-          {...rest}
-        />
-      </Box>
+    <Box sx={{ width: "100%" }}>
+      <DataGrid
+        autoHeight={autoHeight}
+        density={density}
+        sx={{
+          border: 0,
+          backgroundColor: "#fff",
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: "rgba(47, 166, 82, 0.08)",
+            borderRadius: 0,
+          },
+          "& .MuiDataGrid-cell": {
+            borderBottom: "1px solid rgba(0,0,0,0.05)",
+          },
+          "& .MuiDataGrid-virtualScroller": {
+            minHeight: 240,
+            backgroundColor: "#fff",
+          },
+          "& .MuiDataGrid-main": {
+            overflowX: "hidden",
+          },
+          minWidth,
+          ...sx,
+        }}
+        {...rest}
+      />
     </Box>
   );
 };

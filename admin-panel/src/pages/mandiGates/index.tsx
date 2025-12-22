@@ -132,7 +132,7 @@ export const MandiGates: React.FC = () => {
       { field: "gate_code", headerName: "Gate Code", width: 140 },
       { field: "gate_name", headerName: "Gate Name", flex: 1 },
       { field: "gate_direction", headerName: "Direction", width: 120 },
-      { field: "gate_type", headerName: "Type", width: 120 },
+      { field: "gate_type", headerName: "Type", width: 140 },
       { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
       { field: "org_name", headerName: "Org", width: 160 },
       { field: "mandi_name", headerName: "Mandi", width: 160 },
@@ -248,9 +248,15 @@ export const MandiGates: React.FC = () => {
         mandi_name: g.mandi_name || "",
         gate_code: g.gate_code,
         gate_name: g?.name_i18n?.en || g.gate_code,
-        gate_direction: g.gate_direction,
-        gate_type: g.gate_type,
-        has_weighbridge: g.is_weighbridge || g.has_weighbridge,
+        gate_direction:
+          g.gate_direction ||
+          (g.is_entry_only === "Y" && g.is_exit_only === "N"
+            ? "ENTRY"
+            : g.is_entry_only === "N" && g.is_exit_only === "Y"
+              ? "EXIT"
+              : "BOTH"),
+        gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
+        has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
         is_active: g.is_active,
         updated_on: g.updated_on,
         updated_by: g.updated_by,
@@ -363,7 +369,9 @@ export const MandiGates: React.FC = () => {
       gate_direction: form.gate_direction,
       gate_type: form.gate_type,
       has_weighbridge: form.has_weighbridge,
-      allowed_vehicle_codes: ["general"],
+      allowed_vehicle_codes: [form.gate_type.toLowerCase()],
+      is_entry_only: form.gate_direction === "ENTRY" ? "Y" : "N",
+      is_exit_only: form.gate_direction === "EXIT" ? "Y" : "N",
       notes: form.notes,
       is_active: form.is_active,
     };

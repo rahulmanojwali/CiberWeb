@@ -456,6 +456,7 @@ export const MandiGates: React.FC = () => {
           isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
           filterOptions={(opts) => opts}
           freeSolo
+          loading={mandiOptions.length === 0}
           value={selectedMandi ? mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null : null}
           onChange={(_, val: any) => {
             setSelectedMandi(val ? String(val.mandi_id) : "");
@@ -470,16 +471,25 @@ export const MandiGates: React.FC = () => {
             }
             setMandiSearchText(val);
           }}
-          renderInput={(params: any) => (
-            <TextField
-              {...params}
-              label="Mandi"
-              placeholder="All"
-              fullWidth
-            />
-          )}
-          sx={{ minWidth: 240 }}
-        />
+            renderInput={(params: any) => (
+              <TextField
+                {...params}
+                label="Mandi"
+                placeholder="All"
+                fullWidth
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {mandiOptions.length === 0 ? <CircularProgress color="inherit" size={16} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ minWidth: 240 }}
+          />
         <TextField
           select
           label="Status"

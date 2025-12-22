@@ -41,6 +41,7 @@ import { ActionGate } from "../../authz/ActionGate";
 import { usePermissions } from "../../authz/usePermissions";
 import { useRecordLock } from "../../authz/isRecordLocked";
 import { useSearchParams } from "react-router-dom";
+import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 
 function currentUsername(): string | null {
   try {
@@ -97,11 +98,13 @@ export const MandiGates: React.FC = () => {
   const [rows, setRows] = useState<GateRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-  const storedOrg = searchParams.get("org_code") || localStorage.getItem("mandiGates.org_code") || authContext.org_code || "";
+  const storedOrgId = searchParams.get("org_id") || localStorage.getItem("mandiGates.org_id") || authContext.org_id || "";
   const storedMandi = searchParams.get("mandi_id") || localStorage.getItem("mandiGates.mandi_id") || "";
   const storedStatus = (searchParams.get("status") as "ALL" | "Y" | "N" | null) || (localStorage.getItem("mandiGates.status") as any) || "ALL";
   const storedSearch = searchParams.get("search") || localStorage.getItem("mandiGates.search") || "";
-  const [selectedOrg, setSelectedOrg] = useState<string>(storedOrg);
+  const isScopedOrg = !isSuper && !!authContext.org_id;
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(storedOrgId || "");
+  const [selectedOrgCode, setSelectedOrgCode] = useState<string>(authContext.org_code || "");
   const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
   const [mandiSearchText, setMandiSearchText] = useState("");
   const [createMandiSearch, setCreateMandiSearch] = useState("");
@@ -118,6 +121,7 @@ export const MandiGates: React.FC = () => {
     message: "",
     severity: "success",
   });
+  const [mandiSource, setMandiSource] = useState<"ORG" | "SYSTEM">("ORG");
 
   const canCreateMandiGate = useMemo(() => can("mandi_gates.create", "CREATE"), [can]);
   const canEdit = useMemo(() => can("mandi_gates.edit", "UPDATE"), [can]);
@@ -175,19 +179,44 @@ export const MandiGates: React.FC = () => {
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+    if (orgs.length === 0 && isScopedOrg) {
+      setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
+      setSelectedOrgId(String(authContext.org_id));
+      setSelectedOrgCode(String(authContext.org_code || ""));
+      return;
+    }
     setOrgOptions(orgs);
-    if (!selectedOrg && orgs.length) setSelectedOrg(String(orgs[0]._id));
+    if (!selectedOrgId && orgs.length) {
+      setSelectedOrgId(String(orgs[0]._id));
+      setSelectedOrgCode(String(orgs[0].org_code || ""));
+    }
   };
+
+  useEffect(() => {
+    if (!selectedOrgId) return;
+    if (selectedOrgCode) return;
+    const match = orgOptions.find((o: any) => String(o._id) === String(selectedOrgId));
+    if (match?.org_code) {
+      setSelectedOrgCode(String(match.org_code));
+    }
+  }, [selectedOrgId, selectedOrgCode, orgOptions]);
 
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
+    const orgCodeParam = mandiSource === "ORG" ? selectedOrgCode || authContext.org_code || undefined : "SYSTEM";
     const resp = await fetchMandis({
       username,
       language,
-      filters: { is_active: true, org_id: selectedOrg || undefined, page: 1, pageSize: 1000, search: mandiSearchText || undefined },
+      filters: {
+        is_active: true,
+        org_code: orgCodeParam,
+        page: 1,
+        pageSize: 1000,
+        search: mandiSearchText || undefined,
+      },
     });
-    const mandis = resp?.data?.mandis || [];
+    const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
     const mapped = mandis.map((m: any) => ({
       mandi_id: String(m.mandi_id),
       label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
@@ -204,7 +233,7 @@ export const MandiGates: React.FC = () => {
       username,
       language,
       filters: {
-        org_id: selectedOrg || undefined,
+        org_id: selectedOrgId || undefined,
         mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
         is_active: statusFilter === "ALL" ? undefined : statusFilter,
       },
@@ -237,34 +266,48 @@ export const MandiGates: React.FC = () => {
     loadOrgs();
   }, []);
 
+  // Ensure scoped users always have at least their own org option visible
+  useEffect(() => {
+    if (!isScopedOrg || !selectedOrgId) return;
+    const exists = orgOptions.some((o: any) => String(o._id) === String(selectedOrgId));
+    if (!exists) {
+      const fallback = {
+        _id: selectedOrgId,
+        org_code: selectedOrgCode || authContext.org_code || selectedOrgId,
+        org_name: authContext.org_name || authContext.org_code || "",
+      };
+      setOrgOptions((opts) => [...opts, fallback]);
+    }
+  }, [isScopedOrg, selectedOrgId, selectedOrgCode, authContext.org_code, authContext.org_name, orgOptions]);
+
   useEffect(() => {
     loadMandis();
-  }, [selectedOrg, mandiSearchText]);
+  }, [selectedOrgCode, mandiSearchText, mandiSource]);
 
   useEffect(() => {
     loadData();
     const next = new URLSearchParams(searchParams.toString());
-    if (selectedOrg) next.set("org_code", selectedOrg); else next.delete("org_code");
+    if (selectedOrgId) next.set("org_id", selectedOrgId); else next.delete("org_id");
     if (selectedMandi) next.set("mandi_id", selectedMandi); else next.delete("mandi_id");
     if (statusFilter) next.set("status", statusFilter);
     if (mandiSearchText) next.set("search", mandiSearchText); else next.delete("search");
     setSearchParams(next, { replace: true });
     try {
-      localStorage.setItem("mandiGates.org_code", selectedOrg || "");
+      localStorage.setItem("mandiGates.org_id", selectedOrgId || "");
       localStorage.setItem("mandiGates.mandi_id", selectedMandi || "");
       localStorage.setItem("mandiGates.status", statusFilter);
       localStorage.setItem("mandiGates.search", mandiSearchText || "");
     } catch {
       // ignore
     }
-  }, [selectedMandi, statusFilter, selectedOrg, mandiSearchText]);
+  }, [selectedMandi, statusFilter, selectedOrgId, selectedOrgCode, mandiSearchText]);
 
   const openCreate = () => {
     setIsEdit(false);
     setEditId(null);
     setGateCodeDirty(false);
     setGateCodeError(null);
-    setForm({ ...defaultForm, mandi_id: selectedMandi === "" ? "" : selectedMandi, org_id: selectedOrg });
+    setForm({ ...defaultForm, mandi_id: selectedMandi === "" ? "" : selectedMandi, org_id: selectedOrgId });
     setDialogOpen(true);
   };
 
@@ -313,13 +356,14 @@ export const MandiGates: React.FC = () => {
       return;
     }
     const payload: any = {
-      org_id: form.org_id || selectedOrg,
+      org_id: form.org_id || selectedOrgId,
       mandi_id: Number(form.mandi_id || selectedMandi),
       gate_code: form.gate_code,
       name_i18n: { en: form.name_en, hi: form.name_hi },
       gate_direction: form.gate_direction,
       gate_type: form.gate_type,
       has_weighbridge: form.has_weighbridge,
+      allowed_vehicle_codes: ["general"],
       notes: form.notes,
       is_active: form.is_active,
     };
@@ -359,6 +403,17 @@ export const MandiGates: React.FC = () => {
       }
     >
       <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
+        <TextField
+          select
+          size="small"
+          label="Mandi Source"
+          value={mandiSource}
+          onChange={(e) => setMandiSource(e.target.value as "ORG" | "SYSTEM")}
+          sx={{ width: 200 }}
+        >
+          <MenuItem value="ORG">Organisation Mandis</MenuItem>
+          <MenuItem value="SYSTEM">System Mandis</MenuItem>
+        </TextField>
         <Autocomplete
           size="small"
           options={mandiOptions}
@@ -455,10 +510,10 @@ export const MandiGates: React.FC = () => {
           <TextField
             select
             label="Organisation"
-            value={form.org_id || selectedOrg}
+            value={form.org_id || selectedOrgId}
             onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
             fullWidth
-            disabled={isEdit}
+            disabled={isEdit || isScopedOrg}
           >
             {orgOptions.map((o: any) => (
               <MenuItem key={o._id} value={o._id}>
@@ -499,7 +554,7 @@ export const MandiGates: React.FC = () => {
                 label="Mandi"
                 placeholder="Search mandi by name or slug"
                 fullWidth
-                disabled={isEdit}
+                disabled={isEdit || !selectedOrgCode}
               />
             )}
           />

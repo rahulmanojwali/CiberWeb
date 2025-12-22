@@ -251,7 +251,7 @@ export const OrgMandiMapping: React.FC = () => {
         payload?.mandis ||
         [];
       const mapped: MandiOption[] = mandis.map((m: any) => ({
-        mandi_id: m.mandi_id,
+        mandi_id: Number(m.mandi_id),
         name:
           m.mandi_name ||
           m.name_i18n?.en ||
@@ -262,6 +262,7 @@ export const OrgMandiMapping: React.FC = () => {
       const existing = reset ? [] : mandiOptions;
       const mergedMap = new Map<number, MandiOption>();
       [...existing, ...mapped].forEach((m) => {
+        if (!m || !Number.isFinite(m.mandi_id)) return;
         if (!mergedMap.has(m.mandi_id)) mergedMap.set(m.mandi_id, m);
       });
       const mergedList = Array.from(mergedMap.values());
@@ -427,6 +428,17 @@ export const OrgMandiMapping: React.FC = () => {
     setMandiHasMore(true);
     loadMandis({ reset: true });
   }, [mandiSearch, form.org_id, mandiSource]);
+
+  useEffect(() => {
+    if (!mandiOptions.length) return;
+    if (selectedMandi && mandiOptions.find((m) => Number(m.mandi_id) === Number(selectedMandi.mandi_id))) {
+      return;
+    }
+    if (form.mandi_id) {
+      const match = mandiOptions.find((m) => Number(m.mandi_id) === Number(form.mandi_id));
+      if (match) setSelectedMandi(match);
+    }
+  }, [mandiOptions, selectedMandi, form.mandi_id]);
 
   const handleMandiScroll: React.UIEventHandler<HTMLUListElement> = (event) => {
     const list = event.currentTarget;
@@ -747,12 +759,14 @@ export const OrgMandiMapping: React.FC = () => {
                   }}
                   value={selectedMandi}
                   onChange={(_, val) => {
-                    setSelectedMandi(val);
+                    console.log("[OrgMandiMapping] mandi selected", val);
+                    setSelectedMandi(val || null);
                     setForm((f) => ({
                       ...f,
-                      mandi_id: val ? String(val.mandi_id) : "",
+                      mandi_id: val ? Number(val.mandi_id) : "",
                     }));
                   }}
+                  isOptionEqualToValue={(opt, val) => Number(opt?.mandi_id) === Number(val?.mandi_id)}
                   ListboxProps={{ onScroll: handleMandiScroll }}
                   loading={mandiLoading}
                   noOptionsText={mandiError ? `Unable to load mandis: ${mandiError}` : "No mandis found"}

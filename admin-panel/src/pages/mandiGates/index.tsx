@@ -274,11 +274,11 @@ export const MandiGates: React.FC = () => {
       const fallback = {
         _id: selectedOrgId,
         org_code: selectedOrgCode || authContext.org_code || selectedOrgId,
-        org_name: authContext.org_name || authContext.org_code || "",
+        org_name: authContext.org_code || "",
       };
       setOrgOptions((opts) => [...opts, fallback]);
     }
-  }, [isScopedOrg, selectedOrgId, selectedOrgCode, authContext.org_code, authContext.org_name, orgOptions]);
+  }, [isScopedOrg, selectedOrgId, selectedOrgCode, authContext.org_code, orgOptions]);
 
   useEffect(() => {
     loadMandis();

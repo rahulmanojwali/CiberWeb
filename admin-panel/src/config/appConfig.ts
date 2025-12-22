@@ -64,8 +64,8 @@ export const API_TAGS = {
   GATES: {
     list: "getMandiGates",
     create: "addMandiGate",
-    update: "mandi-gates/update",
-    deactivate: "mandi-gates/toggle-active",
+    update: "editMandiGate",
+    deactivate: "deactivateMandiGate",
   },
   HOURS: {
     list: "getMandiHoursMasters",
@@ -295,7 +295,7 @@ export const API_ROUTES = {
     deactivateMandiFacility: "/admin/deactivateMandiFacility",
     getMandiGates: "/admin/getMandiGates",
     addMandiGate: "/admin/addMandiGate",
-    editMandiGate: "/admin/mandi-gates/update",
+    editMandiGate: "/admin/editMandiGate",
     deactivateMandiGate: "/admin/mandi-gates/toggle-active",
     getMandiHoursMasters: "/admin/getMandiHoursMasters",
     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",

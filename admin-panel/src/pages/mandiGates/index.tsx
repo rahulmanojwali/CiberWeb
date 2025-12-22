@@ -19,6 +19,8 @@ import {
   useTheme,
   Alert,
   IconButton,
+  CircularProgress,
+  Chip,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
@@ -135,19 +137,26 @@ export const MandiGates: React.FC = () => {
       { field: "gate_direction", headerName: "Direction", width: 120 },
       { field: "gate_type", headerName: "Type", width: 140 },
       { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
-      { field: "org_name", headerName: "Org", width: 160 },
       { field: "mandi_name", headerName: "Mandi", width: 160 },
-      { field: "is_active", headerName: "Active", width: 100 },
+      {
+        field: "is_active",
+        headerName: "Active",
+        width: 120,
+        renderCell: (params) => {
+          const val = String(params.row.is_active || "").toUpperCase() === "Y";
+          return <Chip size="small" label={val ? "Active" : "Inactive"} color={val ? "success" : "default"} />;
+        },
+      },
       { field: "updated_on", headerName: "Updated On", width: 160 },
-      { field: "updated_by", headerName: "Updated By", width: 140 },
       {
         field: "actions",
         headerName: "Actions",
-        width: 170,
+        width: 200,
         renderCell: (params) => {
           const row = params.row as GateRow;
           const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
           const nextActive = row.is_active === "Y" ? "N" : "Y";
+          const toggleLabel = row.is_active === "Y" ? "Deactivate" : "Activate";
           return (
             <Stack direction="row" spacing={1}>
               <Button size="small" onClick={() => openEdit(row)}>
@@ -162,9 +171,14 @@ export const MandiGates: React.FC = () => {
               </ActionGate>
               <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
                 {!lockInfo.locked && (
-                  <IconButton size="small" color={row.is_active === "Y" ? "error" : "success"} onClick={() => handleDeactivate(row.id, nextActive)}>
-                    {row.is_active === "Y" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-                  </IconButton>
+                  <Button
+                    size="small"
+                    startIcon={row.is_active === "Y" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                    color={row.is_active === "Y" ? "error" : "success"}
+                    onClick={() => handleDeactivate(row.id, nextActive)}
+                  >
+                    {toggleLabel}
+                  </Button>
                 )}
               </ActionGate>
             </Stack>
@@ -402,21 +416,49 @@ export const MandiGates: React.FC = () => {
       notes: form.notes,
       is_active: form.is_active,
     };
-    if (isEdit && editId) {
-      payload._id = editId;
-      await updateMandiGate({ username, language, payload });
-    } else {
-      await createMandiGate({ username, language, payload });
+    try {
+      let resp;
+      if (isEdit && editId) {
+        payload._id = editId;
+        resp = await updateMandiGate({ username, language, payload });
+      } else {
+        resp = await createMandiGate({ username, language, payload });
+      }
+      const description =
+        resp?.response?.description ||
+        resp?.description ||
+        (resp?.response?.responsecode === "0" ? "Success" : "Something went wrong");
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      if (code !== "0") {
+        setToast({ open: true, message: description, severity: "error" });
+        return;
+      }
+      setToast({ open: true, message: description || "Success", severity: "success" });
+      handleCloseDialog();
+      await loadData();
+    } catch (err: any) {
+      console.error("[mandiGates] save error", err);
+      setToast({ open: true, message: err?.message || "Something went wrong", severity: "error" });
     }
-    handleCloseDialog();
-    await loadData();
   };
 
   const handleDeactivate = async (id: string, nextActive: string) => {
     const username = currentUsername();
     if (!username) return;
-    await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
-    await loadData();
+    try {
+      const resp = await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
+      const description = resp?.response?.description || resp?.description || "Updated";
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      if (code !== "0") {
+        setToast({ open: true, message: description, severity: "error" });
+      } else {
+        setToast({ open: true, message: description, severity: "success" });
+      }
+      await loadData();
+    } catch (err: any) {
+      console.error("[mandiGates] deactivate error", err);
+      setToast({ open: true, message: err?.message || "Failed to update gate", severity: "error" });
+    }
   };
 
   return (

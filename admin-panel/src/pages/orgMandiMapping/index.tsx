@@ -105,12 +105,12 @@ export const OrgMandiMapping: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    org_id: "",
-    mandi_id: "",
-    assignment_scope: "EXCLUSIVE",
-    is_active: true,
-  });
+const [form, setForm] = useState({
+  org_id: "",
+  mandi_id: "",
+  assignment_scope: "EXCLUSIVE",
+  is_active: true,
+});
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -763,7 +763,7 @@ export const OrgMandiMapping: React.FC = () => {
                     setSelectedMandi(val || null);
                     setForm((f) => ({
                       ...f,
-                      mandi_id: val ? Number(val.mandi_id) : "",
+                      mandi_id: val ? String(Number(val.mandi_id)) : "",
                     }));
                   }}
                   isOptionEqualToValue={(opt, val) => Number(opt?.mandi_id) === Number(val?.mandi_id)}

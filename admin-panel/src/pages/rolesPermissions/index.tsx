@@ -162,13 +162,35 @@ const RolesPermissionsPage: React.FC = () => {
           ...r,
           resource_key: normalizeKey(r.resource_key),
         }));
+        const regMap: Record<string, RegistryEntry> = {};
+        registryList.forEach((r) => {
+          if (r.resource_key) regMap[r.resource_key] = r;
+        });
+
         const pMapRaw: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
         const pMap: Record<string, PolicyEntry[]> = {};
         Object.keys(pMapRaw || {}).forEach((roleKey) => {
-          pMap[roleKey] = (pMapRaw[roleKey] || []).map((p: any) => ({
-            resource_key: normalizeKey(p.resource_key),
-            actions: (p.actions || []).map((a: string) => a.toUpperCase()),
-          }));
+          pMap[roleKey] = (pMapRaw[roleKey] || [])
+            .map((p: any) => {
+              const key = normalizeKey(p.resource_key);
+              const allowed = (regMap[key]?.allowed_actions || []).map((a: string | number | boolean) =>
+                String(a ?? "").toUpperCase(),
+              );
+              const allowedSet = new Set(allowed);
+              let actions = (p.actions || []).map((a: any) =>
+                String(a === undefined || a === null ? "" : a).toUpperCase(),
+              );
+              if (allowedSet.size) {
+                const original = actions.slice();
+                actions = actions.filter((a: string) => allowedSet.has(a));
+                if (actions.length === 0 && allowed.length > 0) actions = [allowed[0]];
+                if (original.join(",") !== actions.join(",") && typeof console !== "undefined") {
+                  console.log("[RolePolicies] clamped", key, "actions from", original, "->", actions);
+                }
+              }
+              return { resource_key: key, actions };
+            })
+            .filter((p: any) => p.actions && p.actions.length > 0);
         });
 
         setRoles(rolesList);
@@ -357,11 +379,12 @@ const RolesPermissionsPage: React.FC = () => {
           (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
         ),
       );
-      const normalizedAction = normalizeActionForAllowed(action, allowedSet);
+      const allowedArray = Array.from(allowedSet);
+      let normalizedAction = normalizeActionForAllowed(action, allowedSet);
       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
-        setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
-        return prev;
+        normalizedAction = allowedArray[0] || normalizedAction;
       }
+      if (!normalizedAction) return prev;
 
       const idx = next.findIndex((p) => p.resource_key === targetKey);
       if (checked) {
@@ -432,12 +455,13 @@ const RolesPermissionsPage: React.FC = () => {
           ),
         );
           const normalizedAction = normalizeActionForAllowed(action, allowedSet);
-          if (allowedSet.size && !allowedSet.has(normalizedAction)) {
-            setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
-            return;
-          }
+          const allowedArray = Array.from(allowedSet);
+          const finalAction =
+            allowedSet.size && !allowedSet.has(normalizedAction)
+              ? allowedArray[0] || normalizedAction
+              : normalizedAction;
           const existing = normalizedCurrentMap.get(targetKey) || new Set<string>();
-          existing.add(normalizedAction);
+          existing.add(finalAction);
           normalizedCurrentMap.set(targetKey, existing);
         }
       }

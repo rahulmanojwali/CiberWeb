@@ -479,7 +479,20 @@ const RolesPermissionsPage: React.FC = () => {
         setError(`Invalid registry key(s): ${errors.join(", ")}`);
         return;
       }
-      const finalPayload = mapped;
+      // Clamp actions to allowed_actions before saving
+      const finalPayload = mapped.map((entry) => {
+        const allowedRaw = resourcesByKey[entry.resource_key]?.allowed_actions || [];
+        const allowed = allowedRaw.map((a: string) => String(a || "").toUpperCase());
+        const allowedSet = new Set(allowed);
+        let actions = (entry.actions || []).map((a: string) => String(a || "").toUpperCase());
+        if (allowedSet.size) {
+          actions = actions.filter((a) => allowedSet.has(a));
+          if (actions.length === 0 && allowed.length > 0) {
+            actions = [allowed[0]]; // fallback to first allowed action (e.g., UPDATE)
+          }
+        }
+        return { ...entry, actions };
+      });
 
       setLoading(true);
       const resp = await updateRolePolicies({

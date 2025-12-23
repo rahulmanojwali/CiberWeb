@@ -29,7 +29,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
+import { fetchMandisWithGatesSummary } from "../../services/gateApi";
 import {
   fetchGateDeviceConfigs,
   createGateDeviceConfig,
@@ -209,45 +209,38 @@ export const GateDeviceConfigs: React.FC = () => {
   const loadMandis = async (search?: string) => {
     const username = currentUsername();
     if (!username) return;
+    if (mandiSource === "ORG" && !selectedOrgId) return;
     const org_code = mandiSource === "SYSTEM" ? "SYSTEM" : selectedOrgCode || authContext.org_code || undefined;
-    if (!org_code && mandiSource !== "SYSTEM") return;
-    const key = `${org_code || "ORG"}|${mandiSource}|${search || mandiSearchText || ""}`;
+    const key = `${selectedOrgId || "NOORG"}|${org_code || "ORG"}|${mandiSource}|${search || mandiSearchText || ""}`;
     if (key === lastMandiParams.current) return;
     lastMandiParams.current = key;
     setMandiLoading(true);
     try {
-      const resp = await fetchMandis({
+      console.log("[gateDeviceConfigs] Loading mandis", {
+        org_id: selectedOrgId,
+        org_code,
+        mandiSource,
+        search: search || mandiSearchText || "",
+      });
+      const resp = await fetchMandisWithGatesSummary({
         username,
         language,
         filters: {
-          ...(org_code ? { org_code } : {}),
+          org_id: selectedOrgId,
+          mandi_source: mandiSource,
           search: search || mandiSearchText || undefined,
           page: 1,
           pageSize: 50,
-          is_active: true,
+          only_with_gates: "Y",
         },
       });
-      const mandis = resp?.data?.mandis || [];
+      const mandis = resp?.data?.items || resp?.response?.data?.items || [];
       setMandiOptions(mandis);
+      console.log("[gateDeviceConfigs] Mandis loaded", mandis.length);
     } catch (err) {
       console.warn("[gateDeviceConfigs] loadMandis failed", err);
     } finally {
       setMandiLoading(false);
-    }
-  };
-
-  const loadGates = async (mandiId?: string | number) => {
-    const username = currentUsername();
-    if (!username || !mandiId || !selectedOrgId) return;
-    try {
-      const resp = await fetchMandiGates({
-        username,
-        language,
-        filters: { org_id: selectedOrgId, mandi_id: Number(mandiId), is_active: "Y" },
-      });
-      setGateOptions(resp?.data?.items || resp?.response?.data?.items || []);
-    } catch (err) {
-      console.warn("[gateDeviceConfigs] loadGates failed", err);
     }
   };
 
@@ -323,22 +316,29 @@ export const GateDeviceConfigs: React.FC = () => {
   }, [orgOptions, selectedOrgId, isOrgScoped, selectedOrgCode]);
 
   useEffect(() => {
-    loadMandis();
-  }, [mandiSource, selectedOrgCode]);
+    const timeout = setTimeout(() => {
+      if (mandiSource === "SYSTEM" || selectedOrgId || selectedOrgCode || isOrgScoped) {
+        loadMandis(mandiSearchText);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [mandiSearchText, mandiSource, selectedOrgId, selectedOrgCode, isOrgScoped]);
 
   useEffect(() => {
+    const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id));
+    setGateOptions(selected?.gates || []);
     if (filters.mandi_id) {
-      loadGates(filters.mandi_id);
       loadDevices(filters.mandi_id, filters.gate_code);
     }
-  }, [filters.mandi_id, filters.gate_code, selectedOrgId]);
+  }, [filters.mandi_id, filters.gate_code, selectedOrgId, mandiOptions]);
 
   useEffect(() => {
+    const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id));
+    setGateOptions(selected?.gates || []);
     if (dialogOpen && form.mandi_id) {
-      loadGates(form.mandi_id);
       loadDevices(form.mandi_id, form.gate_code);
     }
-  }, [dialogOpen, form.mandi_id, form.gate_code, selectedOrgId]);
+  }, [dialogOpen, form.mandi_id, form.gate_code, selectedOrgId, mandiOptions]);
 
   useEffect(() => {
     fetchData();
@@ -575,7 +575,6 @@ export const GateDeviceConfigs: React.FC = () => {
                 if (nextId === filters.mandi_id) return;
                 setFilters((f) => ({ ...f, mandi_id: nextId }));
                 if (val) {
-                  loadGates(val.mandi_id);
                   loadDevices(val.mandi_id);
                 } else {
                   setGateOptions([]);
@@ -699,7 +698,6 @@ export const GateDeviceConfigs: React.FC = () => {
                 if (nextId === form.mandi_id) return;
                 setForm((f) => ({ ...f, mandi_id: nextId }));
                 if (val) {
-                  loadGates(val.mandi_id);
                   loadDevices(val.mandi_id);
                 } else {
                   setGateOptions([]);

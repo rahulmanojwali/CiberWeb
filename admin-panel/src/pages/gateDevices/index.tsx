@@ -30,6 +30,8 @@ import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { useRef } from "react";
+import { useSnackbar } from "notistack";
 
 function currentUsername(): string | null {
   try {
@@ -71,6 +73,7 @@ export const GateDevices: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { enqueueSnackbar } = useSnackbar();
 
   const [rows, setRows] = useState<DeviceRow[]>([]);
   const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
@@ -85,9 +88,11 @@ export const GateDevices: React.FC = () => {
   const [page, setPage] = useState(0); // zero-based for DataGrid
   const [perPage, setPerPage] = useState(10);
   const [total, setTotal] = useState(0);
+  const loadingRef = useRef(false);
 
   const { canView, canCreate, canEdit, canDeactivate, isSuperAdmin } = useCrudPermissions("gate_devices");
   const orgCode = uiConfig?.scope?.org_code || "";
+  const orgIdFromScope = (uiConfig as any)?.scope?.org_id || "";
   const orgCodes =
     (Array.isArray((uiConfig as any)?.scope?.org_codes) && (uiConfig as any)?.scope?.org_codes) ||
     (orgCode ? [orgCode] : []);
@@ -146,26 +151,44 @@ export const GateDevices: React.FC = () => {
   );
 
   const loadOrgs = async () => {
+    // For org-scoped users, skip API and prefill from scope
+    if (!isSuperAdmin) {
+      const single = { _id: orgIdFromScope || "", org_code: orgCode, org_name: orgCode };
+      setOrgOptions(single._id || single.org_code ? [single] : []);
+      if (single._id) {
+        setFilters((f) => ({ ...f, org_id: single._id }));
+      }
+      return;
+    }
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-    const filtered = isSuperAdmin ? orgs : orgs.filter((o: any) => orgCodes.includes(o.org_code));
-    setOrgOptions(filtered);
-    if (!isSuperAdmin && filtered.length) {
-      setFilters((f) => ({ ...f, org_id: filtered[0]?._id || "" }));
-    }
+    setOrgOptions(orgs);
   };
 
   const loadMandis = async (orgId?: string) => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
+    const selectedOrg = orgId || filters.org_id || orgIdFromScope;
+    const selectedOrgCode =
+      (orgOptions.find((o) => String(o._id) === String(selectedOrg))?.org_code as string) || orgCode;
+    // org-scoped must pass org_code
+    if (!isSuperAdmin && !selectedOrgCode) return;
+    const resp = await fetchMandis({
+      username,
+      language,
+      filters: {
+        is_active: true,
+        ...(selectedOrgCode ? { org_code: selectedOrgCode } : {}),
+      },
+    });
     const mandis = resp?.data?.mandis || [];
-    const targetOrg = orgId ?? filters.org_id;
-    const filtered = targetOrg
+    // keep client-side filter as a safety net
+    const filtered = selectedOrg
       ? mandis.filter(
-          (m: any) => String(m.org_id || "") === String(targetOrg) || String(m.org_code || "") === orgCode,
+          (m: any) =>
+            String(m.org_id || "") === String(selectedOrg) || String(m.org_code || "") === selectedOrgCode,
         )
       : mandis;
     setMandiOptions(filtered);
@@ -174,11 +197,18 @@ export const GateDevices: React.FC = () => {
   const loadGates = async (mandiId?: string | number) => {
     const username = currentUsername();
     if (!username || !mandiId) return;
-    const resp = await fetchMandiGates({ username, language, filters: { mandi_id: Number(mandiId), is_active: "Y" } });
+    const orgId = filters.org_id || orgIdFromScope || undefined;
+    const resp = await fetchMandiGates({
+      username,
+      language,
+      filters: { mandi_id: Number(mandiId), ...(orgId ? { org_id: orgId } : {}), is_active: "Y" },
+    });
     setGateOptions(resp?.data?.items || []);
   };
 
   const loadData = async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     const username = currentUsername();
     if (!username) return;
     setLoading(true);
@@ -196,8 +226,15 @@ export const GateDevices: React.FC = () => {
           perPage,
         },
       });
-      const list = resp?.data?.devices || resp?.response?.data?.devices || [];
-      const pagination = resp?.data?.pagination || resp?.response?.data?.pagination;
+      if (!resp.ok) {
+        enqueueSnackbar(resp.description || "Failed to load gate devices", { variant: "error" });
+        setRows([]);
+        setTotal(0);
+        return;
+      }
+      const payload = resp.data;
+      const list = payload?.data?.devices || payload?.response?.data?.devices || [];
+      const pagination = payload?.data?.pagination || payload?.response?.data?.pagination;
       if (pagination?.total !== undefined) {
         setTotal(pagination.total);
         setPerPage(pagination.perPage || perPage);
@@ -218,7 +255,13 @@ export const GateDevices: React.FC = () => {
           capability_set: d.capability_set || [],
         })),
       );
+    } catch (err: any) {
+      console.warn("[gateDevices] loadData failed", err?.message || err);
+      enqueueSnackbar(err?.message || "Failed to load gate devices", { variant: "error" });
+      setRows([]);
+      setTotal(0);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };

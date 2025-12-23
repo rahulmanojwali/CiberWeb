@@ -15,13 +15,14 @@ async function postEncrypted(path: string, items: Record<string, any>) {
   const { data } = await axios.post(url, { encryptedData }, { headers: authHeaders() });
   const rc = data?.response?.responsecode;
   const desc = data?.response?.description || "Something went wrong.";
-  if (rc !== "0") {
-    const err: any = new Error(desc);
-    err.responseCode = rc;
-    err.rawResponse = data;
-    throw err;
-  }
-  return data;
+  // Preserve legacy shape by spreading the original data (so .response etc still exist)
+  return {
+    ok: rc === "0",
+    data,
+    responseCode: rc,
+    description: desc,
+    ...data,
+  };
 }
 
 // Gate Entry Reasons

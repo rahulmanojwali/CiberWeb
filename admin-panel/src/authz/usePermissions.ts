@@ -64,6 +64,9 @@ export function usePermissions() {
       ensure("mandis.create", mandiActions);
       ensure("mandis.edit", mandiActions);
       ensure("mandis.deactivate", mandiActions);
+      ensure("mandis.system.list", ["VIEW"]);
+      ensure("mandis.org.list", ["VIEW"]);
+      ensure("mandis.import", ["CREATE"]);
       ensure("org_mandi_mappings.menu", ["VIEW"]);
       ensure("org_mandi_mappings.list", ["VIEW"]);
       ensure("org_mandi_mappings.create", mandiActions);

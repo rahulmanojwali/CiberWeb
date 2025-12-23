@@ -264,6 +264,64 @@ export const deactivateCommodityProduct = async ({
     org_code,
   });
 
+// --- New org/system mandis (lite) ---
+export const fetchOrgMandisLite = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  org_id,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  org_id: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getOrgMandis, {
+    api: API_TAGS.ORG_MANDIS.orgList,
+    username,
+    language,
+    org_id,
+    ...filters,
+  });
+
+export const fetchSystemMandisByState = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  state_code,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  state_code: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getSystemMandisByState, {
+    api: API_TAGS.ORG_MANDIS.systemList,
+    username,
+    language,
+    state_code,
+    ...filters,
+  });
+
+export const importSystemMandisToOrg = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  org_id,
+  mandi_ids,
+}: {
+  username: string;
+  language?: string;
+  org_id: string;
+  mandi_ids: number[];
+}) =>
+  postEncrypted(API_ROUTES.admin.importSystemMandisToOrg, {
+    api: API_TAGS.ORG_MANDIS.import,
+    username,
+    language,
+    org_id,
+    mandi_ids,
+  });
+
 // --- Facility masters ---
 export const fetchMandiFacilitiesMasters = async ({
   username,

@@ -144,6 +144,11 @@ export const API_TAGS = {
     deactivate: "deactivateGateDeviceConfig",
     mandisWithGates: "getMandisWithGatesSummary",
   },
+  ORG_MANDIS: {
+    systemList: "getSystemMandisByState",
+    import: "importSystemMandisToOrg",
+    orgList: "getOrgMandis",
+  },
   ROLE_POLICIES: {
     dashboard: "getRolePoliciesDashboardData",
     update: "updateRolePolicies",
@@ -355,6 +360,9 @@ export const API_ROUTES = {
     getAuctionSessions: "/admin/getAuctionSessions",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
+    getSystemMandisByState: "/admin/getSystemMandisByState",
+    importSystemMandisToOrg: "/admin/importSystemMandisToOrg",
+    getOrgMandis: "/admin/getOrgMandis",
     ...SUBSCRIPTION_ROUTES,
     ...SETTLEMENT_ROUTES,
     ...PAYMENTS_LOG_ROUTES,

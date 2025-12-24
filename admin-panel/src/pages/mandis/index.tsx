@@ -564,7 +564,16 @@ const prepareRows = (items: any[]) =>
   const canRemove = can("mandis.org.remove", "DEACTIVATE");
   const canCreate = can("mandis.org.create", "CREATE");
 
-  const renderMyMandis = () => (
+  const renderMyMandis = () => {
+    console.log("[MyMandisToolbar] canCreate", canCreate);
+    const hasCreateFlow = false;
+    const addDisabled = !canCreate || !hasCreateFlow;
+    const addTooltip = !canCreate
+      ? "No permission to add mandi"
+      : !hasCreateFlow
+      ? "Create flow not wired yet"
+      : "";
+    return (
     <Stack spacing={2}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
@@ -636,9 +645,7 @@ const prepareRows = (items: any[]) =>
           title={
             !canRemove
               ? "No permission"
-              : mySelectionModel.length === 0
-              ? "Select a mandi to remove"
-              : ""
+              : "This will deactivate the mandi for this organisation.\nThe mandi can be re-imported later."
           }
           arrow
         >
@@ -649,20 +656,18 @@ const prepareRows = (items: any[]) =>
               disabled={!canRemove || mySelectionModel.length === 0}
               onClick={handleRemoveSelected}
             >
-              Remove Mandi
+              Remove from Organisation
             </Button>
           </span>
         </Tooltip>
 
-        {canCreate && (
-          <Tooltip title="Not wired yet" arrow>
-            <span>
-              <Button variant="contained" color="primary" disabled>
-                Add Custom Mandi
-              </Button>
-            </span>
-          </Tooltip>
-        )}
+        <Tooltip title={addTooltip} arrow>
+          <span>
+            <Button variant="contained" color="primary" disabled={addDisabled}>
+              Add Custom Mandi
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>
 
       <Card>
@@ -693,6 +698,7 @@ const prepareRows = (items: any[]) =>
       </Card>
     </Stack>
   );
+  };
 
   // const renderImportMandis = () => (
   //   // NOTE: DataGrid needs a non-zero height ancestor to render reliably.

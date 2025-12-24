@@ -4,14 +4,13 @@ import {
   Button,
   Card,
   CardContent,
-  FormControlLabel,
   Stack,
   Tab,
   Tabs,
   TextField,
-  Checkbox,
   Typography,
   MenuItem,
+  Tooltip,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -22,6 +21,7 @@ import {
   fetchOrgMandisLite,
   fetchSystemMandisByState,
   importSystemMandisToOrg,
+  removeOrgMandi,
 } from "../../services/mandiApi";
 import { useSnackbar } from "notistack";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
@@ -102,7 +102,7 @@ const STATE_NAME_MAP: Record<string, string> = {
 const STATE_OPTIONS = Object.keys(STATE_NAME_MAP);
 
 export const Mandis: React.FC = () => {
-  const { authContext } = usePermissions();
+  const { authContext, can } = usePermissions();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
   const username =
@@ -129,6 +129,7 @@ export const Mandis: React.FC = () => {
   const [myRows, setMyRows] = useState<MandiLite[]>([]);
   const [myTotal, setMyTotal] = useState(0);
   const [myLoading, setMyLoading] = useState(false);
+  const [mySelectionModel, setMySelectionModel] = useState<(string | number)[]>([]);
 
   // Import tab state
   const [impState, setImpState] = useState<string>("");
@@ -173,26 +174,36 @@ export const Mandis: React.FC = () => {
     return () => clearTimeout(h);
   }, [impSearch]);
 
-  const myColumns: GridColDef<MandiLite>[] = useMemo(
-    () => [
-      {
-        field: "my_name",
-        headerName: "Name",
-        flex: 1,
-        valueGetter: (p: any) => p?.row?.name_i18n?.en || p?.row?.mandi_slug || p?.row?.mandi_id,
-      },
-      { field: "my_state", headerName: "State", width: 110, valueGetter: (p: any) => p?.row?.state_code || "" },
-      {
-        field: "my_district",
-        headerName: "District",
-        flex: 1,
-        valueGetter: (p: any) => p?.row?.district_name_en || p?.row?.district_name || "",
-      },
-      { field: "my_pincode", headerName: "Pincode", width: 120, valueGetter: (p: any) => p?.row?.pincode || "-" },
-      { field: "my_mandi_id", headerName: "ID", width: 110, valueGetter: (p: any) => p?.row?.mandi_id },
-    ],
-    [],
-  );
+const myColumns: GridColDef<MandiLite>[] = useMemo(
+  () => [
+    {
+      field: "display_name",
+      headerName: "Name",
+      flex: 1,
+    },
+    {
+      field: "state_code",
+      headerName: "State",
+      width: 110,
+    },
+    {
+      field: "district_display",
+      headerName: "District",
+      flex: 1,
+    },
+    {
+      field: "pincode",
+      headerName: "Pincode",
+      width: 120,
+    },
+    {
+      field: "mandi_id",
+      headerName: "ID",
+      width: 110,
+    },
+  ],
+  [],
+);
 
   // Import grid: bind directly to real keys coming from backend
   // JSON keys: mandi_id, district_name_en, pincode
@@ -243,15 +254,13 @@ export const Mandis: React.FC = () => {
 //   },
 // ];
 
-  const impColumns: GridColDef[] = [
-  { field: "mandi_id", headerName: "ID", width: 90 },
-
-  { field: "district_name_en", headerName: "District", flex: 1, minWidth: 160 },
-
+const impColumns: GridColDef[] = [
+  { field: "display_name", headerName: "Name", flex: 1, minWidth: 180 },
+  { field: "state_code", headerName: "State", width: 110 },
+  { field: "district_display", headerName: "District", flex: 1, minWidth: 160 },
   { field: "pincode", headerName: "Pincode", width: 110 },
-
+  { field: "mandi_id", headerName: "ID", width: 90 },
   { field: "address_line", headerName: "Address", flex: 2, minWidth: 220 },
-
   { field: "contact_number", headerName: "Contact", width: 150 },
 ];
 
@@ -273,6 +282,15 @@ export const Mandis: React.FC = () => {
     const total = Number(totalRaw ?? 0);
 
     return { responseMeta, items: Array.isArray(items) ? items : [], total };
+  };
+
+  const normalizeImportResponse = (resp: any) => {
+    const body = resp?.data ?? resp ?? {};
+    return {
+      imported: Number(body.imported ?? 0),
+      skipped_existing: Number(body.skipped_existing ?? 0),
+      skipped_invalid: Number(body.skipped_invalid ?? 0),
+    };
   };
 
   // const prepareRows = (items: any[]) =>
@@ -322,6 +340,19 @@ const prepareRows = (items: any[]) =>
       m?.contact_no ||
       "";
 
+    const display_name =
+      m?.name_i18n?.en ||
+      m?.label ||
+      m?.mandi_slug ||
+      (m?.mandi_id != null ? `Mandi ${m.mandi_id}` : "");
+
+    const district_display =
+      m?.district_name_en ||
+      m?.district_name ||
+      m?.district ||
+      m?.district_id ||
+      "";
+
     return {
       ...m,
 
@@ -336,6 +367,8 @@ const prepareRows = (items: any[]) =>
       pincode,
       address_line,
       contact_number,
+      display_name,
+      district_display,
     };
   });
 // end here
@@ -369,7 +402,12 @@ const prepareRows = (items: any[]) =>
         return;
       }
       console.log("[MyMandis] resolved", { count: items.length, first: items[0] });
-      setMyRows(prepareRows(items) as MandiLite[]);
+      const preparedRows = prepareRows(items) as MandiLite[];
+      console.log("[MyMandis] rows sample", {
+        first: items?.[0],
+        preparedFirst: preparedRows?.[0],
+      });
+      setMyRows(preparedRows);
       setMyTotal(total);
     } catch (err: any) {
       if (controller.signal.aborted) return;
@@ -412,7 +450,12 @@ const prepareRows = (items: any[]) =>
         return;
       }
       console.log("[ImportMandis] resolved", { count: items.length, first: items[0] });
-      setImpRows(prepareRows(items) as MandiLite[]);
+      const preparedRows = prepareRows(items) as MandiLite[];
+      console.log("[Import] firstRow raw/prepared", {
+        raw: items?.[0],
+        prepared: preparedRows?.[0],
+      });
+      setImpRows(preparedRows);
       setImpTotal(total);
     } catch (err: any) {
       if (controller.signal.aborted) return;
@@ -447,6 +490,7 @@ const prepareRows = (items: any[]) =>
   const resetMy = () => {
     setMyPage(1);
     fetchMyMandis();
+    setMySelectionModel([]);
   };
 
   const resetImport = () => {
@@ -468,18 +512,57 @@ const prepareRows = (items: any[]) =>
         org_id: orgId,
         mandi_ids: selectedImportMandiIds.slice(0, 25),
       });
-      const data = (resp as any)?.data?.data || (resp as any)?.data || (resp as any)?.response?.data || {};
-      enqueueSnackbar(`Imported ${data.imported || 0}, skipped ${data.skipped_existing || 0}`, {
-        variant: "success",
-      });
+      const { imported, skipped_existing, skipped_invalid } = normalizeImportResponse(resp);
+      enqueueSnackbar(
+        `Imported ${imported}, skipped ${skipped_existing}, invalid ${skipped_invalid}`,
+        {
+          variant: "success",
+        },
+      );
       setActiveTab("MY");
       setImpSelectionModel([]);
       setMyPage(1);
-      fetchMyMandis();
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Import failed", { variant: "error" });
     }
   };
+
+  const handleRemoveSelected = async () => {
+    if (!canRemove || !mySelectionModel.length) return;
+    if (!orgId) {
+      enqueueSnackbar("Organisation not found", { variant: "error" });
+      return;
+    }
+    const selectionSet = new Set(mySelectionModel.map((val) => String(val)));
+    const mappingIds = (myRows || [])
+      .filter((row) => selectionSet.has(String(row?._id || row?.mandi_id || row?._rowId)))
+      .map((row) => row?._id)
+      .filter((id): id is string => Boolean(id));
+    if (!mappingIds.length) {
+      enqueueSnackbar("Select a mandi to remove", { variant: "info" });
+      return;
+    }
+    setMyLoading(true);
+    try {
+      for (const mapping_id of mappingIds) {
+        await removeOrgMandi({
+          username,
+          language: DEFAULT_LANGUAGE,
+          mapping_id,
+        });
+      }
+      enqueueSnackbar("Removed selected mandi(s)", { variant: "success" });
+      resetMy();
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Remove failed", { variant: "error" });
+    } finally {
+      setMyLoading(false);
+    }
+  };
+
+  const canImport = can("mandis.org.import", "CREATE");
+  const canRemove = can("mandis.org.remove", "DEACTIVATE");
+  const canCreate = can("mandis.org.create", "CREATE");
 
   const renderMyMandis = () => (
     <Stack spacing={2}>
@@ -548,6 +631,38 @@ const prepareRows = (items: any[]) =>
         <Button variant="outlined" startIcon={<RefreshIcon />} onClick={resetMy}>
           Refresh
         </Button>
+
+        <Tooltip
+          title={
+            !canRemove
+              ? "No permission"
+              : mySelectionModel.length === 0
+              ? "Select a mandi to remove"
+              : ""
+          }
+          arrow
+        >
+          <span>
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={!canRemove || mySelectionModel.length === 0}
+              onClick={handleRemoveSelected}
+            >
+              Remove Mandi
+            </Button>
+          </span>
+        </Tooltip>
+
+        {canCreate && (
+          <Tooltip title="Not wired yet" arrow>
+            <span>
+              <Button variant="contained" color="primary" disabled>
+                Add Custom Mandi
+              </Button>
+            </span>
+          </Tooltip>
+        )}
       </Stack>
 
       <Card>
@@ -565,6 +680,13 @@ const prepareRows = (items: any[]) =>
             onPaginationModelChange={(m) => {
               setMyPage(m.page + 1);
               setMyPageSize(m.pageSize);
+            }}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={mySelectionModel}
+            onRowSelectionModelChange={(model) => {
+              const next = Array.isArray(model) ? model : [];
+              setMySelectionModel(next);
             }}
           />
         </CardContent>
@@ -813,6 +935,18 @@ const prepareRows = (items: any[]) =>
           >
             Import Selected
           </Button>
+
+          <Tooltip title={!canImport ? "No permission" : ""} arrow>
+            <span>
+              <Button
+                variant="contained"
+                disabled={!canImport || !impState || selectedImportMandiIds.length === 0}
+                onClick={handleImport}
+              >
+                Import Selected
+              </Button>
+            </span>
+          </Tooltip>
 
           <Typography variant="body2" sx={{ opacity: 0.7 }}>
             Selected: {selectedImportMandiIds.length} (max 25) • Total: {impTotal}
@@ -1541,6 +1675,3 @@ const prepareRows = (items: any[]) =>
 //     </PageContainer>
 //   );
 // };
-
-
-

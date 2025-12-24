@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -11,6 +11,12 @@ import {
   Typography,
   MenuItem,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  InputAdornment,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -22,7 +28,9 @@ import {
   fetchSystemMandisByState,
   importSystemMandisToOrg,
   removeOrgMandi,
+  createMandi,
 } from "../../services/mandiApi";
+import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 import { useSnackbar } from "notistack";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { useTheme } from "@mui/material/styles";
@@ -58,6 +66,22 @@ type MandiLite = {
 
   // allow unknown keys from API without TS complaining
   [key: string]: any;
+};
+
+type CreateMandiForm = {
+  name: string;
+  pincode: string;
+  address: string;
+  contact: string;
+};
+
+type PincodeLookupResult = {
+  district_name?: string | null;
+  state_name?: string | null;
+  district_id?: string | null;
+  state_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 
@@ -100,6 +124,15 @@ const STATE_NAME_MAP: Record<string, string> = {
   WB: "West Bengal",
 };
 const STATE_OPTIONS = Object.keys(STATE_NAME_MAP);
+const INITIAL_CREATE_FORM: CreateMandiForm = { name: "", pincode: "", address: "", contact: "" };
+const INITIAL_PINCODE_LOOKUP: PincodeLookupResult = {
+  district_name: null,
+  state_name: null,
+  district_id: null,
+  state_code: null,
+  latitude: null,
+  longitude: null,
+};
 
 export const Mandis: React.FC = () => {
   const { authContext, can } = usePermissions();
@@ -146,6 +179,15 @@ export const Mandis: React.FC = () => {
   const [impSelectionModel, setImpSelectionModel] = useState<(string | number)[]>([]);
   const importFilterRef = useRef<HTMLDivElement | null>(null);
   const [importFilterHeight, setImportFilterHeight] = useState(0);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateMandiForm>(INITIAL_CREATE_FORM);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [myRefreshKey, setMyRefreshKey] = useState(0);
+  const [pincodeLookup, setPincodeLookup] = useState<PincodeLookupResult>(INITIAL_PINCODE_LOOKUP);
+  const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [pincodeError, setPincodeError] = useState("");
+  const pincodeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPincodeRef = useRef("");
 
   // Abort / dedupe
   const myReqRef = useRef<AbortController | null>(null);
@@ -470,7 +512,7 @@ const prepareRows = (items: any[]) =>
   // Effects
   useEffect(() => {
     if (activeTab === "MY") fetchMyMandis();
-  }, [myDebounced, myState, myPage, myPageSize, fetchMyMandis, activeTab]);
+  }, [myDebounced, myState, myPage, myPageSize, fetchMyMandis, activeTab, myRefreshKey]);
 
   useEffect(() => {
     if (activeTab === "IMPORT" && impState) fetchSystemMandis();
@@ -489,14 +531,119 @@ const prepareRows = (items: any[]) =>
 
   const resetMy = () => {
     setMyPage(1);
-    fetchMyMandis();
     setMySelectionModel([]);
+    setMyRefreshKey((prev) => prev + 1);
   };
 
   const resetImport = () => {
     setImpSelectionModel([]);
     setImpPage(1);
   };
+
+  const isPincodeValid = (value: string) => /^\d{6}$/.test(value.trim());
+
+  const clearPendingPincodeLookup = () => {
+    if (pincodeDebounceRef.current) {
+      clearTimeout(pincodeDebounceRef.current);
+      pincodeDebounceRef.current = null;
+    }
+    pendingPincodeRef.current = "";
+  };
+
+  const resetCreateForm = () => {
+    setCreateForm(INITIAL_CREATE_FORM);
+    setPincodeLookup(INITIAL_PINCODE_LOOKUP);
+    setPincodeStatus("idle");
+    setPincodeError("");
+    clearPendingPincodeLookup();
+  };
+
+  const handleCloseCreateModal = () => {
+    setCreateModalOpen(false);
+    resetCreateForm();
+  };
+
+  const lookupPincode = useCallback(
+    async (pin: string) => {
+      try {
+        const resp = await fetchStatesDistrictsByPincode({
+          username,
+          language: DEFAULT_LANGUAGE,
+          pincode: pin,
+        });
+        if (pendingPincodeRef.current !== pin) return;
+
+        const body = resp ?? {};
+        const responseMeta = body?.response ?? body;
+        if (responseMeta?.responsecode && responseMeta.responsecode !== "0") {
+          throw new Error(responseMeta?.description || "Unable to resolve pincode");
+        }
+        const payload = body?.response?.data ?? body?.data ?? body;
+
+        const district = payload?.district_name || payload?.district;
+        const state = payload?.state_name || payload?.state;
+        if (!district || !state) {
+          throw new Error("Unable to resolve pincode");
+        }
+
+        const toNumber = (value: any) => {
+          if (value === null || value === undefined) return null;
+          const num = Number(value);
+          return Number.isFinite(num) ? num : null;
+        };
+
+        const latitude =
+          toNumber(payload?.latitude ?? payload?.lat ?? payload?.location?.coordinates?.[1]) || null;
+        const longitude =
+          toNumber(payload?.longitude ?? payload?.lon ?? payload?.location?.coordinates?.[0]) || null;
+
+        setPincodeLookup({
+          district_name: district,
+          state_name: state,
+          district_id: payload?.district_id || null,
+          state_code: payload?.state_code || null,
+          latitude,
+          longitude,
+        });
+        setPincodeStatus("success");
+        setPincodeError("");
+      } catch (err: any) {
+        if (pendingPincodeRef.current !== pin) return;
+        setPincodeLookup(INITIAL_PINCODE_LOOKUP);
+        setPincodeStatus("error");
+        setPincodeError(err?.message || "Invalid pincode");
+      }
+    },
+    [username],
+  );
+
+  useEffect(() => {
+    clearPendingPincodeLookup();
+    const trimmed = createForm.pincode.trim();
+    if (!trimmed) {
+      setPincodeStatus("idle");
+      setPincodeError("");
+      setPincodeLookup(INITIAL_PINCODE_LOOKUP);
+      return;
+    }
+    if (!isPincodeValid(trimmed)) {
+      setPincodeStatus("error");
+      setPincodeError("Enter a 6-digit pincode");
+      setPincodeLookup(INITIAL_PINCODE_LOOKUP);
+      return;
+    }
+
+    setPincodeStatus("loading");
+    setPincodeError("");
+    pendingPincodeRef.current = trimmed;
+    pincodeDebounceRef.current = setTimeout(() => {
+      lookupPincode(trimmed);
+    }, 450);
+
+    return () => {
+      clearPendingPincodeLookup();
+    };
+  }, [createForm.pincode, lookupPincode]);
 
   const handleImport = async () => {
     if (!orgId) {
@@ -520,8 +667,8 @@ const prepareRows = (items: any[]) =>
         },
       );
       setActiveTab("MY");
+      resetMy();
       setImpSelectionModel([]);
-      setMyPage(1);
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Import failed", { variant: "error" });
     }
@@ -560,21 +707,71 @@ const prepareRows = (items: any[]) =>
     }
   };
 
+
   const canImport = can("mandis.org.import", "CREATE");
   const canRemove = can("mandis.org.remove", "DEACTIVATE");
   const canCreate = can("mandis.org.create", "CREATE");
 
+  const handleCreateCustomMandi = async () => {
+    if (!canCreate) return;
+    if (!authContext.org_code) {
+      enqueueSnackbar("Organisation not found", { variant: "error" });
+      return;
+    }
+    if (!createForm.name.trim() || !createForm.address.trim()) return;
+    if (pincodeStatus !== "success") return;
+
+    setCreateSubmitting(true);
+    try {
+      const location =
+        pincodeLookup.latitude !== null && pincodeLookup.longitude !== null
+          ? {
+              type: "Point",
+              coordinates: [pincodeLookup.longitude, pincodeLookup.latitude],
+            }
+          : null;
+
+      await createMandi({
+        username,
+        language: DEFAULT_LANGUAGE,
+        payload: {
+          org_code: String(authContext.org_code),
+          name_i18n: { en: createForm.name.trim() },
+          pincode: createForm.pincode.trim(),
+          address_line: createForm.address.trim(),
+          contact_number: createForm.contact.trim() || null,
+          district_name: pincodeLookup.district_name ?? undefined,
+          state_name: pincodeLookup.state_name ?? undefined,
+          state_code: pincodeLookup.state_code ?? undefined,
+          district_id: pincodeLookup.district_id ?? undefined,
+          location: location || undefined,
+          country: "IN",
+        },
+      });
+      enqueueSnackbar("Custom mandi created", { variant: "success" });
+      resetCreateForm();
+      setCreateModalOpen(false);
+      setActiveTab("MY");
+      resetMy();
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Unable to create mandi", { variant: "error" });
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  const canSubmitCreate =
+    canCreate &&
+    Boolean(createForm.name.trim()) &&
+    Boolean(createForm.address.trim()) &&
+    pincodeStatus === "success" &&
+    Boolean(pincodeLookup.district_name) &&
+    Boolean(pincodeLookup.state_name);
+
   const renderMyMandis = () => {
-    console.log("[MyMandisToolbar] canCreate", canCreate);
-    const hasCreateFlow = false;
-    const addDisabled = !canCreate || !hasCreateFlow;
-    const addTooltip = !canCreate
-      ? "No permission to add mandi"
-      : !hasCreateFlow
-      ? "Create flow not wired yet"
-      : "";
+    const addTooltip = !canCreate ? "No permission to add mandi" : "";
     return (
-    <Stack spacing={2}>
+      <Stack spacing={2}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
@@ -663,7 +860,12 @@ const prepareRows = (items: any[]) =>
 
         <Tooltip title={addTooltip} arrow>
           <span>
-            <Button variant="contained" color="primary" disabled={addDisabled}>
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={!canCreate}
+              onClick={() => canCreate && setCreateModalOpen(true)}
+            >
               Add Custom Mandi
             </Button>
           </span>
@@ -1020,29 +1222,116 @@ const prepareRows = (items: any[]) =>
   );
 };
 
+  const renderCreateDialog = () => (
+    <Dialog open={createModalOpen} onClose={handleCloseCreateModal} fullWidth maxWidth="sm">
+      <DialogTitle>Add Custom Mandi</DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField
+            label="Mandi name (English)"
+            value={createForm.name}
+            onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+            required
+            fullWidth
+          />
+          <TextField
+            label="Pincode"
+            value={createForm.pincode}
+            onChange={(e) => setCreateForm((prev) => ({ ...prev, pincode: e.target.value }))}
+            required
+            fullWidth
+            inputProps={{ maxLength: 6, inputMode: "numeric", pattern: "\\d*" }}
+            helperText={pincodeError || "Enter a 6-digit pincode"}
+            error={Boolean(pincodeError) && pincodeStatus === "error"}
+            InputProps={{
+              endAdornment:
+                pincodeStatus === "loading" ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={18} />
+                  </InputAdornment>
+                ) : undefined,
+            }}
+          />
+          <TextField
+            label="State"
+            value={pincodeLookup.state_name || ""}
+            InputProps={{ readOnly: true }}
+            disabled
+            fullWidth
+          />
+          <TextField
+            label="District"
+            value={pincodeLookup.district_name || ""}
+            InputProps={{ readOnly: true }}
+            disabled
+            fullWidth
+          />
+          <TextField
+            label="Address line"
+            value={createForm.address}
+            onChange={(e) => setCreateForm((prev) => ({ ...prev, address: e.target.value }))}
+            required
+            fullWidth
+            multiline
+            minRows={2}
+          />
+          <TextField
+            label="Contact number"
+            value={createForm.contact}
+            onChange={(e) => setCreateForm((prev) => ({ ...prev, contact: e.target.value }))}
+            fullWidth
+          />
+          <Stack direction="row" spacing={2}>
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              Latitude: {pincodeLookup.latitude ?? "-"}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              Longitude: {pincodeLookup.longitude ?? "-"}
+            </Typography>
+          </Stack>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCloseCreateModal} disabled={createSubmitting}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          disabled={!canSubmitCreate || createSubmitting}
+          onClick={handleCreateCustomMandi}
+        >
+          {createSubmitting ? <CircularProgress size={18} color="inherit" /> : "Save"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 
   return (
-    <PageContainer>
-      <Stack spacing={2}>
-        <Typography variant="h5">Mandis</Typography>
-        <Tabs
-          value={activeTab}
-          onChange={(_, v) => {
-            setActiveTab(v);
-            if (v === "MY") {
-              setMyPage(1);
-            } else {
-              resetImport();
-            }
-          }}
-        >
-          <Tab label="My Mandis" value="MY" />
-          <Tab label="Import Mandis" value="IMPORT" />
-        </Tabs>
+    <>
+      <PageContainer>
+        <Stack spacing={2}>
+          <Typography variant="h5">Mandis</Typography>
+          <Tabs
+            value={activeTab}
+            onChange={(_, v) => {
+              setActiveTab(v);
+              if (v === "MY") {
+                setMyPage(1);
+              } else {
+                resetImport();
+              }
+            }}
+          >
+            <Tab label="My Mandis" value="MY" />
+            <Tab label="Import Mandis" value="IMPORT" />
+          </Tabs>
 
-        {activeTab === "MY" ? renderMyMandis() : renderImportMandis()}
-      </Stack>
-    </PageContainer>
+          {activeTab === "MY" ? renderMyMandis() : renderImportMandis()}
+        </Stack>
+      </PageContainer>
+      {renderCreateDialog()}
+    </>
   );
 };
 

@@ -15,6 +15,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   CircularProgress,
   InputAdornment,
@@ -574,6 +575,8 @@ const prepareRows = (items: any[]) =>
     setImpPage(1);
   };
 
+  const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+
   const performStatusUpdate = async (
     rows: MandiLite[],
     targetStatus: "Y" | "N",
@@ -741,18 +744,22 @@ const prepareRows = (items: any[]) =>
     }
   };
 
-  const handleRemoveSelected = async () => {
+  const handleRemoveSelected = () => {
     if (!canRemove || !activeSelectedRows.length) return;
-    if (!window.confirm("This will deactivate the mandi for this organisation. You can activate it again later.")) {
-      return;
-    }
-    await performStatusUpdate(activeSelectedRows, "N", "Mandi deactivated for this organisation.");
+    setDeactivateConfirmOpen(true);
   };
 
   const handleActivateSelected = async () => {
     if (!canRemove || !inactiveSelectedRows.length) return;
     await performStatusUpdate(inactiveSelectedRows, "Y", "Mandi activated successfully.");
   };
+
+  const confirmDeactivate = async () => {
+    setDeactivateConfirmOpen(false);
+    await performStatusUpdate(activeSelectedRows, "N", "Mandi deactivated for this organisation.");
+  };
+
+  const cancelDeactivate = () => setDeactivateConfirmOpen(false);
 
 
   const canImport = can("mandis.org.import", "CREATE");
@@ -1402,9 +1409,31 @@ const prepareRows = (items: any[]) =>
         </Stack>
       </PageContainer>
       {renderCreateDialog()}
+      {renderDeactivateDialog()}
     </>
   );
 };
+
+  const renderDeactivateDialog = () => (
+    <Dialog
+      open={deactivateConfirmOpen}
+      onClose={cancelDeactivate}
+      aria-labelledby="deactivate-mandi-dialog-title"
+    >
+      <DialogTitle id="deactivate-mandi-dialog-title">Deactivate Mandi</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          This will deactivate the mandi for this organisation. You can activate it again later if required.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={cancelDeactivate}>Cancel</Button>
+        <Button variant="contained" color="error" onClick={confirmDeactivate}>
+          Deactivate
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 
 
 // import React, { useEffect, useMemo, useRef, useState } from "react";

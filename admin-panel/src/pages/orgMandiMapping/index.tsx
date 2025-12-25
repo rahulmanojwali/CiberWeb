@@ -114,6 +114,33 @@ export const OrgMandiMapping: React.FC = () => {
     [uiConfig.resources],
   );
 
+  const orgDisplayMap = useMemo(() => {
+    const map = new Map<string, OrgOption>();
+    orgOptions.forEach((option) => {
+      if (option._id) {
+        map.set(option._id, option);
+      }
+    });
+    return map;
+  }, [orgOptions]);
+
+  const filteredRows = useMemo(() => {
+    const statusFilter = filters.status;
+    const filtered = rows.filter((row) => {
+      if (statusFilter === "ALL") return true;
+      if (statusFilter === "Y") return row.status_effective === "Y";
+      if (statusFilter === "N") return row.status_effective === "N";
+      return true;
+    });
+    console.log("[OrgMandiMapping] filter", {
+      statusFilter,
+      total: rows.length,
+      filtered: filtered.length,
+      sample: rows[0] || null,
+    });
+    return filtered;
+  }, [filters.status, rows]);
+
   const loadOrgs = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
@@ -162,7 +189,14 @@ export const OrgMandiMapping: React.FC = () => {
       const items = extractMandisFromResponse(resp);
       const mapped: MappingRow[] = items.map((item) => {
         const orgId = String(item.org_id || item.orgId || "");
-        const org_display = buildOrgDisplay(item.org_code, item.org_name, orgId);
+        const orgOption = orgDisplayMap.get(orgId);
+        const org_display =
+          buildOrgDisplay(
+            item.org_code || orgOption?.org_code,
+            item.org_name || orgOption?.org_name,
+            orgId,
+          ) ||
+          buildOrgDisplay(orgDisplayMap.get(filters.org_id)?.org_code, orgDisplayMap.get(filters.org_id)?.org_name, filters.org_id || undefined);
         const name =
           item.name_i18n?.en ||
           item.mandi_name ||
@@ -202,7 +236,7 @@ export const OrgMandiMapping: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.org_id, filters.status, language, scopedOrgId]);
+  }, [filters.org_id, filters.status, language, scopedOrgId, orgDisplayMap]);
 
   const handleStatusToggle = async (row: MappingRow, nextState: "Y" | "N") => {
     if (!canToggleStatus) return;
@@ -338,9 +372,11 @@ export const OrgMandiMapping: React.FC = () => {
               >
                 <CircularProgress />
               </Box>
-            ) : rows.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No organisation mandis found.
+                {rows.length
+                  ? `No organisation mandis match the selected status (${filters.status === "Y" ? "Active" : filters.status === "N" ? "Inactive" : "N/A"}).`
+                  : "No organisation mandis found."}
               </Typography>
             ) : (
               <TableContainer sx={{ maxHeight: 520 }}>
@@ -358,11 +394,11 @@ export const OrgMandiMapping: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {rows.map((row) => (
+                    {filteredRows.map((row) => (
                       <TableRow key={row.id} hover>
                         <TableCell>{row.org_display || row.org_id}</TableCell>
                         <TableCell>{row.mandi_id}</TableCell>
-                      <TableCell>{row.display_name}</TableCell>
+                        <TableCell>{row.display_name}</TableCell>
                         <TableCell>{row.state_code || "-"}</TableCell>
                         <TableCell>{row.district_name || "-"}</TableCell>
                         <TableCell>{row.pincode || "-"}</TableCell>

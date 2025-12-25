@@ -147,10 +147,11 @@ export const OrgMandiMapping: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
+      const requestOrgId = filters.org_id || scopedOrgId || "";
       const resp = await fetchOrgMandisLite({
         username,
         language,
-        org_id: filters.org_id || undefined,
+        org_id: requestOrgId,
         filters: {
           is_active: filters.status === "ALL" ? undefined : filters.status,
           page: 1,
@@ -199,7 +200,7 @@ export const OrgMandiMapping: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.org_id, filters.status, language]);
+  }, [filters.org_id, filters.status, language, scopedOrgId]);
 
   const handleStatusToggle = async (row: MappingRow, nextState: "Y" | "N") => {
     if (!canToggleStatus) return;

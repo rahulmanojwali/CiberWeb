@@ -57,6 +57,7 @@ import {
   fetchOrgMandis,
 } from "../../services/adminUsersApi";
 import type { RoleSlug } from "../../config/menuConfig";
+import { getOrgDisplayName } from "../../utils/orgDisplay";
 
 const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
   if (!value) return null;
@@ -117,7 +118,13 @@ const getDisplayRole = (row: any): string => {
   return raw ? String(raw).replace(/_/g, " ") : "";
 };
 
-type OrgOption = { _id?: string; org_code: string; org_name?: string | null };
+type OrgOption = {
+  _id?: string;
+  org_code: string;
+  org_name?: string | null;
+  name?: string | null;
+  label?: string | null;
+};
 type MandiOption = { mandi_id: number; mandi_name?: string | null; mandi_slug?: string | null };
 
 type ToastState = { open: boolean; message: string; severity: "success" | "error" | "info" };
@@ -864,7 +871,7 @@ const loadOrgs = useCallback(async () => {
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
                 {orgOptions.map((org) => (
                   <MenuItem key={org.org_code} value={org.org_code}>
-                    {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
+                    {getOrgDisplayName(org)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -1138,7 +1145,7 @@ const loadOrgs = useCallback(async () => {
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
                 {orgOptions.map((org) => (
                   <MenuItem key={org.org_code} value={org.org_code}>
-                    {org.org_code} {org.org_name ? `- ${org.org_name}` : ""}
+                    {getOrgDisplayName(org)}
                   </MenuItem>
                 ))}
               </TextField>

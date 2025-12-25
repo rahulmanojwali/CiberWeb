@@ -27,8 +27,15 @@ import { can } from "../../utils/adminUiConfig";
 import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchOrgMandisLite, updateOrgMandiStatus } from "../../services/mandiApi";
+import { getOrgDisplayName } from "../../utils/orgDisplay";
 
-type OrgOption = { _id: string; org_code: string; org_name: string };
+type OrgOption = {
+  _id: string;
+  org_code: string;
+  org_name?: string | null;
+  name?: string | null;
+  label?: string | null;
+};
 
 type MappingRow = {
   id: string;
@@ -352,7 +359,7 @@ const loadMappings = useCallback(async () => {
                 <MenuItem value="">All organisations</MenuItem>
                 {orgOptions.map((o) => (
                   <MenuItem key={o._id} value={o._id}>
-                    {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
+                    {getOrgDisplayName(o)}
                   </MenuItem>
                 ))}
               </TextField>

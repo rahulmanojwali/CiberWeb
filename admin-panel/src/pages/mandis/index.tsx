@@ -199,14 +199,17 @@ export const Mandis: React.FC = () => {
   // Selected mandi ids (derived from selected row ids)
   const selectedImportMandiIds = useMemo(() => {
     if (!impSelectionModel?.length) return [] as number[];
-    const selected = new Set(impSelectionModel.map((v) => String(v)));
-    return (impRows || [])
-      .filter((r: any) => selected.has(String(r?._id || r?.mandi_id || r?._rowId)))
-      .map((r: any) => r?.mandi_id)
-      .filter((x: any) => x !== undefined && x !== null)
-      .map((x: any) => Number(x))
-      .filter((x: any) => Number.isFinite(x));
-  }, [impSelectionModel, impRows]);
+    return Array.from(
+      new Set(
+        impSelectionModel
+          .map((v) => {
+            const n = Number(String(v));
+            return Number.isFinite(n) && n > 0 ? n : null;
+          })
+          .filter((n): n is number => n !== null)
+      )
+    );
+  }, [impSelectionModel]);
 
   const selectedMyRows = useMemo(() => {
     if (!mySelectionModel?.length) return [] as MandiLite[];
@@ -721,13 +724,18 @@ const prepareRows = (items: any[]) =>
       return;
     }
     if (selectedImportMandiIds.length === 0) return;
-    console.log("[ImportMandis] import", { count: selectedImportMandiIds.length });
+    const mandiIds = selectedImportMandiIds.slice(0, 25);
+    console.log("[IMPORT_UI] selection", {
+      selectedImportIds: selectedImportMandiIds,
+      mandiIds,
+      firstRow: impRows?.[0],
+    });
     try {
       const resp = await importSystemMandisToOrg({
         username,
         language: DEFAULT_LANGUAGE,
         org_id: orgId,
-        mandi_ids: selectedImportMandiIds.slice(0, 25),
+        mandi_ids: mandiIds,
       });
       const { imported, skipped_existing, skipped_invalid } = normalizeImportResponse(resp);
       enqueueSnackbar(
@@ -954,7 +962,7 @@ const prepareRows = (items: any[]) =>
         <CardContent>
           <ResponsiveDataGrid
             autoHeight
-            getRowId={(row: any) => String(row?._id || row?.mandi_id || row?._rowId)}
+            getRowId={(row: any) => String(row?.mandi_id ?? row?._id ?? row?._rowId)}
             rows={myRows}
             columns={myColumns}
             loading={myLoading}
@@ -1213,15 +1221,6 @@ const prepareRows = (items: any[]) =>
             Refresh
           </Button>
 
-          {/* Import */}
-          <Button
-            variant="contained"
-            disabled={!impState || selectedImportMandiIds.length === 0}
-            onClick={handleImport}
-          >
-            Import Selected
-          </Button>
-
           <Tooltip title={!canImport ? "No permission" : ""} arrow>
             <span>
               <Button
@@ -1256,7 +1255,7 @@ const prepareRows = (items: any[]) =>
             loading={impLoading}
             checkboxSelection
             disableRowSelectionOnClick
-            getRowId={(row: any) => String(row?._id || row?.mandi_id || row?._rowId)}
+            getRowId={(row: any) => String(row?.mandi_id ?? row?._id ?? row?._rowId)}
             rowSelectionModel={impSelectionModel}
             onRowSelectionModelChange={(m) => {
               const next = Array.isArray(m) ? m : [];

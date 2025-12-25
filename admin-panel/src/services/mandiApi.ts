@@ -131,6 +131,25 @@ export const removeOrgMandi = async ({
     is_active: "N",
   });
 
+export const updateOrgMandiStatus = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  mapping_id,
+  is_active,
+}: {
+  username: string;
+  language?: string;
+  mapping_id: string;
+  is_active: "Y" | "N";
+}) =>
+  postEncrypted(API_ROUTES.admin.removeOrgMandi, {
+    api: API_TAGS.ORG_MANDI.removeMapping,
+    username,
+    language,
+    mapping_id,
+    is_active,
+  });
+
 // --- Commodities ---
 export const fetchCommodities = async ({
   username,

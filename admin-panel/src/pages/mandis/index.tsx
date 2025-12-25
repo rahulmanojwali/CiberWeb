@@ -18,6 +18,7 @@ import {
   DialogActions,
   CircularProgress,
   InputAdornment,
+  Chip,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -28,7 +29,7 @@ import {
   fetchOrgMandisLite,
   fetchSystemMandisByState,
   importSystemMandisToOrg,
-  removeOrgMandi,
+  updateOrgMandiStatus,
   createMandi,
 } from "../../services/mandiApi";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
@@ -206,6 +207,21 @@ export const Mandis: React.FC = () => {
       .filter((x: any) => Number.isFinite(x));
   }, [impSelectionModel, impRows]);
 
+  const selectedMyRows = useMemo(() => {
+    if (!mySelectionModel?.length) return [] as MandiLite[];
+    const selected = new Set(mySelectionModel.map((val) => String(val)));
+    return (myRows || []).filter((row) => selected.has(String(row?._id || row?.mandi_id || row?._rowId)));
+  }, [myRows, mySelectionModel]);
+
+  const activeSelectedRows = useMemo(
+    () => selectedMyRows.filter((row) => String(row?.is_active || 'N') === 'Y'),
+    [selectedMyRows],
+  );
+  const inactiveSelectedRows = useMemo(
+    () => selectedMyRows.filter((row) => String(row?.is_active || 'N') === 'N'),
+    [selectedMyRows],
+  );
+
   // Debounce search
   useEffect(() => {
     const h = setTimeout(() => setMyDebounced(mySearch), 500);
@@ -217,36 +233,53 @@ export const Mandis: React.FC = () => {
     return () => clearTimeout(h);
   }, [impSearch]);
 
-const myColumns: GridColDef<MandiLite>[] = useMemo(
-  () => [
-    {
-      field: "display_name",
-      headerName: "Name",
-      flex: 1,
-    },
-    {
-      field: "state_code",
-      headerName: "State",
-      width: 110,
-    },
-    {
-      field: "district_display",
-      headerName: "District",
-      flex: 1,
-    },
-    {
-      field: "pincode",
-      headerName: "Pincode",
-      width: 120,
-    },
-    {
-      field: "mandi_id",
-      headerName: "ID",
-      width: 110,
-    },
-  ],
-  [],
-);
+  const myColumns: GridColDef<MandiLite>[] = useMemo(
+    () => [
+      {
+        field: "display_name",
+        headerName: "Name",
+        flex: 1,
+      },
+      {
+        field: "state_code",
+        headerName: "State",
+        width: 110,
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 140,
+        renderCell: (params) => {
+          const activeFlag =
+            String(params.row?.is_active || params.row?.org_mandi_is_active || "N").toUpperCase() === "Y";
+          return (
+            <Chip
+              label={activeFlag ? "Active" : "Inactive"}
+              size="small"
+              color={activeFlag ? "success" : "default"}
+              variant="outlined"
+            />
+          );
+        },
+      },
+      {
+        field: "district_display",
+        headerName: "District",
+        flex: 1,
+      },
+      {
+        field: "pincode",
+        headerName: "Pincode",
+        width: 120,
+      },
+      {
+        field: "mandi_id",
+        headerName: "ID",
+        width: 110,
+      },
+    ],
+    [],
+  );
 
   // Import grid: bind directly to real keys coming from backend
   // JSON keys: mandi_id, district_name_en, pincode
@@ -541,6 +574,39 @@ const prepareRows = (items: any[]) =>
     setImpPage(1);
   };
 
+  const performStatusUpdate = async (
+    rows: MandiLite[],
+    targetStatus: "Y" | "N",
+    successMessage: string,
+  ) => {
+    if (!orgId) {
+      enqueueSnackbar("Organisation not found", { variant: "error" });
+      return;
+    }
+    const ids = rows
+      .map((row) => String(row?._id || ""))
+      .filter((id) => Boolean(id));
+    if (!ids.length) return;
+
+    setMyLoading(true);
+    try {
+      for (const mapping_id of ids) {
+        await updateOrgMandiStatus({
+          username,
+          language: DEFAULT_LANGUAGE,
+          mapping_id,
+          is_active: targetStatus,
+        });
+      }
+      enqueueSnackbar(successMessage, { variant: "success" });
+      resetMy();
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Status update failed", { variant: "error" });
+    } finally {
+      setMyLoading(false);
+    }
+  };
+
   const isPincodeValid = (value: string) => /^\d{6}$/.test(value.trim());
 
   const clearPendingPincodeLookup = () => {
@@ -676,36 +742,16 @@ const prepareRows = (items: any[]) =>
   };
 
   const handleRemoveSelected = async () => {
-    if (!canRemove || !mySelectionModel.length) return;
-    if (!orgId) {
-      enqueueSnackbar("Organisation not found", { variant: "error" });
+    if (!canRemove || !activeSelectedRows.length) return;
+    if (!window.confirm("This will deactivate the mandi for this organisation. You can activate it again later.")) {
       return;
     }
-    const selectionSet = new Set(mySelectionModel.map((val) => String(val)));
-    const mappingIds = (myRows || [])
-      .filter((row) => selectionSet.has(String(row?._id || row?.mandi_id || row?._rowId)))
-      .map((row) => row?._id)
-      .filter((id): id is string => Boolean(id));
-    if (!mappingIds.length) {
-      enqueueSnackbar("Select a mandi to remove", { variant: "info" });
-      return;
-    }
-    setMyLoading(true);
-    try {
-      for (const mapping_id of mappingIds) {
-        await removeOrgMandi({
-          username,
-          language: DEFAULT_LANGUAGE,
-          mapping_id,
-        });
-      }
-      enqueueSnackbar("Removed selected mandi(s)", { variant: "success" });
-      resetMy();
-    } catch (err: any) {
-      enqueueSnackbar(err?.message || "Remove failed", { variant: "error" });
-    } finally {
-      setMyLoading(false);
-    }
+    await performStatusUpdate(activeSelectedRows, "N", "Mandi deactivated for this organisation.");
+  };
+
+  const handleActivateSelected = async () => {
+    if (!canRemove || !inactiveSelectedRows.length) return;
+    await performStatusUpdate(inactiveSelectedRows, "Y", "Mandi activated successfully.");
   };
 
 
@@ -843,7 +889,9 @@ const prepareRows = (items: any[]) =>
           title={
             !canRemove
               ? "No permission"
-              : "This will deactivate the mandi for this organisation.\nThe mandi can be re-imported later."
+              : activeSelectedRows.length
+              ? "Deactivate selected mandi(s)"
+              : "Select an active mandi to deactivate"
           }
           arrow
         >
@@ -851,10 +899,32 @@ const prepareRows = (items: any[]) =>
             <Button
               variant="outlined"
               color="error"
-              disabled={!canRemove || mySelectionModel.length === 0}
+              disabled={!canRemove || activeSelectedRows.length === 0}
               onClick={handleRemoveSelected}
             >
               Remove from Organisation
+            </Button>
+          </span>
+        </Tooltip>
+
+        <Tooltip
+          title={
+            !canRemove
+              ? "No permission"
+              : inactiveSelectedRows.length
+              ? "Activate selected mandi(s)"
+              : "Select an inactive mandi to activate"
+          }
+          arrow
+        >
+          <span>
+            <Button
+              variant="outlined"
+              color="primary"
+              disabled={!canRemove || inactiveSelectedRows.length === 0}
+              onClick={handleActivateSelected}
+            >
+              Activate for Organisation
             </Button>
           </span>
         </Tooltip>

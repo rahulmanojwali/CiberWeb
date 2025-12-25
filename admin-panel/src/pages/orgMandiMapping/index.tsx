@@ -45,6 +45,7 @@ type MappingRow = {
   status_label: string;
   status_color: "success" | "default";
   display_name: string;
+  is_active: "Y" | "N";
 };
 
 type ToastState = {
@@ -68,6 +69,12 @@ function buildOrgDisplay(org_code?: string | null, org_name?: string | null, org
   if (org_code) return org_code;
   if (org_name) return org_name;
   return org_id || "";
+}
+
+function formatUnknownOrgId(orgId?: string) {
+  if (!orgId) return "Unknown organisation";
+  const suffix = orgId.length > 6 ? orgId.slice(-6) : orgId;
+  return `Unknown organisation (ends with ${suffix})`;
 }
 
 function extractMandisFromResponse(resp: any): any[] {
@@ -108,6 +115,7 @@ export const OrgMandiMapping: React.FC = () => {
     message: "",
     severity: "success",
   });
+  const [responseOrgName, setResponseOrgName] = useState<string>("");
 
   const canToggleStatus = useMemo(
     () => can(uiConfig.resources, "mandis.org.remove", "DEACTIVATE"),
@@ -124,13 +132,23 @@ export const OrgMandiMapping: React.FC = () => {
     return map;
   }, [orgOptions]);
 
+  const selectedOrgName = useMemo(() => {
+    const orgId = filters.org_id || scopedOrgId;
+    if (orgId) {
+      const match = orgOptions.find((opt) => opt._id === orgId);
+      if (match?.org_name) return match.org_name;
+      if (match?.org_code) return match.org_code;
+      return formatUnknownOrgId(orgId);
+    }
+    if (scopedOrgCode) return scopedOrgCode;
+    return "All organisations";
+  }, [filters.org_id, orgOptions, scopedOrgId, scopedOrgCode]);
+
   const filteredRows = useMemo(() => {
     const statusFilter = filters.status;
     const filtered = rows.filter((row) => {
       if (statusFilter === "ALL") return true;
-      if (statusFilter === "Y") return row.status_effective === "Y";
-      if (statusFilter === "N") return row.status_effective === "N";
-      return true;
+      return row.is_active === statusFilter;
     });
     console.log("[OrgMandiMapping] filter", {
       statusFilter,
@@ -170,7 +188,7 @@ export const OrgMandiMapping: React.FC = () => {
     }
   }, [language]);
 
-  const loadMappings = useCallback(async () => {
+const loadMappings = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
     setLoading(true);
@@ -186,7 +204,12 @@ export const OrgMandiMapping: React.FC = () => {
           pageSize: 200,
         },
       });
+      const root = resp?.data ?? resp?.response ?? resp ?? {};
+      const data = root?.data ?? root;
+      const meta = data?.meta ?? {};
       const items = extractMandisFromResponse(resp);
+      const orgMetaName = String(meta?.org_name || '').trim();
+      setResponseOrgName(orgMetaName || '');
       const mapped: MappingRow[] = items.map((item) => {
         const orgId = String(item.org_id || item.orgId || "");
         const orgOption = orgDisplayMap.get(orgId);
@@ -204,10 +227,8 @@ export const OrgMandiMapping: React.FC = () => {
           item.mandi_slug ||
           `Mandi ${item.mandi_id || ""}`;
         const sanitizedMandiId = Number(item.mandi_id) || 0;
-        const masterFlag = normalizeFlag(item.is_active ?? item.is_active_mandi ?? item.master_is_active);
-        const mappingFlag =
-          normalizeFlag(item.org_mandi_is_active ?? item.mapping_is_active) ?? "Y";
-        const effective = masterFlag === "Y" && mappingFlag === "Y" ? "Y" : "N";
+        const normalizedIsActive =
+          normalizeFlag(item.is_active ?? item.org_mandi_is_active ?? item.mapping_is_active) ?? "Y";
         return {
           id: String(item._id || `${orgId}_${sanitizedMandiId}`),
           mapping_id: String(item._id || item.mapping_id || `${orgId}_${sanitizedMandiId}`),
@@ -220,9 +241,10 @@ export const OrgMandiMapping: React.FC = () => {
           state_code: item.state_code || null,
           district_name: item.district_name || item.district_name_en || null,
           pincode: item.pincode || null,
-          status_effective: effective,
-          status_label: effective === "Y" ? "Active" : "Inactive",
-          status_color: effective === "Y" ? "success" : "default",
+          status_effective: normalizedIsActive,
+          status_label: normalizedIsActive === "Y" ? "Active" : "Inactive",
+          status_color: normalizedIsActive === "Y" ? "success" : "default",
+          is_active: normalizedIsActive,
         };
       });
       setRows(mapped);
@@ -307,6 +329,9 @@ export const OrgMandiMapping: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             This list reflects the mandis that belong to your organisation (stored in {`mandi_master_user`}).
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Organisation: {selectedOrgName}
+          </Typography>
         </Stack>
 
         <Card>
@@ -381,64 +406,62 @@ export const OrgMandiMapping: React.FC = () => {
             ) : (
               <TableContainer sx={{ maxHeight: 520 }}>
                 <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Organisation</TableCell>
-                      <TableCell>Mandi ID</TableCell>
-                      <TableCell>Mandi</TableCell>
-                      <TableCell>State</TableCell>
-                      <TableCell>District</TableCell>
-                      <TableCell>Pincode</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Mandi ID</TableCell>
+                    <TableCell>Mandi</TableCell>
+                    <TableCell>State</TableCell>
+                    <TableCell>District</TableCell>
+                    <TableCell>Pincode</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredRows.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell>{row.mandi_id}</TableCell>
+                      <TableCell>{row.display_name}</TableCell>
+                      <TableCell>{row.state_code || "-"}</TableCell>
+                      <TableCell>{row.district_name || "-"}</TableCell>
+                      <TableCell>{row.pincode || "-"}</TableCell>
+                      <TableCell>
+                        <Chip size="small" color={row.status_color} label={row.status_label} />
+                      </TableCell>
+                      <TableCell align="right">
+                        {row.status_effective === "Y" ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            disabled={!canToggleStatus || actionLoadingId === row.id}
+                            onClick={() => handleStatusToggle(row, "N")}
+                          >
+                            {actionLoadingId === row.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              "Deactivate"
+                            )}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            disabled={!canToggleStatus || actionLoadingId === row.id}
+                            onClick={() => handleStatusToggle(row, "Y")}
+                          >
+                            {actionLoadingId === row.id ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              "Activate"
+                            )}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredRows.map((row) => (
-                      <TableRow key={row.id} hover>
-                        <TableCell>{row.org_display || row.org_id}</TableCell>
-                        <TableCell>{row.mandi_id}</TableCell>
-                        <TableCell>{row.display_name}</TableCell>
-                        <TableCell>{row.state_code || "-"}</TableCell>
-                        <TableCell>{row.district_name || "-"}</TableCell>
-                        <TableCell>{row.pincode || "-"}</TableCell>
-                        <TableCell>
-                          <Chip size="small" color={row.status_color} label={row.status_label} />
-                        </TableCell>
-                        <TableCell align="right">
-                          {row.status_effective === "Y" ? (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              disabled={!canToggleStatus || actionLoadingId === row.id}
-                              onClick={() => handleStatusToggle(row, "N")}
-                            >
-                              {actionLoadingId === row.id ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                "Deactivate"
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              color="primary"
-                              disabled={!canToggleStatus || actionLoadingId === row.id}
-                              onClick={() => handleStatusToggle(row, "Y")}
-                            >
-                              {actionLoadingId === row.id ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                "Activate"
-                              )}
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                  ))}
+                </TableBody>
                 </Table>
               </TableContainer>
             )}

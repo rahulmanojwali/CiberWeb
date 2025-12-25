@@ -211,10 +211,12 @@ export const Mandis: React.FC = () => {
     );
   }, [impSelectionModel]);
 
+  const getMyRowId = (row: any) => String(row?.mandi_id ?? row?._id ?? row?._rowId);
+
   const selectedMyRows = useMemo(() => {
     if (!mySelectionModel?.length) return [] as MandiLite[];
     const selected = new Set(mySelectionModel.map((val) => String(val)));
-    return (myRows || []).filter((row) => selected.has(String(row?._id || row?.mandi_id || row?._rowId)));
+    return (myRows || []).filter((row) => selected.has(getMyRowId(row)));
   }, [myRows, mySelectionModel]);
 
   const activeSelectedRows = useMemo(
@@ -962,7 +964,7 @@ const prepareRows = (items: any[]) =>
         <CardContent>
           <ResponsiveDataGrid
             autoHeight
-            getRowId={(row: any) => String(row?.mandi_id ?? row?._id ?? row?._rowId)}
+            getRowId={getMyRowId}
             rows={myRows}
             columns={myColumns}
             loading={myLoading}

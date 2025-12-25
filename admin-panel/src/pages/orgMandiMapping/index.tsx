@@ -44,6 +44,7 @@ type MappingRow = {
   status_effective: "Y" | "N";
   status_label: string;
   status_color: "success" | "default";
+  display_name: string;
 };
 
 type ToastState = {
@@ -180,6 +181,7 @@ export const OrgMandiMapping: React.FC = () => {
           org_display,
           mandi_id: sanitizedMandiId,
           mandi_name: name,
+          display_name: name,
           mandi_slug: item.mandi_slug,
           state_code: item.state_code || null,
           district_name: item.district_name || item.district_name_en || null,
@@ -360,7 +362,7 @@ export const OrgMandiMapping: React.FC = () => {
                       <TableRow key={row.id} hover>
                         <TableCell>{row.org_display || row.org_id}</TableCell>
                         <TableCell>{row.mandi_id}</TableCell>
-                        <TableCell>{row.mandi_name}</TableCell>
+                      <TableCell>{row.display_name}</TableCell>
                         <TableCell>{row.state_code || "-"}</TableCell>
                         <TableCell>{row.district_name || "-"}</TableCell>
                         <TableCell>{row.pincode || "-"}</TableCell>

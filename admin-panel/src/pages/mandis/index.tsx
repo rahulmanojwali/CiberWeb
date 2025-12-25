@@ -1385,6 +1385,27 @@ const prepareRows = (items: any[]) =>
     </Dialog>
   );
 
+  const renderDeactivateDialog = () => (
+    <Dialog
+      open={deactivateConfirmOpen}
+      onClose={cancelDeactivate}
+      aria-labelledby="deactivate-mandi-dialog-title"
+    >
+      <DialogTitle id="deactivate-mandi-dialog-title">Deactivate Mandi</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          This will deactivate the mandi for this organisation. You can activate it again later if required.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={cancelDeactivate}>Cancel</Button>
+        <Button variant="contained" color="error" onClick={confirmDeactivate}>
+          Deactivate
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   return (
     <>
       <PageContainer>
@@ -1413,29 +1434,6 @@ const prepareRows = (items: any[]) =>
     </>
   );
 };
-
-  const renderDeactivateDialog = () => (
-    <Dialog
-      open={deactivateConfirmOpen}
-      onClose={cancelDeactivate}
-      aria-labelledby="deactivate-mandi-dialog-title"
-    >
-      <DialogTitle id="deactivate-mandi-dialog-title">Deactivate Mandi</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          This will deactivate the mandi for this organisation. You can activate it again later if required.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={cancelDeactivate}>Cancel</Button>
-        <Button variant="contained" color="error" onClick={confirmDeactivate}>
-          Deactivate
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-
 // import React, { useEffect, useMemo, useRef, useState } from "react";
 // import {
 //   Box,

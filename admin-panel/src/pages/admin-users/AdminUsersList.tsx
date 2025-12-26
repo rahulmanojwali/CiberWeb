@@ -668,7 +668,13 @@ const loadOrgs = useCallback(async () => {
       if (String(resp.responsecode ?? "") !== "0") {
         handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
       } else {
-        handleToast(t("adminUsers.messages.resetSuccess"), "success");
+        const respData = resp?.data ?? {};
+        const email = respData?.email || "";
+        if (email) {
+          handleToast(t("adminUsers.messages.resetEmailSent", { email }), "success");
+        } else {
+          handleToast(resp.description || t("adminUsers.messages.resetSuccess"), "success");
+        }
       }
       setResetDialogOpen(false);
       setResetUser(null);

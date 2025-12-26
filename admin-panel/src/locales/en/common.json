@@ -217,6 +217,9 @@
       "networkError": "Network error.",
       "resetFailed": "Reset failed.",
       "resetSuccess": "Temporary password generated.",
+      "resetEmailSent": "Reset email sent to {{email}}.",
+      "resetEmailDisabled": "Email disabled on server; cannot send reset email.",
+      "resetEmailFailed": "Email delivery failed.",
       "validation_missing_user": "No admin session found."
     }
   },

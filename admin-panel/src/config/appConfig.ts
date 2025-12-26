@@ -16,6 +16,7 @@ export const API_TAGS = {
     update: "updateAdminUser",
     deactivate: "deactivateAdminUser",
     reset: "resetAdminUserPassword",
+    testEmail: "testEmail",
     listRoles: "getAdminRoles",
     listOrgs: "get_Organisations21",
   },

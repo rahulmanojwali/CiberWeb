@@ -26,6 +26,7 @@ import { LeftSider } from "./components/LeftSider";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
 import { ForgotPassword } from "./pages/forgotPassword";
+import { ResetPasswordPage } from "./pages/resetPassword";
 import { Dashboard } from "./pages/dashboard";
 import { Orgs } from "./pages/orgs";
 import { Mandis } from "./pages/mandis";
@@ -206,6 +207,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                   </Route>
                 </Routes>
 

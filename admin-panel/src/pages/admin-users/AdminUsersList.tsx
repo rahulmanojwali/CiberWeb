@@ -50,7 +50,7 @@ import {
   createAdminUser,
   updateAdminUser,
   deactivateAdminUser,
-  resetAdminUserPassword,
+  requestAdminPasswordReset,
   fetchAdminUsers,
   fetchAdminRoles,
   fetchOrganisations,
@@ -433,12 +433,6 @@ const loadOrgs = useCallback(async () => {
       is_active: true,
     });
   };
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
-  const [resetPassword, setResetPassword] = useState("");
-  const [resetConfirm, setResetConfirm] = useState("");
-  const [resetAutoGenerate, setResetAutoGenerate] = useState(true);
-
   const handleOpenCreate = () => {
     if (!canCreateUser) {
       handleToast("You are not authorized to create users.", "error");
@@ -643,44 +637,27 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
-  const handleResetPassword = async (user: AdminUser, newPassword?: string, autoGenerate = true) => {
+  const handleRequestPasswordReset = async (user: AdminUser) => {
     if (!canResetPasswordAction) return;
-    if (!autoGenerate) {
-      const trimmed = (newPassword || "").trim();
-      if (!trimmed || trimmed.length < 8) {
-        handleToast(t("adminUsers.messages.resetInvalid", { defaultValue: "Password must be at least 8 characters." }), "error");
-        return;
-      }
-      if (trimmed !== resetConfirm.trim()) {
-        handleToast(t("adminUsers.messages.resetMismatch", { defaultValue: "Passwords do not match." }), "error");
-        return;
-      }
+    const username = currentUsername();
+    if (!username) {
+      handleToast(t("adminUsers.messages.noSession"), "error");
+      return;
     }
     try {
       setLoading(true);
-      const username = currentUsername();
-      if (!username) return;
-      const payload: any = { target_username: user.username };
-      const toSend = autoGenerate && !newPassword ? undefined : newPassword;
-      if (toSend) payload.new_password = toSend;
-      const res = await resetAdminUserPassword({ username, language, ...payload });
+      const res = await requestAdminPasswordReset({ username, language, target_username: user.username });
       const resp = res?.response || {};
       if (String(resp.responsecode ?? "") !== "0") {
         handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
       } else {
-        const respData = resp?.data ?? {};
-        const email = respData?.email || "";
+        const email = res?.email || (res?.data?.email ?? user.email ?? "");
         if (email) {
           handleToast(t("adminUsers.messages.resetEmailSent", { email }), "success");
         } else {
           handleToast(resp.description || t("adminUsers.messages.resetSuccess"), "success");
         }
       }
-      setResetDialogOpen(false);
-      setResetUser(null);
-      setResetPassword("");
-      setResetConfirm("");
-      setResetAutoGenerate(true);
     } catch (e: any) {
       handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
@@ -805,13 +782,7 @@ const loadOrgs = useCallback(async () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => {
-                setResetUser(row);
-                setResetPassword("");
-                setResetConfirm("");
-                setResetAutoGenerate(true);
-                setResetDialogOpen(true);
-              }}
+              onClick={() => handleRequestPasswordReset(row)}
             >
               <LockResetIcon fontSize="small" />
             </IconButton>
@@ -827,7 +798,8 @@ const loadOrgs = useCallback(async () => {
     ],
     [
       handleOpenEdit,
-      handleResetPassword,
+      handleToggleStatus,
+      handleRequestPasswordReset,
       t,
     ],
   );
@@ -1045,17 +1017,17 @@ const loadOrgs = useCallback(async () => {
                           </Tooltip>
                         )}
 
-                        {canResetPasswordAction && (
-                          <Tooltip title={t("adminUsers.actions.reset")}>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleResetPassword(row)}
-                            >
-                              <LockResetIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+        {canResetPasswordAction && (
+          <Tooltip title={t("adminUsers.actions.reset")}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleRequestPasswordReset(row)}
+            >
+              <LockResetIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
                       </Stack>
                     </CardContent>
                   </Card>
@@ -1212,83 +1184,6 @@ const loadOrgs = useCallback(async () => {
           <Button onClick={handleSubmit} disabled={loading} variant="contained">
             {loading ? <CircularProgress size={18} /> : t("adminUsers.dialog.save")}
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        fullScreen={isSmallScreen}
-        open={resetDialogOpen}
-        onClose={() => {
-          setResetDialogOpen(false);
-          setResetUser(null);
-          setResetPassword("");
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t("adminUsers.actions.resetPassword", { defaultValue: "Reset Password" })}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <Typography variant="body2" color="text.secondary">
-              {resetUser ? resetUser.username : ""}
-            </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Checkbox
-                checked={resetAutoGenerate}
-                onChange={(e) => setResetAutoGenerate(e.target.checked)}
-              />
-              <Typography variant="body2">{t("adminUsers.messages.autoGenerate", { defaultValue: "Auto-generate password if blank" })}</Typography>
-            </Stack>
-            <TextField
-              label={t("adminUsers.fields.newPassword", { defaultValue: "New Password" })}
-              type="password"
-              value={resetPassword}
-              onChange={(e) => setResetPassword(e.target.value)}
-              fullWidth
-              disabled={resetAutoGenerate}
-            />
-            {!resetAutoGenerate && (
-              <TextField
-                label={t("adminUsers.fields.confirmPassword", { defaultValue: "Confirm Password" })}
-                type="password"
-                value={resetConfirm}
-                onChange={(e) => setResetConfirm(e.target.value)}
-                fullWidth
-              />
-            )}
-            <Alert severity="info">
-              {t("adminUsers.messages.resetInfo", { defaultValue: "Leave blank to auto-generate a temporary password." })}
-            </Alert>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setResetDialogOpen(false);
-              setResetUser(null);
-              setResetPassword("");
-              setResetConfirm("");
-              setResetAutoGenerate(true);
-            }}
-          >
-            {t("common.cancel", { defaultValue: "Cancel" })}
-          </Button>
-          <ActionGate resourceKey="admin_users.reset_password" action="RESET_PASSWORD" record={resetUser || undefined}>
-            <Button
-              variant="contained"
-              disabled={!resetUser || loading}
-              onClick={() =>
-                resetUser &&
-                handleResetPassword(
-                  resetUser,
-                  resetPassword || undefined,
-                  resetAutoGenerate,
-                )
-              }
-            >
-              {loading ? <CircularProgress size={18} /> : t("adminUsers.actions.reset", { defaultValue: "Reset" })}
-            </Button>
-          </ActionGate>
         </DialogActions>
       </Dialog>
 

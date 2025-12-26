@@ -136,6 +136,25 @@
       "no_response": "(No API response captured yet)"
     }
   },
+  "resetPasswordPage": {
+    "title": "Reset Password",
+    "subtitle": "Set a new password and regain access to your account.",
+    "fields": {
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password"
+    },
+    "actions": {
+      "submit": "Update Password",
+      "goToLogin": "Go to Login"
+    },
+    "messages": {
+      "invalidToken": "Reset link is missing or has expired.",
+      "passwordTooShort": "Password must be at least {{min}} characters.",
+      "passwordMismatch": "Passwords do not match.",
+      "success": "Password updated successfully.",
+      "unexpectedError": "Something went wrong. Please try again."
+    }
+  },
   "adminUsers": {
     "title": "Admin Users",
     "subtitle": "Manage admin access by organisation, role, and mandi scope.",

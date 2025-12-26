@@ -7,6 +7,7 @@ import {
   API_TAGS,
   API_ROUTES,
   DEFAULT_LANGUAGE,
+  DEFAULT_COUNTRY,
 } from "../config/appConfig";
 
 function authHeaders() {
@@ -117,29 +118,56 @@ export async function deactivateAdminUser({
   return postEncrypted(API_ROUTES.admin.deactivateAdminUser, items);
 }
 
-export async function resetAdminUserPassword({
+export async function requestAdminPasswordReset({
   username,
   language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
   target_username,
-  new_password,
+  target_admin_user_id,
 }: {
   username: string;
   language?: string;
-  target_username: string;
-  new_password?: string;
+  country?: string;
+  target_username?: string;
+  target_admin_user_id?: string;
 }) {
   const items: Record<string, any> = {
-    api: API_TAGS.ADMIN_USERS.reset, // "resetAdminUserPassword"
+    api: API_TAGS.ADMIN_USERS.resetRequest,
     username,
     language,
-    target_username,
+    country,
   };
 
-  if (new_password) {
-    items.new_password = new_password;
+  if (target_username) {
+    items.target_username = target_username;
+  }
+  if (target_admin_user_id) {
+    items.target_admin_user_id = target_admin_user_id;
   }
 
-  return postEncrypted(API_ROUTES.admin.resetAdminUserPassword, items);
+  return postEncrypted(API_ROUTES.admin.requestAdminPasswordReset, items);
+}
+
+export async function confirmAdminPasswordReset({
+  token,
+  new_password,
+  language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
+}: {
+  token: string;
+  new_password: string;
+  language?: string;
+  country?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_USERS.resetConfirm,
+    token,
+    new_password,
+    language,
+    country,
+  };
+
+  return postEncrypted(API_ROUTES.admin.confirmAdminPasswordReset, items);
 }
 
 /* ------------------------------------------------------------------ */

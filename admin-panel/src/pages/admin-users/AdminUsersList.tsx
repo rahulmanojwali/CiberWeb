@@ -129,6 +129,25 @@ type MandiOption = { mandi_id: number; mandi_name?: string | null; mandi_slug?: 
 
 type ToastState = { open: boolean; message: string; severity: "success" | "error" | "info" };
 
+type FormState = {
+  username: string;
+  password: string;
+  display_name: string;
+  email: string;
+  mobile: string;
+  org_code: string;
+  role_slug: string;
+  mandi_codes: string[];
+  is_active: boolean;
+};
+
+type FiltersState = {
+  org_code: string;
+  role_slug: string;
+  status: "ALL" | "ACTIVE" | "INACTIVE";
+  search: string;
+};
+
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -180,7 +199,7 @@ const AdminUsersList: React.FC = () => {
     "ALL";
   const initSearch = searchParams.get("search") || readStored("adminUsers.search") || "";
 
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<FiltersState>({
     org_code: initOrgCode || "",
     role_slug: "",
     status: initStatus as "ALL" | "ACTIVE" | "INACTIVE",
@@ -194,7 +213,7 @@ const AdminUsersList: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     username: "",
     password: "",
     display_name: "",
@@ -299,7 +318,7 @@ const loadOrgs = useCallback(async () => {
         setMandiOptions([]);
         return;
       }
-      const targetOrg = orgOptions.find((o) => o.org_code === org_code);
+      const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === org_code);
       if (!targetOrg?._id) {
         setMandiOptions([]);
         return;
@@ -472,23 +491,23 @@ const loadOrgs = useCallback(async () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev: FormState) => ({ ...prev, [name]: value }));
   };
 
   const handleRolesChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value as string;
-    setForm((prev) => ({ ...prev, role_slug: value }));
+    setForm((prev: FormState) => ({ ...prev, role_slug: value }));
   };
 
   const handleOrgChange = async (value: string) => {
-    setForm((prev) => ({ ...prev, org_code: value, mandi_codes: [] }));
+    setForm((prev: FormState) => ({ ...prev, org_code: value, mandi_codes: [] }));
     await loadMandis(value || null);
   };
 
   const handleMandiChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
     const mandis = typeof value === "string" ? value.split(",") : value;
-    setForm((prev) => ({ ...prev, mandi_codes: mandis }));
+    setForm((prev: FormState) => ({ ...prev, mandi_codes: mandis }));
   };
 
   const handleSubmit = async () => {
@@ -842,12 +861,14 @@ const loadOrgs = useCallback(async () => {
                 label={t("adminUsers.filters.organisation")}
                 select
                 value={filters.org_code || ""}
-                onChange={(e) => setFilters((prev) => ({ ...prev, org_code: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setFilters((prev: FiltersState) => ({ ...prev, org_code: e.target.value }))
+                }
                 disabled={orgFilterDisabled}
                 fullWidth
               >
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-                {orgOptions.map((org) => (
+                {orgOptions.map((org: OrgOption) => (
                   <MenuItem key={org.org_code} value={org.org_code}>
                     {getOrgDisplayName(org)}
                   </MenuItem>
@@ -859,11 +880,13 @@ const loadOrgs = useCallback(async () => {
                 label={t("adminUsers.filters.role")}
                 select
                 value={filters.role_slug}
-                onChange={(e) => setFilters((prev) => ({ ...prev, role_slug: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setFilters((prev: FiltersState) => ({ ...prev, role_slug: e.target.value }))
+                }
                 fullWidth
               >
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-                {roleOptions.map((role) => (
+                {roleOptions.map((role: string) => (
                   <MenuItem key={role} value={role}>
                     {role.replace(/_/g, " ")}
                   </MenuItem>
@@ -875,7 +898,12 @@ const loadOrgs = useCallback(async () => {
                 label={t("adminUsers.filters.status")}
                 select
                 value={filters.status}
-                onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as any }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setFilters((prev: FiltersState) => ({
+                    ...prev,
+                    status: e.target.value as FiltersState["status"],
+                  }))
+                }
                 fullWidth
               >
                 <MenuItem value="ALL">{t("adminUsers.filters.all")}</MenuItem>
@@ -901,7 +929,7 @@ const loadOrgs = useCallback(async () => {
             </Box>
           ) : isSmallScreen ? (
             <Stack spacing={1.5}>
-              {rows.map((row) => {
+              {rows.map((row: AdminUser) => {
                 const displayRole = getDisplayRole(row);
                 const mandiCodes = Array.isArray(row.mandi_codes) ? row.mandi_codes : [];
                 const mandiPreview = mandiCodes.slice(0, 2).join(", ");
@@ -1039,7 +1067,7 @@ const loadOrgs = useCallback(async () => {
               <ResponsiveDataGrid
                 rows={rows}
                 columns={columns}
-                getRowId={(row) => row.username}
+                getRowId={(row: AdminUser) => row.username}
                 pageSizeOptions={[10, 25, 50]}
                 autoHeight
               />
@@ -1112,16 +1140,16 @@ const loadOrgs = useCallback(async () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                label={t("adminUsers.dialog.organisation")}
-                select
-                value={form.org_code}
-                onChange={(e) => handleOrgChange(e.target.value)}
-                disabled={!isSuper}
-                fullWidth
-              >
+                  <TextField
+                    label={t("adminUsers.dialog.organisation")}
+                    select
+                    value={form.org_code}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleOrgChange(e.target.value)}
+                    disabled={!isSuper}
+                    fullWidth
+                  >
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
-                {orgOptions.map((org) => (
+                {orgOptions.map((org: OrgOption) => (
                   <MenuItem key={org.org_code} value={org.org_code}>
                     {getOrgDisplayName(org)}
                   </MenuItem>
@@ -1149,7 +1177,14 @@ const loadOrgs = useCallback(async () => {
                 select
                 SelectProps={{
                   multiple: true,
-                  renderValue: (selected) => (selected as string[]).join(", "),
+                  renderValue: (value: unknown) => {
+                    const selected =
+                      Array.isArray(value) && value.every((item) => typeof item === "string")
+                        ? (value as string[])
+                        : [];
+
+                    return selected.join(", ");
+                  },
                 }}
                 value={form.mandi_codes}
                 onChange={(e) => handleMandiChange(e as unknown as SelectChangeEvent<string[]>)}
@@ -1172,7 +1207,9 @@ const loadOrgs = useCallback(async () => {
                 <Typography>{t("adminUsers.dialog.status")}</Typography>
                 <Switch
                   checked={form.is_active}
-                  onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm((prev: FormState) => ({ ...prev, is_active: e.target.checked }))
+                  }
                 />
                 <Typography>{form.is_active ? t("adminUsers.dialog.active") : t("adminUsers.dialog.inactive")}</Typography>
               </Stack>
@@ -1190,10 +1227,10 @@ const loadOrgs = useCallback(async () => {
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}
-        onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+        onClose={() => setToast((prev: ToastState) => ({ ...prev, open: false }))}
       >
         <Alert
-          onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+          onClose={() => setToast((prev: ToastState) => ({ ...prev, open: false }))}
           severity={toast.severity}
           sx={{ width: "100%" }}
         >

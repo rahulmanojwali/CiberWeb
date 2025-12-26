@@ -119,7 +119,7 @@ export const ResetPasswordPage: React.FC = () => {
             label={t("resetPasswordPage.fields.newPassword")}
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             disabled={status === "success"}
             fullWidth
           />
@@ -127,7 +127,7 @@ export const ResetPasswordPage: React.FC = () => {
             label={t("resetPasswordPage.fields.confirmPassword")}
             type="password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
             disabled={status === "success"}
             fullWidth
           />

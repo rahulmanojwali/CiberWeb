@@ -14,9 +14,11 @@ import {
   MenuItem,
   Divider,
   useMediaQuery,
+  Link,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
+import { Link as RouterLink } from "react-router-dom";
 
 import {
   BRAND_ASSETS,
@@ -275,6 +277,15 @@ export const Login: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
                   />
+                  {/* CM_FORGOT_PASSWORD_FLOW_20251227 */}
+                  <Link
+                    component={RouterLink}
+                    to="/forgot-password"
+                    variant="body2"
+                    sx={{ alignSelf: "flex-end" }}
+                  >
+                    Forgot password?
+                  </Link>
 
                   {error && (
                     <Typography
@@ -285,18 +296,16 @@ export const Login: React.FC = () => {
                       {error}
                     </Typography>
                   )}
-
-                <Button
-  type="submit"
-  variant="contained"
-  fullWidth
-  size="medium"
-  disabled={isPending}
-  sx={{ mt: 1.5, py: 1.1 }}
->
-  {isPending ? "Signing in..." : "Sign in"}
-</Button>
-
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
+                    size="medium"
+                    disabled={isPending}
+                    sx={{ mt: 1.5, py: 1.1 }}
+                  >
+                    {isPending ? "Signing in..." : "Sign in"}
+                  </Button>
                 </Stack>
               </Box>
 

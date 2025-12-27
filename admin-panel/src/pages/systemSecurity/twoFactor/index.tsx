@@ -32,6 +32,8 @@ const TwoFactorSettings: React.FC = () => {
       if (resp?.response?.responsecode === "0") {
         setSetup(resp.setup || null);
         setStatus("Setup initiated");
+        setBackupCodes(null);
+        setOtp("");
       } else {
         enqueueSnackbar(resp?.response?.description || "Setup currently unavailable.", { variant: "warning" });
       }
@@ -43,7 +45,7 @@ const TwoFactorSettings: React.FC = () => {
   };
 
   const handleEnable = async () => {
-    if (!setup) return;
+    if (!setup || otp.length !== 6) return;
     setLoading(true);
     try {
       const usernameRaw = localStorage.getItem("cd_user");
@@ -112,11 +114,12 @@ const TwoFactorSettings: React.FC = () => {
                   <TextField
                     label="One-Time Password"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     fullWidth
                     size="small"
+                    helperText="Enter the 6-digit code from your authenticator."
                   />
-                  <Button variant="contained" onClick={handleEnable} disabled={loading}>
+                  <Button variant="contained" onClick={handleEnable} disabled={loading || otp.length !== 6}>
                     Enable 2FA
                   </Button>
                 </>

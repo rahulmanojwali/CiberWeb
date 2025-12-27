@@ -239,6 +239,30 @@ export async function getStepUpSetup({
   return postEncrypted(API_ROUTES.admin.get2faSetup, items);
 }
 
+export async function enableStepUp({
+  username,
+  challenge_id,
+  otp,
+  language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
+}: {
+  username: string;
+  challenge_id: string;
+  otp: string;
+  language?: string;
+  country?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_2FA.enable,
+    username,
+    challenge_id,
+    otp,
+    language,
+    country,
+  };
+  return postEncrypted(API_ROUTES.admin.enable, items);
+}
+
 /* ------------------------------------------------------------------ */
 /*  ROLES – FOR ROLE DROPDOWN                                         */
 /* ------------------------------------------------------------------ */

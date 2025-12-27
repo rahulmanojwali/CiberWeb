@@ -7,9 +7,6 @@
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
     "baseUrl": ".",
-    "paths": {
-      "notistack-compat": ["src/notistack-compat"]
-    },
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

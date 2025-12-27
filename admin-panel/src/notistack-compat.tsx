@@ -15,7 +15,6 @@ import type {
   SnackbarProviderProps,
 } from "notistack/notistack.esm.js";
 
-// Provide the legacy withSnackbar HOC expected by @refinedev/mui while using notistack v3.
 export const withSnackbar = <P extends object>(Component: ComponentType<P>) => {
   const Wrapped: React.FC<P> = (props) => {
     const context = useSnackbar();
@@ -33,12 +32,12 @@ export {
   useSnackbar,
   closeSnackbar,
   enqueueSnackbar,
-  type SnackbarProviderProps,
-  type ProviderContext,
   type OptionsObject,
+  type ProviderContext,
   type SnackbarKey,
   type SnackbarMessage,
   type SnackbarOrigin,
+  type SnackbarProviderProps,
 };
 
 export type WithSnackbarProps = ProviderContext;

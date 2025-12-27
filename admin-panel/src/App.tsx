@@ -38,7 +38,7 @@ import { MandiCoverage } from "./pages/mandiCoverage";
 import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
 import { OrgMandiMapping } from "./pages/orgMandiMapping";
-import { TwoFactorSettings } from "./pages/systemSecurity/twoFactor";
+import TwoFactorSettings from "./pages/systemSecurity/twoFactor";
 import { Commodities } from "./pages/commodities";
 import { CommodityProducts } from "./pages/commodityProducts";
 import { MandiFacilities } from "./pages/mandiFacilities";

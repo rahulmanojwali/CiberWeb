@@ -16,10 +16,6 @@ export default defineConfig({
         find: /^notistack$/,
         replacement: path.resolve(__dirname, "src/notistack-compat.tsx"),
       },
-      {
-        find: /^notistack-compat$/,
-        replacement: path.resolve(__dirname, "src/notistack-compat.ts"),
-      },
     ],
   },
 });

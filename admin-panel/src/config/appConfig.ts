@@ -25,7 +25,8 @@ export const API_TAGS = {
   ADMIN_2FA: {
     requireStepUp: "requireStepUp",
     getSetup: "getSetup",
-    enable: "enable"
+    enable: "enable",
+    verifyStepUp: "verifyStepUp"
   },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
@@ -292,6 +293,7 @@ export const API_ROUTES = {
     requireStepUp: "/admin/2fa/requireStepUp",
     get2faSetup: "/admin/2fa/getSetup",
     enable: "/admin/2fa/enable",
+    verifyStepUp: "/admin/2fa/verifyStepUp",
     getMandis: "/admin/getMandis",
     createMandi: "/admin/createMandi",
     updateMandi: "/admin/updateMandi",

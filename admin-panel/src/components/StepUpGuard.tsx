@@ -8,11 +8,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Switch,
+  TextField,
   Typography,
 } from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
 
-import { requireStepUp } from "../services/adminUsersApi";
+import { requireStepUp, verifyStepUp } from "../services/adminUsersApi";
 
 type StepUpResponse = {
   required?: boolean;
@@ -24,21 +27,79 @@ type StepUpGuardProps = {
   children: React.ReactNode;
 };
 
-const StepUpModal: React.FC<{ open: boolean; onRetry: () => void }> = ({
+type StepUpModalProps = {
+  open: boolean;
+  onRetry: () => void;
+  onVerify: () => void;
+  verifying: boolean;
+  otp: string;
+  backupCode: string;
+  useBackup: boolean;
+  setUseBackup: (value: boolean) => void;
+  setOtp: (value: string) => void;
+  setBackupCode: (value: string) => void;
+};
+
+const StepUpModal: React.FC<StepUpModalProps> = ({
   open,
   onRetry,
+  onVerify,
+  verifying,
+  otp,
+  backupCode,
+  useBackup,
+  setUseBackup,
+  setOtp,
+  setBackupCode,
 }) => (
   <Dialog open={open} fullWidth maxWidth="xs">
     <DialogTitle>2FA Step-Up Required</DialogTitle>
     <DialogContent dividers>
-      <Typography>
+      <Typography mb={2}>
         Your SUPER_ADMIN role requires secondary authentication before continuing.
-        Please complete the OTP verification via your 2FA portal.
+        Please complete the verification below.
       </Typography>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={useBackup}
+            onChange={(event) => setUseBackup(event.target.checked)}
+            color="primary"
+          />
+        }
+        label="Use backup code"
+      />
+      <TextField
+        label={useBackup ? "Backup code" : "Authenticator code"}
+        value={useBackup ? backupCode : otp}
+        onChange={(event) =>
+          useBackup
+            ? setBackupCode(event.target.value)
+            : setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+        }
+        fullWidth
+        margin="normal"
+        helperText={
+          useBackup
+            ? "Enter one of your unused backup codes."
+            : "Enter the 6-digit code from your authenticator."
+        }
+      />
     </DialogContent>
     <DialogActions>
-      <Button variant="contained" onClick={onRetry}>
+      <Button variant="outlined" onClick={onRetry} disabled={verifying}>
         Recheck Step-Up Status
+      </Button>
+      <Button
+        variant="contained"
+        onClick={onVerify}
+        disabled={
+          verifying ||
+          (!useBackup && otp.length !== 6) ||
+          (useBackup && backupCode.trim().length === 0)
+        }
+      >
+        {verifying ? <CircularProgress size={20} /> : "Verify"}
       </Button>
     </DialogActions>
   </Dialog>
@@ -52,6 +113,10 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
     null
   );
   const [modalOpen, setModalOpen] = React.useState(false);
+  const [otp, setOtp] = React.useState("");
+  const [backupCode, setBackupCode] = React.useState("");
+  const [useBackup, setUseBackup] = React.useState(false);
+  const [verifying, setVerifying] = React.useState(false);
 
   const checkStepUp = React.useCallback(async () => {
     if (!username) {
@@ -91,6 +156,53 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
     }
   }, [username, enqueueSnackbar, navigate]);
 
+  const handleVerify = React.useCallback(async () => {
+    if (!username) return;
+    if (!useBackup && otp.length !== 6) {
+      enqueueSnackbar("Enter a 6-digit OTP.", { variant: "warning" });
+      return;
+    }
+    if (useBackup && !backupCode.trim()) {
+      enqueueSnackbar("Enter a backup code.", { variant: "warning" });
+      return;
+    }
+    setVerifying(true);
+    try {
+      const resp: any = await verifyStepUp({
+        username,
+        otp: useBackup ? undefined : otp,
+        backup_code: useBackup ? backupCode.trim() : undefined,
+      });
+      const stepupId = resp?.stepup?.stepup_session_id;
+      if (stepupId) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("cm_stepup_session_id", stepupId);
+        }
+        enqueueSnackbar("Step-up verified.", { variant: "success" });
+        setModalOpen(false);
+        setOtp("");
+        setBackupCode("");
+        setUseBackup(false);
+        await checkStepUp();
+        return;
+      }
+      enqueueSnackbar(resp?.response?.description || "Step-up verification failed.", {
+        variant: "error",
+      });
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Step-up verification failed.", { variant: "error" });
+    } finally {
+      setVerifying(false);
+    }
+  }, [
+    username,
+    useBackup,
+    otp,
+    backupCode,
+    enqueueSnackbar,
+    checkStepUp,
+  ]);
+
   React.useEffect(() => {
     checkStepUp();
   }, [checkStepUp]);
@@ -108,7 +220,20 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
   }
 
   if (modalOpen) {
-    return <StepUpModal open={modalOpen} onRetry={() => checkStepUp()} />;
+    return (
+      <StepUpModal
+        open={modalOpen}
+        onRetry={() => checkStepUp()}
+        onVerify={handleVerify}
+        verifying={verifying}
+        otp={otp}
+        backupCode={backupCode}
+        useBackup={useBackup}
+        setUseBackup={setUseBackup}
+        setOtp={setOtp}
+        setBackupCode={setBackupCode}
+      />
+    );
   }
 
   return <>{children}</>;

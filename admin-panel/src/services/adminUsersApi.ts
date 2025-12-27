@@ -28,13 +28,22 @@ function authHeaders() {
 /**
  * Generic helper: POST { encryptedData } to a given path
  */
-async function postEncrypted(path: string, items: Record<string, any>) {
+async function postEncrypted(
+  path: string,
+  items: Record<string, any>,
+  extraHeaders: Record<string, string> = {}
+) {
   const payload = { items };
   const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
   const body = { encryptedData };
 
   const url = `${API_BASE_URL}${path}`;
-  const { data } = await axios.post(url, body, { headers: authHeaders() });
+  const { data } = await axios.post(url, body, {
+    headers: {
+      ...authHeaders(),
+      ...extraHeaders,
+    },
+  });
   return data;
 }
 
@@ -215,7 +224,29 @@ export async function requireStepUp({
   if (session_id) {
     items.stepup_session_id = session_id;
   }
-  return postEncrypted(API_ROUTES.admin.requireStepUp, items);
+  const headers: Record<string, string> = session_id
+    ? { "X-StepUp-Session": session_id }
+    : {};
+  return postEncrypted(API_ROUTES.admin.requireStepUp, items, headers);
+}
+
+export async function verifyStepUp({
+  username,
+  otp,
+  backup_code,
+}: {
+  username: string;
+  otp?: string;
+  backup_code?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_2FA.verifyStepUp,
+    username,
+    target_username: username,
+  };
+  if (otp) items.otp = otp;
+  if (backup_code) items.backup_code = backup_code;
+  return postEncrypted(API_ROUTES.admin.verifyStepUp, items);
 }
 
 export async function getStepUpSetup({

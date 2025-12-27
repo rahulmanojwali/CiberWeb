@@ -11,6 +11,7 @@ const TwoFactorSettings: React.FC = () => {
   } | null>(null);
   const [otp, setOtp] = React.useState("");
   const [backupCodes, setBackupCodes] = React.useState<string[] | null>(null);
+  const [showBackupCodes, setShowBackupCodes] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [status, setStatus] = React.useState("Not configured");
   const { enqueueSnackbar } = useSnackbar();
@@ -98,7 +99,9 @@ const TwoFactorSettings: React.FC = () => {
         otp,
       });
       if (resp?.response?.responsecode === "0") {
-        setBackupCodes(resp?.backup_codes || []);
+        const codes = resp?.stepup?.backup_codes || resp?.backup_codes || [];
+        setBackupCodes(codes);
+        setShowBackupCodes(true);
         setStatus("Enabled");
         setIsEnabled(true);
         enqueueSnackbar(resp.response.description || "2FA enabled.", { variant: "success" });
@@ -181,13 +184,30 @@ const TwoFactorSettings: React.FC = () => {
               {backupCodes && backupCodes.length > 0 && (
                 <Box>
                   <Typography variant="subtitle2">Backup codes (store safely):</Typography>
-                  <Stack spacing={1}>
-                    {backupCodes.map((code) => (
-                      <Typography key={code} variant="body2">
-                        {code}
-                      </Typography>
-                    ))}
-                  </Stack>
+                  {showBackupCodes ? (
+                    <>
+                      <Stack spacing={1} sx={{ fontFamily: "monospace" }}>
+                        {backupCodes.map((code) => (
+                          <Typography key={code} variant="body2">
+                            {code}
+                          </Typography>
+                        ))}
+                      </Stack>
+                      <Button
+                        variant="text"
+                        onClick={() => {
+                          setShowBackupCodes(false);
+                          setBackupCodes(null);
+                        }}
+                      >
+                        I have saved these codes
+                      </Button>
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Codes hidden after confirmation.
+                    </Typography>
+                  )}
                 </Box>
               )}
             </Stack>

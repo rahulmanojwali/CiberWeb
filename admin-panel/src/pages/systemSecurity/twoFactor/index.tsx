@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
-import { getStepUpSetup, enableStepUp } from "../../../services/adminUsersApi";
+import { getStepUpSetup, enableStepUp, rotateStepUp } from "../../../services/adminUsersApi";
 
 const TwoFactorSettings: React.FC = () => {
   const [setup, setSetup] = React.useState<{
@@ -14,6 +14,7 @@ const TwoFactorSettings: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [status, setStatus] = React.useState("Not configured");
   const { enqueueSnackbar } = useSnackbar();
+  const [rotating, setRotating] = React.useState(false);
 
   const fetchSetup = async () => {
     setLoading(true);
@@ -42,6 +43,39 @@ const TwoFactorSettings: React.FC = () => {
       enqueueSnackbar(err?.message || "Setup currently unavailable.", { variant: "error" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRotate = async () => {
+    const usernameRaw = localStorage.getItem("cd_user");
+    const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
+    const username = parsed?.username;
+    if (!username) {
+      enqueueSnackbar("User context missing.", { variant: "error" });
+      return;
+    }
+    const session = typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
+    if (!session) {
+      enqueueSnackbar("Step-up session required to rotate 2FA.", { variant: "warning" });
+      return;
+    }
+    setRotating(true);
+    try {
+      const resp: any = await rotateStepUp({ username });
+      if (resp?.response?.responsecode === "0") {
+        const payload = resp.stepup?.stepup || resp.stepup || null;
+        setSetup(payload);
+        setStatus("Setup initiated");
+        setBackupCodes(null);
+        setOtp("");
+        enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
+      } else {
+        enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
+      }
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Rotation failed.", { variant: "error" });
+    } finally {
+      setRotating(false);
     }
   };
 
@@ -96,9 +130,18 @@ const TwoFactorSettings: React.FC = () => {
               <Typography>
                 2FA is mandatory for your role. Setup will be enabled here.
               </Typography>
-              <Button variant="contained" onClick={fetchSetup} disabled={loading}>
-                {setup ? "Refresh Setup" : "Start Setup"}
-              </Button>
+              <Stack direction="row" spacing={2}>
+                <Button variant="contained" onClick={fetchSetup} disabled={loading}>
+                  {setup ? "Refresh Setup" : "Start Setup"}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleRotate}
+                  disabled={rotating || loading}
+                >
+                  {rotating ? "Rotating..." : "Reconfigure 2FA"}
+                </Button>
+              </Stack>
               {setup && (
                 <>
                   {qrSrc && (

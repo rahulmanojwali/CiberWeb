@@ -79,7 +79,9 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <Box
+    <>
+      {/* CM_RESET_FLOW_MARKER_20251227 */}
+      <Box
       sx={{
         minHeight: "100vh",
         display: "flex",

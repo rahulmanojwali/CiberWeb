@@ -72,7 +72,7 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
           "2FA is mandatory for your role. Please enable it to continue.",
           { variant: "warning" }
         );
-        navigate("/admin/system/security/2fa", { replace: true });
+        navigate("/system/security/2fa", { replace: true });
         setStepupRequired(stepup);
         return;
       }

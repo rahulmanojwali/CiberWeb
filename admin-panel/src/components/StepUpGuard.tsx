@@ -10,7 +10,7 @@ import {
   DialogTitle,
   Typography,
 } from "@mui/material";
-import { useSnackbar } from "../notistack-compat";
+import { useSnackbar } from "notistack-compat";
 
 import { requireStepUp } from "../services/adminUsersApi";
 

@@ -218,6 +218,27 @@ export async function requireStepUp({
   return postEncrypted(API_ROUTES.admin.requireStepUp, items);
 }
 
+export async function getStepUpSetup({
+  username,
+  target_username,
+  language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
+}: {
+  username: string;
+  target_username: string;
+  language?: string;
+  country?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_2FA.getSetup,
+    username,
+    target_username,
+    language,
+    country,
+  };
+  return postEncrypted(API_ROUTES.admin.get2faSetup, items);
+}
+
 /* ------------------------------------------------------------------ */
 /*  ROLES – FOR ROLE DROPDOWN                                         */
 /* ------------------------------------------------------------------ */

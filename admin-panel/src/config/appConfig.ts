@@ -23,7 +23,8 @@ export const API_TAGS = {
     listOrgs: "get_Organisations21",
   },
   ADMIN_2FA: {
-    requireStepUp: "requireStepUp"
+    requireStepUp: "requireStepUp",
+    getSetup: "getSetup"
   },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
@@ -288,6 +289,7 @@ export const API_ROUTES = {
     addOrgMandi: "/admin/addOrgMandi",
     removeOrgMandi: "/admin/removeOrgMandi",
     requireStepUp: "/admin/2fa/requireStepUp",
+    get2faSetup: "/admin/2fa/getSetup",
     getMandis: "/admin/getMandis",
     createMandi: "/admin/createMandi",
     updateMandi: "/admin/updateMandi",

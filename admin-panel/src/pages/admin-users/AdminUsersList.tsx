@@ -11,8 +11,16 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  FormHelperText,
   Grid,
+  IconButton,
+  InputAdornment,
   MenuItem,
+  Radio,
+  RadioGroup,
   Snackbar,
   Stack,
   Switch,
@@ -27,6 +35,8 @@ import { IconButton, Tooltip } from "@mui/material";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleOutline";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 
 import ListItemText from "@mui/material/ListItemText";
@@ -51,6 +61,7 @@ import {
   updateAdminUser,
   deactivateAdminUser,
   requestAdminPasswordReset,
+  resetAdminUserPassword,
   fetchAdminUsers,
   fetchAdminRoles,
   fetchOrganisations,
@@ -89,6 +100,8 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "AUDITOR",
   "VIEWER",
 ]);
+
+const MANUAL_PASSWORD_MIN_LENGTH = 8;
 
 export type AdminUser = {
   username: string;
@@ -178,6 +191,14 @@ const AdminUsersList: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({ open: false, message: "", severity: "info" });
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState<AdminUser | null>(null);
+  const [resetMode, setResetMode] = useState<"EMAIL_LINK" | "MANUAL">("EMAIL_LINK");
+  const [manualPassword, setManualPassword] = useState("");
+  const [manualConfirmPassword, setManualConfirmPassword] = useState("");
+  const [manualShowPassword, setManualShowPassword] = useState(false);
+  const [manualShowConfirm, setManualShowConfirm] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const readStored = (key: string): string | null => {
@@ -656,31 +677,101 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
-  const handleRequestPasswordReset = async (user: AdminUser) => {
-    if (!canResetPasswordAction) return;
+  const openResetDialog = (user: AdminUser) => {
+    setResetTargetUser(user);
+    setResetMode("EMAIL_LINK");
+    setManualPassword("");
+    setManualConfirmPassword("");
+    setManualShowPassword(false);
+    setManualShowConfirm(false);
+    setResetLoading(false);
+    setResetDialogOpen(true);
+  };
+
+  const closeResetDialog = () => {
+    setResetDialogOpen(false);
+    setResetTargetUser(null);
+    setResetMode("EMAIL_LINK");
+    setManualPassword("");
+    setManualConfirmPassword("");
+    setManualShowPassword(false);
+    setManualShowConfirm(false);
+    setResetLoading(false);
+  };
+
+  const handleSendResetLink = async () => {
+    if (!canResetPasswordAction || !resetTargetUser) return;
     const username = currentUsername();
     if (!username) {
       handleToast(t("adminUsers.messages.noSession"), "error");
       return;
     }
     try {
-      setLoading(true);
-      const res = await requestAdminPasswordReset({ username, language, target_username: user.username });
+      setResetLoading(true);
+      const res = await requestAdminPasswordReset({
+        username,
+        language,
+        target_username: resetTargetUser.username,
+      });
       const resp = res?.response || {};
       if (String(resp.responsecode ?? "") !== "0") {
         handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
-      } else {
-        const email = res?.email || (res?.data?.email ?? user.email ?? "");
-        if (email) {
-          handleToast(t("adminUsers.messages.resetEmailSent", { email }), "success");
-        } else {
-          handleToast(resp.description || t("adminUsers.messages.resetSuccess"), "success");
-        }
+        return;
       }
+      const email = res?.email || (res?.data?.email ?? resetTargetUser.email ?? "");
+      if (email) {
+        handleToast(t("adminUsers.messages.resetEmailSent", { email }), "success");
+      } else {
+        handleToast(resp.description || t("adminUsers.messages.resetSuccess"), "success");
+      }
+      closeResetDialog();
     } catch (e: any) {
       handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
     } finally {
-      setLoading(false);
+      setResetLoading(false);
+    }
+  };
+
+  const handleManualPasswordReset = async () => {
+    if (!resetTargetUser) return;
+    if (!resetMode) return;
+    const username = currentUsername();
+    if (!username) {
+      handleToast(t("adminUsers.messages.noSession"), "error");
+      return;
+    }
+    const trimmed = manualPassword.trim();
+    const trimmedConfirm = manualConfirmPassword.trim();
+    if (trimmed.length < MANUAL_PASSWORD_MIN_LENGTH) {
+      handleToast(
+        t("adminUsers.messages.resetInvalid", { defaultValue: `Password must be at least ${MANUAL_PASSWORD_MIN_LENGTH} characters.` }),
+        "error"
+      );
+      return;
+    }
+    if (trimmed !== trimmedConfirm) {
+      handleToast(t("adminUsers.messages.resetMismatch", { defaultValue: "Passwords do not match." }), "error");
+      return;
+    }
+    try {
+      setResetLoading(true);
+      const res = await resetAdminUserPassword({
+        username,
+        language,
+        target_username: resetTargetUser.username,
+        new_password: trimmed,
+      });
+      const resp = res?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
+        handleToast(resp.description || t("adminUsers.messages.resetFailed"), "error");
+        return;
+      }
+      handleToast(t("adminUsers.messages.resetSuccess"), "success");
+      closeResetDialog();
+    } catch (e: any) {
+      handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -801,7 +892,7 @@ const loadOrgs = useCallback(async () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => handleRequestPasswordReset(row)}
+              onClick={() => openResetDialog(row)}
             >
               <LockResetIcon fontSize="small" />
             </IconButton>
@@ -818,7 +909,7 @@ const loadOrgs = useCallback(async () => {
     [
       handleOpenEdit,
       handleToggleStatus,
-      handleRequestPasswordReset,
+      openResetDialog,
       t,
     ],
   );
@@ -1050,7 +1141,7 @@ const loadOrgs = useCallback(async () => {
             <IconButton
               size="small"
               color="primary"
-              onClick={() => handleRequestPasswordReset(row)}
+              onClick={() => openResetDialog(row)}
             >
               <LockResetIcon fontSize="small" />
             </IconButton>
@@ -1221,6 +1312,140 @@ const loadOrgs = useCallback(async () => {
           <Button onClick={handleCloseDialog}>{t("adminUsers.dialog.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={loading} variant="contained">
             {loading ? <CircularProgress size={18} /> : t("adminUsers.dialog.save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        fullScreen={isSmallScreen}
+        open={resetDialogOpen}
+        onClose={closeResetDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t("adminUsers.actions.resetPassword", { defaultValue: "Reset Password" })}
+          {resetTargetUser ? ` – ${resetTargetUser.username}` : ""}
+        </DialogTitle>
+        <DialogContent dividers>
+          {resetTargetUser?.email && (
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              {t("adminUsers.columns.email")}: {resetTargetUser.email}
+            </Typography>
+          )}
+          <FormControl component="fieldset" sx={{ width: "100%" }}>
+            <FormLabel component="legend">{t("adminUsers.resetDialog.mode", { defaultValue: "Reset method" })}</FormLabel>
+            <RadioGroup
+              aria-label="reset-method"
+              value={resetMode}
+              onChange={(e) => setResetMode(e.target.value as "EMAIL_LINK" | "MANUAL")}
+            >
+              <FormControlLabel
+                value="EMAIL_LINK"
+                control={<Radio />}
+                label={
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2">
+                      {t("adminUsers.resetDialog.emailOption", { defaultValue: "Send reset link email (recommended)" })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t("adminUsers.resetDialog.emailDescription", {
+                        defaultValue: "User will open a secure link and set a new password.",
+                      })}
+                    </Typography>
+                  </Stack>
+                }
+              />
+              <FormControlLabel
+                value="MANUAL"
+                control={<Radio />}
+                label={
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2">
+                      {t("adminUsers.resetDialog.manualOption", { defaultValue: "Set password manually (admin sets it now)" })}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t("adminUsers.resetDialog.manualDescription", {
+                        defaultValue: "Use only if user cannot access email.",
+                      })}
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </RadioGroup>
+          </FormControl>
+
+          {resetMode === "MANUAL" && (
+            <Stack spacing={2} mt={2}>
+              <TextField
+                label={t("adminUsers.resetDialog.newPassword", { defaultValue: "New Password" })}
+                type={manualShowPassword ? "text" : "password"}
+                value={manualPassword}
+                onChange={(e) => setManualPassword(e.target.value)}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setManualShowPassword((prev) => !prev)}
+                        edge="end"
+                        size="small"
+                      >
+                        {manualShowPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                disabled={resetLoading}
+              />
+              <TextField
+                label={t("adminUsers.resetDialog.confirmPassword", { defaultValue: "Confirm Password" })}
+                type={manualShowConfirm ? "text" : "password"}
+                value={manualConfirmPassword}
+                onChange={(e) => setManualConfirmPassword(e.target.value)}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setManualShowConfirm((prev) => !prev)}
+                        edge="end"
+                        size="small"
+                      >
+                        {manualShowConfirm ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                disabled={resetLoading}
+              />
+              <FormHelperText>
+                {t("adminUsers.resetDialog.passwordHint", {
+                  defaultValue: "Use at least 8 characters, including letters and numbers.",
+                })}
+              </FormHelperText>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeResetDialog}>{t("common.cancel", { defaultValue: "Cancel" })}</Button>
+          <Button
+            variant="contained"
+            onClick={resetMode === "EMAIL_LINK" ? handleSendResetLink : handleManualPasswordReset}
+            disabled={
+              resetLoading ||
+              (resetMode === "MANUAL" &&
+                (manualPassword.trim().length < MANUAL_PASSWORD_MIN_LENGTH ||
+                  manualPassword.trim() !== manualConfirmPassword.trim()))
+            }
+          >
+            {resetLoading ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : resetMode === "EMAIL_LINK" ? (
+              t("adminUsers.resetDialog.sendLink", { defaultValue: "Send reset link" })
+            ) : (
+              t("adminUsers.resetDialog.updatePassword", { defaultValue: "Update password" })
+            )}
           </Button>
         </DialogActions>
       </Dialog>

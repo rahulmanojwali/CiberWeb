@@ -173,7 +173,8 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
         otp: useBackup ? undefined : otp,
         backup_code: useBackup ? backupCode.trim() : undefined,
       });
-      const stepupId = resp?.stepup?.stepup_session_id;
+      const payload = resp?.stepup?.stepup || resp?.stepup;
+      const stepupId = payload?.stepup_session_id;
       if (stepupId) {
         if (typeof window !== "undefined") {
           localStorage.setItem("cm_stepup_session_id", stepupId);

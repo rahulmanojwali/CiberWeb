@@ -148,6 +148,28 @@ export async function requestAdminPasswordReset({
   return postEncrypted(API_ROUTES.admin.requestAdminPasswordReset, items);
 }
 
+export async function resetAdminUserPassword({
+  username,
+  language = DEFAULT_LANGUAGE,
+  target_username,
+  new_password,
+}: {
+  username: string;
+  language?: string;
+  target_username: string;
+  new_password: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_USERS.reset,
+    username,
+    language,
+    target_username,
+    new_password,
+  };
+
+  return postEncrypted(API_ROUTES.admin.resetAdminUserPassword, items);
+}
+
 export async function confirmAdminPasswordReset({
   token,
   new_password,

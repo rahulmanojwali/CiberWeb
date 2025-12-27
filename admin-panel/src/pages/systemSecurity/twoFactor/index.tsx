@@ -15,6 +15,7 @@ const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = React.useState("Not configured");
   const { enqueueSnackbar } = useSnackbar();
   const [rotating, setRotating] = React.useState(false);
+  const [isEnabled, setIsEnabled] = React.useState(false);
 
   const fetchSetup = async () => {
     setLoading(true);
@@ -61,17 +62,18 @@ const TwoFactorSettings: React.FC = () => {
     }
     setRotating(true);
     try {
-      const resp: any = await rotateStepUp({ username });
-      if (resp?.response?.responsecode === "0") {
-        const payload = resp.stepup?.stepup || resp.stepup || null;
-        setSetup(payload);
-        setStatus("Setup initiated");
-        setBackupCodes(null);
-        setOtp("");
-        enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
-      } else {
-        enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
-      }
+      const resp: any = await rotateStepUp({ username, session_id: session });
+        if (resp?.response?.responsecode === "0") {
+          const payload = resp.stepup?.stepup || resp.stepup || null;
+          setSetup(payload);
+          setStatus("Setup initiated");
+          setBackupCodes(null);
+          setOtp("");
+          setIsEnabled(false);
+          enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
+        } else {
+          enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
+        }
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Rotation failed.", { variant: "error" });
     } finally {
@@ -98,6 +100,7 @@ const TwoFactorSettings: React.FC = () => {
       if (resp?.response?.responsecode === "0") {
         setBackupCodes(resp?.backup_codes || []);
         setStatus("Enabled");
+        setIsEnabled(true);
         enqueueSnackbar(resp.response.description || "2FA enabled.", { variant: "success" });
       } else {
         enqueueSnackbar(resp?.response?.description || "OTP verification failed.", { variant: "error" });
@@ -134,13 +137,15 @@ const TwoFactorSettings: React.FC = () => {
                 <Button variant="contained" onClick={fetchSetup} disabled={loading}>
                   {setup ? "Refresh Setup" : "Start Setup"}
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={handleRotate}
-                  disabled={rotating || loading}
-                >
-                  {rotating ? "Rotating..." : "Reconfigure 2FA"}
-                </Button>
+                {isEnabled && (
+                  <Button
+                    variant="outlined"
+                    onClick={handleRotate}
+                    disabled={rotating || loading}
+                  >
+                    {rotating ? "Rotating..." : "Reconfigure 2FA (Lost device)"}
+                  </Button>
+                )}
               </Stack>
               {setup && (
                 <>

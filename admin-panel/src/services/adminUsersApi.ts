@@ -251,15 +251,20 @@ export async function verifyStepUp({
 
 export async function rotateStepUp({
   username,
+  session_id,
 }: {
   username: string;
+  session_id?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.rotate,
     username,
     target_username: username,
   };
-  return postEncrypted(API_ROUTES.admin.rotate, items);
+  const headers: Record<string, string> = session_id
+    ? { "X-StepUp-Session": session_id }
+    : {};
+  return postEncrypted(API_ROUTES.admin.rotate, items, headers);
 }
 
 export async function getStepUpSetup({

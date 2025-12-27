@@ -30,7 +30,8 @@ const TwoFactorSettings: React.FC = () => {
         target_username: username,
       });
       if (resp?.response?.responsecode === "0") {
-        setSetup(resp.setup || null);
+        const payload = resp.stepup || resp.setup || null;
+        setSetup(payload);
         setStatus("Setup initiated");
         setBackupCodes(null);
         setOtp("");

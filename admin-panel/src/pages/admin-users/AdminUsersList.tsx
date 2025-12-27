@@ -775,6 +775,14 @@ const loadOrgs = useCallback(async () => {
     }
   };
 
+  const handleResetSubmit = async () => {
+    if (resetMode === "EMAIL_LINK") {
+      await handleSendResetLink();
+    } else {
+      await handleManualPasswordReset();
+    }
+  };
+
   const columns: GridColDef<AdminUser>[] = useMemo(
     () => [
       { field: "username", headerName: t("adminUsers.columns.username"), flex: 0.9 },
@@ -1431,7 +1439,7 @@ const loadOrgs = useCallback(async () => {
           <Button onClick={closeResetDialog}>{t("common.cancel", { defaultValue: "Cancel" })}</Button>
           <Button
             variant="contained"
-            onClick={resetMode === "EMAIL_LINK" ? handleSendResetLink : handleManualPasswordReset}
+            onClick={handleResetSubmit}
             disabled={
               resetLoading ||
               (resetMode === "MANUAL" &&

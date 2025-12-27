@@ -151,5 +151,6 @@ export const ResetPasswordPage: React.FC = () => {
         </Stack>
       </Paper>
     </Box>
+    </>
   );
 };

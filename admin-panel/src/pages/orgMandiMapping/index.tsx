@@ -28,6 +28,7 @@ import { normalizeFlag } from "../../utils/statusUtils";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchOrgMandisLite, updateOrgMandiStatus } from "../../services/mandiApi";
 import { getOrgDisplayName } from "../../utils/orgDisplay";
+import { StepUpGuard } from "../../components/StepUpGuard";
 
 type OrgOption = {
   _id: string;
@@ -329,7 +330,8 @@ const loadMappings = useCallback(async () => {
   const handleToastClose = () => setToast((prev) => ({ ...prev, open: false }));
 
   return (
-    <PageContainer>
+    <StepUpGuard username={currentUsername()}>
+      <PageContainer>
       <Stack spacing={2}>
         <Stack spacing={0.5}>
           <Typography variant="h5">Org–Mandi Mapping</Typography>
@@ -482,6 +484,7 @@ const loadMappings = useCallback(async () => {
         onClose={handleToastClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       />
-    </PageContainer>
+      </PageContainer>
+    </StepUpGuard>
   );
 };

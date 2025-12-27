@@ -36,6 +36,7 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { ActionGate } from "../../authz/ActionGate";
 import { usePermissions } from "../../authz/usePermissions";
 import { useRecordLock } from "../../authz/isRecordLocked";
+import { StepUpGuard } from "../../components/StepUpGuard";
 
 
 
@@ -416,7 +417,8 @@ export const Orgs: React.FC = () => {
   });
 
   return (
-    <PageContainer>
+    <StepUpGuard username={currentUsername()}>
+      <PageContainer>
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -745,5 +747,6 @@ export const Orgs: React.FC = () => {
         </Alert>
       </Snackbar>
     </PageContainer>
-  );
+  </StepUpGuard>
+);
 };

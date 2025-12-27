@@ -69,6 +69,7 @@ import {
 } from "../../services/adminUsersApi";
 import type { RoleSlug } from "../../config/menuConfig";
 import { getOrgDisplayName } from "../../utils/orgDisplay";
+import { StepUpGuard } from "../../components/StepUpGuard";
 
 const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
   if (!value) return null;
@@ -1475,4 +1476,13 @@ const loadOrgs = useCallback(async () => {
   );
 };
 
-export default AdminUsersList;
+const GuardedAdminUsers: React.FC = () => {
+  const username = currentUsername();
+  return (
+    <StepUpGuard username={username}>
+      <AdminUsersList />
+    </StepUpGuard>
+  );
+};
+
+export default GuardedAdminUsers;

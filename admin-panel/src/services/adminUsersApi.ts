@@ -192,6 +192,32 @@ export async function confirmAdminPasswordReset({
   return postEncrypted(API_ROUTES.admin.confirmAdminPasswordReset, items);
 }
 
+export async function requireStepUp({
+  username,
+  target_username,
+  language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
+  session_id,
+}: {
+  username: string;
+  target_username: string;
+  language?: string;
+  country?: string;
+  session_id?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_2FA.requireStepUp,
+    username,
+    target_username,
+    language,
+    country,
+  };
+  if (session_id) {
+    items.stepup_session_id = session_id;
+  }
+  return postEncrypted(API_ROUTES.admin.requireStepUp, items);
+}
+
 /* ------------------------------------------------------------------ */
 /*  ROLES – FOR ROLE DROPDOWN                                         */
 /* ------------------------------------------------------------------ */

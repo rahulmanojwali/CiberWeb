@@ -22,6 +22,17 @@ import { useSnackbar } from "notistack";
 import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { canonicalizeResourceKey } from "../../utils/adminUiConfig";
+import { StepUpGuard } from "../../components/StepUpGuard";
+
+function currentUsername(): string | null {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.username || null;
+  } catch {
+    return null;
+  }
+}
 
 type PolicyEntry = { resource_key: string; actions: string[] };
 type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
@@ -849,7 +860,16 @@ const RolesPermissionsPage: React.FC = () => {
   );
 };
 
-export default RolesPermissionsPage;
+const GuardedRolesPermissionsPage: React.FC = () => {
+  const username = currentUsername();
+  return (
+    <StepUpGuard username={username}>
+      <RolesPermissionsPage />
+    </StepUpGuard>
+  );
+};
+
+export default GuardedRolesPermissionsPage;
 
 
 // import React, { useEffect, useMemo, useState } from "react";

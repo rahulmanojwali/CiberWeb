@@ -197,6 +197,7 @@ function App() {
                   </Route>
 
                   {/* Public routes */}
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route
                     element={
                       <Authenticated key="authenticated-outer" fallback={<Outlet />}>
@@ -207,10 +208,8 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                   </Route>
                 </Routes>
-
                 <RefineKbar />
                 <UnsavedChangesNotifier />
                 <DocumentTitleHandler />

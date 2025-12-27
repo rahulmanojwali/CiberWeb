@@ -235,7 +235,7 @@
       "createSuccess": "Admin user created.",
       "networkError": "Network error.",
       "resetFailed": "Reset failed.",
-      "resetSuccess": "Temporary password generated.",
+    "resetSuccess": "Password updated successfully.",
       "resetEmailSent": "Reset email sent to {{email}}.",
       "resetEmailDisabled": "Email disabled on server; cannot send reset email.",
       "resetEmailFailed": "Email delivery failed.",

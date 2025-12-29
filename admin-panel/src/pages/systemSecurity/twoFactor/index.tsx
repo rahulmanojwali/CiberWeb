@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, ButtonGroup, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
 import { getStepUpSetup, enableStepUp, rotateStepUp, getStepUpStatus } from "../../../services/adminUsersApi";
 
@@ -17,6 +17,9 @@ const TwoFactorSettings: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [rotating, setRotating] = React.useState(false);
   const [isEnabled, setIsEnabled] = React.useState(false);
+  const [rotatePromptOpen, setRotatePromptOpen] = React.useState(false);
+  const [rotateMode, setRotateMode] = React.useState<"otp" | "backup">("otp");
+  const [rotateCode, setRotateCode] = React.useState("");
   const [statusInfo, setStatusInfo] = React.useState<{
     enabled: string;
     enforcement_mode: string;
@@ -78,7 +81,7 @@ const TwoFactorSettings: React.FC = () => {
     }
   };
 
-  const handleRotate = async () => {
+  const handleRotate = async (otp?: string, backupCode?: string) => {
     const usernameRaw = localStorage.getItem("cd_user");
     const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
     const username = parsed?.username;
@@ -93,23 +96,31 @@ const TwoFactorSettings: React.FC = () => {
     }
     setRotating(true);
     try {
-      const resp: any = await rotateStepUp({ username, session_id: session });
-        if (resp?.response?.responsecode === "0") {
-          const payload = resp.stepup?.stepup || resp.stepup || null;
-          setSetup(payload);
-          setStatus("Setup initiated");
-          setBackupCodes(null);
-          setOtp("");
-          setIsEnabled(false);
-          enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
-        } else {
-          enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
-          if (resp?.response?.description?.includes("Step-up required")) {
-            enqueueSnackbar("Please complete the step-up OTP before rotating.", {
-              variant: "warning",
-            });
-          }
+      const resp: any = await rotateStepUp({
+        username,
+        session_id: session,
+        otp,
+        backup_code: backupCode,
+      });
+      if (resp?.response?.responsecode === "0") {
+        const payload = resp.stepup?.stepup || resp.stepup || null;
+        setSetup(payload);
+        setStatus("Setup initiated");
+        setBackupCodes(null);
+        setOtp("");
+        setIsEnabled(false);
+        setRotatePromptOpen(false);
+        setRotateCode("");
+        enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
+      } else {
+        enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
+        if (resp?.response?.description?.includes("Step-up required")) {
+          enqueueSnackbar(
+            "Please complete the step-up OTP on a protected screen before rotating.",
+            { variant: "warning" },
+          );
         }
+      }
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Rotation failed.", { variant: "error" });
     } finally {
@@ -183,13 +194,69 @@ const TwoFactorSettings: React.FC = () => {
                 {isEnabled && (
                   <Button
                     variant="outlined"
-                    onClick={handleRotate}
+                    onClick={() => setRotatePromptOpen((prev) => !prev)}
                     disabled={rotating || loading}
                   >
                     {rotating ? "Rotating..." : "Reconfigure 2FA (Lost device)"}
                   </Button>
                 )}
               </Stack>
+              {rotatePromptOpen && isEnabled && (
+                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, mt: 1 }}>
+                  <Typography variant="body2" color="text.secondary" mb={1}>
+                    Confirm rotation with your authenticator or a backup code.
+                  </Typography>
+                  <ButtonGroup size="small" variant="outlined" sx={{ mb: 1 }}>
+                    <Button
+                      variant={rotateMode === "otp" ? "contained" : undefined}
+                      onClick={() => setRotateMode("otp")}
+                    >
+                      Authenticator
+                    </Button>
+                    <Button
+                      variant={rotateMode === "backup" ? "contained" : undefined}
+                      onClick={() => setRotateMode("backup")}
+                    >
+                      Backup code
+                    </Button>
+                  </ButtonGroup>
+                  <TextField
+                    label={rotateMode === "otp" ? "Authenticator code" : "Backup code"}
+                    value={rotateCode}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setRotateCode(rotateMode === "otp" ? value.replace(/\D/g, "").slice(0, 6) : value);
+                    }}
+                    fullWidth
+                    size="small"
+                    helperText={
+                      rotateMode === "otp"
+                        ? "Enter the 6-digit authenticator code."
+                        : "Enter one-time backup code."
+                    }
+                    sx={{ mb: 1 }}
+                  />
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="contained"
+                      onClick={() =>
+                        handleRotate(
+                          rotateMode === "otp" ? rotateCode : undefined,
+                          rotateMode === "backup" ? rotateCode : undefined
+                        )
+                      }
+                      disabled={
+                        rotating || (rotateMode === "otp" ? rotateCode.length !== 6 : !rotateCode.trim())
+                      }
+                    >
+                      {rotating ? "Verifying..." : "Confirm rotate"}
+                    </Button>
+                    <Button variant="text" onClick={() => setRotatePromptOpen(false)}>
+                      Cancel
+                    </Button>
+                  </Stack>
+                </Box>
+              )}
               {isEnabled ? (
                 <Typography variant="body2" color="text.secondary">
                   You already have 2FA enabled. Rotate if you lost access to your authenticator.

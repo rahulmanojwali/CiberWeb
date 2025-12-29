@@ -252,15 +252,21 @@ export async function verifyStepUp({
 export async function rotateStepUp({
   username,
   session_id,
+  otp,
+  backup_code,
 }: {
   username: string;
   session_id?: string;
+  otp?: string;
+  backup_code?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.rotate,
     username,
     target_username: username,
   };
+  if (otp) items.otp = otp;
+  if (backup_code) items.backup_code = backup_code;
   const headers: Record<string, string> = session_id
     ? { "X-StepUp-Session": session_id }
     : {};

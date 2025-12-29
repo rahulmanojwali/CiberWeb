@@ -1479,7 +1479,7 @@ const loadOrgs = useCallback(async () => {
 const GuardedAdminUsers: React.FC = () => {
   const username = currentUsername();
   return (
-    <StepUpGuard username={username}>
+    <StepUpGuard username={username} resourceKey="admin_users.list" action="VIEW">
       <AdminUsersList />
     </StepUpGuard>
   );

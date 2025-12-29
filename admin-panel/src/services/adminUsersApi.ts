@@ -207,12 +207,16 @@ export async function requireStepUp({
   language = DEFAULT_LANGUAGE,
   country = DEFAULT_COUNTRY,
   session_id,
+  resource_key,
+  action,
 }: {
   username: string;
   target_username: string;
   language?: string;
   country?: string;
   session_id?: string;
+  resource_key?: string;
+  action?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.requireStepUp,
@@ -223,6 +227,12 @@ export async function requireStepUp({
   };
   if (session_id) {
     items.stepup_session_id = session_id;
+  }
+  if (resource_key) {
+    items.resource_key = resource_key;
+  }
+  if (action) {
+    items.action = action;
   }
   const headers: Record<string, string> = session_id
     ? { "X-StepUp-Session": session_id }

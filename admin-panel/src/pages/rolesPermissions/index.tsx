@@ -863,7 +863,7 @@ const RolesPermissionsPage: React.FC = () => {
 const GuardedRolesPermissionsPage: React.FC = () => {
   const username = currentUsername();
   return (
-    <StepUpGuard username={username}>
+    <StepUpGuard username={username} resourceKey="menu.role_policies" action="VIEW">
       <RolesPermissionsPage />
     </StepUpGuard>
   );

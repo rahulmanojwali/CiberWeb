@@ -330,7 +330,11 @@ const loadMappings = useCallback(async () => {
   const handleToastClose = () => setToast((prev) => ({ ...prev, open: false }));
 
   return (
-    <StepUpGuard username={currentUsername()}>
+    <StepUpGuard
+      username={currentUsername()}
+      resourceKey="org_mandi_mapping.list"
+      action="VIEW"
+    >
       <PageContainer>
       <Stack spacing={2}>
         <Stack spacing={0.5}>

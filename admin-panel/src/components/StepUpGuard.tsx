@@ -24,6 +24,8 @@ type StepUpResponse = {
 
 type StepUpGuardProps = {
   username: string | null;
+  resourceKey?: string;
+  action?: string;
   children: React.ReactNode;
 };
 
@@ -105,7 +107,12 @@ const StepUpModal: React.FC<StepUpModalProps> = ({
   </Dialog>
 );
 
-export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) => {
+export const StepUpGuard: React.FC<StepUpGuardProps> = ({
+  username,
+  children,
+  resourceKey,
+  action = "VIEW",
+}) => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = React.useState(true);
@@ -130,6 +137,8 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
         username,
         target_username: username,
         session_id: session || undefined,
+        resource_key: resourceKey,
+        action,
       });
       const stepup: StepUpResponse = resp?.stepup || {};
       if (stepup.mode === "ENROLL_MANDATORY") {
@@ -154,7 +163,7 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({ username, children }) 
     } finally {
       setLoading(false);
     }
-  }, [username, enqueueSnackbar, navigate]);
+  }, [username, enqueueSnackbar, navigate, resourceKey, action]);
 
   const handleVerify = React.useCallback(async () => {
     if (!username) return;

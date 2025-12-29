@@ -417,7 +417,7 @@ export const Orgs: React.FC = () => {
   });
 
   return (
-    <StepUpGuard username={currentUsername()}>
+    <StepUpGuard username={currentUsername()} resourceKey="organisations.list" action="VIEW">
       <PageContainer>
       <Stack
         direction={{ xs: "column", md: "row" }}

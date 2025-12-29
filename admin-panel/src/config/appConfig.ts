@@ -290,7 +290,7 @@ export const API_ROUTES = {
     requestAdminPasswordReset: "/admin/requestAdminPasswordReset",
     confirmAdminPasswordReset: "/admin/confirmAdminPasswordReset",
     getAdminRoles: "/admin/getAdminRoles",
-    getStepupPolicyRules: "/admin/getStepupPolicyRules",
+    getStepupPolicyRules: "/admin/security/getStepupPolicyRules",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",

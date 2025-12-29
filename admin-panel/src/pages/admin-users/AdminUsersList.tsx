@@ -30,7 +30,7 @@ import {
   useTheme,
   Tooltip,
 } from "@mui/material";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
@@ -66,6 +66,8 @@ import {
   fetchAdminRoles,
   fetchOrganisations,
   fetchOrgMandis,
+  requireStepUp,
+  verifyStepUp,
 } from "../../services/adminUsersApi";
 import type { RoleSlug } from "../../config/menuConfig";
 import { getOrgDisplayName } from "../../utils/orgDisplay";
@@ -247,8 +249,95 @@ const AdminUsersList: React.FC = () => {
     is_active: true,
   });
 
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [useBackup, setUseBackup] = useState(false);
+  const [backupCode, setBackupCode] = useState("");
+  const [stepupVerifying, setStepupVerifying] = useState(false);
+  const [stepupError, setStepupError] = useState("");
+  const [pendingStepupUser, setPendingStepupUser] = useState<AdminUser | null>(null);
+
   const handleToast = (message: string, severity: ToastState["severity"]) =>
     setToast({ open: true, message, severity });
+  const navigate = useNavigate();
+
+  const ensureStepUpForDeactivate = useCallback(
+    async (user: AdminUser) => {
+      const sessionId =
+        typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
+      try {
+        const resp: any = await requireStepUp({
+          username: currentUsername() || "",
+          target_username: user.username,
+          language,
+          country: "IN",
+          resource_key: "admin_users.deactivate",
+          action: "DEACTIVATE",
+          session_id: sessionId || undefined,
+        });
+        const stepup = resp?.stepup || {};
+        if (stepup.mode === "ENROLL_MANDATORY") {
+          handleToast("2FA is mandatory for your role. Please enable it to continue.", "info");
+          navigate("/system/security/2fa", { replace: true });
+          return false;
+        }
+        if (stepup.mode === "OTP_REQUIRED" || stepup.required) {
+          setPendingStepupUser(user);
+          setOtpDialogOpen(true);
+          setOtpCode("");
+          setBackupCode("");
+          setUseBackup(false);
+          setStepupError("");
+          return false;
+        }
+        return true;
+      } catch (err: any) {
+        handleToast(err?.message || "Step-up check failed.", "error");
+        return false;
+      }
+    },
+    [language, handleToast, navigate]
+  );
+
+  const handleStepupConfirm = async () => {
+    if (!pendingStepupUser) return;
+    const username = currentUsername();
+    if (!username) {
+      setOtpDialogOpen(false);
+      return;
+    }
+    setStepupVerifying(true);
+    try {
+      const resp: any = await verifyStepUp({
+        username,
+        otp: useBackup ? undefined : otpCode,
+        backup_code: useBackup ? backupCode.trim() : undefined,
+      });
+      const payload = resp?.stepup?.stepup || resp?.stepup;
+      const sessionId = payload?.stepup_session_id;
+      if (sessionId && typeof window !== "undefined") {
+        localStorage.setItem("cm_stepup_session_id", sessionId);
+      }
+      setOtpDialogOpen(false);
+      const retryUser = pendingStepupUser;
+      setPendingStepupUser(null);
+      setStepupError("");
+      setOtpCode("");
+      setBackupCode("");
+      setUseBackup(false);
+      if (retryUser) await handleToggleStatus(retryUser);
+    } catch (err: any) {
+      setStepupError(err?.message || "Step-up verification failed.");
+    } finally {
+      setStepupVerifying(false);
+    }
+  };
+
+  const handleStepupCancel = () => {
+    setOtpDialogOpen(false);
+    setPendingStepupUser(null);
+    setStepupError("");
+  };
 
   // const loadRoles = useCallback(async () => {
   //   const username = currentUsername();
@@ -647,6 +736,12 @@ const loadOrgs = useCallback(async () => {
       let resp;
 
       if (isActive) {
+        const allowed = await ensureStepUpForDeactivate(user);
+        if (!allowed) {
+          setLoading(false);
+          return;
+        }
+
         const res = await deactivateAdminUser({ username, language, target_username: user.username });
         resp = res?.response || {};
       } else {
@@ -1455,6 +1550,58 @@ const loadOrgs = useCallback(async () => {
             ) : (
               t("adminUsers.resetDialog.updatePassword", { defaultValue: "Update password" })
             )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={otpDialogOpen} fullWidth maxWidth="xs" onClose={handleStepupCancel}>
+        <DialogTitle>Step-up Verification</DialogTitle>
+        <DialogContent dividers>
+          <Typography mb={2}>
+            Your SUPER_ADMIN role requires secondary authentication. Complete the OTP below.
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={useBackup}
+                onChange={(event) => setUseBackup(event.target.checked)}
+                color="primary"
+              />
+            }
+            label="Use backup code"
+          />
+          <TextField
+            label={useBackup ? "Backup code" : "Authenticator code"}
+            value={useBackup ? backupCode : otpCode}
+            onChange={(event) =>
+              useBackup
+                ? setBackupCode(event.target.value)
+                : setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+            fullWidth
+            margin="normal"
+            helperText={
+              useBackup
+                ? "Enter one of your unused backup codes."
+                : "Enter the 6-digit code from your authenticator."
+            }
+          />
+          {stepupError && <Alert severity="error">{stepupError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleStepupCancel} disabled={stepupVerifying}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleStepupConfirm}
+            disabled={
+              stepupVerifying ||
+              (!useBackup && otpCode.length !== 6) ||
+              (useBackup && !backupCode.trim())
+            }
+          >
+            {stepupVerifying ? <CircularProgress size={20} /> : "Verify"}
           </Button>
         </DialogActions>
       </Dialog>

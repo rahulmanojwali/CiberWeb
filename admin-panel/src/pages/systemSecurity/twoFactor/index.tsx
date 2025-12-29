@@ -34,13 +34,14 @@ const TwoFactorSettings: React.FC = () => {
       const username = parsed?.username;
       if (!username) return;
       const resp: any = await getStepUpStatus({ username });
-      const stepup = resp?.stepup || {};
-      setIsEnabled(stepup.enabled === "Y");
-      setStatus(stepup.enabled === "Y" ? "Enabled" : "Not configured");
+      const stepupPayload = resp?.stepup?.stepup || resp?.stepup || {};
+      setIsEnabled(stepupPayload.enabled === "Y");
+      const enabledFlag = stepupPayload.enabled || "N";
+      setStatus(enabledFlag === "Y" ? "Enabled" : "Not configured");
       setStatusInfo({
-        enabled: stepup.enabled || "N",
-        enforcement_mode: stepup.enforcement_mode || "OPTIONAL",
-        last_verified_on: stepup.last_verified_on || null,
+        enabled: enabledFlag,
+        enforcement_mode: stepupPayload.enforcement_mode || "OPTIONAL",
+        last_verified_on: stepupPayload.last_verified_on || null,
       });
     } catch (_err) {
       // ignore status failure

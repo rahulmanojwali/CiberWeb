@@ -100,8 +100,8 @@ const TwoFactorSettings: React.FC = () => {
           setBackupCodes(null);
           setOtp("");
           setIsEnabled(false);
-      enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
-      } else {
+          enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
+        } else {
           enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
         }
     } catch (err: any) {
@@ -171,7 +171,7 @@ const TwoFactorSettings: React.FC = () => {
                 2FA is mandatory for your role. Setup will be enabled here.
               </Typography>
               <Stack direction="row" spacing={2}>
-                <Button variant="contained" onClick={fetchSetup} disabled={loading}>
+                <Button variant="contained" onClick={fetchSetup} disabled={loading || isEnabled}>
                   {setup ? "Refresh Setup" : "Start Setup"}
                 </Button>
                 {isEnabled && (
@@ -184,31 +184,37 @@ const TwoFactorSettings: React.FC = () => {
                   </Button>
                 )}
               </Stack>
-              {setup && (
-                <>
-                  {qrSrc && (
-                    <Box textAlign="center">
-                      <img src={qrSrc} alt="2FA QR" width={220} height={220} />
-                      <Typography variant="body2" color="text.secondary">
-                        Scan with Google Authenticator or Authy
-                      </Typography>
-                    </Box>
-                  )}
-                  <Typography variant="body2">
-                    Manual entry: <strong>{setup.secret_base32}</strong>
-                  </Typography>
-                  <TextField
-                    label="One-Time Password"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    fullWidth
-                    size="small"
-                    helperText="Enter the 6-digit code from your authenticator."
-                  />
-                  <Button variant="contained" onClick={handleEnable} disabled={loading || otp.length !== 6}>
-                    Enable 2FA
-                  </Button>
-                </>
+              {isEnabled ? (
+                <Typography variant="body2" color="text.secondary">
+                  You already have 2FA enabled. Rotate if you lost access to your authenticator.
+                </Typography>
+              ) : (
+                setup && (
+                  <>
+                    {qrSrc && (
+                      <Box textAlign="center">
+                        <img src={qrSrc} alt="2FA QR" width={220} height={220} />
+                        <Typography variant="body2" color="text.secondary">
+                          Scan with Google Authenticator or Authy
+                        </Typography>
+                      </Box>
+                    )}
+                    <Typography variant="body2">
+                      Manual entry: <strong>{setup.secret_base32}</strong>
+                    </Typography>
+                    <TextField
+                      label="One-Time Password"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      fullWidth
+                      size="small"
+                      helperText="Enter the 6-digit code from your authenticator."
+                    />
+                    <Button variant="contained" onClick={handleEnable} disabled={loading || otp.length !== 6}>
+                      Enable 2FA
+                    </Button>
+                  </>
+                )
               )}
               {status && (
                 <Typography variant="subtitle2" color="text.secondary">

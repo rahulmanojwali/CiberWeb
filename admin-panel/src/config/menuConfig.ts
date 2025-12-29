@@ -909,8 +909,58 @@ export function filterMenuByResources(
         });
       });
     const labeledMenu = applyResourceLabels(APP_MENU);
+    const existingKeys = new Set<string>();
+    const collectKeys = (items: AppMenuItem[]) => {
+      for (const it of items) {
+        if (it.resourceKey) existingKeys.add(normalizeKey(it.resourceKey));
+        if (it.children) collectKeys(it.children);
+      }
+    };
+    collectKeys(labeledMenu);
+    const dynamicByGroup: Record<string, AppMenuItem[]> = {};
+    menuResources.forEach((r) => {
+      const normalizedKey = normalizeKey(r.resource_key);
+      if (existingKeys.has(normalizedKey)) return;
+      if (!r.route) return;
+      const activeFlag = (r as any).is_active;
+      if (activeFlag !== true && activeFlag !== "Y") return;
+      const groupName = String((r.metadata?.group || "system")).toLowerCase();
+      const targetGroup = groupName === "system" ? "system" : "system";
+      const lang =
+        (typeof navigator !== "undefined" && navigator.language
+          ? navigator.language.split("-")[0]
+          : "en") || "en";
+      const labelCandidate =
+        r.i18n_label_key ||
+        ((r as any).label_i18n?.[lang]) ||
+        r.element ||
+        r.route ||
+        normalizedKey;
+      const item: AppMenuItem = {
+        key: `${normalizedKey}-db`,
+        labelKey: labelCandidate,
+        path: r.route,
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: normalizedKey,
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      };
+      if (!dynamicByGroup[targetGroup]) dynamicByGroup[targetGroup] = [];
+      dynamicByGroup[targetGroup].push(item);
+    });
+    const augmentedMenu = labeledMenu.map((group) => {
+      const groupKey = (group.key || group.labelKey || "").toLowerCase();
+      const additions = dynamicByGroup[groupKey] || [];
+      return additions.length
+        ? cloneMenuItem(group, { children: [...(group.children || []), ...additions] })
+        : group;
+    });
+    if (Object.values(dynamicByGroup).flat().length > 0 && typeof window !== "undefined") {
+      const addedKeys = Object.values(dynamicByGroup).flat().map((item) => item.resourceKey);
+      console.info("[menu] injected db menus", addedKeys);
+    }
 
-    const filtered = filterHierarchy(labeledMenu, (item, hasChildren) => {
+    const filtered = filterHierarchy(augmentedMenu, (item, hasChildren) => {
       const watchKeys = new Set([
         "menu.role_policies",
         "user_roles.menu",

@@ -39,6 +39,7 @@ import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
 import { OrgMandiMapping } from "./pages/orgMandiMapping";
 import TwoFactorSettings from "./pages/systemSecurity/twoFactor";
+import StepUpPoliciesPage from "./pages/systemSecurity/stepupPolicies";
 import { Commodities } from "./pages/commodities";
 import { CommodityProducts } from "./pages/commodityProducts";
 import { MandiFacilities } from "./pages/mandiFacilities";
@@ -190,6 +191,7 @@ function App() {
                   <Route path="/system/role-policy-manager" element={<RolesPermissionsPage />} />
                   <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
+                  <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/auction-sessions" element={<AuctionSessions />} />
                   <Route path="/auction-lots" element={<AuctionLots />} />
                   <Route path="/auction-results" element={<AuctionResults />} />

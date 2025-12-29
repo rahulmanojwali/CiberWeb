@@ -30,6 +30,9 @@ export const API_TAGS = {
     rotate: "rotate",
     getStatus: "getStatus"
   },
+  STEPUP_POLICY: {
+    list: "getStepupPolicyRules",
+  },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
     createMapping: "create_Org_Mandi_Mapping25",
@@ -287,6 +290,7 @@ export const API_ROUTES = {
     requestAdminPasswordReset: "/admin/requestAdminPasswordReset",
     confirmAdminPasswordReset: "/admin/confirmAdminPasswordReset",
     getAdminRoles: "/admin/getAdminRoles",
+    getStepupPolicyRules: "/admin/getStepupPolicyRules",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",

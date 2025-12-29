@@ -267,6 +267,19 @@ export async function rotateStepUp({
   return postEncrypted(API_ROUTES.admin.rotate, items, headers);
 }
 
+export async function getStepUpStatus({
+  username,
+}: {
+  username: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.ADMIN_2FA.getStatus,
+    username,
+    target_username: username,
+  };
+  return postEncrypted(API_ROUTES.admin.getStatus, items);
+}
+
 export async function getStepUpSetup({
   username,
   target_username,

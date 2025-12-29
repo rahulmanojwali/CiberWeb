@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
-import { getStepUpSetup, enableStepUp, rotateStepUp } from "../../../services/adminUsersApi";
+import { getStepUpSetup, enableStepUp, rotateStepUp, getStepUpStatus } from "../../../services/adminUsersApi";
 
 const TwoFactorSettings: React.FC = () => {
   const [setup, setSetup] = React.useState<{
@@ -17,6 +17,35 @@ const TwoFactorSettings: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const [rotating, setRotating] = React.useState(false);
   const [isEnabled, setIsEnabled] = React.useState(false);
+  const [statusInfo, setStatusInfo] = React.useState<{
+    enabled: string;
+    enforcement_mode: string;
+    last_verified_on: string | null;
+  }>({
+    enabled: 'N',
+    enforcement_mode: 'OPTIONAL',
+    last_verified_on: null,
+  });
+
+  const fetchStatus = async () => {
+    try {
+      const usernameRaw = localStorage.getItem("cd_user");
+      const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
+      const username = parsed?.username;
+      if (!username) return;
+      const resp: any = await getStepUpStatus({ username });
+      const stepup = resp?.stepup || {};
+      setIsEnabled(stepup.enabled === "Y");
+      setStatus(stepup.enabled === "Y" ? "Enabled" : "Not configured");
+      setStatusInfo({
+        enabled: stepup.enabled || "N",
+        enforcement_mode: stepup.enforcement_mode || "OPTIONAL",
+        last_verified_on: stepup.last_verified_on || null,
+      });
+    } catch (_err) {
+      // ignore status failure
+    }
+  };
 
   const fetchSetup = async () => {
     setLoading(true);
@@ -71,8 +100,8 @@ const TwoFactorSettings: React.FC = () => {
           setBackupCodes(null);
           setOtp("");
           setIsEnabled(false);
-          enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
-        } else {
+      enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
+      } else {
           enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
         }
     } catch (err: any) {
@@ -104,6 +133,7 @@ const TwoFactorSettings: React.FC = () => {
         setShowBackupCodes(true);
         setStatus("Enabled");
         setIsEnabled(true);
+        setStatusInfo((prev) => ({ ...prev, enabled: "Y", last_verified_on: new Date().toISOString() }));
         enqueueSnackbar(resp.response.description || "2FA enabled.", { variant: "success" });
       } else {
         enqueueSnackbar(resp?.response?.description || "OTP verification failed.", { variant: "error" });
@@ -120,6 +150,10 @@ const TwoFactorSettings: React.FC = () => {
         setup.provisioning_uri
       )}`
     : undefined;
+
+  React.useEffect(() => {
+    fetchStatus();
+  }, []);
 
   return (
     <Box

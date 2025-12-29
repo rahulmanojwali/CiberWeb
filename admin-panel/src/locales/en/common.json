@@ -39,76 +39,62 @@
     "no_records": "No records found.",
     "refresh": "Refresh"
   },
-  
   "menu": {
-  "dashboard": "Dashboard",
-
-  "organisations": "Organisations",
-  "orgMandi": "Org–Mandi Mapping",
-  "mandis": "Mandis",
-
-  "adminUsers": "Admin Users",
-
-  "traderApprovals": "Trader Approvals",
-  "traders": "Traders",
-  "farmers": "Farmers",
-
-  "reports": "Reports",
-  "mandiCoverage": "Mandi Coverage",
-  "mandiPrices": "Mandi Price Entry",
-
-  "paymentsAndSettlements": "Payments & Settlements",
-  "paymentModels": "Payment Models",
-  "orgPaymentSettings": "Org Payment Settings",
-  "mandiPaymentSettings": "Mandi Payment Settings",
-  "commodityFeeSettings": "Commodity Fee Settings",
-  "commodityFees": "Commodity Fee Settings",
-
-  "paymentModes": "Payment Modes",
-  "customFees": "Custom Fee Templates",
-  "roleCustomFees": "Role Custom Fees",
-  "subscriptions": "Subscriptions",
-  "subscriptionInvoices": "Subscription Invoices",
-  "settlements": "Settlements",
-  "paymentsLog": "Payments Log",
-
-  "commodities": "Commodities",
-  "commodityProducts": "Commodity Products",
-  "mandiFacilities": "Mandi Facilities",
-  "mandiGates": "Gates",
-  "mandiHoursTemplates": "Mandi Hours Templates",
+    "dashboard": "Dashboard",
+    "organisations": "Organisations",
+    "orgMandi": "Org\u2013Mandi Mapping",
+    "mandis": "Mandis",
+    "adminUsers": "Admin Users",
+    "traderApprovals": "Trader Approvals",
+    "traders": "Traders",
+    "farmers": "Farmers",
+    "reports": "Reports",
+    "mandiCoverage": "Mandi Coverage",
+    "mandiPrices": "Mandi Price Entry",
+    "paymentsAndSettlements": "Payments & Settlements",
+    "paymentModels": "Payment Models",
+    "orgPaymentSettings": "Org Payment Settings",
+    "mandiPaymentSettings": "Mandi Payment Settings",
+    "commodityFeeSettings": "Commodity Fee Settings",
+    "commodityFees": "Commodity Fee Settings",
+    "paymentModes": "Payment Modes",
+    "customFees": "Custom Fee Templates",
+    "roleCustomFees": "Role Custom Fees",
+    "subscriptions": "Subscriptions",
+    "subscriptionInvoices": "Subscription Invoices",
+    "settlements": "Settlements",
+    "paymentsLog": "Payments Log",
+    "commodities": "Commodities",
+    "commodityProducts": "Commodity Products",
+    "mandiFacilities": "Mandi Facilities",
+    "mandiGates": "Gates",
+    "mandiHoursTemplates": "Mandi Hours Templates",
     "gateEntryReasons": "Entry Reasons",
     "gateYard": "Gate & Yard",
-  "gateVehicleTypes": "Vehicle Types",
-  "gateDevices": "Gate Devices",
-  "gateDeviceConfigs": "Device Configs",
-
-  "gateEntries": "Gate Entry",
-  "gateTokens": "Gate Entry",
-  "weighmentTickets": "Weighment",
-  "gateMovements": "Movements",
-  "auctionMethods": "Auction Methods",
-  "auctionRounds": "Auction Rounds",
-  "auctionPolicies": "Auction Policies",
-  "auctionSessions": "Auction Sessions",
-  "auctionLots": "Auction Lots",
-  "auctionResults": "Auction Results",
-"organisationsList": "Organisation List",
-"rolePermission": "Roles & Permissions",
-"mandisList": "Mandi List",
-"gateEntryReasonsMaster": "Entry Reasons (Master)",
-"auctionMethodsMaster": "Auction Methods (Master)",
-"traderApprovalQueue": "Trader Approval Queue",
-
-"system": "System",
-
-"rolePermissions": "Roles & Permissions",
-"userRoleManager": "User Role Manager"
-
-
-}
-
-  ,
+    "gateVehicleTypes": "Vehicle Types",
+    "gateDevices": "Gate Devices",
+    "gateDeviceConfigs": "Device Configs",
+    "gateEntries": "Gate Entry",
+    "gateTokens": "Gate Entry",
+    "weighmentTickets": "Weighment",
+    "gateMovements": "Movements",
+    "auctionMethods": "Auction Methods",
+    "auctionRounds": "Auction Rounds",
+    "auctionPolicies": "Auction Policies",
+    "auctionSessions": "Auction Sessions",
+    "auctionLots": "Auction Lots",
+    "auctionResults": "Auction Results",
+    "organisationsList": "Organisation List",
+    "rolePermission": "Roles & Permissions",
+    "mandisList": "Mandi List",
+    "gateEntryReasonsMaster": "Entry Reasons (Master)",
+    "auctionMethodsMaster": "Auction Methods (Master)",
+    "traderApprovalQueue": "Trader Approval Queue",
+    "system": "System",
+    "rolePermissions": "Roles & Permissions",
+    "userRoleManager": "User Role Manager",
+    "twoFactorSecurity": "2FA Security"
+  },
   "header": {
     "sign_out": "Sign Out",
     "language": "Language",
@@ -235,7 +221,7 @@
       "createSuccess": "Admin user created.",
       "networkError": "Network error.",
       "resetFailed": "Reset failed.",
-    "resetSuccess": "Password updated successfully.",
+      "resetSuccess": "Password updated successfully.",
       "resetEmailSent": "Reset email sent to {{email}}.",
       "resetEmailDisabled": "Email disabled on server; cannot send reset email.",
       "resetEmailFailed": "Email delivery failed.",
@@ -258,7 +244,7 @@
       },
       "why": {
         "title": "Why CiberMandi",
-        "body": "CiberMandi is a public digital mandi ecosystem designed to modernize agricultural trading. It digitizes the entire mandi workflow—from farmer arrival to auction, payment, and dispatch. It ensures transparency, fairness, and efficiency for all stakeholders."
+        "body": "CiberMandi is a public digital mandi ecosystem designed to modernize agricultural trading. It digitizes the entire mandi workflow\u2014from farmer arrival to auction, payment, and dispatch. It ensures transparency, fairness, and efficiency for all stakeholders."
       },
       "benefits": {
         "farmers": {
@@ -338,11 +324,26 @@
       "faq": {
         "title": "FAQ",
         "entries": [
-          { "question": "Is CiberMandi free for farmers?", "answer": "Yes." },
-          { "question": "Do farmers need a smartphone?", "answer": "No." },
-          { "question": "Are traders verified?", "answer": "Yes." },
-          { "question": "Is it APMC compliant?", "answer": "Yes." },
-          { "question": "Is data safe?", "answer": "Yes, encrypted." }
+          {
+            "question": "Is CiberMandi free for farmers?",
+            "answer": "Yes."
+          },
+          {
+            "question": "Do farmers need a smartphone?",
+            "answer": "No."
+          },
+          {
+            "question": "Are traders verified?",
+            "answer": "Yes."
+          },
+          {
+            "question": "Is it APMC compliant?",
+            "answer": "Yes."
+          },
+          {
+            "question": "Is data safe?",
+            "answer": "Yes, encrypted."
+          }
         ]
       }
     },

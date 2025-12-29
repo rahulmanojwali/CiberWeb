@@ -20,6 +20,7 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
 
 export type RoleSlug =
   | "SUPER_ADMIN"
@@ -140,12 +141,12 @@ export const APP_MENU: AppMenuItem[] = [
   ],
 },
 
-  {
-    key: "system",
-    labelKey: "menu.system",
-    icon: React.createElement(SettingsOutlinedIcon),
-    roles: ["SUPER_ADMIN"],
-    children: [
+      {
+        key: "system",
+        labelKey: "menu.system",
+        icon: React.createElement(SettingsOutlinedIcon),
+        roles: ["SUPER_ADMIN"],
+        children: [
       {
         key: "userRoleManager",
         labelKey: "menu.userRoleManager",
@@ -170,6 +171,15 @@ export const APP_MENU: AppMenuItem[] = [
         path: "/system/resource-registry",
         icon: React.createElement(SecurityOutlinedIcon),
         resourceKey: "resource_registry.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
+        key: "securityTwoFactor",
+        labelKey: "menu.twoFactorSecurity",
+        path: "/system/security/2fa",
+        icon: React.createElement(VpnKeyOutlinedIcon),
+        resourceKey: "security_2fa.menu",
         requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
       },

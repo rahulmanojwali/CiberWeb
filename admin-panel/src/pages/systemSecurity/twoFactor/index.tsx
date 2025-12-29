@@ -104,6 +104,11 @@ const TwoFactorSettings: React.FC = () => {
           enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
         } else {
           enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
+          if (resp?.response?.description?.includes("Step-up required")) {
+            enqueueSnackbar("Please complete the step-up OTP before rotating.", {
+              variant: "warning",
+            });
+          }
         }
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Rotation failed.", { variant: "error" });

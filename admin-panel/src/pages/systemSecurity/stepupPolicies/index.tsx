@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
@@ -7,6 +7,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import InputAdornment from "@mui/material/InputAdornment";
+import SearchIcon from "@mui/icons-material/Search";
 import { fetchStepupPolicies } from "../../../services/stepupPoliciesApi";
 
 type StepupRule = {
@@ -31,6 +35,9 @@ const StepUpPoliciesPage: React.FC = () => {
   const [rules, setRules] = useState<StepupRule[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState("ALL");
 
   useEffect(() => {
     const usernameRaw =
@@ -71,6 +78,26 @@ const StepUpPoliciesPage: React.FC = () => {
   const formatDate = (value: string) =>
     value ? new Date(value).toLocaleString() : "—";
 
+  const subjects = useMemo(() => {
+    const set = new Set<string>();
+    rules.forEach((rule) => {
+      (rule.subject_types || []).forEach((sub) => set.add(sub));
+    });
+    return ["ALL", ...Array.from(set).sort()];
+  }, [rules]);
+
+  const filteredRules = useMemo(() => {
+    return rules.filter((rule) => {
+      if (activeOnly && rule.is_active !== "Y") return false;
+      if (subjectFilter !== "ALL" && !rule.subject_types.includes(subjectFilter)) return false;
+      const lowerSearch = search.trim().toLowerCase();
+      if (lowerSearch) {
+        return rule.rule_key.toLowerCase().includes(lowerSearch);
+      }
+      return true;
+    });
+  }, [rules, search, activeOnly, subjectFilter]);
+
   return (
     <Box sx={{ pb: 4 }}>
       <Stack spacing={2}>
@@ -78,19 +105,60 @@ const StepUpPoliciesPage: React.FC = () => {
           Step-up Policies
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Policies defined here determine which sensitive screens/actions
-          trigger two-factor verification for SUPER_ADMIN or other privileged
-          roles. The list below is read-only.
+          Policies defined here determine which actions trigger step-up
+          authentication. Data is read-only.
         </Typography>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            Status
-          </Typography>
-          <Typography variant="body2">
-            The API returns {rules.length} policy
-            {rules.length !== 1 ? " items" : " item"}.
-          </Typography>
+          <Stack
+            direction="row"
+            spacing={2}
+            alignItems="center"
+            flexWrap="wrap"
+            sx={{ minHeight: 48 }}
+          >
+            <TextField
+              label="Search rule key"
+              size="small"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Subject type"
+              size="small"
+              select
+              value={subjectFilter}
+              onChange={(event) => setSubjectFilter(event.target.value)}
+              sx={{ minWidth: 180 }}
+            >
+              {subjects.map((subject) => (
+                <MenuItem key={subject} value={subject}>
+                  {subject === "ALL" ? "All subjects" : subject}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Active only"
+              size="small"
+              select
+              value={activeOnly ? "Y" : "N"}
+              onChange={(event) => setActiveOnly(event.target.value === "Y")}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="N">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+            </TextField>
+            <Typography variant="body2" color="text.secondary">
+              {filteredRules.length} / {rules.length} policies shown
+            </Typography>
+          </Stack>
         </Paper>
 
         {status === "loading" && (
@@ -105,11 +173,11 @@ const StepUpPoliciesPage: React.FC = () => {
           </Alert>
         )}
 
-        {status === "ready" && !rules.length && (
-          <Alert severity="info">No step-up policies configured yet.</Alert>
+        {status === "ready" && !filteredRules.length && (
+          <Alert severity="info">No policies match the filters.</Alert>
         )}
 
-        {rules.map((rule) => (
+        {filteredRules.map((rule) => (
           <Paper key={String(rule._id || rule.rule_key)} variant="outlined" sx={{ p: 2 }}>
             <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
               <Typography variant="subtitle1">{rule.rule_key}</Typography>
@@ -124,23 +192,18 @@ const StepUpPoliciesPage: React.FC = () => {
                   rule.require_stepup === "Y" ? "Yes" : "No"
                 }`}
               />
+              <Chip size="small" label={`Priority ${rule.priority || 0}`} />
             </Stack>
             <Divider sx={{ my: 1 }} />
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              Priority: {rule.priority || 0}
-            </Typography>
             <Typography variant="body2">Subjects: {rule.subject_types.join(", ") || "—"}</Typography>
             <Typography variant="body2">
               Match type: {rule.match?.type || "—"}
             </Typography>
-            <Typography variant="body2">
-              Match values: {rule.match?.values?.join(", ") || "—"}
-            </Typography>
-            {rule.match?.actions && rule.match.actions.length > 0 && (
-              <Typography variant="body2">
-                Actions: {rule.match.actions.join(", ")}
-              </Typography>
-            )}
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+              {(rule.match?.values || []).map((value) => (
+                <Chip key={value} size="small" label={value} variant="outlined" />
+              ))}
+            </Stack>
             <Divider sx={{ my: 1 }} />
             <Stack direction="row" spacing={3} flexWrap="wrap">
               <Typography variant="caption">

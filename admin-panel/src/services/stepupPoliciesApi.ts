@@ -60,3 +60,24 @@ export async function fetchStepupPolicies({
 
   return postEncrypted(API_ROUTES.admin.getStepupPolicyRules, items);
 }
+
+export async function saveStepupPolicyRule({
+  username,
+  rule,
+  language = DEFAULT_LANGUAGE,
+  country = DEFAULT_COUNTRY,
+}: {
+  username: string;
+  rule: Record<string, any>;
+  language?: string;
+  country?: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.STEPUP_POLICY.save,
+    username,
+    language,
+    country,
+    rule,
+  };
+  return postEncrypted(API_ROUTES.admin.saveStepupPolicyRule, items);
+}

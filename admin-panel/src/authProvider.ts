@@ -233,6 +233,7 @@ export const authProvider: AuthProvider = {
   logout: async () => {
     storage.clearToken();
     storage.clearUser();
+    try { localStorage.removeItem("cm_stepup_session_id"); } catch { /* ignore */ }
     try { localStorage.removeItem("admin_ui_config_cache"); } catch { /* ignore */ }
     delete axios.defaults.headers.common["Authorization"];
     return { success: true, redirectTo: "/login" };
@@ -263,6 +264,7 @@ export const authProvider: AuthProvider = {
     if (status === 401 || status === 403) {
       storage.clearToken();
       storage.clearUser();
+      try { localStorage.removeItem("cm_stepup_session_id"); } catch { /* ignore */ }
       try { localStorage.removeItem("admin_ui_config_cache"); } catch { /* ignore */ }
       delete axios.defaults.headers.common["Authorization"];
       return { logout: true, redirectTo: "/login" };

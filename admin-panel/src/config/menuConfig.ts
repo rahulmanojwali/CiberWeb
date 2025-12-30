@@ -37,6 +37,7 @@ export type RoleSlug =
 export type AppMenuItem = {
   key?: string;
   labelKey: string;
+  labelOverride?: string;
   path?: string;
   icon?: React.ReactNode;
   resourceKey?: string;
@@ -897,14 +898,16 @@ export function filterMenuByResources(
       items.map((it) => {
         const resKey = it.resourceKey ? canonicalizeResourceKey(it.resourceKey) : undefined;
         const res = resKey ? resourceMap.get(resKey) : undefined;
-        // Keep existing translation key as primary; only fall back to UI resource labels when key is missing.
-        const labelOverride =
-          it.labelKey ||
+        const resourceLabel =
           (res as any)?.label_i18n?.[lang] ||
           (res as any)?.element;
+        const resolvedOverride =
+          resourceLabel && String(resourceLabel).trim()
+            ? String(resourceLabel)
+            : it.labelOverride;
         const children = it.children ? applyResourceLabels(it.children) : undefined;
         return cloneMenuItem(it, {
-          labelKey: labelOverride,
+          labelOverride: resolvedOverride,
           children,
         });
       });
@@ -920,6 +923,7 @@ export function filterMenuByResources(
     const dynamicByGroup: Record<string, AppMenuItem[]> = {};
     menuResources.forEach((r) => {
       const normalizedKey = normalizeKey(r.resource_key);
+      if (!normalizedKey) return;
       if (existingKeys.has(normalizedKey)) return;
       if (!r.route) return;
       const activeFlag = (r as any).is_active;
@@ -930,15 +934,18 @@ export function filterMenuByResources(
         (typeof navigator !== "undefined" && navigator.language
           ? navigator.language.split("-")[0]
           : "en") || "en";
-      const labelCandidate =
-        r.i18n_label_key ||
+      const rawLabel =
         ((r as any).label_i18n?.[lang]) ||
         r.element ||
         r.route ||
         normalizedKey;
+      const labelOverride =
+        rawLabel && String(rawLabel).trim() ? String(rawLabel).trim() : undefined;
+      const translationKey = String(r.i18n_label_key || normalizedKey);
       const item: AppMenuItem = {
         key: `${normalizedKey}-db`,
-        labelKey: labelCandidate,
+        labelKey: translationKey,
+        labelOverride,
         path: r.route,
         icon: React.createElement(SecurityOutlinedIcon),
         resourceKey: normalizedKey,

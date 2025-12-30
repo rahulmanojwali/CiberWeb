@@ -142,6 +142,10 @@ const StepUpPoliciesPage: React.FC = () => {
 
   const lockedSet = useMemo(() => new Set(lockedDefaults), [lockedDefaults]);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const availableResourceKeys = useMemo(
+    () => new Set(screens.map((screen) => screen.resource_key)),
+    [screens],
+  );
 
   const handleToggle = (resourceKey: string) => {
     const normalized = normalizeKey(resourceKey);
@@ -162,7 +166,17 @@ const StepUpPoliciesPage: React.FC = () => {
     if (!username) return;
     setSaving(true);
     try {
-      const toSave = Array.from(new Set([...selected, ...lockedDefaults]));
+      const candidateKeys = Array.from(
+        new Set([...selected, ...lockedDefaults])
+      );
+      const filteredSelection = candidateKeys.filter((key) =>
+        availableResourceKeys.has(key),
+      );
+      const toSave = filteredSelection;
+      if (!toSave.length) {
+        enqueueSnackbar("No valid step-up screens selected.", { variant: "error" });
+        return;
+      }
       const resp = await saveStepupPolicySelection({ username, selected: toSave });
       const responseObj = getResponseObject(resp);
       const responseCode = responseObj?.responsecode;

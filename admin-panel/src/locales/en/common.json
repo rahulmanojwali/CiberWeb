@@ -93,6 +93,7 @@
     "system": "System",
     "rolePermissions": "Roles & Permissions",
     "userRoleManager": "User Role Manager",
+    "resourceRegistry": "Resource Registry",
     "twoFactorSecurity": "2FA Security"
   },
   "header": {

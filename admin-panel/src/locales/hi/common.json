@@ -72,7 +72,8 @@
     "mandiGates": "गेट्स",
     "auctionSessions": "नीलामी सत्र",
     "auctionLots": "नीलामी लॉट",
-    "auctionResults": "नीलामी परिणाम"
+    "auctionResults": "नीलामी परिणाम",
+    "resourceRegistry": "Resource Registry"
   },
   "adminUsers": {
     "title": "एडमिन उपयोगकर्ता",

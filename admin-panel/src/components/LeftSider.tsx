@@ -53,6 +53,8 @@ export const LeftSider: React.FC = () => {
   };
 
   const navigableItems = useMemo(() => flattenMenu(items), [items]);
+  const translateMenuLabel = (menuItem: MenuItem) =>
+    t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
 
   return (
     <Box
@@ -114,7 +116,7 @@ export const LeftSider: React.FC = () => {
                 {item.icon}
               </ListItemIcon>
               <ListItemText
-                primary={t(item.labelKey)}
+                primary={translateMenuLabel(item)}
                 primaryTypographyProps={{
                   fontWeight: active ? 600 : 500,
                 }}

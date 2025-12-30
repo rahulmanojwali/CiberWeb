@@ -115,6 +115,9 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     setCollapsed((prev) => !prev);
   };
 
+  const translateMenuLabel = (menuItem: NavMenuItem) =>
+    t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
+
 
   if (isSmall) {
     return null;
@@ -238,7 +241,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     )}
                     {!collapsed && (
                       <ListItemText
-                        primary={t(item.labelKey)}
+                        primary={translateMenuLabel(item)}
                         primaryTypographyProps={{
                           fontWeight: active ? 600 : 500,
                           variant: "body2",
@@ -279,7 +282,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     )}
                     {!collapsed && (
                       <ListItemText
-                        primary={t(item.labelKey)}
+                        primary={translateMenuLabel(item)}
                         primaryTypographyProps={{
                           variant: "subtitle2",
                           fontWeight: 600,
@@ -335,7 +338,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                                 </ListItemIcon>
                               )}
                               <ListItemText
-                                primary={t(child.labelKey)}
+                                primary={translateMenuLabel(child)}
                                 primaryTypographyProps={{
                                   variant: "body2",
                                   fontWeight: active ? 600 : 500,

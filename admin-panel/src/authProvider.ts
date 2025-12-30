@@ -11,6 +11,10 @@ import {
   DEFAULT_COUNTRY,
   DEFAULT_LANGUAGE,
 } from "./config/appConfig";
+import {
+  clearStepupLockedSet,
+  loadStepupLockedSetOnce,
+} from "./utils/stepupCache";
 
 const BASE_URL = API_BASE_URL;
 const LOGIN_ROUTE = API_ROUTES.auth.login;
@@ -212,6 +216,11 @@ export const authProvider: AuthProvider = {
       roles_enabled: resp?.roles_enabled || {},
       roles_blocked: resp?.roles_blocked || {},
     });
+    await loadStepupLockedSetOnce({
+      username,
+      country: country || COUNTRY_FALLBACK,
+      language: LANGUAGE,
+    });
     return { success: true, redirectTo: "/" };
   } catch (e: any) {
     const url = `${BASE_URL}${LOGIN_ROUTE}`;
@@ -236,6 +245,7 @@ export const authProvider: AuthProvider = {
     try { localStorage.removeItem("cm_stepup_session_id"); } catch { /* ignore */ }
     try { localStorage.removeItem("admin_ui_config_cache"); } catch { /* ignore */ }
     delete axios.defaults.headers.common["Authorization"];
+    clearStepupLockedSet();
     return { success: true, redirectTo: "/login" };
   },
 
@@ -267,6 +277,7 @@ export const authProvider: AuthProvider = {
       try { localStorage.removeItem("cm_stepup_session_id"); } catch { /* ignore */ }
       try { localStorage.removeItem("admin_ui_config_cache"); } catch { /* ignore */ }
       delete axios.defaults.headers.common["Authorization"];
+      clearStepupLockedSet();
       return { logout: true, redirectTo: "/login" };
     }
     console.error(error);

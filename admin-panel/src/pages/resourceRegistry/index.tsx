@@ -23,6 +23,7 @@ import { fetchResourceRegistry, updateResourceRegistry } from "../../services/re
 import { ActionGate } from "../../authz/ActionGate";
 import { usePermissions } from "../../authz/usePermissions";
 import { useRecordLock } from "../../authz/isRecordLocked";
+import { StepUpGuard } from "../../components/StepUpGuard";
 
 type RegistryEntry = {
   resource_key: string;
@@ -123,7 +124,8 @@ const ResourceRegistryPage: React.FC = () => {
   if (!username) return <Typography>Please log in.</Typography>;
 
   return (
-    <Stack spacing={2}>
+    <StepUpGuard username={username} resourceKey="resource_registry.menu">
+      <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
         <Typography variant="h5">Resource Registry</Typography>
         <Typography variant="body2" color="text.secondary">
@@ -252,6 +254,7 @@ const ResourceRegistryPage: React.FC = () => {
         </Table>
       </Paper>
     </Stack>
+    </StepUpGuard>
   );
 };
 

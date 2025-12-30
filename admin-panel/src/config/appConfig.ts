@@ -10,6 +10,7 @@ export const API_TAGS = {
     create: "create_Organisation22",
     update: "update_Organisation23",
   },
+
   ADMIN_USERS: {
     list: "getAdminUsers",
     create: "createAdminUser",
@@ -33,6 +34,8 @@ export const API_TAGS = {
   STEPUP_POLICY: {
     list: "getStepupPolicyRules",
     save: "saveStepupPolicyRule",
+    getScreens: "getStepupPolicyScreens",
+    saveSelection: "saveStepupPolicySelection",
   },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
@@ -253,6 +256,7 @@ const PAYMENT_CONFIG_ROUTES = {
   previewEffectiveFees: "/admin/previewEffectiveFees",
 } as const;
 
+
 const SUBSCRIPTION_ROUTES = {
   getSubscriptions: "/admin/getSubscriptions",
   upsertSubscription: "/admin/upsertSubscription",
@@ -293,6 +297,8 @@ export const API_ROUTES = {
     getAdminRoles: "/admin/getAdminRoles",
     getStepupPolicyRules: "/admin/security/getStepupPolicyRules",
     saveStepupPolicyRule: "/admin/security/saveStepupPolicyRule",
+    getStepupPolicyScreens: "/admin/security/getStepupPolicyScreens",
+    saveStepupPolicySelection: "/admin/security/saveStepupPolicySelection",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",
@@ -426,3 +432,4 @@ export const APP_STRINGS = {
   title: "CiberMandi",
   tagline: "Super Admin Console",
 };
+

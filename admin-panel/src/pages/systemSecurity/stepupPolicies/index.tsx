@@ -27,6 +27,22 @@ type StepupScreen = {
   resource_key: string;
 };
 
+type RawStepupScreen = {
+  label?: string;
+  route?: string;
+  group?: string;
+  resource_key?: string;
+};
+
+const normalizeStringArray = (values: unknown[]): string[] =>
+  Array.from(
+    new Set(
+      values
+        .map((value) => normalizeKey(typeof value === "string" ? value : String(value || "")))
+        .filter(Boolean)
+    )
+  );
+
 const normalizeKey = (value: string | null | undefined) =>
   String(value || "").trim();
 
@@ -66,7 +82,9 @@ const StepUpPoliciesPage: React.FC = () => {
 
     getStepupPolicyScreens({ username })
       .then((resp) => {
-        const fetchedScreens = Array.isArray(resp?.screens) ? resp.screens : [];
+        const fetchedScreens = Array.isArray(resp?.screens)
+          ? (resp.screens as RawStepupScreen[])
+          : [];
         const normalizedScreens = fetchedScreens
           .map((screen) => ({
             label: String(screen?.label || screen?.resource_key || "Untitled screen"),
@@ -76,19 +94,16 @@ const StepUpPoliciesPage: React.FC = () => {
           }))
           .filter((screen) => screen.resource_key && screen.route);
 
-        const locked = Array.isArray(resp?.locked_defaults) ? resp.locked_defaults : [];
-        const incoming = Array.isArray(resp?.selected) ? resp.selected : [];
-
-        const normalizedLocked = Array.from(
-          new Set(locked.map(normalizeKey).filter(Boolean))
-        );
-        const normalizedSelected = Array.from(
-          new Set(incoming.map(normalizeKey).filter(Boolean))
-        );
+        const locked = Array.isArray(resp?.locked_defaults)
+          ? normalizeStringArray(resp.locked_defaults)
+          : [];
+        const incoming = Array.isArray(resp?.selected)
+          ? normalizeStringArray(resp.selected)
+          : [];
 
         setScreens(normalizedScreens);
-        setLockedDefaults(normalizedLocked);
-        setSelected(Array.from(new Set([...normalizedSelected, ...normalizedLocked])));
+        setLockedDefaults(locked);
+        setSelected(Array.from(new Set([...incoming, ...locked])));
         setStatus("ready");
       })
       .catch((err) => {
@@ -126,15 +141,19 @@ const StepUpPoliciesPage: React.FC = () => {
     try {
       const toSave = Array.from(new Set([...selected, ...lockedDefaults]));
       const resp = await saveStepupPolicySelection({ username, selected: toSave });
-      const locked = Array.isArray(resp?.locked_defaults)
-        ? resp.locked_defaults
+      const lockedFromResponse = Array.isArray(resp?.locked_defaults)
+        ? normalizeStringArray(resp.locked_defaults)
         : lockedDefaults;
-      const selectedKeys = Array.isArray(resp?.selected) ? resp.selected : toSave;
-      const normalizedLocked = Array.from(new Set(locked.map(normalizeKey).filter(Boolean)));
+      const selectedKeys = Array.isArray(resp?.selected)
+        ? normalizeStringArray(resp.selected)
+        : [];
       const normalizedSelected = Array.from(
-        new Set([...selectedKeys.map(normalizeKey), ...normalizedLocked])
+        new Set([
+          ...(selectedKeys.length ? selectedKeys : toSave),
+          ...lockedFromResponse,
+        ])
       );
-      setLockedDefaults(normalizedLocked);
+      setLockedDefaults(lockedFromResponse);
       setSelected(normalizedSelected);
       enqueueSnackbar("Step-up screen selection saved.", { variant: "success" });
     } catch (err: any) {

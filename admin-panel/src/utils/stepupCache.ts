@@ -1,4 +1,5 @@
 import { getStepupPolicyScreens } from "../services/security/stepupPolicyService";
+import { canonicalizeResourceKey } from "./adminUiConfig";
 
 type StepupScreensResponse = any;
 
@@ -19,7 +20,7 @@ function extractSelected(resp: StepupScreensResponse): string[] {
     const candidate = candidateGetter(resp);
     if (candidate && Array.isArray(candidate.selected)) {
       return candidate.selected
-        .map((value: any) => String(value || "").trim().toLowerCase())
+        .map((value: any) => canonicalizeResourceKey(String(value || "").trim()))
         .filter(Boolean);
     }
   }

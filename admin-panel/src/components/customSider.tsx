@@ -23,7 +23,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import {
   filterMenuByResources,
@@ -34,6 +34,7 @@ import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { getCurrentAdminUsername } from "../utils/session";
 import { usePermissions } from "../authz/usePermissions";
+import { useMenuNavigation } from "../hooks/useMenuNavigation";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -48,7 +49,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const navigate = useNavigate();
   const location = useLocation();
   const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
   const storageRole = getUserRoleFromStorage("CustomSider");
@@ -109,6 +109,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const username = getCurrentAdminUsername();
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
   const initials = displayName?.charAt(0)?.toUpperCase() || "?";
+
+  const menuNavigate = useMenuNavigation();
 
   const handleCloseClick = () => {
     // Desktop: toggle collapsed; mobile never renders this sider.
@@ -215,7 +217,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                 >
                   <ListItemButton
                     selected={active}
-                    onClick={() => item.path && navigate(item.path)}
+                    onClick={() => item.path && menuNavigate(item.path, item.resourceKey)}
                     sx={{
                       minHeight: 48,
                       py: 0.75,
@@ -311,9 +313,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                             disablePadding
                             sx={{ display: "block" }}
                           >
-                            <ListItemButton
-                              selected={active}
-                              onClick={() => child.path && navigate(child.path)}
+                              <ListItemButton
+                                selected={active}
+                                onClick={() =>
+                                  child.path && menuNavigate(child.path, child.resourceKey)
+                                }
                               sx={{
                                 minHeight: 48,
                                 py: 0.75,

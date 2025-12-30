@@ -36,7 +36,7 @@ import React, { useCallback, useContext, useMemo, useState, useEffect } from "re
 
 
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import { ColorModeContext } from "../../contexts/color-mode";
 import { BRAND_ASSETS, DEFAULT_LANGUAGE } from "../../config/appConfig";
@@ -54,6 +54,7 @@ import {
 import { getUserRoleFromStorage } from "../../utils/roles";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
+import { useMenuNavigation } from "../../hooks/useMenuNavigation";
 
 const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
   const flattened: NavMenuItem[] = [];
@@ -95,14 +96,14 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     document.title = "CiberMandi Admin Console";
   }, []);
 
-  const navigate = useNavigate();
+  const menuNavigate = useMenuNavigation();
   const location = useLocation();
   const handleNavClick = useCallback(
-    (path: string) => {
-      navigate(path);
-      setMobileMenuOpen(false);
+    (path: string, resourceKey?: string) => {
+      if (!path) return;
+      menuNavigate(path, resourceKey, () => setMobileMenuOpen(false));
     },
-    [navigate],
+    [menuNavigate],
   );
 
   const { data: user } = useGetIdentity<IUser>();
@@ -208,7 +209,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
         >
           <ListItemButton
             selected={active}
-            onClick={() => item.path && handleNavClick(item.path)}
+            onClick={() => item.path && handleNavClick(item.path, item.resourceKey)}
             sx={{
               minHeight: 48,
               py: 0.75,

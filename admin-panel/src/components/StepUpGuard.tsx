@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import {
 import { useSnackbar } from "@refinedev/mui";
 
 import { requireStepUp, verifyStepUp } from "../services/adminUsersApi";
+import { getStepupLockedSet } from "../utils/stepupCache";
 
 type StepUpResponse = {
   required?: boolean;
@@ -114,6 +115,9 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({
   action = "VIEW",
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const normalizedResourceKey = resourceKey ? resourceKey.trim().toLowerCase() : "";
+  const finalResourceKey = normalizedResourceKey || resourceKey || undefined;
   const { enqueueSnackbar } = useSnackbar();
   const [loading, setLoading] = React.useState(true);
   const [stepupRequired, setStepupRequired] = React.useState<StepUpResponse | null>(
@@ -131,13 +135,28 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({
       setStepupRequired({ required: false });
       return;
     }
+
+    const lockedSet = getStepupLockedSet();
+    const isLocked = Boolean(finalResourceKey && lockedSet.has(finalResourceKey));
+    console.log(
+      "[STEPUP_GUARD]",
+      `route=${location?.pathname || "unknown"}`,
+      `key=${finalResourceKey || "unknown"}`,
+      `locked=${isLocked}`,
+    );
+    if (!isLocked) {
+      setLoading(false);
+      setStepupRequired({ required: false });
+      return;
+    }
+
     try {
       const session = typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
       const resp: any = await requireStepUp({
         username,
         target_username: username,
         session_id: session || undefined,
-        resource_key: resourceKey,
+        resource_key: finalResourceKey,
         action,
       });
       const stepup: StepUpResponse = resp?.stepup || {};

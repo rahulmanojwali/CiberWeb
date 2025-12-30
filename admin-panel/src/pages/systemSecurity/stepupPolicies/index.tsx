@@ -37,7 +37,7 @@ type RawStepupScreen = {
 };
 
 const normalizeKey = (value: string | null | undefined) =>
-  String(value || "").trim();
+  String(value || "").trim().toLowerCase();
 
 const normalizeStringArray = (values: unknown[]): string[] =>
   Array.from(
@@ -64,6 +64,38 @@ const pickArrayField = (resp: any, field: string): unknown[] => {
     }
   }
   return [];
+};
+
+const getResponseMatchField = (resp: any) => {
+  for (const candidate of getResponseCandidates(resp)) {
+    if (candidate && candidate.match && typeof candidate.match === "object") {
+      return candidate.match;
+    }
+  }
+  return null;
+};
+
+const buildPrefixesFromKeys = (keys: string[]) => {
+  const prefixes = new Set<string>();
+  for (const raw of keys || []) {
+    const key = normalizeKey(raw);
+    if (!key) continue;
+    const lastDot = key.lastIndexOf(".");
+    if (lastDot <= 0) continue;
+    const prefix = key.slice(0, lastDot + 1);
+    if (prefix) {
+      prefixes.add(prefix);
+    }
+  }
+  return Array.from(prefixes);
+};
+
+const matchesWithRuleValue = (matchType: string, values: string[], resourceKey: string) => {
+  if (!resourceKey || !values.length) return false;
+  if (matchType === "RESOURCE_KEY_PREFIX") {
+    return values.some((prefix) => resourceKey.startsWith(prefix));
+  }
+  return values.includes(resourceKey);
 };
 
 const getResponseObject = (resp: any) => {
@@ -122,11 +154,19 @@ const StepUpPoliciesPage: React.FC = () => {
           .filter((screen) => screen.resource_key && screen.route);
 
         const locked = normalizeStringArray(pickArrayField(resp, "locked_defaults"));
-        const incoming = normalizeStringArray(pickArrayField(resp, "selected"));
+        const matchData = getResponseMatchField(resp);
+        const matchType = String((matchData?.type || "RESOURCE_KEY_PREFIX")).trim().toUpperCase();
+        const matchValues =
+          Array.isArray(matchData?.values) ? normalizeStringArray(matchData.values) : [];
+        const derivedSelected = normalizedScreens
+          .filter((screen) =>
+            matchesWithRuleValue(matchType, matchValues, screen.resource_key)
+          )
+          .map((screen) => screen.resource_key);
 
         setScreens(normalizedScreens);
         setLockedDefaults(locked);
-        setSelected(Array.from(new Set([...incoming, ...locked])));
+        setSelected(Array.from(new Set([...derivedSelected, ...locked])));
         setStatus("ready");
       })
       .catch((err) => {
@@ -177,7 +217,12 @@ const StepUpPoliciesPage: React.FC = () => {
         enqueueSnackbar("No valid step-up screens selected.", { variant: "error" });
         return;
       }
-      const resp = await saveStepupPolicySelection({ username, selected: toSave });
+      const prefixesToSave = buildPrefixesFromKeys(toSave);
+      if (!prefixesToSave.length) {
+        enqueueSnackbar("Unable to compute step-up prefixes.", { variant: "error" });
+        return;
+      }
+      const resp = await saveStepupPolicySelection({ username, selected: prefixesToSave });
       const responseObj = getResponseObject(resp);
       const responseCode = responseObj?.responsecode;
       const responseDescription = responseObj?.description;

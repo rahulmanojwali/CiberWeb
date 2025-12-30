@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useSnackbar } from "notistack";
+import { StepUpGuard } from "../../../components/StepUpGuard";
 import {
   getStepupPolicyScreens,
   saveStepupPolicySelection,
@@ -25,6 +26,7 @@ type StepupScreen = {
   route: string;
   group: string;
   resource_key: string;
+  locked?: boolean;
 };
 
 type RawStepupScreen = {
@@ -182,9 +184,10 @@ const StepUpPoliciesPage: React.FC = () => {
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper sx={{ p: 2 }}>
-        <Stack
+    <StepUpGuard username={username} resourceKey="system.security.stepup_policies">
+      <Stack spacing={2}>
+        <Paper sx={{ p: 2 }}>
+          <Stack
           direction={{ xs: "column", sm: "row" }}
           justifyContent="space-between"
           alignItems="center"
@@ -274,6 +277,11 @@ const StepUpPoliciesPage: React.FC = () => {
                             Locked
                           </Typography>
                         )}
+                        {screen.locked && (
+                          <Typography variant="caption" color="text.secondary">
+                            This screen is always protected.
+                          </Typography>
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -283,7 +291,8 @@ const StepUpPoliciesPage: React.FC = () => {
           </Table>
         )}
       </Paper>
-    </Stack>
+      </Stack>
+    </StepUpGuard>
   );
 };
 

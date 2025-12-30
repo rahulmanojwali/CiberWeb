@@ -66,6 +66,15 @@ const pickArrayField = (resp: any, field: string): unknown[] => {
   return [];
 };
 
+const getResponseObject = (resp: any) => {
+  for (const candidate of getResponseCandidates(resp)) {
+    if (candidate && typeof candidate === "object" && candidate.response) {
+      return candidate.response;
+    }
+  }
+  return null;
+};
+
 function resolveUsername(): string {
   if (typeof window === "undefined") return "";
   const raw = window.localStorage.getItem("cd_user");
@@ -155,6 +164,15 @@ const StepUpPoliciesPage: React.FC = () => {
     try {
       const toSave = Array.from(new Set([...selected, ...lockedDefaults]));
       const resp = await saveStepupPolicySelection({ username, selected: toSave });
+      const responseObj = getResponseObject(resp);
+      const responseCode = responseObj?.responsecode;
+      const responseDescription = responseObj?.description;
+      if (responseCode !== "0") {
+        enqueueSnackbar(responseDescription || "Unable to save step-up selection.", {
+          variant: "error",
+        });
+        return;
+      }
       const lockedFromResponse = normalizeStringArray(
         pickArrayField(resp, "locked_defaults")
       );
@@ -183,114 +201,124 @@ const StepUpPoliciesPage: React.FC = () => {
     return <Typography>Please log in.</Typography>;
   }
 
+  const actionBarSx = {
+    p: 2,
+    position: "sticky" as const,
+    top: 0,
+    zIndex: 3,
+    bgcolor: "background.paper",
+    borderBottom: (theme: any) => `1px solid ${theme.palette.divider}`,
+    boxShadow: 1,
+  };
+
   return (
     <StepUpGuard username={username} resourceKey="system.security.stepup_policies">
       <Stack spacing={2}>
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={actionBarSx}>
           <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems="center"
-          flexWrap="wrap"
-          gap={2}
-        >
-          <Box>
-            <Typography variant="h5">Step-Up Policy Manager</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Toggle screen-level enforcement for SUPER_ADMIN screens.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={status === "loading" || saving || !screens.length}
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems="center"
+            flexWrap="wrap"
+            gap={2}
           >
-            {saving ? <CircularProgress size={20} /> : "Save selection"}
-          </Button>
-        </Stack>
-      </Paper>
-
-      {error && (
-        <Paper sx={{ p: 2 }}>
-          <Alert severity="error">{error}</Alert>
-        </Paper>
-      )}
-
-      {lockedDefaults.length > 0 && (
-        <Paper sx={{ p: 2 }}>
-          <Alert severity="info">
-            Locked defaults (always enforced): {lockedDefaults.join(", ")}
-          </Alert>
-        </Paper>
-      )}
-
-      <Paper sx={{ p: 2 }}>
-        {status === "loading" ? (
-          <Stack alignItems="center" py={6}>
-            <CircularProgress />
+            <Box>
+              <Typography variant="h5">Step-Up Policy Manager</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Toggle screen-level enforcement for SUPER_ADMIN screens.
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={status === "loading" || saving || !screens.length}
+            >
+              {saving ? <CircularProgress size={20} /> : "Save selection"}
+            </Button>
           </Stack>
-        ) : !screens.length ? (
-          <Typography>No screens available.</Typography>
-        ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Screen</TableCell>
-                <TableCell>Route</TableCell>
-                <TableCell>Module / Group</TableCell>
-                <TableCell align="center">Step-up</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {screens.map((screen) => {
-                const checked =
-                  lockedSet.has(screen.resource_key) || selectedSet.has(screen.resource_key);
-                return (
-                  <TableRow key={screen.resource_key}>
-                    <TableCell>
-                      <Stack spacing={0.3}>
-                        <Typography variant="subtitle2">
-                          {screen.label || screen.resource_key}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {screen.resource_key}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {screen.route}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{screen.group || "-"}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack alignItems="center" spacing={0.5}>
-                        <Checkbox
-                          checked={checked}
-                          disabled={lockedSet.has(screen.resource_key)}
-                          onChange={() => handleToggle(screen.resource_key)}
-                        />
-                        {lockedSet.has(screen.resource_key) && (
-                          <Typography variant="caption" color="text.secondary">
-                            Locked
-                          </Typography>
-                        )}
-                        {screen.locked && (
-                          <Typography variant="caption" color="text.secondary">
-                            This screen is always protected.
-                          </Typography>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        </Paper>
+
+        {error && (
+          <Paper sx={{ p: 2 }}>
+            <Alert severity="error">{error}</Alert>
+          </Paper>
         )}
-      </Paper>
+
+        {lockedDefaults.length > 0 && (
+          <Paper sx={{ p: 2 }}>
+            <Alert severity="info">
+              Locked defaults (always enforced): {lockedDefaults.join(", ")}
+            </Alert>
+          </Paper>
+        )}
+
+        <Paper sx={{ p: 2 }}>
+          {status === "loading" ? (
+            <Stack alignItems="center" py={6}>
+              <CircularProgress />
+            </Stack>
+          ) : !screens.length ? (
+            <Typography>No screens available.</Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Screen</TableCell>
+                  <TableCell>Route</TableCell>
+                  <TableCell>Module / Group</TableCell>
+                  <TableCell align="center">Step-up</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {screens.map((screen) => {
+                  const checked =
+                    lockedSet.has(screen.resource_key) || selectedSet.has(screen.resource_key);
+                  return (
+                    <TableRow key={screen.resource_key}>
+                      <TableCell>
+                        <Stack spacing={0.3}>
+                          <Typography variant="subtitle2">
+                            {screen.label || screen.resource_key}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {screen.resource_key}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {screen.route}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{screen.group || "-"}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack alignItems="center" spacing={0.5}>
+                          <Checkbox
+                            checked={checked}
+                            disabled={lockedSet.has(screen.resource_key)}
+                            onChange={() => handleToggle(screen.resource_key)}
+                          />
+                          {lockedSet.has(screen.resource_key) && (
+                            <Typography variant="caption" color="text.secondary">
+                              Locked
+                            </Typography>
+                          )}
+                          {screen.locked && (
+                            <Typography variant="caption" color="text.secondary">
+                              This screen is always protected.
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </Paper>
       </Stack>
     </StepUpGuard>
   );

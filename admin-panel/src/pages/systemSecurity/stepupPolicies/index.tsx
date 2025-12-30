@@ -226,7 +226,7 @@ const StepUpPoliciesPage: React.FC = () => {
   };
 
   return (
-    <StepUpGuard username={username} resourceKey="system.security.stepup_policies">
+    <StepUpGuard username={username} resourceKey="stepup_policy.view">
       <Stack spacing={2}>
         <Paper sx={actionBarSx}>
           <Stack

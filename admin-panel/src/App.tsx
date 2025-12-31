@@ -82,6 +82,8 @@ import { CustomSider } from "./components/customSider";
 import { getUserRoleFromStorage } from "./utils/roles";
 import { AdminUiConfigProvider } from "./contexts/admin-ui-config";
 import { PermissionsDebugPanel } from "./components/PermissionsDebugPanel";
+import { StepUpProvider } from "./security/stepup/StepUpContext";
+import { StepUpRouteEnforcer } from "./components/StepUpRouteEnforcer";
 
 const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mutate: logout } = useLogout();
@@ -134,12 +136,16 @@ function App() {
                 <Route
                   element={
                     <AdminRoleGuard>
-                      <AdminUiConfigProvider>
-                        <PermissionsDebugPanel />
-                        <ThemedLayout Header={Header} Sider={CustomSider}>
-                          <Outlet />
-                        </ThemedLayout>
-                      </AdminUiConfigProvider>
+                <AdminUiConfigProvider>
+                  <StepUpProvider>
+                    <PermissionsDebugPanel />
+                    <ThemedLayout Header={Header} Sider={CustomSider}>
+                      <StepUpRouteEnforcer>
+                        <Outlet />
+                      </StepUpRouteEnforcer>
+                    </ThemedLayout>
+                  </StepUpProvider>
+                </AdminUiConfigProvider>
                     </AdminRoleGuard>
                   }
                 >

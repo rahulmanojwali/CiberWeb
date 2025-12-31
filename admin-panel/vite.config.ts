@@ -1,21 +1,37 @@
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { fileURLToPath } from "url";
-import path from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  // Serve build under /admin so assets resolve correctly when hosted at /admin/...
-  base: "/admin/",
   plugins: [react()],
-  resolve: {
-    alias: [
-      {
-        find: /^notistack$/,
-        replacement: path.resolve(__dirname, "src/notistack-compat.tsx"),
+
+  // IMPORTANT: use default root (project root)
+  // so Vite always finds ./index.html
+  build: {
+    emptyOutDir: true,
+    outDir: "dist",
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/react-router/") ||
+            id.includes("/node_modules/react-router-dom/")
+          ) return "react-vendor";
+
+          if (id.includes("/node_modules/@refinedev/")) return "refine-vendor";
+
+          if (
+            id.includes("/node_modules/@mui/") ||
+            id.includes("/node_modules/@emotion/")
+          ) return "mui-vendor";
+
+          return "vendor";
+        },
       },
-    ],
+    },
   },
 });

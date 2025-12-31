@@ -1,11 +1,5 @@
 import React, { type ComponentType } from "react";
-import {
-  closeSnackbar,
-  enqueueSnackbar,
-  SnackbarContent,
-  SnackbarProvider,
-  useSnackbar,
-} from "notistack/notistack.esm.js";
+import { SnackbarContent, SnackbarProvider, useSnackbar } from "notistack";
 import type {
   OptionsObject,
   ProviderContext,
@@ -13,7 +7,7 @@ import type {
   SnackbarMessage,
   SnackbarOrigin,
   SnackbarProviderProps,
-} from "notistack/notistack.esm.js";
+} from "notistack";
 
 export const withSnackbar = <P extends object>(Component: ComponentType<P>) => {
   const Wrapped: React.FC<P> = (props) => {
@@ -30,8 +24,6 @@ export {
   SnackbarProvider,
   SnackbarContent,
   useSnackbar,
-  closeSnackbar,
-  enqueueSnackbar,
   type OptionsObject,
   type ProviderContext,
   type SnackbarKey,

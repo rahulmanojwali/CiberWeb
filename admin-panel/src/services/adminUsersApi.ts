@@ -209,6 +209,7 @@ export async function requireStepUp({
   session_id,
   resource_key,
   action,
+  browser_session_id,
 }: {
   username: string;
   target_username: string;
@@ -217,6 +218,7 @@ export async function requireStepUp({
   session_id?: string;
   resource_key?: string;
   action?: string;
+  browser_session_id?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.requireStepUp,
@@ -234,6 +236,9 @@ export async function requireStepUp({
   if (action) {
     items.action = action;
   }
+  if (browser_session_id) {
+    items.browser_session_id = browser_session_id;
+  }
   const headers: Record<string, string> = session_id
     ? { "X-StepUp-Session": session_id }
     : {};
@@ -244,10 +249,12 @@ export async function verifyStepUp({
   username,
   otp,
   backup_code,
+  browser_session_id,
 }: {
   username: string;
   otp?: string;
   backup_code?: string;
+  browser_session_id?: string;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.verifyStepUp,
@@ -256,6 +263,9 @@ export async function verifyStepUp({
   };
   if (otp) items.otp = otp;
   if (backup_code) items.backup_code = backup_code;
+  if (browser_session_id) {
+    items.browser_session_id = browser_session_id;
+  }
   return postEncrypted(API_ROUTES.admin.verifyStepUp, items);
 }
 

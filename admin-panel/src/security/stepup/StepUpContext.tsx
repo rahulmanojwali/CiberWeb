@@ -22,6 +22,7 @@ import {
   getStepupLockedSet,
   loadStepupLockedSetOnce,
 } from "../../utils/stepupCache";
+import { getBrowserSessionId } from "./browserSession";
 
 type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
 
@@ -91,28 +92,31 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
   }, [cacheReady]);
 
   React.useEffect(() => {
+    getBrowserSessionId();
     ensureCacheLoaded();
   }, [ensureCacheLoaded]);
 
   const issueStepUpCheck = React.useCallback(
     async (resourceKey: string, action: string) => {
-      const storedUser = getStoredAdminUser();
-      const username = storedUser?.username || getCurrentAdminUsername();
-      if (!username) {
-        throw new Error("Unable to resolve current user for step-up");
-      }
+    const storedUser = getStoredAdminUser();
+    const username = storedUser?.username || getCurrentAdminUsername();
+    if (!username) {
+      throw new Error("Unable to resolve current user for step-up");
+    }
 
-      const sessionId =
-        typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
-      const resp: any = await requireStepUp({
-        username,
-        target_username: username,
-        language: storedUser?.language,
-        country: storedUser?.country,
-        session_id: sessionId || undefined,
-        resource_key: resourceKey,
-        action,
-      });
+    const browserSessionId = getBrowserSessionId();
+    const sessionId =
+      typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
+    const resp: any = await requireStepUp({
+      username,
+      target_username: username,
+      language: storedUser?.language,
+      country: storedUser?.country,
+      session_id: sessionId || undefined,
+      browser_session_id: browserSessionId || undefined,
+      resource_key: resourceKey,
+      action,
+    });
 
       return (
         resp?.stepup ||
@@ -248,6 +252,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
         username,
         otp: useBackup ? undefined : otp,
         backup_code: useBackup ? backupCode.trim() : undefined,
+        browser_session_id: getBrowserSessionId() || undefined,
       });
       const payload = resp?.stepup?.stepup || resp?.stepup;
       const stepupSessionId = payload?.stepup_session_id;

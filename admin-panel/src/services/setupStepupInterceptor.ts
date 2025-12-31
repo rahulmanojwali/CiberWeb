@@ -12,6 +12,7 @@ axios.interceptors.request.use(
       const browserSessionId = getBrowserSessionId();
       if (browserSessionId) {
         currentHeaders.set("X-StepUp-Browser-Session", browserSessionId);
+        currentHeaders.set("x-cm-browser-session", browserSessionId);
       }
       config.headers = currentHeaders;
     }

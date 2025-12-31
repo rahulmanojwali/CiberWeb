@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Checkbox,
   CircularProgress,
+  FormControlLabel,
   Paper,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -20,6 +22,10 @@ import {
   getStepupPolicyScreens,
   saveStepupPolicySelection,
 } from "../../../services/security/stepupPolicyService";
+import {
+  getSecuritySwitches,
+  updateSecuritySwitches,
+} from "../../../services/security/securitySwitchService";
 
 type StepupScreen = {
   label: string;
@@ -127,6 +133,10 @@ const StepUpPoliciesPage: React.FC = () => {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [bindingSwitch, setBindingSwitch] = useState<"Y" | "N">("N");
+  const [bindingLoading, setBindingLoading] = useState(false);
+  const [bindingSaving, setBindingSaving] = useState(false);
+  const [bindingError, setBindingError] = useState("");
 
   const { enqueueSnackbar } = useSnackbar();
   const username = useMemo(() => resolveUsername(), []);
@@ -177,6 +187,48 @@ const StepUpPoliciesPage: React.FC = () => {
           "Unable to load step-up screens.";
         setError(message);
         setStatus("error");
+      });
+  }, [username]);
+
+  useEffect(() => {
+    if (!username) return;
+    setBindingLoading(true);
+    setBindingError("");
+    getSecuritySwitches({ username })
+      .then((resp) => {
+        const value =
+          resp?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+          resp?.data?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+          resp?.response?.switches?.STEPUP_BROWSER_SESSION_BINDING;
+        setBindingSwitch(value === "Y" ? "Y" : "N");
+      })
+      .catch((err) => {
+        console.error("[StepUpPolicies] fetch switch error:", err);
+        setBindingError("Unable to load browser session switch.");
+      })
+      .finally(() => {
+        setBindingLoading(false);
+      });
+  }, [username]);
+
+  useEffect(() => {
+    if (!username) return;
+    setBindingLoading(true);
+    setBindingError("");
+    getSecuritySwitches({ username })
+      .then((resp) => {
+        const value =
+          resp?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+          resp?.data?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+          resp?.switches?.STEPUP_BROWSER_SESSION_BINDING;
+        setBindingSwitch(value === "Y" ? "Y" : "N");
+      })
+      .catch((err) => {
+        console.error("[StepUpPolicies] fetch switch error:", err);
+        setBindingError("Unable to load browser session switch.");
+      })
+      .finally(() => {
+        setBindingLoading(false);
       });
   }, [username]);
 
@@ -256,6 +308,40 @@ const StepUpPoliciesPage: React.FC = () => {
     }
   };
 
+  const handleSwitchToggle = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!username) return;
+    setBindingSaving(true);
+    try {
+      const targetValue = event.target.checked ? "Y" : "N";
+      const resp = await updateSecuritySwitches({
+        username,
+        switches: {
+          STEPUP_BROWSER_SESSION_BINDING: targetValue,
+        },
+      });
+      const updated =
+        resp?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+        resp?.data?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+        resp?.response?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
+        targetValue;
+      const normalized = updated === "Y" ? "Y" : "N";
+      setBindingSwitch(normalized);
+      enqueueSnackbar(
+        `Browser session binding ${normalized === "Y" ? "enabled" : "disabled"}.`,
+        { variant: "success" },
+      );
+    } catch (err: any) {
+      console.error("[StepUpPolicies] update switch error:", err);
+      const message =
+        err?.response?.data?.response?.description ||
+        err?.message ||
+        "Unable to update browser session binding.";
+      enqueueSnackbar(message, { variant: "error" });
+    } finally {
+      setBindingSaving(false);
+    }
+  };
+
   if (!username) {
     return <Typography>Please log in.</Typography>;
   }
@@ -286,6 +372,41 @@ const StepUpPoliciesPage: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 Toggle screen-level enforcement for SUPER_ADMIN screens.
               </Typography>
+            </Box>
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems={{ xs: "flex-start", sm: "flex-end" }}
+              gap={0.25}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={bindingSwitch === "Y"}
+                    onChange={handleSwitchToggle}
+                    disabled={
+                      bindingLoading ||
+                      bindingSaving ||
+                      status === "loading" ||
+                      saving
+                    }
+                  />
+                }
+                label="Bind step-up to browser session"
+              />
+              <Typography variant="caption" color="text.secondary">
+                When enabled, closing a tab/window forces a new OTP.
+              </Typography>
+              {(bindingLoading || bindingSaving) && (
+                <Typography variant="caption" color="text.secondary">
+                  {bindingLoading ? "Loading switch…" : "Updating…"}
+                </Typography>
+              )}
+              {bindingError && (
+                <Typography variant="caption" color="error">
+                  {bindingError}
+                </Typography>
+              )}
             </Box>
             <Button
               variant="contained"

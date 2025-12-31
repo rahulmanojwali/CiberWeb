@@ -37,6 +37,10 @@ export const API_TAGS = {
     getScreens: "getStepupPolicyScreens",
     saveSelection: "saveStepupPolicySelection",
   },
+  SECURITY_SWITCH: {
+    get: "getSecuritySwitches",
+    update: "updateSecuritySwitches",
+  },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
     createMapping: "create_Org_Mandi_Mapping25",
@@ -299,6 +303,8 @@ export const API_ROUTES = {
     saveStepupPolicyRule: "/admin/security/saveStepupPolicyRule",
     getStepupPolicyScreens: "/admin/security/getStepupPolicyScreens",
     saveStepupPolicySelection: "/admin/security/saveStepupPolicySelection",
+    getSecuritySwitches: "/admin/security/getSecuritySwitches",
+    updateSecuritySwitches: "/admin/security/updateSecuritySwitches",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",
@@ -432,4 +438,3 @@ export const APP_STRINGS = {
   title: "CiberMandi",
   tagline: "Super Admin Console",
 };
-

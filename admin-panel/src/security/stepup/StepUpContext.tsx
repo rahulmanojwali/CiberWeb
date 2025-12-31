@@ -192,7 +192,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     ) => {
       const normalized = canonicalizeResourceKey(resourceKey);
       if (!normalized) return true;
-      await ensureCacheLoaded();
       const lockedSet = getStepupLockedSet();
       const isLockedScreen = Boolean(normalized && lockedSet.has(normalized));
       console.info(

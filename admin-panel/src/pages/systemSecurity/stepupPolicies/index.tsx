@@ -319,15 +319,59 @@ const StepUpPoliciesPage: React.FC = () => {
           ) : !screens.length ? (
             <Typography>No screens available.</Typography>
           ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Screen</TableCell>
-                  <TableCell>Route</TableCell>
-                  <TableCell>Module / Group</TableCell>
-                  <TableCell align="center">Step-up</TableCell>
-                </TableRow>
-              </TableHead>
+            <Box
+              sx={{
+                maxHeight: "calc(100vh - 420px)",
+                overflowY: "auto",
+                width: "100%",
+              }}
+            >
+              <Table size="small" sx={{ minWidth: 720 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 0,
+                        bgcolor: "background.paper",
+                        zIndex: 2,
+                      }}
+                    >
+                      Screen
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 0,
+                        bgcolor: "background.paper",
+                        zIndex: 2,
+                      }}
+                    >
+                      Route
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 0,
+                        bgcolor: "background.paper",
+                        zIndex: 2,
+                      }}
+                    >
+                      Module / Group
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        position: "sticky",
+                        top: 0,
+                        bgcolor: "background.paper",
+                        zIndex: 2,
+                      }}
+                    >
+                      Step-up
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
               <TableBody>
                 {screens.map((screen) => {
                   const checked =
@@ -375,7 +419,8 @@ const StepUpPoliciesPage: React.FC = () => {
                   );
                 })}
               </TableBody>
-            </Table>
+              </Table>
+            </Box>
           )}
         </Paper>
       </Stack>

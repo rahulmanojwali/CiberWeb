@@ -96,14 +96,17 @@ const ResourceRegistryPage: React.FC = () => {
     try {
       setLoading(true);
       const resp = await updateResourceRegistry({ username, entries: [editing] });
+      console.info("[RESOURCE_REGISTRY_SAVE] resp=", resp);
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Registry updated.", { variant: "success" });
         setEditing(DEFAULT_ENTRY);
         await loadRegistry();
       } else {
-        enqueueSnackbar(resp?.response?.description || "Failed to update registry", { variant: "error" });
+        const message = resp?.response?.description || "Failed to update registry";
+        enqueueSnackbar(message, { variant: "error" });
       }
     } catch (err: any) {
+      console.info("[RESOURCE_REGISTRY_SAVE] error", err);
       enqueueSnackbar(err?.message || "Failed to update registry", { variant: "error" });
     } finally {
       setLoading(false);

@@ -356,6 +356,16 @@ const StepUpPoliciesPage: React.FC = () => {
     boxShadow: 1,
   };
 
+  const selectedCount = selectedSet.size;
+  const totalLocked = lockedDefaults.length;
+
+  const handleResetDefaults = () => {
+    setSelected(Array.from(new Set(lockedDefaults)));
+    enqueueSnackbar("Selection reset to locked defaults.", {
+      variant: "info",
+    });
+  };
+
   return (
     <StepUpGuard username={username} resourceKey="stepup_policy.view">
       <Stack spacing={2}>
@@ -379,6 +389,9 @@ const StepUpPoliciesPage: React.FC = () => {
               alignItems={{ xs: "flex-start", sm: "flex-end" }}
               gap={0.25}
             >
+              <Typography variant="caption" color="text.secondary">
+                Selected locked screens: {selectedCount}
+              </Typography>
               <FormControlLabel
                 control={
                   <Switch
@@ -408,13 +421,22 @@ const StepUpPoliciesPage: React.FC = () => {
                 </Typography>
               )}
             </Box>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={status === "loading" || saving || !screens.length}
-            >
-              {saving ? <CircularProgress size={20} /> : "Save selection"}
-            </Button>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                onClick={handleResetDefaults}
+                disabled={totalLocked === 0 || saving || status === "loading"}
+              >
+                Reset to defaults
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                disabled={status === "loading" || saving || !screens.length}
+              >
+                {saving ? <CircularProgress size={20} /> : "Save selection"}
+              </Button>
+            </Box>
           </Stack>
         </Paper>
 
@@ -427,7 +449,12 @@ const StepUpPoliciesPage: React.FC = () => {
         {lockedDefaults.length > 0 && (
           <Paper sx={{ p: 2 }}>
             <Alert severity="info">
-              Locked defaults (always enforced): {lockedDefaults.join(", ")}
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Locked by default (always enforced)
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5, wordBreak: "break-word" }}>
+                {lockedDefaults.join(", ")}
+              </Typography>
             </Alert>
           </Paper>
         )}

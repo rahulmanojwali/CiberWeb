@@ -4,12 +4,15 @@ import { useSnackbar } from "@refinedev/mui";
 import { securityUi } from "./securityUi";
 import { getSecuritySwitches, updateSecuritySwitches } from "../../services/security/securitySwitchService";
 import { getStoredAdminUser } from "../../utils/session";
+import { usePermissions } from "../../authz/usePermissions";
 
 const SecuritySwitchesPage: React.FC = () => {
   const [bindingState, setBindingState] = useState<"Y" | "N">("N");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
+  const { can } = usePermissions();
+  const canUpdateSwitch = can("security_switches.update", "UPDATE");
 
   const username = useMemo(() => {
     const stored = getStoredAdminUser();
@@ -41,6 +44,10 @@ const SecuritySwitchesPage: React.FC = () => {
 
   const handleToggle = async () => {
     if (!username) return;
+    if (!canUpdateSwitch) {
+      enqueueSnackbar("You do not have permission to update security switches.", { variant: "warning" });
+      return;
+    }
     setSaving(true);
     const target = bindingState === "Y" ? "N" : "Y";
     try {
@@ -55,6 +62,7 @@ const SecuritySwitchesPage: React.FC = () => {
         target;
       setBindingState(updated === "Y" ? "Y" : "N");
       enqueueSnackbar("Security switch updated.", { variant: "success" });
+      await fetchSwitch();
     } catch (err: any) {
       console.error("[SecuritySwitches] update error:", err);
       enqueueSnackbar(err?.message || "Unable to update switch.", { variant: "error" });
@@ -88,12 +96,19 @@ const SecuritySwitchesPage: React.FC = () => {
               <Typography sx={securityUi.value}>
                 {bindingState === "Y" ? "Enabled" : "Disabled"}
               </Typography>
-              <Switch
-                checked={bindingState === "Y"}
-                onChange={handleToggle}
-                disabled={loading || saving}
-                color="primary"
-              />
+              <Stack spacing={0.5} alignItems="flex-end">
+                <Switch
+                  checked={bindingState === "Y"}
+                  onChange={handleToggle}
+                  disabled={loading || saving || !canUpdateSwitch}
+                  color="primary"
+                />
+                {!canUpdateSwitch && (
+                  <Typography variant="caption" sx={securityUi.helper}>
+                    Update permission required
+                  </Typography>
+                )}
+              </Stack>
             </Stack>
             <Typography sx={securityUi.helper}>
               Applies immediately across all admin instances (may take a few seconds depending on load).

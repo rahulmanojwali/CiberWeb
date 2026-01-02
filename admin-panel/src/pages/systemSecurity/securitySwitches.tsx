@@ -5,6 +5,7 @@ import { securityUi } from "./securityUi";
 import { getSecuritySwitches, updateSecuritySwitches } from "../../services/security/securitySwitchService";
 import { getStoredAdminUser } from "../../utils/session";
 import { usePermissions } from "../../authz/usePermissions";
+import { StepUpGuard } from "../../components/StepUpGuard";
 
 const SecuritySwitchesPage: React.FC = () => {
   const [bindingState, setBindingState] = useState<"Y" | "N">("N");
@@ -13,6 +14,7 @@ const SecuritySwitchesPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { can } = usePermissions();
   const canUpdateSwitch = can("security_switches.update", "UPDATE");
+  const canViewSwitches = can("security_switches.view", "VIEW");
 
   const username = useMemo(() => {
     const stored = getStoredAdminUser();
@@ -71,55 +73,69 @@ const SecuritySwitchesPage: React.FC = () => {
     }
   };
 
-  return (
-    <Box sx={securityUi.container}>
-      <Box sx={securityUi.content}>
-        <Box sx={securityUi.headerRow}>
-          <Box>
-            <Typography sx={securityUi.title}>Security Switches</Typography>
-            <Typography sx={securityUi.subtitle}>
-              Global flags that change security enforcement behavior.
-            </Typography>
-          </Box>
-          <Chip label="Admin only" size="small" color="secondary" />
-        </Box>
+  if (!username) {
+    return <Typography>Please log in.</Typography>;
+  }
 
-        <Card sx={securityUi.card}>
-          <CardContent sx={securityUi.cardContent}>
-            <Box sx={securityUi.cardHeader}>
-              <Typography variant="subtitle1">Bind Step-Up to Browser Session</Typography>
-              <Typography sx={securityUi.helper}>
-                When enabled, closing the browser requires a fresh OTP before accessing locked screens.
+  if (!canViewSwitches) {
+    return (
+      <Typography color="error">
+        You do not have permission to view Security Switches.
+      </Typography>
+    );
+  }
+
+  return (
+    <StepUpGuard username={username} resourceKey="security_switches.menu">
+      <Box sx={securityUi.container}>
+        <Box sx={securityUi.content}>
+          <Box sx={securityUi.headerRow}>
+            <Box>
+              <Typography sx={securityUi.title}>Security Switches</Typography>
+              <Typography sx={securityUi.subtitle}>
+                Global flags that change security enforcement behavior.
               </Typography>
             </Box>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography sx={securityUi.value}>
-                {bindingState === "Y" ? "Enabled" : "Disabled"}
-              </Typography>
-              <Stack spacing={0.5} alignItems="flex-end">
-                <Switch
-                  checked={bindingState === "Y"}
-                  onChange={handleToggle}
-                  disabled={loading || saving || !canUpdateSwitch}
-                  color="primary"
-                />
-                {!canUpdateSwitch && (
-                  <Typography variant="caption" sx={securityUi.helper}>
-                    Update permission required
-                  </Typography>
-                )}
+            <Chip label="Admin only" size="small" color="secondary" />
+          </Box>
+
+          <Card sx={securityUi.card}>
+            <CardContent sx={securityUi.cardContent}>
+              <Box sx={securityUi.cardHeader}>
+                <Typography variant="subtitle1">Bind Step-Up to Browser Session</Typography>
+                <Typography sx={securityUi.helper}>
+                  When enabled, closing the browser requires a fresh OTP before accessing locked screens.
+                </Typography>
+              </Box>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Typography sx={securityUi.value}>
+                  {bindingState === "Y" ? "Enabled" : "Disabled"}
+                </Typography>
+                <Stack spacing={0.5} alignItems="flex-end">
+                  <Switch
+                    checked={bindingState === "Y"}
+                    onChange={handleToggle}
+                    disabled={loading || saving || !canUpdateSwitch}
+                    color="primary"
+                  />
+                  {!canUpdateSwitch && (
+                    <Typography variant="caption" sx={securityUi.helper}>
+                      Update permission required
+                    </Typography>
+                  )}
+                </Stack>
               </Stack>
-            </Stack>
-            <Typography sx={securityUi.helper}>
-              Applies immediately across all admin instances (may take a few seconds depending on load).
-            </Typography>
-            <Button variant="text" onClick={fetchSwitch} disabled={loading}>
-              {loading ? "Refreshing…" : "Refresh status"}
-            </Button>
-          </CardContent>
-        </Card>
+              <Typography sx={securityUi.helper}>
+                Applies immediately across all admin instances (may take a few seconds depending on load).
+              </Typography>
+              <Button variant="text" onClick={fetchSwitch} disabled={loading}>
+                {loading ? "Refreshing…" : "Refresh status"}
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
-    </Box>
+    </StepUpGuard>
   );
 };
 

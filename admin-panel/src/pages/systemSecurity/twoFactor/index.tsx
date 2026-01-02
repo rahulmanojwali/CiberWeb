@@ -1,7 +1,23 @@
 import React from "react";
-import { Box, Button, ButtonGroup, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
-import { getStepUpSetup, enableStepUp, rotateStepUp, getStepUpStatus } from "../../../services/adminUsersApi";
+import {
+  getStepUpSetup,
+  enableStepUp,
+  rotateStepUp,
+  getStepUpStatus,
+} from "../../../services/adminUsersApi";
+import { securityUi } from "../securityUi";
 
 const TwoFactorSettings: React.FC = () => {
   const [setup, setSetup] = React.useState<{
@@ -173,159 +189,222 @@ const TwoFactorSettings: React.FC = () => {
   }, []);
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Box maxWidth={560} mx="auto">
-        <Card>
-          <CardContent>
-            <Stack spacing={3}>
-              <Typography variant="h5">Two-Factor Authentication (2FA)</Typography>
-              <Typography>
-                2FA is mandatory for your role. Setup will be enabled here.
-              </Typography>
-              <Stack direction="row" spacing={2}>
-                <Button variant="contained" onClick={fetchSetup} disabled={loading || isEnabled}>
-                  {setup ? "Refresh Setup" : "Start Setup"}
-                </Button>
-                {isEnabled && (
-                  <Button
-                    variant="outlined"
-                    onClick={() => setRotatePromptOpen((prev) => !prev)}
-                    disabled={rotating || loading}
-                  >
-                    {rotating ? "Rotating..." : "Reconfigure 2FA (Lost device)"}
-                  </Button>
-                )}
-              </Stack>
-              {rotatePromptOpen && isEnabled && (
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, mt: 1 }}>
-                  <Typography variant="body2" color="text.secondary" mb={1}>
-                    Confirm rotation with your authenticator or a backup code.
+    <Box sx={securityUi.container}>
+      <Box sx={securityUi.content}>
+        <Box sx={securityUi.headerRow}>
+          <Box>
+            <Typography sx={securityUi.title}>Two-Factor Authentication (2FA)</Typography>
+            <Typography sx={securityUi.subtitle}>
+              Secure your SUPER_ADMIN flow with OTP before you can access sensitive screens.
+            </Typography>
+          </Box>
+          <Chip
+            label={isEnabled ? "Enabled" : "Not configured"}
+            color={isEnabled ? "success" : "warning"}
+            size="small"
+          />
+        </Box>
+
+        <Stack spacing={3}>
+          <Card sx={securityUi.card}>
+            <CardContent sx={securityUi.cardContent}>
+              <Box sx={securityUi.cardHeader}>
+                <Typography variant="subtitle1">Current status</Typography>
+                <Typography sx={securityUi.helper}>
+                  Keep an eye on enforcement mode and last successful verification.
+                </Typography>
+              </Box>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={3}
+                justifyContent="space-between"
+              >
+                <Stack spacing={0.5}>
+                  <Typography sx={securityUi.label}>State</Typography>
+                  <Typography sx={securityUi.value}>
+                    {statusInfo.enabled === "Y" ? "Enabled" : "Not configured"}
                   </Typography>
-                  <ButtonGroup size="small" variant="outlined" sx={{ mb: 1 }}>
-                    <Button
-                      variant={rotateMode === "otp" ? "contained" : undefined}
-                      onClick={() => setRotateMode("otp")}
-                    >
-                      Authenticator
-                    </Button>
-                    <Button
-                      variant={rotateMode === "backup" ? "contained" : undefined}
-                      onClick={() => setRotateMode("backup")}
-                    >
-                      Backup code
-                    </Button>
-                  </ButtonGroup>
-                  <TextField
-                    label={rotateMode === "otp" ? "Authenticator code" : "Backup code"}
-                    value={rotateCode}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setRotateCode(rotateMode === "otp" ? value.replace(/\D/g, "").slice(0, 6) : value);
-                    }}
-                    fullWidth
-                    size="small"
-                    helperText={
-                      rotateMode === "otp"
-                        ? "Enter the 6-digit authenticator code."
-                        : "Enter one-time backup code."
-                    }
-                    sx={{ mb: 1 }}
-                  />
-                  <Stack direction="row" spacing={1}>
+                  <Typography sx={securityUi.helper}>
+                    Enforcement: {statusInfo.enforcement_mode}
+                  </Typography>
+                  <Typography sx={securityUi.helper}>
+                    Last verified:{" "}
+                    {statusInfo.last_verified_on
+                      ? new Date(statusInfo.last_verified_on).toLocaleString()
+                      : "Never"}
+                  </Typography>
+                </Stack>
+                <Stack spacing={1} sx={{ flexGrow: 1 }}>
+                  <Typography sx={securityUi.label}>Actions</Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={securityUi.actionBar}
+                    flexWrap="wrap"
+                  >
                     <Button
                       variant="contained"
-                      onClick={() =>
-                        handleRotate(
-                          rotateMode === "otp" ? rotateCode : undefined,
-                          rotateMode === "backup" ? rotateCode : undefined
-                        )
-                      }
-                      disabled={
-                        rotating || (rotateMode === "otp" ? rotateCode.length !== 6 : !rotateCode.trim())
-                      }
+                      onClick={fetchSetup}
+                      disabled={loading || isEnabled}
                     >
-                      {rotating ? "Verifying..." : "Confirm rotate"}
+                      {setup ? "Refresh setup" : "Start setup"}
                     </Button>
-                    <Button variant="text" onClick={() => setRotatePromptOpen(false)}>
-                      Cancel
-                    </Button>
-                  </Stack>
-                </Box>
-              )}
-              {isEnabled ? (
-                <Typography variant="body2" color="text.secondary">
-                  You already have 2FA enabled. Rotate if you lost access to your authenticator.
-                </Typography>
-              ) : (
-                setup && (
-                  <>
-                    {qrSrc && (
-                      <Box textAlign="center">
-                        <img src={qrSrc} alt="2FA QR" width={220} height={220} />
-                        <Typography variant="body2" color="text.secondary">
-                          Scan with Google Authenticator or Authy
-                        </Typography>
-                      </Box>
-                    )}
-                    <Typography variant="body2">
-                      Manual entry: <strong>{setup.secret_base32}</strong>
-                    </Typography>
-                    <TextField
-                      label="One-Time Password"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      fullWidth
-                      size="small"
-                      helperText="Enter the 6-digit code from your authenticator."
-                    />
-                    <Button variant="contained" onClick={handleEnable} disabled={loading || otp.length !== 6}>
-                      Enable 2FA
-                    </Button>
-                  </>
-                )
-              )}
-              {status && (
-                <Typography variant="subtitle2" color="text.secondary">
-                  Status: {status}
-                </Typography>
-              )}
-              {backupCodes && backupCodes.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle2">Backup codes (store safely):</Typography>
-                  {showBackupCodes ? (
-                    <>
-                      <Stack spacing={1} sx={{ fontFamily: "monospace" }}>
-                        {backupCodes.map((code) => (
-                          <Typography key={code} variant="body2">
-                            {code}
-                          </Typography>
-                        ))}
-                      </Stack>
+                    {isEnabled && (
                       <Button
-                        variant="text"
-                        onClick={() => {
-                          setShowBackupCodes(false);
-                          setBackupCodes(null);
-                        }}
+                        variant="outlined"
+                        onClick={() => setRotatePromptOpen((prev) => !prev)}
+                        disabled={rotating || loading}
                       >
-                        I have saved these codes
+                        {rotating ? "Rotating..." : "Reconfigure 2FA"}
                       </Button>
-                    </>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      Codes hidden after confirmation.
-                    </Typography>
+                    )}
+                  </Stack>
+                  {rotatePromptOpen && isEnabled && (
+                    <Box
+                      sx={{
+                        ...securityUi.section,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 1,
+                        mt: 1,
+                      }}
+                    >
+                      <Typography sx={securityUi.helper}>
+                        Confirm rotation with your authenticator or a backup code.
+                      </Typography>
+                      <ButtonGroup size="small" variant="outlined" sx={{ mb: 1 }}>
+                        <Button
+                          variant={rotateMode === "otp" ? "contained" : undefined}
+                          onClick={() => setRotateMode("otp")}
+                        >
+                          Authenticator
+                        </Button>
+                        <Button
+                          variant={rotateMode === "backup" ? "contained" : undefined}
+                          onClick={() => setRotateMode("backup")}
+                        >
+                          Backup code
+                        </Button>
+                      </ButtonGroup>
+                      <TextField
+                        label={rotateMode === "otp" ? "Authenticator code" : "Backup code"}
+                        value={rotateCode}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setRotateCode(
+                            rotateMode === "otp"
+                              ? value.replace(/\D/g, "").slice(0, 6)
+                              : value,
+                          );
+                        }}
+                        fullWidth
+                        size="small"
+                        helperText={
+                          rotateMode === "otp"
+                            ? "Enter the 6-digit authenticator code."
+                            : "Enter a one-time backup code."
+                        }
+                      />
+                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Button
+                          variant="contained"
+                          onClick={() =>
+                            handleRotate(
+                              rotateMode === "otp" ? rotateCode : undefined,
+                              rotateMode === "backup" ? rotateCode : undefined,
+                            )
+                          }
+                          disabled={
+                            rotating ||
+                            (rotateMode === "otp" ? rotateCode.length !== 6 : !rotateCode.trim())
+                          }
+                        >
+                          {rotating ? "Verifying..." : "Confirm rotate"}
+                        </Button>
+                        <Button variant="text" onClick={() => setRotatePromptOpen(false)}>
+                          Cancel
+                        </Button>
+                      </Stack>
+                    </Box>
                   )}
+                </Stack>
+              </Stack>
+              <Typography sx={{ mt: 2, fontSize: 13, color: "text.secondary" }}>
+                2FA must be configured before sensitive screens can be accessed.
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Card sx={securityUi.card}>
+            <CardContent sx={securityUi.cardContent}>
+              <Box sx={securityUi.cardHeader}>
+                <Typography variant="subtitle1">Setup & Backup</Typography>
+              </Box>
+              <Stack spacing={2}>
+                {setup && qrSrc && (
+                  <Box textAlign="center">
+                    <img src={qrSrc} alt="2FA QR" width={200} height={200} />
+                    <Typography sx={securityUi.helper}>
+                      Scan with Google Authenticator or Authy.
+                    </Typography>
+                  </Box>
+                )}
+                <Box sx={securityUi.section}>
+                  <Typography sx={securityUi.label}>Secret</Typography>
+                  <Box sx={securityUi.codeBox}>
+                    {setup?.secret_base32 || "Trigger setup to reveal the secret."}
+                  </Box>
                 </Box>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
+                <TextField
+                  label="One-Time Password"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  fullWidth
+                  size="small"
+                  helperText="Enter the 6-digit code from your authenticator."
+                />
+                <Box>
+                  <Button
+                    variant="contained"
+                    onClick={handleEnable}
+                    disabled={loading || otp.length !== 6}
+                  >
+                    Enable 2FA
+                  </Button>
+                </Box>
+                {status && (
+                  <Typography sx={securityUi.helper}>Status: {status}</Typography>
+                )}
+                {backupCodes && backupCodes.length > 0 && showBackupCodes && (
+                  <Box>
+                    <Typography sx={securityUi.label}>Backup codes (store safely)</Typography>
+                    <Stack spacing={1} sx={securityUi.codeBox}>
+                      {backupCodes.map((code) => (
+                        <Typography key={code} variant="body2">
+                          {code}
+                        </Typography>
+                      ))}
+                    </Stack>
+                    <Button
+                      variant="text"
+                      onClick={() => {
+                        setShowBackupCodes(false);
+                        setBackupCodes(null);
+                      }}
+                    >
+                      I have saved these codes
+                    </Button>
+                  </Box>
+                )}
+                {backupCodes && backupCodes.length > 0 && !showBackupCodes && (
+                  <Typography sx={securityUi.helper}>
+                    Backup codes hidden after confirmation.
+                  </Typography>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
       </Box>
     </Box>
   );

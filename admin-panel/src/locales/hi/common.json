@@ -73,7 +73,8 @@
     "auctionSessions": "नीलामी सत्र",
     "auctionLots": "नीलामी लॉट",
     "auctionResults": "नीलामी परिणाम",
-    "resourceRegistry": "Resource Registry"
+    "resourceRegistry": "Resource Registry",
+    "securitySwitches": "सुरक्षा स्विच"
   },
   "adminUsers": {
     "title": "एडमिन उपयोगकर्ता",

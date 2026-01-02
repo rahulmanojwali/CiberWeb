@@ -190,7 +190,12 @@ const TwoFactorSettings: React.FC = () => {
 
   return (
     <Box sx={securityUi.container}>
-      <Box sx={securityUi.content}>
+    <Box
+      sx={{
+        ...securityUi.content,
+        gap: 16,
+      }}
+    >
         <Box sx={securityUi.headerRow}>
           <Box>
             <Typography sx={securityUi.title}>Two-Factor Authentication (2FA)</Typography>
@@ -205,7 +210,7 @@ const TwoFactorSettings: React.FC = () => {
           />
         </Box>
 
-        <Stack spacing={3}>
+        <Stack spacing={2}>
           <Card sx={securityUi.card}>
             <CardContent sx={securityUi.cardContent}>
               <Box sx={securityUi.cardHeader}>

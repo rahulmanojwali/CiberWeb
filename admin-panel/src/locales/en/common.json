@@ -94,7 +94,8 @@
     "rolePermissions": "Roles & Permissions",
     "userRoleManager": "User Role Manager",
     "resourceRegistry": "Resource Registry",
-    "twoFactorSecurity": "2FA Security"
+    "twoFactorSecurity": "2FA Security",
+    "securitySwitches": "Security Switches"
   },
   "header": {
     "sign_out": "Sign Out",

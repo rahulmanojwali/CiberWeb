@@ -184,6 +184,15 @@ export const APP_MENU: AppMenuItem[] = [
         requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
       },
+      {
+        key: "securitySwitches",
+        labelKey: "menu.securitySwitches",
+        path: "/system/security/switches",
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: "security_switches.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
     ],
   },
 

@@ -1,22 +1,7 @@
-import axios from "axios";
-import { encryptGenericPayload } from "../utils/aesUtilBrowser";
-import { API_BASE_URL, API_ROUTES, API_TAGS, DEFAULT_LANGUAGE } from "../config/appConfig";
+import { postEncrypted } from "./sharedEncryptedRequest";
+import { API_ROUTES, API_TAGS, DEFAULT_LANGUAGE } from "../config/appConfig";
 
 type EncryptedPayload = Record<string, any>;
-
-function getAuthHeaders() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("cd_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-async function postEncrypted(path: string, items: Record<string, any>) {
-  const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
-  const url = `${API_BASE_URL}${path}`;
-  const { data } = await axios.post(url, { encryptedData }, { headers: getAuthHeaders() });
-  return data;
-}
 
 export const getPaymentModels = async ({
   username,

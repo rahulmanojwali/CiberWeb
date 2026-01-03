@@ -52,6 +52,12 @@ export async function postEncrypted(
   extraHeaders: Record<string, string> = {}
 ) {
   attachStepupMetadata(items);
+  if (import.meta.env.DEV) {
+    console.debug("[STEPUP_ATTACH]", {
+      stepup: Boolean(items.stepup_session_id),
+      browser: Boolean(items.browser_session_id),
+    });
+  }
   const payload = { items };
   const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
   const body = { encryptedData };

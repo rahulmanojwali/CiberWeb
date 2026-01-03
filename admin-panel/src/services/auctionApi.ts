@@ -1,20 +1,5 @@
-import axios from "axios";
-import { encryptGenericPayload } from "../utils/aesUtilBrowser";
-import { API_BASE_URL, API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
-
-function authHeaders() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("cd_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-async function postEncrypted(path: string, items: Record<string, any>) {
-  const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
-  const url = `${API_BASE_URL}${path}`;
-  const { data } = await axios.post(url, { encryptedData }, { headers: authHeaders() });
-  return data;
-}
+import { postEncrypted } from "./sharedEncryptedRequest";
+import { API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
 
 // Auction Methods
 export const fetchAuctionMethods = async ({ username, language = DEFAULT_LANGUAGE, filters = {} }: { username: string; language?: string; filters?: Record<string, any> }) =>

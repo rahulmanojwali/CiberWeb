@@ -1,21 +1,10 @@
-import axios from "axios";
-import { encryptGenericPayload } from "../utils/aesUtilBrowser";
-import { API_BASE_URL, API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
+import { postEncrypted } from "./sharedEncryptedRequest";
+import { API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
 
-function authHeaders() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("cd_token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-async function postEncrypted(path: string, items: Record<string, any>) {
-  const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
-  const url = `${API_BASE_URL}${path}`;
-  const { data } = await axios.post(url, { encryptedData }, { headers: authHeaders() });
+async function callEncrypted(path: string, items: Record<string, any>) {
+  const data = await postEncrypted(path, items);
   const rc = data?.response?.responsecode;
   const desc = data?.response?.description || "Something went wrong.";
-  // Preserve legacy shape by spreading the original data (so .response etc still exist)
   return {
     ok: rc === "0",
     data,
@@ -35,7 +24,7 @@ export const fetchGateEntryReasons = async ({
   language?: string;
   filters?: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.getGateEntryReasons, {
+  callEncrypted(API_ROUTES.admin.getGateEntryReasons, {
     api: API_TAGS.GATE_ENTRY_REASONS.list,
     username,
     language,
@@ -51,7 +40,7 @@ export const createGateEntryReason = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.createGateEntryReason, {
+  callEncrypted(API_ROUTES.admin.createGateEntryReason, {
     api: API_TAGS.GATE_ENTRY_REASONS.create,
     username,
     language,
@@ -67,7 +56,7 @@ export const updateGateEntryReason = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.updateGateEntryReason, {
+  callEncrypted(API_ROUTES.admin.updateGateEntryReason, {
     api: API_TAGS.GATE_ENTRY_REASONS.update,
     username,
     language,
@@ -83,7 +72,7 @@ export const deactivateGateEntryReason = async ({
   language?: string;
   reason_code: string;
 }) =>
-  postEncrypted(API_ROUTES.admin.deactivateGateEntryReason, {
+  callEncrypted(API_ROUTES.admin.deactivateGateEntryReason, {
     api: API_TAGS.GATE_ENTRY_REASONS.deactivate,
     username,
     language,

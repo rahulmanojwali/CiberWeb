@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
+import { getBrowserSessionId } from "../security/stepup/browserSession";
 import {
   API_BASE_URL,
   API_TAGS,
@@ -28,11 +29,39 @@ function authHeaders() {
 /**
  * Generic helper: POST { encryptedData } to a given path
  */
+const STEPUP_SESSION_KEY = "cm_stepup_session_id";
+
+function getStoredStepupSessionId(): string | null {
+  if (typeof window === "undefined") return null;
+  const stored = sessionStorage.getItem(STEPUP_SESSION_KEY);
+  if (stored) return stored;
+  const legacy = localStorage.getItem(STEPUP_SESSION_KEY);
+  if (legacy) {
+    sessionStorage.setItem(STEPUP_SESSION_KEY, legacy);
+    localStorage.removeItem(STEPUP_SESSION_KEY);
+    return legacy;
+  }
+  return null;
+}
+
+function attachStepupMetadata(items: Record<string, any>) {
+  if (!items) return;
+  if (!items.stepup_session_id) {
+    const sessionId = getStoredStepupSessionId();
+    if (sessionId) items.stepup_session_id = sessionId;
+  }
+  if (!items.browser_session_id) {
+    const browserId = getBrowserSessionId();
+    if (browserId) items.browser_session_id = browserId;
+  }
+}
+
 async function postEncrypted(
   path: string,
   items: Record<string, any>,
   extraHeaders: Record<string, string> = {}
 ) {
+  attachStepupMetadata(items);
   const payload = { items };
   const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
   const body = { encryptedData };

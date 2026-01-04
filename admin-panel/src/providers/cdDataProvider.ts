@@ -1,24 +1,14 @@
 // @ts-nocheck  // keep this if your Refine version has incompatible types
-import axios from "axios";
 import type { DataProvider } from "@refinedev/core";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
 import { API_BASE_URL } from "../config/appConfig";
 import { getBrowserSessionId } from "../security/stepup/browserSession";
-
-const STEPUP_SESSION_KEY = "cm_stepup_session_id";
-
-function getStepupSessionId(): string | null {
-  if (typeof window === "undefined") return null;
-  const s = sessionStorage.getItem(STEPUP_SESSION_KEY);
-  if (s) return s;
-  const legacy = localStorage.getItem(STEPUP_SESSION_KEY);
-  if (legacy) {
-    sessionStorage.setItem(STEPUP_SESSION_KEY, legacy);
-    localStorage.removeItem(STEPUP_SESSION_KEY);
-    return legacy;
-  }
-  return null;
-}
+import { getStepupSessionId } from "../security/stepup/storage";
+import {
+  deriveStepupResourceKey,
+  isStepupExemptPath,
+  runEncryptedRequest,
+} from "../services/encryptedRequestRunner";
 
 const API_URL = API_BASE_URL;
 
@@ -37,9 +27,15 @@ async function securePost(path: string, items: Record<string, any>) {
   }
   if (stepupSessionId) {
     headers["x-stepup-session"] = stepupSessionId;
-    headers["X-StepUp-Session"] = stepupSessionId;
   }
-  const { data } = await axios.post(url, { encryptedData }, { headers });
+  const data = await runEncryptedRequest({
+    url,
+    body: { encryptedData },
+    headers,
+    path,
+    resourceKey: deriveStepupResourceKey(items),
+    excludeStepup: isStepupExemptPath(path),
+  });
   return { url, data };
 }
 

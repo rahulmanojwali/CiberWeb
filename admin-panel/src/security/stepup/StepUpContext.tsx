@@ -27,6 +27,7 @@ import { getCurrentAdminUsername, getStoredAdminUser } from "../../utils/session
 import { getStepupLockedSet, loadStepupLockedSetOnce } from "../../utils/stepupCache";
 import { getBrowserSessionId } from "./browserSession";
 import { getStepupSessionId as readStepupSessionId, storeStepupSessionId } from "./storage";
+import { registerStepUpTrigger } from "./stepupService";
 
 import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/VpnKey";
@@ -350,6 +351,11 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     }),
     [ensureStepUp, isLocked, markVerified, cacheReady],
   );
+
+  React.useEffect(() => {
+    registerStepUpTrigger(ensureStepUp);
+    return () => registerStepUpTrigger(null);
+  }, [ensureStepUp]);
 
   return (
     <StepUpContext.Provider value={contextValue}>

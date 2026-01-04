@@ -54,10 +54,7 @@ axios.interceptors.request.use(
       // Step-up session id MUST be sessionStorage-based
       const stepupSessionId = getStepupSessionId();
       if (stepupSessionId) {
-        // Backend reads req.headers['x-stepup-session'] (Node lowercases header keys)
-        // Set both to make it visible in devtools and compatible with earlier code.
         currentHeaders.set("x-stepup-session", stepupSessionId);
-        currentHeaders.set("X-StepUp-Session", stepupSessionId);
       }
 
       config.headers = currentHeaders;

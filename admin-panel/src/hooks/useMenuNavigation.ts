@@ -24,9 +24,13 @@ export function useMenuNavigation(): MenuNavigateFn {
         `route=${path}`,
         `locked=${locked}`,
       );
+      console.log("[MENU_NAV] clicked path", path);
       const ok = await ensureStepUp(resourceKey, "VIEW", { source: "MENU" });
       if (!ok) return;
       navigate(path);
+      if (typeof window !== "undefined") {
+        console.log("[MENU_NAV] navigated ->", window.location.pathname);
+      }
       if (typeof afterNavigate === "function") {
         afterNavigate();
       }

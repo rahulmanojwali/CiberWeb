@@ -144,7 +144,7 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
       if (!active) return;
       setReady(true);
       if (!ok) {
-        navigate("/", { replace: true });
+        console.warn("[STEPUP_UI] step-up blocked route, staying on current path");
       }
     })();
 

@@ -96,6 +96,17 @@ function extractStepupSessionId(resp: any): string | null {
   return null;
 }
 
+function isStepupRequired(stepup: any): boolean {
+  if (!stepup) return false;
+  if (typeof stepup.required === "boolean") {
+    return stepup.required;
+  }
+  if (typeof stepup?.stepup?.required === "boolean") {
+    return stepup.stepup.required;
+  }
+  return true;
+}
+
 export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -189,8 +200,9 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     if (!pendingPrompt) return;
     try {
       const stepup = await issueStepUpCheck(pendingPrompt.resourceKey, pendingPrompt.action);
+      const requiresStepup = isStepupRequired(stepup);
 
-      if (!stepup) {
+      if (!stepup || !requiresStepup) {
         resolveRef.current?.(true);
         resolveRef.current = null;
         setPendingPrompt(null);
@@ -243,9 +255,10 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
 
         try {
           const stepup = await issueStepUpCheck(normalized, action);
+          const requiresStepup = isStepupRequired(stepup);
 
           // If backend says no step-up needed (session valid), proceed
-          if (!stepup) {
+          if (!stepup || !requiresStepup) {
             resolveRef.current?.(true);
             resolveRef.current = null;
             setPendingPrompt(null);

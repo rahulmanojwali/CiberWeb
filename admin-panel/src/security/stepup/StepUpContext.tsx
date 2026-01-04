@@ -26,6 +26,7 @@ import { canonicalizeResourceKey } from "../../utils/adminUiConfig";
 import { getCurrentAdminUsername, getStoredAdminUser } from "../../utils/session";
 import { getStepupLockedSet, loadStepupLockedSetOnce } from "../../utils/stepupCache";
 import { getBrowserSessionId } from "./browserSession";
+import { getStepupSessionId as readStepupSessionId, storeStepupSessionId } from "./storage";
 
 import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/VpnKey";
@@ -51,32 +52,7 @@ type StepUpContextValue = {
 };
 
 const STEP_UP_RULE_KEY = "ADMIN_SCREEN_STEPUP_V1";
-const STEPUP_SESSION_KEY = "cm_stepup_session_id";
-
 const StepUpContext = React.createContext<StepUpContextValue | undefined>(undefined);
-
-function getStoredStepupSessionId(): string | null {
-  if (typeof window === "undefined") return null;
-
-  // ✅ Preferred storage: sessionStorage (clears on browser close)
-  const s = sessionStorage.getItem(STEPUP_SESSION_KEY);
-  if (s) return s;
-
-  // Backward compat: migrate any legacy localStorage value once
-  const legacy = localStorage.getItem(STEPUP_SESSION_KEY);
-  if (legacy) {
-    sessionStorage.setItem(STEPUP_SESSION_KEY, legacy);
-    localStorage.removeItem(STEPUP_SESSION_KEY);
-    return legacy;
-  }
-  return null;
-}
-
-function storeStepupSessionId(stepupSessionId: string) {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(STEPUP_SESSION_KEY, stepupSessionId);
-  localStorage.removeItem(STEPUP_SESSION_KEY); // defensive cleanup (old builds)
-}
 
 function extractStepupSessionId(resp: any): string | null {
   const candidates = [
@@ -166,7 +142,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     if (!username) throw new Error("Unable to resolve current user for step-up");
 
     const browserSessionId = getBrowserSessionId();
-    const sessionId = getStoredStepupSessionId();
+    const sessionId = readStepupSessionId();
 
     const resp: any = await requireStepUp({
       username,

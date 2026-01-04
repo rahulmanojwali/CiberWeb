@@ -37,6 +37,8 @@ import { ActionGate } from "../../authz/ActionGate";
 import { usePermissions } from "../../authz/usePermissions";
 import { useRecordLock } from "../../authz/isRecordLocked";
 import { StepUpGuard } from "../../components/StepUpGuard";
+import { getBrowserSessionId } from "../../security/stepup/browserSession";
+import { getStepupSessionId } from "../../security/stepup/storage";
 
 
 
@@ -159,10 +161,29 @@ export const Orgs: React.FC = () => {
         items.org_code = scopeOrgCode;
       }
       const body = await buildBody(items);
+      const browserSessionId = getBrowserSessionId();
+      const stepupSessionId = getStepupSessionId();
+      const browserHeaders = browserSessionId
+        ? {
+            "x-cm-browser-session": browserSessionId,
+            "x-stepup-browser-session": browserSessionId,
+          }
+        : {};
+      const stepupHeaders = stepupSessionId
+        ? {
+            "x-stepup-session": stepupSessionId,
+            "X-StepUp-Session": stepupSessionId,
+          }
+        : {};
+      const requestHeaders = {
+        ...headers,
+        ...browserHeaders,
+        ...stepupHeaders,
+      };
       const { data } = await axios.post(
         `${API_BASE_URL}${API_ROUTES.admin.getOrganisations}`,
         body,
-        { headers }
+        { headers: requestHeaders },
       );
       const resp = data?.response || {};
       const code = String(resp.responsecode ?? "");

@@ -1,5 +1,6 @@
 import axios, { AxiosHeaders } from "axios";
 import { getBrowserSessionId } from "../security/stepup/browserSession";
+import { getStepupSessionId } from "../security/stepup/storage";
 
 const STEPUP_SESSION_KEY = "cm_stepup_session_id";
 const STEPUP_BROWSER_SESSION_KEY = "cm_browser_session_id";
@@ -11,23 +12,6 @@ const STEPUP_BROWSER_SESSION_KEY = "cm_browser_session_id";
  * - step-up session id must ALSO live in sessionStorage, otherwise it persists across browser close
  *   and defeats "force OTP again after closing browser" behavior.
  */
-function getStepupSessionId(): string | null {
-  if (typeof window === "undefined") return null;
-
-  // Prefer sessionStorage (correct)
-  const s = sessionStorage.getItem(STEPUP_SESSION_KEY);
-  if (s) return s;
-
-  // Backward compatibility: if older builds stored in localStorage, migrate once
-  const legacy = localStorage.getItem(STEPUP_SESSION_KEY);
-  if (legacy) {
-    sessionStorage.setItem(STEPUP_SESSION_KEY, legacy);
-    localStorage.removeItem(STEPUP_SESSION_KEY);
-    return legacy;
-  }
-  return null;
-}
-
 function getLastBrowserSessionId(): string | null {
   if (typeof window === "undefined") return null;
   return sessionStorage.getItem(STEPUP_BROWSER_SESSION_KEY);

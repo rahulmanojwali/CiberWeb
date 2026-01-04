@@ -3,6 +3,7 @@ import axios from "axios";
 import type { DataProvider } from "@refinedev/core";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
 import { API_BASE_URL } from "../config/appConfig";
+import { getBrowserSessionId } from "../security/stepup/browserSession";
 
 const API_URL = API_BASE_URL;
 
@@ -10,9 +11,15 @@ const API_URL = API_BASE_URL;
 async function securePost(path: string, items: Record<string, any>) {
   const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
   const url = `${API_URL}${path}`;
-  const { data } = await axios.post(url, { encryptedData }, {
-    headers: { "Content-Type": "application/json" },
-  });
+  const browserSessionId = getBrowserSessionId();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (browserSessionId) {
+    headers["x-cm-browser-session"] = browserSessionId;
+    headers["x-stepup-browser-session"] = browserSessionId;
+  }
+  const { data } = await axios.post(url, { encryptedData }, { headers });
   return { url, data };
 }
 

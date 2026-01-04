@@ -62,9 +62,18 @@ export async function postEncrypted(
   const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
   const body = { encryptedData };
   const url = `${API_BASE_URL}${path}`;
+  const browserSessionId = getBrowserSessionId();
+  const browserHeaders = browserSessionId
+    ? {
+        "x-cm-browser-session": browserSessionId,
+        "x-stepup-browser-session": browserSessionId,
+        "X-StepUp-Browser-Session": browserSessionId,
+      }
+    : {};
   const { data } = await axios.post(url, body, {
     headers: {
       ...authHeaders(),
+      ...browserHeaders,
       ...extraHeaders,
     },
   });

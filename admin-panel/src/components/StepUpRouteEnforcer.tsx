@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Box, CircularProgress } from "@mui/material";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
@@ -102,6 +102,7 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { ui_resources, resources: compatResources } = useAdminUiConfig();
 
   const resources = React.useMemo<UiResource[]>(
@@ -141,13 +142,16 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
     (async () => {
       const ok = await ensureStepUp(stepupKey, "VIEW", { source: "ROUTE" });
       if (!active) return;
-      setReady(ok);
+      setReady(true);
+      if (!ok) {
+        navigate("/", { replace: true });
+      }
     })();
 
     return () => {
       active = false;
     };
-  }, [location.pathname, resources, isLocked, ensureStepUp]);
+  }, [location.pathname, resources, isLocked, ensureStepUp, navigate]);
 
   if (!ready) {
     return (

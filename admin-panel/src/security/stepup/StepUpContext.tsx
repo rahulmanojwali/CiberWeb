@@ -78,6 +78,24 @@ function storeStepupSessionId(stepupSessionId: string) {
   localStorage.removeItem(STEPUP_SESSION_KEY); // defensive cleanup (old builds)
 }
 
+function extractStepupSessionId(resp: any): string | null {
+  const candidates = [
+    resp?.stepup?.stepup_session_id,
+    resp?.stepup?.stepup?.stepup_session_id,
+    resp?.response?.stepup?.stepup_session_id,
+    resp?.response?.stepup?.stepup?.stepup_session_id,
+    resp?.data?.stepup?.stepup_session_id,
+    resp?.data?.stepup?.stepup?.stepup_session_id,
+    resp?.response?.data?.stepup?.stepup_session_id,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -284,30 +302,30 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
 
     setVerifying(true);
     try {
+      console.log("[STEPUP_VERIFY] submitting");
       const resp: any = await verifyStepUp({
         username,
         otp: useBackup ? undefined : otp,
         backup_code: useBackup ? backupCode.trim() : undefined,
         browser_session_id: getBrowserSessionId() || undefined,
       });
-
-      const payload = resp?.stepup?.stepup || resp?.stepup;
-      const stepupSessionId = payload?.stepup_session_id;
+      console.log("[STEPUP_VERIFY] response keys", Object.keys(resp || {}));
+      const stepupSessionId = extractStepupSessionId(resp);
+      console.log("[STEPUP_VERIFY] extracted session", stepupSessionId);
 
       if (stepupSessionId) {
         storeStepupSessionId(stepupSessionId);
-
+        console.log("[STEPUP_VERIFY] success -> closing modal + resolving");
         enqueueSnackbar("Step-up verified.", { variant: "success" });
 
         setModalOpen(false);
+        setPendingPrompt(null);
+        resolveRef.current?.(true);
+        resolveRef.current = null;
+        markVerified();
         setOtp("");
         setBackupCode("");
         setUseBackup(false);
-        markVerified();
-        setPendingPrompt(null);
-
-        resolveRef.current?.(true);
-        resolveRef.current = null;
         return;
       }
 

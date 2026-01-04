@@ -9,15 +9,25 @@ function generateBrowserSessionId(): string {
 
 export function getBrowserSessionId(): string | null {
   if (typeof window === "undefined") return null;
-  let id = sessionStorage.getItem(STORAGE_KEY);
+  const { localStorage, sessionStorage } = window;
+  let id = localStorage.getItem(STORAGE_KEY);
   if (!id) {
-    id = generateBrowserSessionId();
-    sessionStorage.setItem(STORAGE_KEY, id);
+    const legacy = sessionStorage.getItem(STORAGE_KEY);
+    if (legacy) {
+      id = legacy;
+      localStorage.setItem(STORAGE_KEY, legacy);
+      sessionStorage.removeItem(STORAGE_KEY);
+    } else {
+      id = generateBrowserSessionId();
+      localStorage.setItem(STORAGE_KEY, id);
+    }
   }
   return id;
 }
 
 export function clearBrowserSessionId() {
   if (typeof window === "undefined") return;
+  const { localStorage, sessionStorage } = window;
+  localStorage.removeItem(STORAGE_KEY);
   sessionStorage.removeItem(STORAGE_KEY);
 }

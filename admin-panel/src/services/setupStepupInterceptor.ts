@@ -6,7 +6,8 @@ const STEPUP_BROWSER_SESSION_KEY = "cm_browser_session_id";
 
 /**
  * IMPORTANT:
- * - browser session id must live in sessionStorage (dies on browser close)
+ * - browser session id now lives in localStorage (shared across tabs) but we still fall back to
+ *   sessionStorage so legacy sessions keep working while migrating.
  * - step-up session id must ALSO live in sessionStorage, otherwise it persists across browser close
  *   and defeats "force OTP again after closing browser" behavior.
  */
@@ -48,18 +49,22 @@ axios.interceptors.request.use(
     if (typeof window !== "undefined") {
       const currentHeaders = AxiosHeaders.from(config.headers || {});
 
-      // Browser session id (sessionStorage) - dies on browser close
+      // Browser session id (persists in localStorage now; fall back to sessionStorage for legacy)
       const browserSessionId = getBrowserSessionId();
-      if (browserSessionId) {
-        currentHeaders.set("X-StepUp-Browser-Session", browserSessionId);
-        currentHeaders.set("x-cm-browser-session", browserSessionId);
+      const storedBrowserSessionId =
+        window.localStorage.getItem(STEPUP_BROWSER_SESSION_KEY) ??
+        window.sessionStorage.getItem(STEPUP_BROWSER_SESSION_KEY) ??
+        browserSessionId;
+      if (storedBrowserSessionId) {
+        currentHeaders.set("X-StepUp-Browser-Session", storedBrowserSessionId);
+        currentHeaders.set("x-cm-browser-session", storedBrowserSessionId);
 
         // If browser session changed (new tab/session), drop any old stepup session id
         const last = getLastBrowserSessionId();
-        if (last && last !== browserSessionId) {
+        if (last && last !== storedBrowserSessionId) {
           clearStepupSessionId();
         }
-        setLastBrowserSessionId(browserSessionId);
+        setLastBrowserSessionId(storedBrowserSessionId);
       }
 
       // Step-up session id MUST be sessionStorage-based

@@ -54,27 +54,22 @@ export async function postEncrypted(
   const url = `${API_BASE_URL}${path}`;
   const browserSessionId = getBrowserSessionId();
   const stepupSessionId = getStepupSessionId();
-  const browserHeaders = browserSessionId
-    ? {
-        "x-cm-browser-session": browserSessionId,
-        "x-stepup-browser-session": browserSessionId,
-      }
-    : {};
-  const stepupHeaders = stepupSessionId
-    ? {
-        "x-stepup-session": stepupSessionId,
-      }
-    : {};
+  const headers: Record<string, string> = {
+    ...authHeaders(),
+    ...extraHeaders,
+  };
+  if (browserSessionId) {
+    headers["x-cm-browser-session"] = browserSessionId;
+    headers["x-stepup-browser-session"] = browserSessionId;
+  }
+  if (stepupSessionId) {
+    headers["x-stepup-session"] = stepupSessionId;
+  }
 
   const data = await runEncryptedRequest({
     url,
     body,
-    headers: {
-      ...authHeaders(),
-      ...browserHeaders,
-      ...stepupHeaders,
-      ...extraHeaders,
-    },
+    headers,
     path,
     resourceKey: deriveStepupResourceKey(items),
     excludeStepup: isStepupExemptPath(path),

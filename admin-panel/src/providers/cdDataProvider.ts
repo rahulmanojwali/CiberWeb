@@ -16,22 +16,25 @@ const API_URL = API_BASE_URL;
 async function securePost(path: string, items: Record<string, any>) {
   const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
   const url = `${API_URL}${path}`;
-  const browserSessionId = getBrowserSessionId();
-  const stepupSessionId = getStepupSessionId();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+  const headersFactory = () => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const browserSessionId = getBrowserSessionId();
+    const stepupSessionId = getStepupSessionId();
+    if (browserSessionId) {
+      headers["x-cm-browser-session"] = browserSessionId;
+      headers["x-stepup-browser-session"] = browserSessionId;
+    }
+    if (stepupSessionId) {
+      headers["x-stepup-session"] = stepupSessionId;
+    }
+    return headers;
   };
-  if (browserSessionId) {
-    headers["x-cm-browser-session"] = browserSessionId;
-    headers["x-stepup-browser-session"] = browserSessionId;
-  }
-  if (stepupSessionId) {
-    headers["x-stepup-session"] = stepupSessionId;
-  }
   const data = await runEncryptedRequest({
     url,
     body: { encryptedData },
-    headers,
+    headersFactory,
     path,
     resourceKey: deriveStepupResourceKey(items),
     excludeStepup: isStepupExemptPath(path),

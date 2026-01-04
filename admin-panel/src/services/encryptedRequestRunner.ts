@@ -83,7 +83,7 @@ export function deriveStepupResourceKey(items?: Record<string, any>): string | n
 export interface RunEncryptedRequestOptions {
   url: string;
   body: any;
-  headers: Record<string, string>;
+  headersFactory: () => Record<string, string>;
   path: string;
   resourceKey?: string | null;
   excludeStepup?: boolean;
@@ -93,14 +93,15 @@ export interface RunEncryptedRequestOptions {
 export async function runEncryptedRequest({
   url,
   body,
-  headers,
+  headersFactory,
   path,
   resourceKey,
   excludeStepup = false,
   retryCount = 0,
 }: RunEncryptedRequestOptions) {
   try {
-    const response = await axios.post(url, body, { headers });
+    const currentHeaders = headersFactory();
+    const response = await axios.post(url, body, { headers: currentHeaders });
     return response.data;
   } catch (error: any) {
     if (
@@ -119,7 +120,7 @@ export async function runEncryptedRequest({
     return runEncryptedRequest({
       url,
       body,
-      headers,
+      headersFactory,
       path,
       resourceKey,
       excludeStepup,

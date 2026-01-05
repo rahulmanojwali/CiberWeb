@@ -114,9 +114,8 @@ export const OrgMandiMapping: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<{ org_id: string; status: "ALL" | "Y" | "N" }>({
+  const [filters, setFilters] = useState<{ org_id: string }>({
     org_id: "",
-    status: "ALL",
   });
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({
@@ -155,13 +154,7 @@ export const OrgMandiMapping: React.FC = () => {
     return "All organisations";
   }, [filters.org_id, orgOptions, responseOrgName, isOrgScoped, scopedOrgId, scopedOrgCode]);
 
-  const filteredRows = useMemo(() => {
-    const statusFilter = filters.status;
-    return rows.filter((row) => {
-      if (statusFilter === "ALL") return true;
-      return row.is_active === statusFilter;
-    });
-  }, [filters.status, rows]);
+  const filteredRows = rows;
 
   const loadOrgs = useCallback(async () => {
     if (!username) return;
@@ -191,8 +184,7 @@ export const OrgMandiMapping: React.FC = () => {
   }, [language, username]);
 
   // Make the list fetch independent of filters.org_id so it doesn't get recreated and retrigger effects.
-  const fetchMappings = useCallback(
-    async (orgId: string, status: "ALL" | "Y" | "N") => {
+  const fetchMappings = useCallback(async (orgId: string) => {
       if (!username) return;
       if (!orgId) return;
 
@@ -203,7 +195,6 @@ export const OrgMandiMapping: React.FC = () => {
           language,
           org_id: orgId,
           filters: {
-            is_active: status === "ALL" ? undefined : status,
             page: 1,
             pageSize: 200,
           },
@@ -299,12 +290,12 @@ export const OrgMandiMapping: React.FC = () => {
     if (!username) return;
     if (!requestOrgId) return;
 
-    const key = `${username}|${requestOrgId}|${filters.status}|${language}`;
+    const key = `${username}|${requestOrgId}|${language}`;
     if (lastFetchKeyRef.current === key) return; // prevents duplicate fetch due to initial state changes
     lastFetchKeyRef.current = key;
 
-    fetchMappings(requestOrgId, filters.status);
-  }, [fetchMappings, filters.status, language, requestOrgId, username]);
+    fetchMappings(requestOrgId);
+  }, [fetchMappings, language, requestOrgId, username]);
 
   const handleStatusToggle = async (row: MappingRow, nextState: "Y" | "N") => {
     if (!canToggleStatus) return;
@@ -326,7 +317,7 @@ export const OrgMandiMapping: React.FC = () => {
 
       // Refresh once
       lastFetchKeyRef.current = "";
-      if (requestOrgId) fetchMappings(requestOrgId, filters.status);
+      if (requestOrgId) fetchMappings(requestOrgId);
     } catch (err: any) {
       console.error("[OrgMandiMapping] status toggle error", err);
       setToast({
@@ -349,7 +340,7 @@ export const OrgMandiMapping: React.FC = () => {
 
   const handleRefresh = () => {
     lastFetchKeyRef.current = "";
-    if (requestOrgId) fetchMappings(requestOrgId, filters.status);
+    if (requestOrgId) fetchMappings(requestOrgId);
   };
 
   return (
@@ -386,19 +377,6 @@ export const OrgMandiMapping: React.FC = () => {
                   ))}
                 </TextField>
 
-                <TextField
-                  select
-                  label="Status"
-                  size="small"
-                  value={filters.status}
-                  onChange={(e) => handleFiltersChange("status", e.target.value)}
-                  sx={{ width: 160 }}
-                >
-                  <MenuItem value="ALL">All</MenuItem>
-                  <MenuItem value="Y">Active</MenuItem>
-                  <MenuItem value="N">Inactive</MenuItem>
-                </TextField>
-
                 <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh} disabled={loading || !requestOrgId}>
                   Refresh
                 </Button>
@@ -420,9 +398,7 @@ export const OrgMandiMapping: React.FC = () => {
                 </Box>
               ) : filteredRows.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  {rows.length
-                    ? `No organisation mandis match the selected status (${filters.status === "Y" ? "Active" : filters.status === "N" ? "Inactive" : "N/A"}).`
-                    : "No organisation mandis found."}
+                  {rows.length ? "No organisation mandis match the current selection." : "No organisation mandis found."}
                 </Typography>
               ) : (
                 <TableContainer sx={{ maxHeight: 520 }}>

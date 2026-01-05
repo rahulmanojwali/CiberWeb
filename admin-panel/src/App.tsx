@@ -121,7 +121,11 @@ function App() {
               "#root": { height: "100%" },
             }}
           />
-          <RefineSnackbarProvider>
+          <RefineSnackbarProvider
+            snackbarProviderProps={{
+              anchorOrigin: { vertical: "top", horizontal: "center" },
+            }}
+          >
             <Refine
               dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
               notificationProvider={useNotificationProvider}

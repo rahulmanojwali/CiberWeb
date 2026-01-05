@@ -153,9 +153,9 @@ export const GateDevices: React.FC = () => {
         language: "en",
         org_id: effectiveOrgId,
         mandis_page: 1,
-        mandis_pageSize,
+        mandis_pageSize: mandisPageSize,
         gates_page: 1,
-        gates_pageSize,
+        gates_pageSize: gatesPageSize,
         mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
         search: mandiSearchText || undefined,
       });

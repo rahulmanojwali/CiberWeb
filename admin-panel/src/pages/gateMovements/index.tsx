@@ -10,7 +10,7 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchGateMovements } from "../../services/gateOpsApi";
-import { fetchMandis, fetchMandiGates } from "../../services/mandiApi";
+import { fetchMandiGates, getMandisForCurrentScope } from "../../services/mandiApi";
 
 type MovementRow = {
   id: string;
@@ -102,14 +102,31 @@ export const GateMovements: React.FC = () => {
   const loadMandis = async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
-    setMandiOptions(
-      list.map((m: any) => ({
-        value: String(m.mandi_id || m.slug || m.mandi_slug || ""),
-        label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
-      })),
-    );
+    const orgId = filters.org_id;
+    if (!orgId) {
+      setMandiOptions([]);
+      return;
+    }
+    try {
+      const list = await getMandisForCurrentScope({
+        username,
+        language,
+        org_id: orgId,
+        filters: {
+          page: 1,
+          pageSize: 200,
+        },
+      });
+      setMandiOptions(
+        list.map((m: any) => ({
+          value: String(m.mandi_id || m.slug || m.mandi_slug || ""),
+          label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+        })),
+      );
+    } catch (err) {
+      console.error("[GateMovements] loadMandis error", err);
+      setMandiOptions([]);
+    }
   };
 
   const loadGates = async (mandiId?: string) => {
@@ -181,8 +198,15 @@ export const GateMovements: React.FC = () => {
 
   useEffect(() => {
     loadOrganisations();
-    loadMandis();
   }, [language, uiConfig.role]);
+
+  useEffect(() => {
+    if (!filters.org_id) {
+      setMandiOptions([]);
+      return;
+    }
+    loadMandis();
+  }, [filters.org_id, language]);
 
   useEffect(() => {
     loadGates(filters.mandi_id);

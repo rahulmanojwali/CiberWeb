@@ -288,6 +288,23 @@ export const fetchOrgMandisLite = async ({
     ...filters,
   });
 
+export const getMandisForCurrentScope = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  org_id,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  org_id: string;
+  filters?: Record<string, any>;
+}) => {
+  const resp = await fetchOrgMandisLite({ username, language, org_id, filters });
+  const root = resp?.data ?? resp?.response ?? resp ?? {};
+  const data = root?.data ?? root;
+  return data?.items ?? [];
+};
+
 export const fetchSystemMandisByState = async ({
   username,
   language = DEFAULT_LANGUAGE,

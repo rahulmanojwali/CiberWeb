@@ -89,6 +89,9 @@ export const API_TAGS = {
     update: "editMandiGate",
     deactivate: "deactivateMandiGate",
   },
+  GATES_BOOTSTRAP: {
+    list: "getGateScreenBootstrap",
+  },
   HOURS: {
     list: "getMandiHoursMasters",
     create: "createMandiHoursTemplate",
@@ -341,6 +344,7 @@ export const API_ROUTES = {
     editMandiGate: "/admin/editMandiGate",
     deactivateMandiGate: "/admin/mandi-gates/toggle-active",
     getMandisWithGatesSummary: "/admin/getMandisWithGatesSummary",
+    getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
     getMandiHoursMasters: "/admin/getMandiHoursMasters",
     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",
     updateMandiHoursTemplate: "/admin/updateMandiHoursTemplate",

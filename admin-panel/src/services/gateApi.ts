@@ -272,3 +272,37 @@ export const deactivateGateDeviceConfig = async ({
     config_id,
     is_active,
   });
+
+export const fetchGateScreenBootstrap = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  org_id,
+  mandis_page = 1,
+  mandis_pageSize = 200,
+  gates_page = 1,
+  gates_pageSize = 0,
+  mandi_id,
+  search,
+}: {
+  username: string;
+  language?: string;
+  org_id: string;
+  mandis_page?: number;
+  mandis_pageSize?: number;
+  gates_page?: number;
+  gates_pageSize?: number;
+  mandi_id?: number;
+  search?: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getGateScreenBootstrap, {
+    api: API_TAGS.GATES_BOOTSTRAP.list,
+    username,
+    language,
+    org_id,
+    mandis_page,
+    mandis_pageSize,
+    gates_page,
+    gates_pageSize,
+    mandi_id,
+    search,
+  });

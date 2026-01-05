@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Chip,
@@ -19,7 +19,7 @@ import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-import { fetchGateDevices, createGateDevice, fetchMandisWithGatesSummary } from "../../services/gateApi";
+import { fetchGateDevices, createGateDevice, fetchGateScreenBootstrap } from "../../services/gateApi";
 import { useSnackbar } from "notistack";
 import { usePermissions } from "../../authz/usePermissions";
 
@@ -73,15 +73,11 @@ export const GateDevices: React.FC = () => {
     device_type: "",
     search: "",
   });
-  const [mandiSource, setMandiSource] = useState<"ORG" | "SYSTEM">("ORG");
   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
   const [gateOptions, setGateOptions] = useState<any[]>([]);
-  const [mandiSearch, setMandiSearch] = useState("");
-  const [mandiPage, setMandiPage] = useState(1);
-  const [mandiHasMore, setMandiHasMore] = useState(true);
-  const [loadingMandis, setLoadingMandis] = useState(false);
-  const mandisReqId = useRef(0);
-  const didInitMandis = useRef(false);
+  const [mandiSearchText, setMandiSearchText] = useState("");
+  const [bootstrapOrg, setBootstrapOrg] = useState<{ org_id?: string; org_code?: string; org_name?: string }>({});
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
   const [rows, setRows] = useState<DeviceRow[]>([]);
   const [page, setPage] = useState(0);
@@ -138,104 +134,63 @@ export const GateDevices: React.FC = () => {
     [],
   );
 
-  const loadMandis = async (pageToLoad = mandiPage, append = pageToLoad > 1) => {
+  const loadGateBootstrap = useCallback(async () => {
+    const username = currentUsername();
     const effectiveOrgId = filters.org_id || authContext.org_id || initialOrg.org_id;
-    if (mandiSource === "ORG" && !effectiveOrgId) return;
+    if (!username || !effectiveOrgId) {
+      setBootstrapOrg({});
+      setMandiOptions([]);
+      setGateOptions([]);
+      return;
+    }
 
-    mandisReqId.current += 1;
-    const reqId = mandisReqId.current;
-    setLoadingMandis(true);
+    const mandisPageSize = 200;
+    const gatesPageSize = filters.mandi_id ? 200 : 0;
+    setBootstrapLoading(true);
     try {
-      console.log("[GateDevices] Mandis fetch START", { reqId, pageToLoad, mandiSource, mandiSearch, effectiveOrgId });
-      const resp = await fetchMandisWithGatesSummary({
-        username: currentUsername() || "",
+      const resp = await fetchGateScreenBootstrap({
+        username,
         language: "en",
-        filters: {
-          org_id: effectiveOrgId,
-          mandi_source: mandiSource,
-          owner_group: mandiSource,
-          is_active: true,
-          page: pageToLoad,
-          pageSize: MANDI_PAGE_SIZE,
-          search: mandiSearch || undefined,
-          only_with_gates: "Y",
-        },
+        org_id: effectiveOrgId,
+        mandis_page: 1,
+        mandis_pageSize,
+        gates_page: 1,
+        gates_pageSize,
+        mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
+        search: mandiSearchText || undefined,
       });
-      if (reqId !== mandisReqId.current) return;
-      const ok = resp?.ok || resp?.response?.responsecode === "0";
-      if (!ok) {
-        enqueueSnackbar(resp?.description || "Unable to load mandis", { variant: "error" });
-        if (!append) setMandiOptions([]);
+      const responseCode = resp?.response?.responsecode;
+      if (responseCode !== "0") {
+        enqueueSnackbar(resp?.response?.description || "Unable to load mandis", { variant: "error" });
+        setBootstrapOrg({});
+        setMandiOptions([]);
+        setGateOptions([]);
         return;
       }
-      const data = resp?.data || resp?.response?.data || {};
-      const mandis = data?.items || data?.mandis || [];
-      const totalCount = Number.isFinite(Number(data?.meta?.totalCount))
-        ? Number(data.meta.totalCount)
-        : mandis.length;
-      setMandiHasMore(pageToLoad * MANDI_PAGE_SIZE < totalCount);
-      setMandiOptions((prev) => {
-        if (!append) return mandis;
-        const merged = [...prev];
-        mandis.forEach((m: any) => {
-          if (!merged.find((p) => String(p.mandi_id) === String(m.mandi_id))) merged.push(m);
-        });
-        return merged;
-      });
-      console.log("[GateDevices] Mandis fetch DONE", { reqId, totalCount, returned: mandis.length });
+      const data = resp?.data || {};
+      setBootstrapOrg(data?.org || {});
+      setMandiOptions(data?.mandis?.items || []);
+      setGateOptions(data?.gates?.items || []);
     } catch (err: any) {
-      if (reqId !== mandisReqId.current) return;
+      console.error("[GateDevices] bootstrap load error", err);
       enqueueSnackbar(err?.message || "Unable to load mandis", { variant: "error" });
-      setMandiOptions((prev) => (append ? prev : []));
+      setBootstrapOrg({});
+      setMandiOptions([]);
+      setGateOptions([]);
     } finally {
-      if (reqId === mandisReqId.current) setLoadingMandis(false);
+      setBootstrapLoading(false);
     }
-  };
-
-  const resetMandis = (resetSearch = false) => {
-    if (resetSearch) setMandiSearch("");
-    setMandiPage(1);
-    setMandiHasMore(true);
-    setMandiOptions([]);
-    setGateOptions([]);
-  };
+  }, [authContext.org_id, enqueueSnackbar, filters.org_id, filters.mandi_id, initialOrg.org_id, mandiSearchText]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      if (didInitMandis.current && mandiSearch === "" && mandiSource === "ORG") return;
-      didInitMandis.current = true;
-      resetMandis();
-      loadMandis(1, false);
+      loadGateBootstrap();
     }, 300);
     return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mandiSource, filters.org_id, mandiSearch]);
-
-  const handleLoadMoreMandis = () => {
-    if (loadingMandis || !mandiHasMore) return;
-    const next = mandiPage + 1;
-    setMandiPage(next);
-    loadMandis(next, true);
-  };
-
-  useEffect(() => {
-    if (!mandiOptions.length && !loadingMandis) {
-      loadMandis(1, false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (filters.mandi_id) {
-      const sel = mandiOptions.find((m) => String(m.mandi_id) === String(filters.mandi_id));
-      setGateOptions(sel?.gates || []);
-    } else {
-      setGateOptions([]);
-    }
-  }, [filters.mandi_id, mandiOptions]);
+  }, [loadGateBootstrap]);
 
   const loadDevices = async () => {
-    if (loadingMandis || loading) return;
+    if (loading) return;
     setLoading(true);
     try {
       const effectiveOrgId = filters.org_id || authContext.org_id || initialOrg.org_id || undefined;
@@ -305,6 +260,8 @@ export const GateDevices: React.FC = () => {
 
   const selectedMandi = mandiOptions.find((m) => String(m.mandi_id) === String(filters.mandi_id)) || null;
   const orgDisplayName =
+    bootstrapOrg.org_name ||
+    bootstrapOrg.org_code ||
     (authContext as any).org_name ||
     initialOrg.org_name ||
     authContext.org_code ||
@@ -324,43 +281,21 @@ export const GateDevices: React.FC = () => {
       </Stack>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} mb={2}>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
-          <TextField
-            select
-            label="Mandi Source"
-            size="small"
-            value={mandiSource}
-            onChange={(e) => {
-              setPage(0);
-              setMandiSource(e.target.value as "ORG" | "SYSTEM");
-              setFilters((f) => ({ ...f, mandi_id: "", gate_code: "" }));
-              resetMandis(true);
-            }}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="ORG">Organisation Mandis</MenuItem>
-            <MenuItem value="SYSTEM">System Mandis</MenuItem>
-          </TextField>
           <Autocomplete
             sx={{ minWidth: 220 }}
-            loading={loadingMandis}
+            loading={bootstrapLoading}
             options={mandiOptions}
             value={selectedMandi}
-            inputValue={mandiSearch}
+            inputValue={mandiSearchText}
             onInputChange={(_, value, reason) => {
-              if (reason === "input") {
-                setMandiSearch(value);
-                setMandiPage(1);
-                setMandiHasMore(true);
-              } else if (reason === "clear") {
-                setMandiSearch("");
-                setMandiPage(1);
-                setMandiHasMore(true);
+              if (reason === "input" || reason === "clear") {
+                setMandiSearchText(value || "");
               }
             }}
             onChange={(_, value) => {
               setFilters((f) => ({ ...f, mandi_id: value?.mandi_id || "", gate_code: "" }));
             }}
-            getOptionLabel={(option) => option?.name_i18n?.en || option?.mandi_slug || String(option?.mandi_id || "")}
+            getOptionLabel={(option) => option?.name_i18n?.en || option?.label || option?.mandi_slug || String(option?.mandi_id || "")}
             isOptionEqualToValue={(opt, val) => String(opt?.mandi_id) === String(val?.mandi_id)}
             renderInput={(params) => (
               <TextField
@@ -371,27 +306,15 @@ export const GateDevices: React.FC = () => {
                   ...params.InputProps,
                   endAdornment: (
                     <>
-                      {loadingMandis ? <CircularProgress color="inherit" size={16} /> : null}
+                      {bootstrapLoading ? <CircularProgress color="inherit" size={16} /> : null}
                       {params.InputProps.endAdornment}
                     </>
                   ),
                 }}
               />
             )}
-            ListboxProps={{
-              onScroll: (event) => {
-                const listboxNode = event.currentTarget;
-                if (
-                  listboxNode.scrollTop + listboxNode.clientHeight + 60 >= listboxNode.scrollHeight &&
-                  mandiHasMore &&
-                  !loadingMandis
-                ) {
-                  handleLoadMoreMandis();
-                }
-              },
-            }}
             loadingText="Loading mandis..."
-            noOptionsText={loadingMandis ? "Loading..." : "No mandis found"}
+            noOptionsText={bootstrapLoading ? "Loading..." : "No mandis found"}
           />
           <TextField
             select
@@ -493,24 +416,19 @@ export const GateDevices: React.FC = () => {
             <Autocomplete
               options={mandiOptions}
               value={mandiOptions.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null}
-              inputValue={mandiSearch}
+              inputValue={mandiSearchText}
               onInputChange={(_, value, reason) => {
-                if (reason === "input") {
-                  setMandiSearch(value);
-                  setMandiPage(1);
-                  setMandiHasMore(true);
-                } else if (reason === "clear") {
-                  setMandiSearch("");
-                  setMandiPage(1);
-                  setMandiHasMore(true);
+                if (reason === "input" || reason === "clear") {
+                  setMandiSearchText(value || "");
                 }
               }}
               onChange={(_, value) => {
-                setForm((f) => ({ ...f, mandi_id: value?.mandi_id || "", gate_code: "" }));
-                setGateOptions(value?.gates || []);
+                const mandiId = value?.mandi_id || "";
+                setForm((f) => ({ ...f, mandi_id: mandiId, gate_code: "" }));
+                setFilters((f) => ({ ...f, mandi_id: mandiId, gate_code: "" }));
               }}
               getOptionLabel={(option) =>
-                option?.name_i18n?.en || option?.mandi_slug || String(option?.mandi_id || "")
+                option?.name_i18n?.en || option?.label || option?.mandi_slug || String(option?.mandi_id || "")
               }
               isOptionEqualToValue={(opt, val) => String(opt?.mandi_id) === String(val?.mandi_id)}
               renderInput={(params) => (
@@ -522,28 +440,16 @@ export const GateDevices: React.FC = () => {
                     ...params.InputProps,
                     endAdornment: (
                       <>
-                        {loadingMandis ? <CircularProgress color="inherit" size={16} /> : null}
+                        {bootstrapLoading ? <CircularProgress color="inherit" size={16} /> : null}
                         {params.InputProps.endAdornment}
                       </>
                     ),
                   }}
                 />
               )}
-              ListboxProps={{
-                onScroll: (event) => {
-                  const listboxNode = event.currentTarget;
-                  if (
-                    listboxNode.scrollTop + listboxNode.clientHeight + 60 >= listboxNode.scrollHeight &&
-                    mandiHasMore &&
-                    !loadingMandis
-                  ) {
-                    handleLoadMoreMandis();
-                  }
-                },
-              }}
-              loading={loadingMandis}
+              loading={bootstrapLoading}
               loadingText="Loading mandis..."
-              noOptionsText={loadingMandis ? "Loading..." : "No mandis found"}
+              noOptionsText={bootstrapLoading ? "Loading..." : "No mandis found"}
             />
             <TextField
               select

@@ -1,16 +1,18 @@
-
 import * as React from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { useStepUp } from "../security/stepup/useStepUp";
-import { resolveLockedStepupKey } from "../security/stepup/resolveLockedStepupKey";
 
-const normalizePath = (value?: string | null) => {
+const normalizePath = (value?: string | null): string => {
   if (!value) return "";
-  const sanitized = value.split("?")[0].replace(/\\+/g, "/");
+
+  const sanitized = value
+    .split("?")[0]
+    .replace(/\/{2,}/g, "/"); // normalize //// to /
+
   return sanitized === "/" ? "/" : sanitized.replace(/\/+$/, "");
 };
 
@@ -20,18 +22,14 @@ const matchesRoutePattern = (pattern?: string | null, target?: string) => {
   const normalizedTarget = normalizePath(target);
   if (!normalizedPattern || !normalizedTarget) return false;
   if (normalizedPattern === normalizedTarget) return true;
-  if (
-    normalizedPattern !== "/" &&
-    normalizedTarget.startsWith(`${normalizedPattern}/`)
-  ) {
+  if (normalizedPattern !== "/" && normalizedTarget.startsWith(`${normalizedPattern}/`)) {
     return true;
   }
 
   const patternSegments = normalizedPattern.split("/").filter(Boolean);
   const targetSegments = normalizedTarget.split("/").filter(Boolean);
 
-  // NOTE: your original logic required equal segment lengths.
-  // Keep it unchanged to avoid breaking existing SUPER_ADMIN behavior.
+  // Keep your original strict segment-length match to avoid changing existing routing semantics
   if (patternSegments.length !== targetSegments.length) {
     return false;
   }
@@ -51,82 +49,110 @@ const resolveResourceKeyForPath = (pathname: string, resources: UiResource[]) =>
     const route = normalizePath(resource.route || undefined);
     return route === cleanedPath;
   });
-  if (matchExact) {
-    return canonicalizeResourceKey(matchExact.resource_key);
+  if (matchExact) return canonicalizeResourceKey(matchExact.resource_key);
+
+  const matchPattern = resources.find((resource) => matchesRoutePattern(resource.route, cleanedPath));
+  if (matchPattern) return canonicalizeResourceKey(matchPattern.resource_key);
+
+  return null;
+};
+
+// If route key is *.menu, try Step-Up against likely screen keys (and the reverse direction too)
+const resolveStepupKeyVariant = (baseKey: string | null, isLocked: (key: string) => boolean) => {
+  const key = canonicalizeResourceKey(baseKey);
+  if (!key) return null;
+
+  if (isLocked(key)) return key;
+
+  const candidates: string[] = [];
+
+  if (key.endsWith(".menu")) {
+    candidates.push(
+      key.replace(/\.menu$/, ".list"),
+      key.replace(/\.menu$/, ".view"),
+      key.replace(/\.menu$/, ".detail"),
+      key.replace(/\.menu$/, ".create"),
+      key.replace(/\.menu$/, ".edit"),
+      key.replace(/\.menu$/, ".deactivate"),
+    );
+  } else {
+    // screen -> menu
+    candidates.push(key.replace(/\.(list|view|detail|create|edit|deactivate)$/, ".menu"));
   }
 
-  const matchPattern = resources.find((resource) =>
-    matchesRoutePattern(resource.route, cleanedPath),
-  );
-  if (matchPattern) {
-    return canonicalizeResourceKey(matchPattern.resource_key);
+  for (const candidate of candidates) {
+    const normalizedCandidate = canonicalizeResourceKey(candidate);
+    if (normalizedCandidate && isLocked(normalizedCandidate)) {
+      return normalizedCandidate;
+    }
   }
 
   return null;
 };
 
-// IMPORTANT: resolve locked key even if UI gives a sibling (menu<->list/view/etc)
-const resolveStepupKeyVariant = (
-  resolvedKey: string | null,
-  isLocked: (key: string) => boolean,
-) => resolveLockedStepupKey(resolvedKey, isLocked);
+type GateState = "ALLOWED" | "CHECKING" | "BLOCKED";
 
-export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { ui_resources, resources: compatResources } = useAdminUiConfig();
-
-  const resources = React.useMemo<UiResource[]>(
-    () => {
-      if (Array.isArray(ui_resources) && ui_resources.length) {
-        return ui_resources;
-      }
-      return Array.isArray(compatResources) ? compatResources : [];
-    },
-    [ui_resources, compatResources],
-  );
-
   const { isLocked, ensureStepUp } = useStepUp();
-  const [ready, setReady] = React.useState(true);
+
+  const resources = React.useMemo<UiResource[]>(() => {
+    if (Array.isArray(ui_resources) && ui_resources.length) return ui_resources;
+    return Array.isArray(compatResources) ? compatResources : [];
+  }, [ui_resources, compatResources]);
+
+  const [gate, setGate] = React.useState<GateState>("ALLOWED");
+  const lastKeyRef = React.useRef<string | null>(null);
+
+  const runGateCheck = React.useCallback(
+    async (pathname: string) => {
+      const baseKey = resolveResourceKeyForPath(pathname, resources);
+      const stepupKey = resolveStepupKeyVariant(baseKey, isLocked);
+      const locked = Boolean(stepupKey);
+
+      console.info("[STEPUP_UI]", {
+        path: pathname,
+        base_key: baseKey || "unknown",
+        stepup_key: stepupKey || "none",
+        locked,
+        source: "ROUTE",
+      });
+
+      if (!stepupKey || !locked) {
+        lastKeyRef.current = null;
+        setGate("ALLOWED");
+        return;
+      }
+
+      lastKeyRef.current = stepupKey;
+      setGate("CHECKING");
+
+      const ok = await ensureStepUp(stepupKey, "VIEW", { source: "ROUTE" });
+      if (ok) {
+        setGate("ALLOWED");
+      } else {
+        // CRITICAL: do NOT render the screen when user cancels/denies.
+        // Otherwise the screen loads, fires protected APIs, and you get infinite requireStepUp loops.
+        setGate("BLOCKED");
+      }
+    },
+    [ensureStepUp, isLocked, resources],
+  );
 
   React.useEffect(() => {
     let active = true;
-
-    const baseKey = resolveResourceKeyForPath(location.pathname, resources);
-    const stepupKey = resolveStepupKeyVariant(baseKey, isLocked);
-    const locked = Boolean(stepupKey);
-
-    console.info("[STEPUP_UI]", {
-      path: location.pathname,
-      base_key: baseKey || "unknown",
-      stepup_key: stepupKey || "none",
-      locked,
-      source: "ROUTE",
-    });
-
-    if (!stepupKey || !locked) {
-      setReady(true);
-      return;
-    }
-
-    setReady(false);
     (async () => {
-      const ok = await ensureStepUp(stepupKey, "VIEW", { source: "ROUTE" });
+      await runGateCheck(location.pathname);
       if (!active) return;
-      setReady(true);
-      if (!ok) {
-        console.warn("[STEPUP_UI] step-up blocked route, staying on current path");
-      }
     })();
-
     return () => {
       active = false;
     };
-  }, [location.pathname, resources, isLocked, ensureStepUp, navigate]);
+  }, [location.pathname, runGateCheck]);
 
-  if (!ready) {
+  if (gate === "CHECKING") {
     return (
       <Box display="flex" justifyContent="center" py={6}>
         <CircularProgress />
@@ -134,8 +160,211 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
     );
   }
 
+  if (gate === "BLOCKED") {
+    const stepupKey = lastKeyRef.current;
+    return (
+      <Box sx={{ px: 2, py: 6, display: "flex", justifyContent: "center" }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 3,
+            maxWidth: 560,
+            width: "100%",
+            borderRadius: 3,
+          }}
+        >
+          <Typography sx={{ fontWeight: 900, fontSize: 18, mb: 1 }}>
+            Step-Up verification required
+          </Typography>
+          <Typography sx={{ color: "text.secondary", mb: 2 }}>
+            This screen is protected. Please verify with your authenticator app to continue.
+          </Typography>
+
+          {stepupKey ? (
+            <Typography sx={{ color: "text.secondary", fontSize: 12.5, mb: 2 }}>
+              Resource: <b>{stepupKey}</b>
+            </Typography>
+          ) : null}
+
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (stepupKey) {
+                  ensureStepUp(stepupKey, "VIEW", { source: "ROUTE" }).then((ok) => {
+                    setGate(ok ? "ALLOWED" : "BLOCKED");
+                  });
+                } else {
+                  runGateCheck(location.pathname);
+                }
+              }}
+            >
+              Verify now
+            </Button>
+
+            <Button
+              variant="outlined"
+              onClick={() => {
+                // Prefer going back (no hardcoded fallback to dashboard).
+                try {
+                  // Some projects still have react-router types that don't accept navigate(-1).
+                  // Using the browser history avoids TS/type mismatches and still achieves "go back".
+                  window.history.back();
+                } catch {
+                  navigate("/", { replace: true });
+                }
+              }}
+            >
+              Go back
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
+
   return <>{children}</>;
 };
+
+
+
+// import * as React from "react";
+// import { Box, CircularProgress } from "@mui/material";
+// import { useLocation, useNavigate } from "react-router-dom";
+
+// import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
+// import { useAdminUiConfig } from "../contexts/admin-ui-config";
+// import { useStepUp } from "../security/stepup/useStepUp";
+// import { resolveLockedStepupKey } from "../security/stepup/resolveLockedStepupKey";
+
+// const normalizePath = (value?: string | null) => {
+//   if (!value) return "";
+//   const sanitized = value.split("?")[0].replace(/\\+/g, "/");
+//   return sanitized === "/" ? "/" : sanitized.replace(/\/+$/, "");
+// };
+
+// const matchesRoutePattern = (pattern?: string | null, target?: string) => {
+//   if (!pattern || !target) return false;
+//   const normalizedPattern = normalizePath(pattern);
+//   const normalizedTarget = normalizePath(target);
+//   if (!normalizedPattern || !normalizedTarget) return false;
+//   if (normalizedPattern === normalizedTarget) return true;
+//   if (
+//     normalizedPattern !== "/" &&
+//     normalizedTarget.startsWith(`${normalizedPattern}/`)
+//   ) {
+//     return true;
+//   }
+
+//   const patternSegments = normalizedPattern.split("/").filter(Boolean);
+//   const targetSegments = normalizedTarget.split("/").filter(Boolean);
+
+//   // NOTE: your original logic required equal segment lengths.
+//   // Keep it unchanged to avoid breaking existing SUPER_ADMIN behavior.
+//   if (patternSegments.length !== targetSegments.length) {
+//     return false;
+//   }
+
+//   return patternSegments.every((segment, index) => {
+//     if (!segment) return false;
+//     if (segment.startsWith(":")) return true;
+//     return segment === targetSegments[index];
+//   });
+// };
+
+// const resolveResourceKeyForPath = (pathname: string, resources: UiResource[]) => {
+//   const cleanedPath = normalizePath(pathname);
+//   if (!cleanedPath) return null;
+
+//   const matchExact = resources.find((resource) => {
+//     const route = normalizePath(resource.route || undefined);
+//     return route === cleanedPath;
+//   });
+//   if (matchExact) {
+//     return canonicalizeResourceKey(matchExact.resource_key);
+//   }
+
+//   const matchPattern = resources.find((resource) =>
+//     matchesRoutePattern(resource.route, cleanedPath),
+//   );
+//   if (matchPattern) {
+//     return canonicalizeResourceKey(matchPattern.resource_key);
+//   }
+
+//   return null;
+// };
+
+// // IMPORTANT: resolve locked key even if UI gives a sibling (menu<->list/view/etc)
+// const resolveStepupKeyVariant = (
+//   resolvedKey: string | null,
+//   isLocked: (key: string) => boolean,
+// ) => resolveLockedStepupKey(resolvedKey, isLocked);
+
+// export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({
+//   children,
+// }) => {
+//   const location = useLocation();
+//   const navigate = useNavigate();
+//   const { ui_resources, resources: compatResources } = useAdminUiConfig();
+
+//   const resources = React.useMemo<UiResource[]>(
+//     () => {
+//       if (Array.isArray(ui_resources) && ui_resources.length) {
+//         return ui_resources;
+//       }
+//       return Array.isArray(compatResources) ? compatResources : [];
+//     },
+//     [ui_resources, compatResources],
+//   );
+
+//   const { isLocked, ensureStepUp } = useStepUp();
+//   const [ready, setReady] = React.useState(true);
+
+//   React.useEffect(() => {
+//     let active = true;
+
+//     const baseKey = resolveResourceKeyForPath(location.pathname, resources);
+//     const stepupKey = resolveStepupKeyVariant(baseKey, isLocked);
+//     const locked = Boolean(stepupKey);
+
+//     console.info("[STEPUP_UI]", {
+//       path: location.pathname,
+//       base_key: baseKey || "unknown",
+//       stepup_key: stepupKey || "none",
+//       locked,
+//       source: "ROUTE",
+//     });
+
+//     if (!stepupKey || !locked) {
+//       setReady(true);
+//       return;
+//     }
+
+//     setReady(false);
+//     (async () => {
+//       const ok = await ensureStepUp(stepupKey, "VIEW", { source: "ROUTE" });
+//       if (!active) return;
+//       setReady(true);
+//       if (!ok) {
+//         console.warn("[STEPUP_UI] step-up blocked route, staying on current path");
+//       }
+//     })();
+
+//     return () => {
+//       active = false;
+//     };
+//   }, [location.pathname, resources, isLocked, ensureStepUp, navigate]);
+
+//   if (!ready) {
+//     return (
+//       <Box display="flex" justifyContent="center" py={6}>
+//         <CircularProgress />
+//       </Box>
+//     );
+//   }
+
+//   return <>{children}</>;
+// };
 
 // import * as React from "react";
 // import { Box, CircularProgress } from "@mui/material";

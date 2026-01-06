@@ -141,6 +141,8 @@ export const MandiGates: React.FC = () => {
   // ✅ prevent repeated bootstrap calls (mount + strict mode + state init)
   const mountedOnceRef = useRef(false);
   const inflightRef = useRef(false);
+  const bootstrapInFlightRef = useRef(false);
+  const bootstrapLastKeyRef = useRef<string>("");
 
   const [gateCodeDirty, setGateCodeDirty] = useState(false);
   const [gateCodeError, setGateCodeError] = useState<string | null>(null);
@@ -383,6 +385,23 @@ export const MandiGates: React.FC = () => {
     [language, selectedOrgCode, selectedOrgId],
   );
 
+  const runBootstrap = useCallback(
+    async (mandiId?: number) => {
+      const key = `mandi:${mandiId ?? "none"}`;
+      if (bootstrapInFlightRef.current && bootstrapLastKeyRef.current === key) {
+        return;
+      }
+      bootstrapInFlightRef.current = true;
+      bootstrapLastKeyRef.current = key;
+      try {
+        await loadGateBootstrap(mandiId);
+      } finally {
+        bootstrapInFlightRef.current = false;
+      }
+    },
+    [loadGateBootstrap],
+  );
+
   // SUPER_ADMIN legacy mandi list (keep, but NOT for ORG admins)
   const loadMandis = async () => {
     const username = currentUsername();
@@ -472,8 +491,8 @@ export const MandiGates: React.FC = () => {
     }
     if (mountedOnceRef.current) return;
     mountedOnceRef.current = true;
-    loadGateBootstrap(undefined);
-  }, [isSuper, loadGateBootstrap]);
+    runBootstrap(undefined);
+  }, [isSuper, runBootstrap]);
 
   // ✅ Only when mandi changes:
   // - ORG scoped: bootstrap with mandi_id
@@ -484,11 +503,11 @@ export const MandiGates: React.FC = () => {
       return;
     }
     if (!isSuper) {
-      loadGateBootstrap(Number(selectedMandi));
+      runBootstrap(Number(selectedMandi));
     } else {
       loadData();
     }
-  }, [selectedMandi, isSuper]);
+  }, [selectedMandi, isSuper, runBootstrap]);
 
   // persist params (no API call)
   useEffect(() => {
@@ -602,7 +621,7 @@ export const MandiGates: React.FC = () => {
       // reload gates for selected mandi only (ORG) / legacy refresh (SUPER)
       if (selectedMandi) {
         if (isSuper) await loadData();
-        else await loadGateBootstrap(Number(selectedMandi));
+        else await runBootstrap(Number(selectedMandi));
       }
     } catch (err: any) {
       console.error("[mandiGates] save error", err);
@@ -640,11 +659,11 @@ export const MandiGates: React.FC = () => {
 
   const handleRefresh = async () => {
     if (!selectedMandi) {
-      if (!isSuper) await loadGateBootstrap(undefined);
+      if (!isSuper) await runBootstrap(undefined);
       else await loadMandis();
       return;
     }
-    if (!isSuper) await loadGateBootstrap(Number(selectedMandi));
+    if (!isSuper) await runBootstrap(Number(selectedMandi));
     else await loadData();
   };
 

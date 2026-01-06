@@ -88,6 +88,7 @@ export interface RunEncryptedRequestOptions {
   resourceKey?: string | null;
   excludeStepup?: boolean;
   retryCount?: number;
+  metadata?: { _stepupRetried?: boolean };
 }
 
 export async function runEncryptedRequest({
@@ -98,6 +99,7 @@ export async function runEncryptedRequest({
   resourceKey,
   excludeStepup = false,
   retryCount = 0,
+  metadata = {},
 }: RunEncryptedRequestOptions) {
   try {
     const currentHeaders = headersFactory();
@@ -107,6 +109,7 @@ export async function runEncryptedRequest({
     if (
       retryCount >= STEPUP_RETRY_LIMIT ||
       excludeStepup ||
+      metadata._stepupRetried ||
       !shouldHandleStepupChallenge(error, path)
     ) {
       throw error;
@@ -117,6 +120,7 @@ export async function runEncryptedRequest({
       throw error;
     }
 
+    metadata._stepupRetried = true;
     return runEncryptedRequest({
       url,
       body,
@@ -125,6 +129,7 @@ export async function runEncryptedRequest({
       resourceKey,
       excludeStepup,
       retryCount: retryCount + 1,
+      metadata,
     });
   }
 }

@@ -139,7 +139,7 @@ export const MandiGates: React.FC = () => {
   const [editId, setEditId] = useState<string | null>(null);
 
   // ✅ prevent repeated bootstrap calls (mount + strict mode + state init)
-  const bootstrapLoadedRef = useRef(false);
+  const mountedOnceRef = useRef(false);
   const inflightRef = useRef(false);
 
   const [gateCodeDirty, setGateCodeDirty] = useState(false);
@@ -470,8 +470,8 @@ export const MandiGates: React.FC = () => {
       loadMandis();
       return;
     }
-    if (bootstrapLoadedRef.current) return;
-    bootstrapLoadedRef.current = true;
+    if (mountedOnceRef.current) return;
+    mountedOnceRef.current = true;
     loadGateBootstrap(undefined);
   }, [isSuper, loadGateBootstrap]);
 

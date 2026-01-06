@@ -573,6 +573,13 @@ import KeyIcon from "@mui/icons-material/VpnKey";
 import { registerStepUpTrigger } from "./stepupService";
 
 type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
+const STEPUP_SOURCE_VALUES: readonly StepUpRequestSource[] = ["MENU", "ROUTE", "GUARD", "OTHER"];
+
+function normalizeStepupSource(value?: string | StepUpRequestSource): StepUpRequestSource | undefined {
+  if (!value) return undefined;
+  const normalized = String(value).trim().toUpperCase() as StepUpRequestSource;
+  return STEPUP_SOURCE_VALUES.includes(normalized) ? normalized : undefined;
+}
 
 type StepUpPrompt = {
   resourceKey: string;
@@ -668,11 +675,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     getBrowserSessionId();
     ensureCacheLoaded();
   }, [ensureCacheLoaded]);
-
-  React.useEffect(() => {
-    registerStepUpTrigger(ensureStepUp);
-    return () => registerStepUpTrigger(null);
-  }, [ensureStepUp]);
 
   const issueStepUpCheck = React.useCallback(
     async (resourceKey: string, action: string) => {
@@ -809,13 +811,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     [enqueueSnackbar, ensureCacheLoaded, issueStepUpCheck, navigate],
   );
 
-  React.useEffect(() => {
-    const trigger = (resourceKey?: string | null, action?: string, opts?: { source?: string }) =>
-      ensureStepUp(resourceKey, action, opts?.source as StepUpRequestSource);
-    registerStepUpTrigger(trigger);
-    return () => registerStepUpTrigger(null);
-  }, [ensureStepUp]);
-
   const handleVerify = React.useCallback(async () => {
     if (!pendingPrompt) return;
     const username = getCurrentAdminUsername();
@@ -864,6 +859,15 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       setVerifying(false);
     }
   }, [backupCode, enqueueSnackbar, markVerified, otp, pendingPrompt, useBackup]);
+
+  React.useEffect(() => {
+    const trigger = (resourceKey?: string | null, action?: string, opts?: { source?: string }) => {
+      const source = normalizeStepupSource(opts?.source);
+      return ensureStepUp(resourceKey, action, source ? { source } : undefined);
+    };
+    registerStepUpTrigger(trigger);
+    return () => registerStepUpTrigger(null);
+  }, [ensureStepUp]);
 
   const contextValue = React.useMemo(
     () => ({

@@ -92,6 +92,9 @@ export const API_TAGS = {
   GATES_BOOTSTRAP: {
     list: "getGateBootstrap",
   },
+  GATE_DEVICES_BOOTSTRAP: {
+    list: "getGateDevicesBootstrap",
+  },
   HOURS: {
     list: "getMandiHoursMasters",
     create: "createMandiHoursTemplate",
@@ -346,6 +349,8 @@ export const API_ROUTES = {
     getMandisWithGatesSummary: "/admin/getMandisWithGatesSummary",
     // Gates screen bootstrap (ORG scoped)
     getGateBootstrap: "/admin/gates/getGateBootstrap",
+    // Gate Devices screen bootstrap (ORG scoped)
+    getGateDevicesBootstrap: "/admin/gates/getGateDevicesBootstrap",
     // Backward-compatible alias
     getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
     getMandiHoursMasters: "/admin/getMandiHoursMasters",
@@ -447,15 +452,6 @@ export const APP_STRINGS = {
 };
 
 
-
-// export const BRAND_ASSETS = {
-//   // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
-//   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
-// };
-
-
-
-// commited on 07-jun 2026 at 8:54 a
 // // Prefer explicit API origin; fallback to env or relative /api for local dev
 // // Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
 // export const API_BASE_URL =
@@ -548,7 +544,7 @@ export const APP_STRINGS = {
 //     deactivate: "deactivateMandiGate",
 //   },
 //   GATES_BOOTSTRAP: {
-//     list: "getGateScreenBootstrap",
+//     list: "getGateBootstrap",
 //   },
 //   HOURS: {
 //     list: "getMandiHoursMasters",
@@ -802,6 +798,9 @@ export const APP_STRINGS = {
 //     editMandiGate: "/admin/editMandiGate",
 //     deactivateMandiGate: "/admin/mandi-gates/toggle-active",
 //     getMandisWithGatesSummary: "/admin/getMandisWithGatesSummary",
+//     // Gates screen bootstrap (ORG scoped)
+//     getGateBootstrap: "/admin/gates/getGateBootstrap",
+//     // Backward-compatible alias
 //     getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
 //     getMandiHoursMasters: "/admin/getMandiHoursMasters",
 //     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",

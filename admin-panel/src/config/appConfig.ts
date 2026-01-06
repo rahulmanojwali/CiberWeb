@@ -446,7 +446,15 @@ export const APP_STRINGS = {
   tagline: "Super Admin Console",
 };
 
-// commited on 07-jun 2026 at 8:54 am
+
+
+// export const BRAND_ASSETS = {
+//   // Resolve relative to Vite base (/admin/) so it serves from the admin bundle
+//   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
+// };
+
+
+// commited on 07-jun 2026 at 8:54 a
 // // Prefer explicit API origin; fallback to env or relative /api for local dev
 // // Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
 // export const API_BASE_URL =

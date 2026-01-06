@@ -11,12 +11,21 @@ export const fetchGateBootstrap = async ({
   language?: string;
   payload?: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.getGateBootstrap, {
-    api: API_TAGS.GATES_BOOTSTRAP.list,
-    username,
-    language,
-    ...payload,
-  });
+  (() => {
+    const rid = Math.random().toString(36).slice(2);
+    console.log("[TRACE] fetchGateBootstrap called", {
+      rid,
+      ts: new Date().toISOString(),
+      payload,
+    });
+    console.trace("[TRACE] fetchGateBootstrap stack");
+    return postEncrypted(API_ROUTES.admin.getGateBootstrap, {
+      api: API_TAGS.GATES_BOOTSTRAP.list,
+      username,
+      language,
+      ...payload,
+    });
+  })();
 
 // --- Mandis ---
 export const fetchMandis = async ({

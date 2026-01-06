@@ -14,6 +14,7 @@ const STEPUP_EXEMPT_PATHS = [
 ];
 
 let stepupInFlight: Promise<boolean> | null = null;
+const inflightRequests = new Map<string, Promise<any>>();
 
 function isStepupExemptPath(path?: string | null): boolean {
   if (!path) return true;
@@ -82,56 +83,74 @@ export function deriveStepupResourceKey(items?: Record<string, any>): string | n
 
 export interface RunEncryptedRequestOptions {
   url: string;
-  body: any;
+  getBody: () => Promise<any>;
   headersFactory: () => Record<string, string>;
   path: string;
   resourceKey?: string | null;
   excludeStepup?: boolean;
   retryCount?: number;
   metadata?: { _stepupRetried?: boolean };
+  dedupeFingerprint?: string;
 }
 
 export async function runEncryptedRequest({
   url,
-  body,
+  getBody,
   headersFactory,
   path,
   resourceKey,
   excludeStepup = false,
   retryCount = 0,
   metadata = {},
+  dedupeFingerprint,
 }: RunEncryptedRequestOptions) {
-  try {
-    const currentHeaders = headersFactory();
-    const response = await axios.post(url, body, { headers: currentHeaders });
-    return response.data;
-  } catch (error: any) {
-    if (
-      retryCount >= STEPUP_RETRY_LIMIT ||
-      excludeStepup ||
-      metadata._stepupRetried ||
-      !shouldHandleStepupChallenge(error, path)
-    ) {
-      throw error;
-    }
-
-    const verified = await ensureStepUpSession(resourceKey);
-    if (!verified) {
-      throw error;
-    }
-
-    metadata._stepupRetried = true;
-    return runEncryptedRequest({
-      url,
-      body,
-      headersFactory,
-      path,
-      resourceKey,
-      excludeStepup,
-      retryCount: retryCount + 1,
-      metadata,
-    });
+  const requestKey = `${url}|${dedupeFingerprint ?? ""}|${resourceKey ?? ""}`;
+  if (inflightRequests.has(requestKey) && !metadata._stepupRetried) {
+    return inflightRequests.get(requestKey)!;
   }
+
+  const promise = (async () => {
+    try {
+      const body = await getBody();
+      const currentHeaders = headersFactory();
+      const response = await axios.post(url, body, { headers: currentHeaders });
+      return response.data;
+    } catch (error: any) {
+      if (
+        retryCount >= STEPUP_RETRY_LIMIT ||
+        excludeStepup ||
+        metadata._stepupRetried ||
+        !shouldHandleStepupChallenge(error, path)
+      ) {
+        throw error;
+      }
+
+      const verified = await ensureStepUpSession(resourceKey);
+      if (!verified) {
+        throw error;
+      }
+
+      metadata._stepupRetried = true;
+      return runEncryptedRequest({
+        url,
+        getBody,
+        headersFactory,
+        path,
+        resourceKey,
+        excludeStepup,
+        retryCount: retryCount + 1,
+        metadata,
+        dedupeFingerprint,
+      });
+    } finally {
+      if (inflightRequests.get(requestKey) === promise) {
+        inflightRequests.delete(requestKey);
+      }
+    }
+  })();
+
+  inflightRequests.set(requestKey, promise);
+  return promise;
 }
 
 export { isStepupExemptPath };

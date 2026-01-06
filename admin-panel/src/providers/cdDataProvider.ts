@@ -9,23 +9,28 @@ import {
   isStepupExemptPath,
   runEncryptedRequest,
 } from "../services/encryptedRequestRunner";
+import { fingerprintItems } from "../services/sharedEncryptedRequest";
 
 const API_URL = API_BASE_URL;
 
 /** Helper to POST { encryptedData } to a path with given items */
 async function securePost(path: string, items: Record<string, any>) {
-  const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
   const url = `${API_URL}${path}`;
+  const getBody = async () => {
+    const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
+    return { encryptedData };
+  };
+  const fingerprint = fingerprintItems(items);
   const headersFactory = () => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
     const browserSessionId = getBrowserSessionId();
-    const stepupSessionId = getStepupSessionId();
     if (browserSessionId) {
       headers["x-cm-browser-session"] = browserSessionId;
       headers["x-stepup-browser-session"] = browserSessionId;
     }
+    const stepupSessionId = getStepupSessionId();
     if (stepupSessionId) {
       headers["x-stepup-session"] = stepupSessionId;
     }
@@ -33,11 +38,12 @@ async function securePost(path: string, items: Record<string, any>) {
   };
   const data = await runEncryptedRequest({
     url,
-    body: { encryptedData },
+    getBody,
     headersFactory,
     path,
     resourceKey: deriveStepupResourceKey(items),
     excludeStepup: isStepupExemptPath(path),
+    dedupeFingerprint: fingerprint,
   });
   return { url, data };
 }

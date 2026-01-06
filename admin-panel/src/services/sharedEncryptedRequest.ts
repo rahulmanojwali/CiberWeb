@@ -30,6 +30,18 @@ function authHeaders(): Record<string, string> {
  * If we only attach when missing, a stale/invalid step-up session can stick forever and the backend
  * will keep asking for Step-Up -> causing infinite requireStepUp loops.
  */
+export function fingerprintItems(items?: Record<string, unknown>) {
+  if (!items) return "";
+  const cleaned: Record<string, unknown> = {};
+  Object.keys(items)
+    .sort()
+    .forEach((key) => {
+      if (key === "stepup_session_id" || key === "browser_session_id") return;
+      cleaned[key] = items[key];
+    });
+  return JSON.stringify(cleaned);
+}
+
 function withStepupMetadata(items: Record<string, unknown>) {
   const browserSessionId = getBrowserSessionId() || undefined;
   const stepupSessionId = getStepupSessionId() || undefined;
@@ -59,47 +71,39 @@ export async function postEncrypted(
   items: Record<string, unknown>,
   extraHeaders: Record<string, string> = {},
 ) {
-  const { nextItems, stepupSessionId, browserSessionId } = withStepupMetadata(items || {});
-
-  if (import.meta.env.DEV) {
-    console.debug("[STEPUP_ATTACH]", {
-      stepupPayload: Boolean((nextItems as any)?.stepup_session_id),
-      stepupHeader: Boolean(stepupSessionId),
-      browserPayload: Boolean((nextItems as any)?.browser_session_id),
-      browserHeader: Boolean(browserSessionId),
-    });
-  }
-
-  const payload = { items: nextItems };
-  const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
-  const body = { encryptedData };
+  const fingerprint = fingerprintItems(items);
+  let logged = false;
   const url = `${API_BASE_URL}${path}`;
 
-  const browserHeaders = browserSessionId
-    ? {
-        "x-cm-browser-session": browserSessionId,
-        "x-stepup-browser-session": browserSessionId,
-        "X-StepUp-Browser-Session": browserSessionId,
-      }
-    : {};
-
-  const stepupHeaders = stepupSessionId
-    ? {
-        "x-stepup-session": stepupSessionId,
-        "X-StepUp-Session": stepupSessionId,
-      }
-    : {};
+  const getBody = async () => {
+    const { nextItems, stepupSessionId, browserSessionId } =
+      withStepupMetadata(items || {});
+    if (import.meta.env.DEV && !logged) {
+      logged = true;
+      console.debug("[STEPUP_ATTACH]", {
+        stepupPayload: Boolean((nextItems as any)?.stepup_session_id),
+        stepupHeader: Boolean(stepupSessionId),
+        browserPayload: Boolean((nextItems as any)?.browser_session_id),
+        browserHeader: Boolean(browserSessionId),
+      });
+    }
+    const payload = { items: nextItems };
+    const encryptedData = await encryptGenericPayload(JSON.stringify(payload));
+    return { encryptedData };
+  };
 
   const headersFactory = (): Record<string, string> => {
     const headers: Record<string, string> = {
       ...authHeaders(),
       ...extraHeaders,
     };
+    const browserSessionId = getBrowserSessionId();
     if (browserSessionId) {
       headers["x-cm-browser-session"] = browserSessionId;
       headers["x-stepup-browser-session"] = browserSessionId;
       headers["X-StepUp-Browser-Session"] = browserSessionId;
     }
+    const stepupSessionId = getStepupSessionId();
     if (stepupSessionId) {
       headers["x-stepup-session"] = stepupSessionId;
       headers["X-StepUp-Session"] = stepupSessionId;
@@ -109,11 +113,12 @@ export async function postEncrypted(
 
   const data = await runEncryptedRequest({
     url,
-    body,
+    getBody,
     headersFactory,
     path,
-    resourceKey: deriveStepupResourceKey(nextItems),
+    resourceKey: deriveStepupResourceKey(items),
     excludeStepup: isStepupExemptPath(path),
+    dedupeFingerprint: fingerprint,
   });
 
   return data;

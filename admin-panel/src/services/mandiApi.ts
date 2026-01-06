@@ -18,6 +18,7 @@ export const fetchGateBootstrap = async ({
       ts: new Date().toISOString(),
       payload,
     });
+    console.log("[TRACE] fetchGateBootstrap rid payload", rid, payload);
     console.trace("[TRACE] fetchGateBootstrap stack");
     return postEncrypted(API_ROUTES.admin.getGateBootstrap, {
       api: API_TAGS.GATES_BOOTSTRAP.list,

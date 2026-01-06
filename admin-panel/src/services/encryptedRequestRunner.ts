@@ -103,13 +103,13 @@ export async function runEncryptedRequest({
   retryCount = 0,
   metadata = {},
   dedupeFingerprint,
-}: RunEncryptedRequestOptions) {
+}: RunEncryptedRequestOptions): Promise<any> {
   const requestKey = `${url}|${dedupeFingerprint ?? ""}|${resourceKey ?? ""}`;
   if (inflightRequests.has(requestKey) && !metadata._stepupRetried) {
     return inflightRequests.get(requestKey)!;
   }
 
-  const promise = (async () => {
+  const promise: Promise<any> = (async () => {
     try {
       const body = await getBody();
       const currentHeaders = headersFactory();
@@ -142,14 +142,15 @@ export async function runEncryptedRequest({
         metadata,
         dedupeFingerprint,
       });
-    } finally {
-      if (inflightRequests.get(requestKey) === promise) {
-        inflightRequests.delete(requestKey);
-      }
     }
   })();
 
   inflightRequests.set(requestKey, promise);
+  promise.finally(() => {
+    if (inflightRequests.get(requestKey) === promise) {
+      inflightRequests.delete(requestKey);
+    }
+  });
   return promise;
 }
 

@@ -1,8 +1,12 @@
-import axios from "axios";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
 import { getBrowserSessionId } from "../security/stepup/browserSession";
 import { getStepupSessionId } from "../security/stepup/storage";
 import { API_BASE_URL } from "../config/appConfig";
+import {
+  deriveStepupResourceKey,
+  isStepupExemptPath,
+  runEncryptedRequest,
+} from "./encryptedRequestRunner";
 
 function authHeaders(): Record<string, string> {
   const token =
@@ -79,21 +83,27 @@ export async function postEncrypted(
       }
     : {};
 
-  // IMPORTANT: backend enforcer reads `req.headers['x-stepup-session']`.
   const stepupHeaders = stepupSessionId
     ? {
         "x-stepup-session": stepupSessionId,
-        "X-StepUp-Session": stepupSessionId, // keep for compatibility/logs
+        "X-StepUp-Session": stepupSessionId,
       }
     : {};
 
-  const { data } = await axios.post(url, body, {
-    headers: {
-      ...authHeaders(),
-      ...browserHeaders,
-      ...stepupHeaders,
-      ...extraHeaders,
-    },
+  const headersFactory = () => ({
+    ...authHeaders(),
+    ...browserHeaders,
+    ...stepupHeaders,
+    ...extraHeaders,
+  });
+
+  const data = await runEncryptedRequest({
+    url,
+    body,
+    headersFactory,
+    path,
+    resourceKey: deriveStepupResourceKey(nextItems),
+    excludeStepup: isStepupExemptPath(path),
   });
 
   return data;

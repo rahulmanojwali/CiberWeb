@@ -570,6 +570,7 @@ import {
 import { getBrowserSessionId } from "./browserSession";
 import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/VpnKey";
+import { registerStepUpTrigger } from "./stepupService";
 
 type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
 
@@ -667,6 +668,11 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     getBrowserSessionId();
     ensureCacheLoaded();
   }, [ensureCacheLoaded]);
+
+  React.useEffect(() => {
+    registerStepUpTrigger(ensureStepUp);
+    return () => registerStepUpTrigger(null);
+  }, [ensureStepUp]);
 
   const issueStepUpCheck = React.useCallback(
     async (resourceKey: string, action: string) => {

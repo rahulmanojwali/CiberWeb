@@ -20,9 +20,16 @@ import {
   CircularProgress,
   InputAdornment,
   Chip,
+  IconButton,
+  Menu,
+  useMediaQuery,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import EditIcon from "@mui/icons-material/Edit";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { usePermissions } from "../../authz/usePermissions";
@@ -153,8 +160,15 @@ export const Mandis: React.FC = () => {
     })() || "";
 
   const orgId = authContext.org_id || "";
+  const canImport = can("mandis.org.import", "CREATE");
+  const canRemove = can("mandis.org.remove", "DEACTIVATE");
+  const canCreate = can("mandis.org.create", "CREATE");
 
   const [activeTab, setActiveTab] = useState<"MY" | "IMPORT">("MY");
+  const isSmDown = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMdDown = useMediaQuery(theme.breakpoints.down("md"));
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionMenuRow, setActionMenuRow] = useState<MandiLite | null>(null);
 
   // My Mandis state
   const [myState, setMyState] = useState<string>("");
@@ -245,19 +259,22 @@ export const Mandis: React.FC = () => {
         field: "display_name",
         headerName: "Name",
         flex: 1,
+        minWidth: 200,
       },
       {
         field: "state_code",
         headerName: "State",
         width: 110,
+        hide: isSmDown,
       },
       {
         field: "status",
         headerName: "Status",
         width: 140,
         renderCell: (params) => {
-          const activeFlag =
-            String(params.row?.is_active || params.row?.org_mandi_is_active || "N").toUpperCase() === "Y";
+          const masterFlag = String(params.row?.is_active || "N").toUpperCase();
+          const orgFlag = String(params.row?.org_mandi_is_active ?? "Y").toUpperCase();
+          const activeFlag = masterFlag === "Y" && orgFlag === "Y";
           return (
             <Chip
               label={activeFlag ? "Active" : "Inactive"}
@@ -272,19 +289,72 @@ export const Mandis: React.FC = () => {
         field: "district_display",
         headerName: "District",
         flex: 1,
+        minWidth: 160,
+        hide: isSmDown,
       },
       {
         field: "pincode",
         headerName: "Pincode",
         width: 120,
+        hide: isSmDown,
       },
       {
         field: "mandi_id",
         headerName: "ID",
         width: 110,
+        hide: isMdDown,
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 130,
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        renderCell: (params) => {
+          const row = params.row as MandiLite;
+          const active = rowIsActive(row);
+          const icon = active ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />;
+          const label = active ? "Deactivate" : "Activate";
+          if (isSmDown) {
+            return (
+              <IconButton
+                size="small"
+                onClick={(event) => openActionMenu(event, row)}
+                aria-label="More actions"
+                disabled={!canRemove}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            );
+          }
+          return (
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Edit">
+                <span>
+                  <IconButton size="small" onClick={handleActionMenuEdit} disabled={!canCreate}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={label}>
+                <span>
+                  <IconButton
+                    size="small"
+                    color={active ? "error" : "primary"}
+                    onClick={() => handleRowToggleStatus(row)}
+                    disabled={!canRemove}
+                  >
+                    {icon}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
+          );
+        },
       },
     ],
-    [],
+    [canCreate, canRemove, handleActionMenuEdit, handleRowToggleStatus, isMdDown, isSmDown, openActionMenu, rowIsActive],
   );
 
   // Import grid: bind directly to real keys coming from backend
@@ -473,6 +543,7 @@ const prepareRows = (items: any[]) =>
           q: myDebounced || undefined,
           page: myPage,
           pageSize: myPageSize,
+          include_inactive: true,
         },
       });
       if (controller.signal.aborted) return;
@@ -581,6 +652,83 @@ const prepareRows = (items: any[]) =>
   };
 
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+  const rowIsActive = React.useCallback((row: MandiLite) => {
+    const masterActive = String(row?.is_active || "N").toUpperCase() === "Y";
+    const orgMappingActive = String(row?.org_mandi_is_active ?? "Y").toUpperCase() === "Y";
+    return masterActive && orgMappingActive;
+  }, []);
+
+  const updateLocalRowsStatus = React.useCallback(
+    (ids: string[], status: "Y" | "N") => {
+      if (!ids.length) return;
+      const targetSet = new Set(ids);
+      setMyRows((prev) =>
+        prev.map((row) => {
+          const rowId = String(row?._id || "");
+          if (!rowId || !targetSet.has(rowId)) return row;
+          return { ...row, is_active: status, org_mandi_is_active: status };
+        }),
+      );
+    },
+    [],
+  );
+
+  const handleRowToggleStatus = React.useCallback(
+    async (row: MandiLite) => {
+      if (!row?._id) return;
+      const targetStatus = rowIsActive(row) ? "N" : "Y";
+      setMyLoading(true);
+      try {
+        await updateOrgMandiStatus({
+          username,
+          language: DEFAULT_LANGUAGE,
+          mapping_id: String(row._id),
+          is_active: targetStatus,
+        });
+        updateLocalRowsStatus([String(row._id)], targetStatus);
+        enqueueSnackbar(
+          targetStatus === "Y"
+            ? "Mandi activated for this organisation."
+            : "Mandi deactivated for this organisation.",
+          { variant: "success" },
+        );
+      } catch (err: any) {
+        enqueueSnackbar(err?.message || "Status update failed", { variant: "error" });
+      } finally {
+        setMyLoading(false);
+      }
+    },
+    [enqueueSnackbar, rowIsActive, updateLocalRowsStatus, username],
+  );
+
+  const openActionMenu = React.useCallback((event: React.MouseEvent<HTMLElement>, row: MandiLite) => {
+    event.stopPropagation();
+    setActionMenuAnchor(event.currentTarget);
+    setActionMenuRow(row);
+  }, []);
+
+  const closeActionMenu = React.useCallback(() => {
+    setActionMenuAnchor(null);
+    setActionMenuRow(null);
+  }, []);
+
+  const handleActionMenuEdit = React.useCallback(() => {
+    enqueueSnackbar("Edit functionality is not available yet.", { variant: "info" });
+    closeActionMenu();
+  }, [enqueueSnackbar, closeActionMenu]);
+
+  const handleActionMenuToggle = React.useCallback(() => {
+    if (!actionMenuRow) {
+      closeActionMenu();
+      return;
+    }
+    if (!canRemove) {
+      closeActionMenu();
+      return;
+    }
+    closeActionMenu();
+    handleRowToggleStatus(actionMenuRow);
+  }, [actionMenuRow, canRemove, closeActionMenu, handleRowToggleStatus]);
 
   const performStatusUpdate = async (
     rows: MandiLite[],
@@ -598,16 +746,19 @@ const prepareRows = (items: any[]) =>
 
     setMyLoading(true);
     try {
-      for (const mapping_id of ids) {
-        await updateOrgMandiStatus({
-          username,
-          language: DEFAULT_LANGUAGE,
-          mapping_id,
-          is_active: targetStatus,
-        });
-      }
+      await Promise.all(
+        ids.map((mapping_id) =>
+          updateOrgMandiStatus({
+            username,
+            language: DEFAULT_LANGUAGE,
+            mapping_id,
+            is_active: targetStatus,
+          }),
+        ),
+      );
+      updateLocalRowsStatus(ids, targetStatus);
+      setMySelectionModel([]);
       enqueueSnackbar(successMessage, { variant: "success" });
-      resetMy();
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Status update failed", { variant: "error" });
     } finally {
@@ -771,10 +922,6 @@ const prepareRows = (items: any[]) =>
 
   const cancelDeactivate = () => setDeactivateConfirmOpen(false);
 
-
-  const canImport = can("mandis.org.import", "CREATE");
-  const canRemove = can("mandis.org.remove", "DEACTIVATE");
-  const canCreate = can("mandis.org.create", "CREATE");
 
   const handleCreateCustomMandi = async () => {
     if (!canCreate) return;
@@ -962,30 +1109,47 @@ const prepareRows = (items: any[]) =>
 
       <Card>
         <CardContent>
-          <ResponsiveDataGrid
-            autoHeight
-            getRowId={getMyRowId}
-            rows={myRows}
-            columns={myColumns}
-            loading={myLoading}
-            paginationMode="server"
-            rowCount={myTotal}
-            pageSizeOptions={PAGE_SIZES}
-            paginationModel={{ page: myPage - 1, pageSize: myPageSize }}
-            onPaginationModelChange={(m) => {
-              setMyPage(m.page + 1);
-              setMyPageSize(m.pageSize);
-            }}
-            checkboxSelection
-            disableRowSelectionOnClick
-            rowSelectionModel={mySelectionModel}
-            onRowSelectionModelChange={(model) => {
-              const next = Array.isArray(model) ? model : [];
-              setMySelectionModel(next);
-            }}
-          />
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid
+              autoHeight
+              getRowId={getMyRowId}
+              rows={myRows}
+              columns={myColumns}
+              loading={myLoading}
+              paginationMode="server"
+              rowCount={myTotal}
+              pageSizeOptions={PAGE_SIZES}
+              paginationModel={{ page: myPage - 1, pageSize: myPageSize }}
+              onPaginationModelChange={(m) => {
+                setMyPage(m.page + 1);
+                setMyPageSize(m.pageSize);
+              }}
+              checkboxSelection
+              disableRowSelectionOnClick
+              rowSelectionModel={mySelectionModel}
+              onRowSelectionModelChange={(model) => {
+                const next = Array.isArray(model) ? model : [];
+                setMySelectionModel(next);
+              }}
+              sx={{ minWidth: isSmDown ? 600 : 840 }}
+            />
+          </Box>
         </CardContent>
       </Card>
+      <Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={closeActionMenu}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem onClick={handleActionMenuEdit} disabled={!canCreate}>
+          Edit details
+        </MenuItem>
+        <MenuItem onClick={handleActionMenuToggle} disabled={!canRemove}>
+          {actionMenuRow && rowIsActive(actionMenuRow) ? "Deactivate" : "Activate"}
+        </MenuItem>
+      </Menu>
     </Stack>
   );
   };

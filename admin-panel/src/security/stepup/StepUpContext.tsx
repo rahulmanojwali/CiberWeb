@@ -809,6 +809,13 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     [enqueueSnackbar, ensureCacheLoaded, issueStepUpCheck, navigate],
   );
 
+  React.useEffect(() => {
+    const trigger = (resourceKey?: string | null, action?: string, opts?: { source?: string }) =>
+      ensureStepUp(resourceKey, action, opts?.source as StepUpRequestSource);
+    registerStepUpTrigger(trigger);
+    return () => registerStepUpTrigger(null);
+  }, [ensureStepUp]);
+
   const handleVerify = React.useCallback(async () => {
     if (!pendingPrompt) return;
     const username = getCurrentAdminUsername();

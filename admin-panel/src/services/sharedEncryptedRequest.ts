@@ -90,12 +90,22 @@ export async function postEncrypted(
       }
     : {};
 
-  const headersFactory = () => ({
-    ...authHeaders(),
-    ...browserHeaders,
-    ...stepupHeaders,
-    ...extraHeaders,
-  });
+  const headersFactory = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      ...authHeaders(),
+      ...extraHeaders,
+    };
+    if (browserSessionId) {
+      headers["x-cm-browser-session"] = browserSessionId;
+      headers["x-stepup-browser-session"] = browserSessionId;
+      headers["X-StepUp-Browser-Session"] = browserSessionId;
+    }
+    if (stepupSessionId) {
+      headers["x-stepup-session"] = stepupSessionId;
+      headers["X-StepUp-Session"] = stepupSessionId;
+    }
+    return headers;
+  };
 
   const data = await runEncryptedRequest({
     url,

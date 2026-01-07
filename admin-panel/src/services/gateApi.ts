@@ -369,6 +369,7 @@ export const fetchGateScreenBootstrap = async ({
   });
 
 
+
 // import { postEncrypted } from "./sharedEncryptedRequest";
 // import { API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
 
@@ -512,21 +513,6 @@ export const fetchGateScreenBootstrap = async ({
 //     ...filters,
 //   });
 
-// // export const createGateDevice = async ({
-// //   username,
-// 3//   payload,
-// // }: {
-// //   username: string;
-// //   language?: string;
-// //   payload: Record<string, any>;  
-// // }) =>
-// //   postEncrypted(API_ROUTES.admin.createGateDevice, {
-// //     api: API_TAGS.GATE_DEVICES.create,
-// //     username,
-// //     language,
-// //     ...payload,
-// //   });
-
 // export const createGateDevice = async ({
 //   username,
 //   language = DEFAULT_LANGUAGE,
@@ -542,9 +528,6 @@ export const fetchGateScreenBootstrap = async ({
 //     language,
 //     ...payload,
 //   });
-
-
-
 
 // export const updateGateDevice = async ({
 //   username,
@@ -562,370 +545,30 @@ export const fetchGateScreenBootstrap = async ({
 //     ...payload,
 //   });
 
+
 // export const deactivateGateDevice = async ({
 //   username,
 //   language = DEFAULT_LANGUAGE,
 //   device_code,
-// }: {
-//   username: string;
-//   language?: string;
-//   device_code: string;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.deactivateGateDevice, {
-//     api: API_TAGS.GATE_DEVICES.deactivate,
-//     username,
-//     language,
-//     device_code,
-//   });
-
-// // Gate Devices screen bootstrap (single API for filters + list)
-// export const fetchGateDevicesBootstrap = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   filters = {},
-// }: {
-//   username: string;
-//   language?: string;
-//   filters?: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.getGateDevicesBootstrap, {
-//     api: API_TAGS.GATE_DEVICES_BOOTSTRAP.list,
-//     username,
-//     language,
-//     ...filters,
-//   });
-
-// // Gate Device Configs
-// export const fetchGateDeviceConfigs = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   filters = {},
-// }: {
-//   username: string;
-//   language?: string;
-//   filters?: Record<string, any>;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.getGateDeviceConfigs, {
-//     api: API_TAGS.GATE_DEVICE_CONFIGS.list,
-//     username,
-//     language,
-//     ...filters,
-//   });
-
-// export const fetchMandisWithGatesSummary = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   filters = {},
-// }: {
-//   username: string;
-//   language?: string;
-//   filters?: Record<string, any>;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.getMandisWithGatesSummary, {
-//     api: API_TAGS.GATE_DEVICE_CONFIGS.mandisWithGates,
-//     username,
-//     language,
-//     ...filters,
-//   });
-
-// // export const createGateDeviceConfig = async ({
-// //   username,
-// //   language = DEFAULT_LANGUAGE,
-// //   payload,
-// // }: {
-// //   username: string;
-// //   language?: string;
-// //   payload: Record<string, any>;
-// // }) =>
-// //   postEncrypted(API_ROUTES.admin.createGateDeviceConfig, {
-// //     api: API_TAGS.GATE_DEVICE_CONFIGS.create,
-// //     username,
-// //     language,
-// //     ...payload,
-//   //});
-
-//   export const createGateDeviceConfig = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.createGateDeviceConfig, {
-//     api: API_TAGS.GATE_DEVICE_CONFIGS.create,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-
-// export const updateGateDeviceConfig = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.updateGateDeviceConfig, {
-//     api: API_TAGS.GATE_DEVICE_CONFIGS.update,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-// export const deactivateGateDeviceConfig = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   config_id,
-//   is_active,
-// }: {
-//   username: string;
-//   language?: string;
-//   config_id: string;
-//   is_active?: string;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.deactivateGateDeviceConfig, {
-//     api: API_TAGS.GATE_DEVICE_CONFIGS.deactivate,
-//     username,
-//     language,
-//     config_id,
-//     is_active,
-//   });
-
-// export const fetchGateScreenBootstrap = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
 //   org_id,
-//   mandis_page = 1,
-//   mandis_pageSize = 200,
-//   gates_page = 1,
-//   gates_pageSize = 0,
 //   mandi_id,
-//   search,
-// }: {
-//   username: string;
-//   language?: string;
-//   org_id: string;
-//   mandis_page?: number;
-//   mandis_pageSize?: number;
-//   gates_page?: number;
-//   gates_pageSize?: number;
-//   mandi_id?: number;
-//   search?: string;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.getGateScreenBootstrap, {
-//     api: API_TAGS.GATES_BOOTSTRAP.list,
-//     username,
-//     language,
-//     org_id,
-//     mandis_page,
-//     mandis_pageSize,
-//     gates_page,
-//     gates_pageSize,
-//     mandi_id,
-//     search,
-//   });
-
-
-// (rest of your file remains as-is)
-
-// (rest of your file remains as-is)
-
-
-// import { postEncrypted } from "./sharedEncryptedRequest";
-// import { API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
-
-// async function callEncrypted(path: string, items: Record<string, any>) {
-//   const data = await postEncrypted(path, items);
-//   const rc = data?.response?.responsecode;
-//   const desc = data?.response?.description || "Something went wrong.";
-//   return {
-//     ok: rc === "0",
-//     data,
-//     responseCode: rc,
-//     description: desc,
-//     ...data,
-//   };
-// }
-
-// // Gate Entry Reasons
-// export const fetchGateEntryReasons = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   filters = {},
-// }: {
-//   username: string;
-//   language?: string;
-//   filters?: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.getGateEntryReasons, {
-//     api: API_TAGS.GATE_ENTRY_REASONS.list,
-//     username,
-//     language,
-//     ...filters,
-//   });
-
-// export const createGateEntryReason = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.createGateEntryReason, {
-//     api: API_TAGS.GATE_ENTRY_REASONS.create,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-// export const updateGateEntryReason = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.updateGateEntryReason, {
-//     api: API_TAGS.GATE_ENTRY_REASONS.update,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-// export const deactivateGateEntryReason = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   reason_code,
-// }: {
-//   username: string;
-//   language?: string;
-//   reason_code: string;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.deactivateGateEntryReason, {
-//     api: API_TAGS.GATE_ENTRY_REASONS.deactivate,
-//     username,
-//     language,
-//     reason_code,
-//   });
-
-// // Gate Vehicle Types
-// export const fetchGateVehicleTypes = async (
-//   items: {
-//     username: string;
-//     language?: string;
-//     [key: string]: any;
-//   },
-// ) => {
-//   return postEncrypted(API_ROUTES.admin.getGateVehicleTypes, {
-//     api: API_TAGS.GATE_VEHICLE_TYPES.list,
-//     language: DEFAULT_LANGUAGE,
-//     ...items,
-//   });
-// };
-
-// export const createGateVehicleType = async (items: Record<string, any>) =>
-//   postEncrypted(API_ROUTES.admin.createGateVehicleType, {
-//     api: API_TAGS.GATE_VEHICLE_TYPES.create,
-//     language: DEFAULT_LANGUAGE,
-//     ...items,
-//   });
-
-// export const updateGateVehicleType = async (items: Record<string, any>) =>
-//   postEncrypted(API_ROUTES.admin.updateGateVehicleType, {
-//     api: API_TAGS.GATE_VEHICLE_TYPES.update,
-//     language: DEFAULT_LANGUAGE,
-//     ...items,
-//   });
-
-// export const deactivateGateVehicleType = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   vehicle_type_code,
-// }: {
-//   username: string;
-//   language?: string;
-//   vehicle_type_code: string;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.deactivateGateVehicleType, {
-//     api: API_TAGS.GATE_VEHICLE_TYPES.deactivate,
-//     username,
-//     language,
-//     vehicle_type_code,
-//   });
-
-// // Gate Devices
-// export const fetchGateDevices = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   filters = {},
-// }: {
-//   username: string;
-//   language?: string;
-//   filters?: Record<string, any>;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.getGateDevices, {
-//     api: API_TAGS.GATE_DEVICES.list,
-//     username,
-//     language,
-//     ...filters,
-//   });
-
-// export const createGateDevice = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   callEncrypted(API_ROUTES.admin.createGateDevice, {
-//     api: API_TAGS.GATE_DEVICES.create,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-// export const updateGateDevice = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   payload,
-// }: {
-//   username: string;
-//   language?: string;
-//   payload: Record<string, any>;
-// }) =>
-//   postEncrypted(API_ROUTES.admin.updateGateDevice, {
-//     api: API_TAGS.GATE_DEVICES.update,
-//     username,
-//     language,
-//     ...payload,
-//   });
-
-// export const deactivateGateDevice = async ({
-//   username,
-//   language = DEFAULT_LANGUAGE,
-//   device_code,
 // }: {
 //   username: string;
 //   language?: string;
 //   device_code: string;
+//   org_id: string;
+//   mandi_id: number;
 // }) =>
 //   postEncrypted(API_ROUTES.admin.deactivateGateDevice, {
 //     api: API_TAGS.GATE_DEVICES.deactivate,
 //     username,
 //     language,
 //     device_code,
+//     org_id,
+//     mandi_id,
 //   });
+
+
 
 // // Gate Devices screen bootstrap (single API for filters + list)
 // export const fetchGateDevicesBootstrap = async ({

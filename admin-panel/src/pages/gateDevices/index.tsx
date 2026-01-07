@@ -47,16 +47,16 @@ type GateOption = {
 type DeviceRow = {
   id: string;
   device_code: string;
-  device_label?: string;
-  device_type: string;
-  platform?: string;
-  linked_user?: string;
-  mandi_id: number;
-  gate_id?: string;
-  gate_code?: string;
-  status?: string;
-  last_seen_on?: string;
-  updated_on?: string;
+  device_label?: string | null;
+  device_type?: string | null;
+  platform?: string | null;
+  linked_user?: string | null;
+  mandi_id?: number | null;
+  gate_id?: string | null;
+  gate_code?: string | null;
+  status?: string | null;
+  last_seen_on?: string | null;
+  updated_on?: string | null;
 };
 
 function currentUsername(): string | null {
@@ -88,7 +88,7 @@ function currentOrgInfo() {
   }
 }
 
-function toUiDeviceType(v: string): string {
+function toUiDeviceType(v: any): string {
   return String(v || "");
 }
 
@@ -131,7 +131,6 @@ export const GateDevices: React.FC = () => {
     gate_id: "",
   });
 
-  // gates shown inside dialog (must match dialog mandi, not necessarily page mandi)
   const [dialogGateOptions, setDialogGateOptions] = useState<GateOption[]>([]);
 
   // --- Inflight guard (prevents duplicate calls on mount / rapid filter changes)
@@ -151,39 +150,40 @@ export const GateDevices: React.FC = () => {
     return mandiOptions.find((m) => String(m.mandi_id) === String(filters.mandi_id)) || null;
   }, [mandiOptions, filters.mandi_id]);
 
+  // ✅ FIXED: use renderCell instead of valueGetter
   const columns = useMemo<GridColDef<DeviceRow>[]>(
     () => [
       { field: "device_code", headerName: "Device Code", width: 210 },
       {
         field: "device_label",
         headerName: "Label",
-        width: 220,
-        valueGetter: (params: any) => (params?.row as DeviceRow)?.device_label || "—",
+        width: 240,
+        renderCell: (params: any) => params?.row?.device_label || "—",
       },
       {
         field: "device_type",
         headerName: "Type",
         width: 200,
-        valueGetter: (params: any) => toUiDeviceType((params?.row as DeviceRow)?.device_type),
+        renderCell: (params: any) => toUiDeviceType(params?.row?.device_type),
       },
       {
         field: "gate_code",
         headerName: "Gate",
         width: 140,
-        valueGetter: (p: any) => (p?.row as DeviceRow)?.gate_code || "—",
+        renderCell: (params: any) => params?.row?.gate_code || "—",
       },
       {
         field: "status",
         headerName: "Status",
         width: 120,
-        valueGetter: (params: any) => (params?.row as DeviceRow)?.status || "—",
+        renderCell: (params: any) => params?.row?.status || "—",
       },
       {
         field: "last_seen_on",
         headerName: "Last Seen",
-        width: 190,
-        valueGetter: (params: any) => {
-          const v = (params?.row as DeviceRow)?.last_seen_on;
+        width: 200,
+        renderCell: (params: any) => {
+          const v = params?.row?.last_seen_on;
           return v ? new Date(String(v)).toLocaleString() : "—";
         },
       },
@@ -203,10 +203,6 @@ export const GateDevices: React.FC = () => {
     [],
   );
 
-  /**
-   * Bootstrap fetch with optional overrides to avoid stale state issues.
-   * This is the main fix for: "saved in DB but not showing on screen".
-   */
   const callBootstrap = useCallback(
     async (opts: {
       reason: string;
@@ -251,7 +247,7 @@ export const GateDevices: React.FC = () => {
           language: "en",
           filters: {
             mandi_id: mandi_id ? Number(mandi_id) : undefined,
-            gate_id: gate_id ? String(gate_id) : undefined, // empty means ALL gates
+            gate_id: gate_id ? String(gate_id) : undefined,
             device_type: device_type || undefined,
             search: search || undefined,
             page: reqPage,
@@ -282,16 +278,16 @@ export const GateDevices: React.FC = () => {
           devices.map((d) => ({
             id: String(d._id || d.device_code),
             device_code: d.device_code,
-            device_label: d.device_label || null,
-            device_type: d.device_type,
-            platform: d.platform,
-            linked_user: d.linked_user,
-            mandi_id: d.mandi_id,
-            gate_id: d.gate_id ? String(d.gate_id) : undefined,
-            gate_code: d.gate_code,
-            status: d.status,
-            last_seen_on: d.last_seen_on,
-            updated_on: d.updated_on,
+            device_label: d.device_label || d.device_name || null,
+            device_type: d.device_type || null,
+            platform: d.platform || null,
+            linked_user: d.linked_user || null,
+            mandi_id: d.mandi_id ?? null,
+            gate_id: d.gate_id ? String(d.gate_id) : null,
+            gate_code: d.gate_code || null,
+            status: d.status || null,
+            last_seen_on: d.last_seen_on || null,
+            updated_on: d.updated_on || null,
           })),
         );
         setTotalCount(Number(meta.totalCount || 0));
@@ -339,44 +335,34 @@ export const GateDevices: React.FC = () => {
     setPage(1);
   }, [filters.mandi_id, filters.gate_id, filters.device_type, filters.search]);
 
-  // IMPORTANT: do NOT block list by gate selection.
-  // Selecting Mandi should show all devices for that mandi across gates.
   const showSelectMessage = !filters.mandi_id;
 
-  /**
-   * Fetch gates for dialog mandi selection, so user can select gate reliably.
-   */
-  const fetchDialogGates = useCallback(
-    async (mandiId: string | number) => {
-      const username = currentUsername();
-      if (!username || !mandiId) {
-        setDialogGateOptions([]);
-        return;
-      }
+  const fetchDialogGates = useCallback(async (mandiId: string | number) => {
+    const username = currentUsername();
+    if (!username || !mandiId) {
+      setDialogGateOptions([]);
+      return;
+    }
 
-      const resp = await fetchGateDevicesBootstrap({
-        username,
-        language: "en",
-        filters: {
-          mandi_id: Number(mandiId),
-          // no gate_id -> we only want gates list
-          page: 1,
-          pageSize: 1,
-        },
-      });
+    const resp = await fetchGateDevicesBootstrap({
+      username,
+      language: "en",
+      filters: {
+        mandi_id: Number(mandiId),
+        page: 1,
+        pageSize: 1,
+      },
+    });
 
-      if (!resp.ok) {
-        setDialogGateOptions([]);
-        return;
-      }
+    if (!resp.ok) {
+      setDialogGateOptions([]);
+      return;
+    }
 
-      const data = resp.data?.data || resp.data || {};
-      setDialogGateOptions((data?.gates?.items || []) as GateOption[]);
-    },
-    [],
-  );
+    const data = resp.data?.data || resp.data || {};
+    setDialogGateOptions((data?.gates?.items || []) as GateOption[]);
+  }, []);
 
-  // when dialog mandi changes, refresh its gates list
   useEffect(() => {
     if (!dialogOpen) return;
     if (!form.mandi_id) {
@@ -398,7 +384,6 @@ export const GateDevices: React.FC = () => {
         </Stack>
       </Stack>
 
-      {/* Filter bar */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Stack
@@ -419,7 +404,7 @@ export const GateDevices: React.FC = () => {
                 setFilters((f) => ({
                   ...f,
                   mandi_id: value?.mandi_id ?? "",
-                  gate_id: "", // reset to ALL gates when mandi changes
+                  gate_id: "",
                 }));
               }}
               getOptionLabel={(option) =>
@@ -514,26 +499,15 @@ export const GateDevices: React.FC = () => {
       <Card>
         <CardContent>
           {showSelectMessage ? (
-            <Stack spacing={1} alignItems="flex-start">
-              <Typography variant="body2" color="text.secondary">
-                Select a <b>Mandi</b> to view devices. (Gate filter is optional.)
-              </Typography>
-            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              Select a <b>Mandi</b> to view devices. (Gate filter is optional.)
+            </Typography>
           ) : null}
 
           <Divider sx={{ my: 1 }} />
 
           {isMobile ? (
             <Stack spacing={1}>
-              {loading ? (
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <CircularProgress size={18} />
-                  <Typography variant="body2" color="text.secondary">
-                    Loading…
-                  </Typography>
-                </Stack>
-              ) : null}
-
               {rows.length === 0 && !loading ? (
                 <Typography variant="body2" color="text.secondary">
                   No devices found.
@@ -583,12 +557,12 @@ export const GateDevices: React.FC = () => {
                 columns={columns}
                 rows={rows}
                 loading={loading}
-                getRowId={(r) => r.id}
+                getRowId={(r: any) => r.id}
                 autoHeight
                 paginationMode="server"
                 rowCount={totalCount}
                 paginationModel={{ page: page - 1, pageSize }}
-                onPaginationModelChange={(model) => {
+                onPaginationModelChange={(model: any) => {
                   setPage(model.page + 1);
                   if (model.pageSize !== pageSize) {
                     setPageSize(model.pageSize);
@@ -603,7 +577,6 @@ export const GateDevices: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Add Device Dialog */}
       <Dialog open={dialogOpen} onClose={() => (!saving ? setDialogOpen(false) : null)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           Add Device
@@ -614,11 +587,11 @@ export const GateDevices: React.FC = () => {
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField
-              label="Device Code (optional)"
+              label="Device Code"
               size="small"
               value={form.device_code}
               onChange={(e) => setForm((f) => ({ ...f, device_code: e.target.value }))}
-              helperText="Optional. Leave blank if backend auto-generates / normalizes."
+              helperText="(Optional) Leave blank if backend auto-generates/normalizes."
             />
 
             <TextField
@@ -626,7 +599,6 @@ export const GateDevices: React.FC = () => {
               size="small"
               value={form.device_label}
               onChange={(e) => setForm((f) => ({ ...f, device_label: e.target.value }))}
-              helperText="Human-friendly name (recommended)."
             />
 
             <TextField
@@ -636,15 +608,11 @@ export const GateDevices: React.FC = () => {
               value={form.device_type}
               onChange={(e) => setForm((f) => ({ ...f, device_type: e.target.value }))}
             >
-              {deviceTypeOptions.length ? (
-                deviceTypeOptions.map((d) => (
-                  <MenuItem key={d} value={d}>
-                    {toUiDeviceType(d)}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem value="GPS_PHONE">GPS_PHONE</MenuItem>
-              )}
+              {(deviceTypeOptions.length ? deviceTypeOptions : ["GPS_PHONE"]).map((d) => (
+                <MenuItem key={d} value={d}>
+                  {toUiDeviceType(d)}
+                </MenuItem>
+              ))}
             </TextField>
 
             <Autocomplete
@@ -668,13 +636,7 @@ export const GateDevices: React.FC = () => {
               value={form.gate_id}
               onChange={(e) => setForm((f) => ({ ...f, gate_id: e.target.value }))}
               disabled={!form.mandi_id}
-              helperText={
-                !form.mandi_id
-                  ? "Select mandi first"
-                  : dialogGateOptions.length === 0
-                    ? "No gates for this mandi"
-                    : ""
-              }
+              helperText={!form.mandi_id ? "Select mandi first" : dialogGateOptions.length === 0 ? "No gates for this mandi" : ""}
             >
               {dialogGateOptions.map((g) => (
                 <MenuItem key={g._id} value={g._id}>
@@ -717,19 +679,10 @@ export const GateDevices: React.FC = () => {
                   status: "ACTIVE",
                 };
 
-                // send device_code only if user provided
-                if (String(form.device_code || "").trim().length > 0) {
-                  payload.device_code = String(form.device_code).trim();
-                }
-                if (String(form.device_label || "").trim().length > 0) {
-                  payload.device_label = String(form.device_label).trim();
-                }
+                if (String(form.device_code || "").trim().length > 0) payload.device_code = String(form.device_code).trim();
+                if (String(form.device_label || "").trim().length > 0) payload.device_label = String(form.device_label).trim();
 
-                const resp = await createGateDevice({
-                  username,
-                  language: "en",
-                  payload,
-                });
+                const resp = await createGateDevice({ username, language: "en", payload });
 
                 if (!resp?.ok) {
                   enqueueSnackbar(resp?.description || "Failed to add device", { variant: "error" });
@@ -739,21 +692,19 @@ export const GateDevices: React.FC = () => {
                 enqueueSnackbar(resp?.description || "Device added", { variant: "success" });
                 setDialogOpen(false);
 
-                // Ensure list refresh uses NEW filters immediately (no stale state)
-                const newMandiId = form.mandi_id;
-                const newGateId = ""; // after create, show all gates in mandi (better UX)
+                // Refresh list for the same mandi
                 setFilters((f) => ({
                   ...f,
-                  mandi_id: newMandiId || f.mandi_id,
-                  gate_id: newGateId,
+                  mandi_id: form.mandi_id || f.mandi_id,
+                  gate_id: "", // show all gates in mandi after create
                 }));
                 setPage(1);
 
                 await callBootstrap({
                   reason: "after_create",
                   override: {
-                    mandi_id: newMandiId,
-                    gate_id: newGateId,
+                    mandi_id: form.mandi_id,
+                    gate_id: "",
                     device_type: filters.device_type,
                     search: filters.search,
                     page: 1,
@@ -774,6 +725,7 @@ export const GateDevices: React.FC = () => {
     </PageContainer>
   );
 };
+
 
 // import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // import {

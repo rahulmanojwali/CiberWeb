@@ -113,11 +113,14 @@ const GateDevicesPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { authContext } = usePermissions();
 
-  // Filters
+  const orgId = String((authContext as any)?.org_id || "");
+
+  // Single query state (primitives only)
   const [mandiId, setMandiId] = useState<number | "">("");
   const [gateId, setGateId] = useState<string>("");
   const [deviceType, setDeviceType] = useState<string>("");
-  const [search, setSearch] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 
   // Pagination
   const [page, setPage] = useState<number>(1);
@@ -132,6 +135,9 @@ const GateDevicesPage: React.FC = () => {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
 
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Explicit refresh trigger (for create/update/deactivate actions)
+  const [refreshTick, setRefreshTick] = useState<number>(0);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -161,9 +167,10 @@ const GateDevicesPage: React.FC = () => {
     setMenuRow(null);
   };
 
-  // Inflight guard (dedupe)
+  // Inflight guard (dedupe / mutex)
   const inflightRef = useRef<Promise<any> | null>(null);
-  const lastKeyRef = useRef<string>("");
+  const inflightKeyRef = useRef<string>("");
+  const lastCompletedKeyRef = useRef<string>("");
 
   const selectedMandi = useMemo(() => {
     if (!mandiId) return null;
@@ -175,93 +182,100 @@ const GateDevicesPage: React.FC = () => {
     return gates.find((g) => String(g._id) === String(gateId)) || null;
   }, [gates, gateId]);
 
-  const callBootstrap = useCallback(
-    async (opts?: { overrideSearch?: string }) => {
-      const username = getUsernameFromStorage();
-      if (!username) return;
-
-      const reqKey = JSON.stringify({
-        org_id: (authContext as any)?.org_id || "",
-        mandi_id: mandiId || "",
-        gate_id: gateId || "",
-        device_type: deviceType || "",
-        search: opts?.overrideSearch ?? search ?? "",
-        page,
-        pageSize,
-      });
-
-      if (inflightRef.current && lastKeyRef.current === reqKey) return;
-      lastKeyRef.current = reqKey;
-
-      setLoading(true);
-
-      const p = (async () => {
-        const resp = await fetchGateDevicesBootstrap({
-          username,
-          language: "en",
-          filters: {
-            mandi_id: mandiId ? Number(mandiId) : undefined,
-            gate_id: gateId ? String(gateId) : undefined,
-            device_type: deviceType || undefined,
-            search: (opts?.overrideSearch ?? search) || undefined,
-            page,
-            pageSize,
-          },
-        });
-
-        if (!resp?.ok) {
-          setDevices([]);
-          setTotalCount(0);
-          enqueueSnackbar(resp?.description || "Failed to load gate devices", { variant: "error" });
-          return;
-        }
-
-        const data = resp.data || {};
-        setOrg(data.org || {});
-        setMandis(data.mandis?.items || []);
-        setGates(data.gates?.items || []);
-        setDeviceTypes(data.device_types?.items || []);
-
-        const list: any[] = data.devices?.items || [];
-        const meta = data.devices?.meta || {};
-        setDevices(
-          list.map((d) => ({
-            ...d,
-            id: String(d._id || d.device_code),
-          })),
-        );
-        setTotalCount(Number(meta.totalCount || 0));
-      })();
-
-      inflightRef.current = p;
-      try {
-        await p;
-      } finally {
-        inflightRef.current = null;
-        setLoading(false);
-      }
-    },
-    [authContext, deviceType, enqueueSnackbar, gateId, mandiId, page, pageSize, search],
-  );
-
-  // Mount + filter change (search is debounced below)
+  // Debounce search input
   useEffect(() => {
-    callBootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mandiId, gateId, deviceType, page, pageSize]);
-
-  // Debounce search
-  useEffect(() => {
-    const t = setTimeout(() => {
-      callBootstrap({ overrideSearch: search });
-    }, 350);
+    const t = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350);
     return () => clearTimeout(t);
-  }, [search, callBootstrap]);
+  }, [searchInput]);
 
-  // Reset page on filter changes
+  // Reset page on filter/search changes
   useEffect(() => {
     setPage(1);
-  }, [mandiId, gateId, deviceType, search]);
+  }, [mandiId, gateId, deviceType, debouncedSearch]);
+
+  // ✅ Single effect that fetches bootstrap (depends on primitives only)
+  useEffect(() => {
+    const username = getUsernameFromStorage();
+    if (!username) return;
+
+    const reqKey = JSON.stringify({
+      org_id: orgId,
+      mandi_id: mandiId || "",
+      gate_id: gateId || "",
+      device_type: deviceType || "",
+      search: debouncedSearch || "",
+      page,
+      pageSize,
+    });
+
+    // Dedupe: same inflight request
+    if (inflightRef.current && inflightKeyRef.current === reqKey) return;
+    // Dedupe: same as last completed (prevents StrictMode/prod re-renders)
+    if (lastCompletedKeyRef.current === reqKey) return;
+
+    setLoading(true);
+
+    const p = (async () => {
+      const resp = await fetchGateDevicesBootstrap({
+        username,
+        language: "en",
+        filters: {
+          mandi_id: mandiId ? Number(mandiId) : undefined,
+          gate_id: gateId ? String(gateId) : undefined,
+          device_type: deviceType || undefined,
+          search: debouncedSearch || undefined,
+          page,
+          pageSize,
+        },
+      });
+
+      if (!resp?.ok) {
+        setDevices([]);
+        setTotalCount(0);
+        enqueueSnackbar(resp?.description || "Failed to load gate devices", { variant: "error" });
+        return;
+      }
+
+      const data = resp.data || {};
+      setOrg(data.org || {});
+      setMandis(data.mandis?.items || []);
+      setGates(data.gates?.items || []);
+      setDeviceTypes(data.device_types?.items || []);
+
+      const list: any[] = data.devices?.items || [];
+      const meta = data.devices?.meta || {};
+      setDevices(
+        list.map((d) => ({
+          ...d,
+          id: String(d._id || d.device_code),
+        })),
+      );
+      setTotalCount(Number(meta.totalCount || 0));
+    })();
+
+    inflightRef.current = p;
+    inflightKeyRef.current = reqKey;
+    lastCompletedKeyRef.current = ""; // clear until this finishes
+
+    (async () => {
+      try {
+        await p;
+        lastCompletedKeyRef.current = reqKey;
+      } finally {
+        inflightRef.current = null;
+        inflightKeyRef.current = "";
+        setLoading(false);
+      }
+    })();
+  }, [orgId, mandiId, gateId, deviceType, debouncedSearch, page, pageSize, refreshTick, enqueueSnackbar]);
+
+  // Manual refresh helper for actions (does not affect effect deps)
+  const refresh = useCallback(() => {
+    // allow a re-fetch even if key is same
+    lastCompletedKeyRef.current = "";
+    // bump tick to trigger effect
+    setRefreshTick((t) => t + 1);
+  }, []);
 
   // UX: when mandi changes, clear gate; gates come back from bootstrap for mandi
   const onSelectMandi = (m: MandiOption | null) => {
@@ -357,7 +371,7 @@ const GateDevicesPage: React.FC = () => {
       }
 
       setDialogOpen(false);
-      callBootstrap();
+      refresh();
     } catch (e: any) {
       enqueueSnackbar(e?.message || "Save failed", { variant: "error" });
     } finally {
@@ -413,7 +427,7 @@ const GateDevicesPage: React.FC = () => {
       }
 
       closeMenu();
-      callBootstrap();
+      refresh();
     } catch (e: any) {
       enqueueSnackbar(e?.message || "Failed to update status", { variant: "error" });
     }
@@ -558,7 +572,13 @@ const GateDevicesPage: React.FC = () => {
               ))}
             </TextField>
 
-            <TextField fullWidth label="Search" size="small" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <TextField
+              fullWidth
+              label="Search"
+              size="small"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
 
             <Box sx={{ flex: "0 0 auto", width: { xs: "100%", md: "auto" } }}>
               <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>

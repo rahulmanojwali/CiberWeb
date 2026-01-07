@@ -51,7 +51,11 @@ import { GateVehicleTypes } from "./pages/gateVehicleTypes";
 import { AuctionMethods } from "./pages/auctionMethods";
 import { AuctionRounds } from "./pages/auctionRounds";
 import { AuctionPolicies } from "./pages/auctionPolicies";
-import { GateDevices } from "./pages/gateDevices";
+//import { GateDevices } from "./pages/gateDevices";
+import GateDevices from "./pages/gateDevices";
+
+
+
 import { GateDeviceConfigs } from "./pages/gateDeviceConfigs";
 import { GateTokens } from "./pages/gateTokens";
 import { GateEntryCreate } from "./pages/gateEntries/create";

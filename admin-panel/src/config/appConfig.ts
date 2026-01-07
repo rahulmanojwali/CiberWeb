@@ -1,5 +1,6 @@
 // Prefer explicit API origin; fallback to env or relative /api for local dev
 // Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://mandiapi.ciberdukaan.com/api" || "/api";
 
@@ -94,6 +95,9 @@ export const API_TAGS = {
   },
   GATE_DEVICES_BOOTSTRAP: {
     list: "getGateDevicesBootstrap",
+  },
+  GATE_DEVICE_PAIRING: {
+    generate: "generateGateDevicePairCode",
   },
   HOURS: {
     list: "getMandiHoursMasters",
@@ -351,6 +355,9 @@ export const API_ROUTES = {
     getGateBootstrap: "/admin/gates/getGateBootstrap",
     // Gate Devices screen bootstrap (ORG scoped)
     getGateDevicesBootstrap: "/admin/gates/getGateDevicesBootstrap",
+
+    // Gate Device pairing (Admin)
+    generateGateDevicePairCode: "/admin/gates/generateGateDevicePairCode",
     // Backward-compatible alias
     getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
     getMandiHoursMasters: "/admin/getMandiHoursMasters",
@@ -452,8 +459,7 @@ export const APP_STRINGS = {
 };
 
 
-// // Prefer explicit API origin; fallback to env or relative /api for local dev
-// // Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
+
 // export const API_BASE_URL =
 //   import.meta.env.VITE_API_BASE_URL || "https://mandiapi.ciberdukaan.com/api" || "/api";
 
@@ -545,6 +551,9 @@ export const APP_STRINGS = {
 //   },
 //   GATES_BOOTSTRAP: {
 //     list: "getGateBootstrap",
+//   },
+//   GATE_DEVICES_BOOTSTRAP: {
+//     list: "getGateDevicesBootstrap",
 //   },
 //   HOURS: {
 //     list: "getMandiHoursMasters",
@@ -800,6 +809,8 @@ export const APP_STRINGS = {
 //     getMandisWithGatesSummary: "/admin/getMandisWithGatesSummary",
 //     // Gates screen bootstrap (ORG scoped)
 //     getGateBootstrap: "/admin/gates/getGateBootstrap",
+//     // Gate Devices screen bootstrap (ORG scoped)
+//     getGateDevicesBootstrap: "/admin/gates/getGateDevicesBootstrap",
 //     // Backward-compatible alias
 //     getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
 //     getMandiHoursMasters: "/admin/getMandiHoursMasters",

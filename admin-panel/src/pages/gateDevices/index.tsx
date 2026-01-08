@@ -13,11 +13,10 @@ import {
   DialogTitle,
   Divider,
   IconButton,
-  Menu,
-  MenuItem,
   Pagination,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -25,7 +24,9 @@ import {
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ToggleOnOutlinedIcon from "@mui/icons-material/ToggleOnOutlined";
+import ToggleOffOutlinedIcon from "@mui/icons-material/ToggleOffOutlined";
 
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -120,6 +121,7 @@ const GateDevicesPage: React.FC = () => {
   const canCreate = can("cm_gate_devices.create", "CREATE");
   const canEdit = can("cm_gate_devices.edit", "UPDATE");
   const canToggle = can("cm_gate_devices.deactivate", "DEACTIVATE");
+  const showActions = canEdit || canToggle;
 
   // Single query state (primitives only)
   const [mandiId, setMandiId] = useState<number | "">("");
@@ -159,19 +161,6 @@ const GateDevicesPage: React.FC = () => {
     device_type: "" as string,
     status: "ACTIVE" as "ACTIVE" | "INACTIVE",
   });
-
-  // Row menu
-  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [menuRow, setMenuRow] = useState<DeviceRow | null>(null);
-
-  const openMenu = (e: React.MouseEvent<HTMLElement>, row: DeviceRow) => {
-    setMenuAnchor(e.currentTarget);
-    setMenuRow(row);
-  };
-  const closeMenu = () => {
-    setMenuAnchor(null);
-    setMenuRow(null);
-  };
 
   // Inflight guard (dedupe / mutex)
   const inflightRef = useRef<Promise<any> | null>(null);
@@ -277,9 +266,7 @@ const GateDevicesPage: React.FC = () => {
 
   // Manual refresh helper for actions (does not affect effect deps)
   const refresh = useCallback(() => {
-    // allow a re-fetch even if key is same
     lastCompletedKeyRef.current = "";
-    // bump tick to trigger effect
     setRefreshTick((t) => t + 1);
   }, []);
 
@@ -330,7 +317,6 @@ const GateDevicesPage: React.FC = () => {
       return;
     }
 
-    // normalize device_code client-side too (server also normalizes)
     const device_code = normalizeDeviceCode(form.device_code);
     const payloadBase: Record<string, any> = {
       org_id: String(orgId),
@@ -356,7 +342,6 @@ const GateDevicesPage: React.FC = () => {
         }
         enqueueSnackbar(resp.description || "Device created", { variant: "success" });
       } else {
-        // device_code is primary key in many flows; keep as is during edit
         const resp = await updateGateDevice({
           username,
           language: "en",
@@ -432,16 +417,14 @@ const GateDevicesPage: React.FC = () => {
         enqueueSnackbar(resp.description || "Device activated", { variant: "success" });
       }
 
-      closeMenu();
       refresh();
     } catch (e: any) {
       enqueueSnackbar(e?.message || "Failed to update status", { variant: "error" });
     }
   };
 
-  const columns = useMemo<GridColDef<DeviceRow>[]>(
-    () => {
-      const cols: GridColDef<DeviceRow>[] = [
+  const columns = useMemo<GridColDef<DeviceRow>[]>(() => {
+    const cols: GridColDef<DeviceRow>[] = [
       { field: "device_code", headerName: "Device Code", width: 240 },
       {
         field: "device_label",
@@ -476,29 +459,48 @@ const GateDevicesPage: React.FC = () => {
           return v ? new Date(String(v)).toLocaleString() : "—";
         },
       },
-      ];
+    ];
 
-      if (canEdit || canToggle) {
-        cols.push({
-          field: "actions",
-          headerName: "",
-          width: 80,
-          sortable: false,
-          filterable: false,
-          renderCell: (params) => (
-            <IconButton size="small" onClick={(e) => openMenu(e, params.row as any)}>
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          ),
-        });
-      }
+    // Inline actions (same style as Admin Users)
+    if (showActions) {
+      cols.push({
+        field: "actions",
+        headerName: "",
+        width: 110,
+        sortable: false,
+        filterable: false,
+        renderCell: (params) => {
+          const row = params.row as any as DeviceRow;
+          const isActive = String(row.status || "").toUpperCase() === "ACTIVE";
 
-      return cols;
-    },
-    [canEdit, canToggle],
-  );
+          return (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={row}>
+                <Tooltip title="Edit">
+                  <IconButton size="small" onClick={() => openEdit(row)}>
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </ActionGate>
 
-  const selectedOrgLabel = org?.org_name || org?.org_code || (authContext as any)?.org_name || (authContext as any)?.org_code;
+              <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={row}>
+                <Tooltip title={isActive ? "Deactivate" : "Activate"}>
+                  <IconButton size="small" onClick={() => toggleActive(row)}>
+                    {isActive ? <ToggleOffOutlinedIcon fontSize="small" /> : <ToggleOnOutlinedIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              </ActionGate>
+            </Stack>
+          );
+        },
+      });
+    }
+
+    return cols;
+  }, [showActions]);
+
+  const selectedOrgLabel =
+    org?.org_name || org?.org_code || (authContext as any)?.org_name || (authContext as any)?.org_code;
 
   const showSelectHint = !mandiId || !gateId;
 
@@ -561,11 +563,11 @@ const GateDevicesPage: React.FC = () => {
               disabled={!mandiId}
               helperText={!mandiId ? "Select mandi first" : gates.length === 0 ? "No gates" : ""}
             >
-              <MenuItem value="">Select</MenuItem>
+              <option value="" />
               {gates.map((g) => (
-                <MenuItem key={g._id} value={g._id}>
+                <option key={g._id} value={g._id}>
                   {g.gate_code}
-                </MenuItem>
+                </option>
               ))}
             </TextField>
 
@@ -577,11 +579,11 @@ const GateDevicesPage: React.FC = () => {
               value={deviceType}
               onChange={(e) => setDeviceType(e.target.value)}
             >
-              <MenuItem value="">All</MenuItem>
+              <option value="" />
               {deviceTypes.map((t) => (
-                <MenuItem key={t} value={t}>
+                <option key={t} value={t}>
                   {safeType(t)}
-                </MenuItem>
+                </option>
               ))}
             </TextField>
 
@@ -616,35 +618,57 @@ const GateDevicesPage: React.FC = () => {
 
           {isMobile ? (
             <Stack spacing={1}>
-              {devices.map((r) => (
-                <Card key={r.id} variant="outlined">
-                  <CardContent sx={{ pb: 1.5 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                      <Box>
-                        <Typography variant="subtitle2">{r.device_code}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {safeLabel(r.device_label)}
-                        </Typography>
-                      </Box>
-                      {canEdit || canToggle ? (
-                        <IconButton size="small" onClick={(e) => openMenu(e, r)}>
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      ) : null}
-                    </Stack>
+              {devices.map((r) => {
+                const isActive = String(r.status || "").toUpperCase() === "ACTIVE";
+                return (
+                  <Card key={r.id} variant="outlined">
+                    <CardContent sx={{ pb: 1.5 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                        <Box>
+                          <Typography variant="subtitle2">{r.device_code}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {safeLabel(r.device_label)}
+                          </Typography>
+                        </Box>
 
-                    <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                      <Chip size="small" label={`Type: ${safeLabel(safeType(r.device_type))}`} />
-                      <Chip size="small" label={`Gate: ${safeLabel(r.gate_code)}`} />
-                      <Chip size="small" label={`Status: ${safeLabel(r.status)}`} />
-                    </Stack>
+                        {showActions ? (
+                          <Stack direction="row" spacing={0.5} alignItems="center">
+                            <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={r}>
+                              <Tooltip title="Edit">
+                                <IconButton size="small" onClick={() => openEdit(r)}>
+                                  <EditOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </ActionGate>
 
-                    <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                      Last Seen: {r.last_seen_on ? new Date(String(r.last_seen_on)).toLocaleString() : "—"}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))}
+                            <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={r}>
+                              <Tooltip title={isActive ? "Deactivate" : "Activate"}>
+                                <IconButton size="small" onClick={() => toggleActive(r)}>
+                                  {isActive ? (
+                                    <ToggleOffOutlinedIcon fontSize="small" />
+                                  ) : (
+                                    <ToggleOnOutlinedIcon fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                            </ActionGate>
+                          </Stack>
+                        ) : null}
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
+                        <Chip size="small" label={`Type: ${safeLabel(safeType(r.device_type))}`} />
+                        <Chip size="small" label={`Gate: ${safeLabel(r.gate_code)}`} />
+                        <Chip size="small" label={`Status: ${safeLabel(r.status)}`} />
+                      </Stack>
+
+                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                        Last Seen: {r.last_seen_on ? new Date(String(r.last_seen_on)).toLocaleString() : "—"}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {totalCount > pageSize ? (
                 <Stack direction="row" justifyContent="center" mt={1}>
@@ -683,37 +707,6 @@ const GateDevicesPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Row actions */}
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={closeMenu}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={menuRow}>
-          <MenuItem
-            onClick={() => {
-              if (menuRow) openEdit(menuRow);
-              closeMenu();
-            }}
-          >
-            Edit
-          </MenuItem>
-        </ActionGate>
-
-        <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={menuRow}>
-          <MenuItem
-            onClick={() => {
-              if (menuRow) toggleActive(menuRow);
-              closeMenu();
-            }}
-          >
-            {String(menuRow?.status || "").toUpperCase() === "ACTIVE" ? "Deactivate" : "Activate"}
-          </MenuItem>
-        </ActionGate>
-      </Menu>
-
       {/* Add/Edit dialog */}
       <Dialog open={dialogOpen} onClose={() => (!saving ? setDialogOpen(false) : null)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -749,9 +742,9 @@ const GateDevicesPage: React.FC = () => {
               onChange={(e) => setForm((f) => ({ ...f, device_type: e.target.value }))}
             >
               {deviceTypes.map((t) => (
-                <MenuItem key={t} value={t}>
+                <option key={t} value={t}>
                   {safeType(t)}
-                </MenuItem>
+                </option>
               ))}
             </TextField>
 
@@ -762,8 +755,8 @@ const GateDevicesPage: React.FC = () => {
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
             >
-              <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-              <MenuItem value="INACTIVE">INACTIVE</MenuItem>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
             </TextField>
 
             <Autocomplete
@@ -787,11 +780,11 @@ const GateDevicesPage: React.FC = () => {
               disabled={!form.mandi_id || dialogMode === "edit"}
               helperText={!form.mandi_id ? "Select mandi first" : gates.length === 0 ? "No gates" : ""}
             >
-              <MenuItem value="">Select</MenuItem>
+              <option value="" />
               {gates.map((g) => (
-                <MenuItem key={g._id} value={g._id}>
+                <option key={g._id} value={g._id}>
                   {g.gate_code}
-                </MenuItem>
+                </option>
               ))}
             </TextField>
           </Stack>
@@ -865,6 +858,7 @@ export default GateDevicesPage;
 
 // import { useSnackbar } from "notistack";
 // import { usePermissions } from "../../authz/usePermissions";
+// import { ActionGate } from "../../authz/ActionGate";
 
 // type MandiOption = {
 //   mandi_id: number;
@@ -937,9 +931,14 @@ export default GateDevicesPage;
 //   const theme = useTheme();
 //   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 //   const { enqueueSnackbar } = useSnackbar();
-//   const { authContext } = usePermissions();
+//   const { authContext, can } = usePermissions();
 
 //   const orgId = String((authContext as any)?.org_id || "");
+
+//   // RBAC (canonical keys used across this project)
+//   const canCreate = can("cm_gate_devices.create", "CREATE");
+//   const canEdit = can("cm_gate_devices.edit", "UPDATE");
+//   const canToggle = can("cm_gate_devices.deactivate", "DEACTIVATE");
 
 //   // Single query state (primitives only)
 //   const [mandiId, setMandiId] = useState<number | "">("");
@@ -1260,7 +1259,8 @@ export default GateDevicesPage;
 //   };
 
 //   const columns = useMemo<GridColDef<DeviceRow>[]>(
-//     () => [
+//     () => {
+//       const cols: GridColDef<DeviceRow>[] = [
 //       { field: "device_code", headerName: "Device Code", width: 240 },
 //       {
 //         field: "device_label",
@@ -1295,20 +1295,26 @@ export default GateDevicesPage;
 //           return v ? new Date(String(v)).toLocaleString() : "—";
 //         },
 //       },
-//       {
-//         field: "actions",
-//         headerName: "",
-//         width: 80,
-//         sortable: false,
-//         filterable: false,
-//         renderCell: (params) => (
-//           <IconButton size="small" onClick={(e) => openMenu(e, params.row as any)}>
-//             <MoreVertIcon fontSize="small" />
-//           </IconButton>
-//         ),
-//       },
-//     ],
-//     [],
+//       ];
+
+//       if (canEdit || canToggle) {
+//         cols.push({
+//           field: "actions",
+//           headerName: "",
+//           width: 80,
+//           sortable: false,
+//           filterable: false,
+//           renderCell: (params) => (
+//             <IconButton size="small" onClick={(e) => openMenu(e, params.row as any)}>
+//               <MoreVertIcon fontSize="small" />
+//             </IconButton>
+//           ),
+//         });
+//       }
+
+//       return cols;
+//     },
+//     [canEdit, canToggle],
 //   );
 
 //   const selectedOrgLabel = org?.org_name || org?.org_code || (authContext as any)?.org_name || (authContext as any)?.org_code;
@@ -1407,9 +1413,11 @@ export default GateDevicesPage;
 //             />
 
 //             <Box sx={{ flex: "0 0 auto", width: { xs: "100%", md: "auto" } }}>
-//               <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
-//                 Add Device
-//               </Button>
+//               <ActionGate resourceKey="cm_gate_devices.create" action="CREATE">
+//                 <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
+//                   Add Device
+//                 </Button>
+//               </ActionGate>
 //             </Box>
 //           </Stack>
 //         </CardContent>
@@ -1437,9 +1445,11 @@ export default GateDevicesPage;
 //                           {safeLabel(r.device_label)}
 //                         </Typography>
 //                       </Box>
-//                       <IconButton size="small" onClick={(e) => openMenu(e, r)}>
-//                         <MoreVertIcon fontSize="small" />
-//                       </IconButton>
+//                       {canEdit || canToggle ? (
+//                         <IconButton size="small" onClick={(e) => openMenu(e, r)}>
+//                           <MoreVertIcon fontSize="small" />
+//                         </IconButton>
+//                       ) : null}
 //                     </Stack>
 
 //                     <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
@@ -1500,21 +1510,27 @@ export default GateDevicesPage;
 //         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
 //         transformOrigin={{ vertical: "top", horizontal: "right" }}
 //       >
-//         <MenuItem
-//           onClick={() => {
-//             if (menuRow) openEdit(menuRow);
-//             closeMenu();
-//           }}
-//         >
-//           Edit
-//         </MenuItem>
-//         <MenuItem
-//           onClick={() => {
-//             if (menuRow) toggleActive(menuRow);
-//           }}
-//         >
-//           {String(menuRow?.status || "").toUpperCase() === "ACTIVE" ? "Deactivate" : "Activate"}
-//         </MenuItem>
+//         <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={menuRow}>
+//           <MenuItem
+//             onClick={() => {
+//               if (menuRow) openEdit(menuRow);
+//               closeMenu();
+//             }}
+//           >
+//             Edit
+//           </MenuItem>
+//         </ActionGate>
+
+//         <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={menuRow}>
+//           <MenuItem
+//             onClick={() => {
+//               if (menuRow) toggleActive(menuRow);
+//               closeMenu();
+//             }}
+//           >
+//             {String(menuRow?.status || "").toUpperCase() === "ACTIVE" ? "Deactivate" : "Activate"}
+//           </MenuItem>
+//         </ActionGate>
 //       </Menu>
 
 //       {/* Add/Edit dialog */}
@@ -1625,4 +1641,3 @@ export default GateDevicesPage;
 // };
 
 // export default GateDevicesPage;
-

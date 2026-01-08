@@ -77,7 +77,6 @@ type EditFormState = {
 };
 
 type CustomFormState = EditFormState & {
-  vehicle_type_code: string;
   mandi_id: "ALL" | number;
 };
 
@@ -89,7 +88,6 @@ const defaultEditForm: EditFormState = {
 };
 
 const defaultCustomForm: CustomFormState = {
-  vehicle_type_code: "",
   display_label: "",
   label_en: "",
   notes: "",
@@ -246,13 +244,11 @@ export const GateVehicleTypes: React.FC = () => {
   const handleCustomSave = async () => {
     const username = currentUsername();
     if (!username) return;
-    const code = customForm.vehicle_type_code.trim();
     const label = customForm.display_label.trim();
-    if (!code || !label) return;
+    if (!label) return;
     await createGateVehicleTypeUserCustom({
       username,
       language,
-      vehicle_type_code: code,
       display_label: label,
       label_i18n: customForm.label_en.trim()
         ? { en: customForm.label_en.trim() }
@@ -572,20 +568,13 @@ export const GateVehicleTypes: React.FC = () => {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Vehicle type code"
-              value={customForm.vehicle_type_code}
-              onChange={(event) =>
-                setCustomForm((prev) => ({ ...prev, vehicle_type_code: event.target.value }))
-              }
-              fullWidth
-            />
-            <TextField
               label="Display label"
               value={customForm.display_label}
               onChange={(event) =>
                 setCustomForm((prev) => ({ ...prev, display_label: event.target.value }))
               }
               fullWidth
+              helperText="Code will be generated automatically."
             />
             <TextField
               label="Label (English)"

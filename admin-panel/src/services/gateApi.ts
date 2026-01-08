@@ -115,6 +115,13 @@ export const toggleGateVehicleTypeUser = async (items: Record<string, any>) =>
     ...items,
   });
 
+export const createGateVehicleTypeUserCustom = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.createGateVehicleTypeUserCustom, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.createCustom,
+    language: DEFAULT_LANGUAGE,
+    ...items,
+  });
+
 // Gate Devices
 export const fetchGateDevices = async ({
   username,

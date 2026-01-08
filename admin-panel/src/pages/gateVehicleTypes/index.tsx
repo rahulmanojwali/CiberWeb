@@ -27,6 +27,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
+  createGateVehicleTypeUserCustom,
   editGateVehicleTypeUser,
   fetchGateVehicleTypesMaster,
   fetchGateVehicleTypesUser,
@@ -75,11 +76,25 @@ type EditFormState = {
   sort_order: string;
 };
 
+type CustomFormState = EditFormState & {
+  vehicle_type_code: string;
+  mandi_id: "ALL" | number;
+};
+
 const defaultEditForm: EditFormState = {
   display_label: "",
   label_en: "",
   notes: "",
   sort_order: "",
+};
+
+const defaultCustomForm: CustomFormState = {
+  vehicle_type_code: "",
+  display_label: "",
+  label_en: "",
+  notes: "",
+  sort_order: "",
+  mandi_id: "ALL",
 };
 
 export const GateVehicleTypes: React.FC = () => {
@@ -108,6 +123,8 @@ export const GateVehicleTypes: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<UserVehicleRow | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>(defaultEditForm);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customForm, setCustomForm] = useState<CustomFormState>(defaultCustomForm);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -211,6 +228,43 @@ export const GateVehicleTypes: React.FC = () => {
     setMasterSelection([]);
     setMasterSearch("");
     setImportOpen(true);
+  };
+
+  const openCustom = () => {
+    setCustomForm({
+      ...defaultCustomForm,
+      mandi_id: mandiFilter,
+    });
+    setCustomOpen(true);
+  };
+
+  const closeCustom = () => {
+    setCustomOpen(false);
+    setCustomForm(defaultCustomForm);
+  };
+
+  const handleCustomSave = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const code = customForm.vehicle_type_code.trim();
+    const label = customForm.display_label.trim();
+    if (!code || !label) return;
+    await createGateVehicleTypeUserCustom({
+      username,
+      language,
+      vehicle_type_code: code,
+      display_label: label,
+      label_i18n: customForm.label_en.trim()
+        ? { en: customForm.label_en.trim() }
+        : { en: label },
+      notes: customForm.notes.trim() || undefined,
+      sort_order: customForm.sort_order.trim()
+        ? Number(customForm.sort_order)
+        : undefined,
+      mandi_id: customForm.mandi_id === "ALL" ? 0 : Number(customForm.mandi_id),
+    });
+    closeCustom();
+    loadUserData();
   };
 
   const closeImport = () => {
@@ -409,9 +463,14 @@ export const GateVehicleTypes: React.FC = () => {
             </TextField>
             <Box sx={{ flex: 1 }} />
             {canCreate && (
-              <Button variant="contained" startIcon={<AddIcon />} onClick={openImport}>
-                Import
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" startIcon={<AddIcon />} onClick={openCustom}>
+                  Add Custom
+                </Button>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={openImport}>
+                  Import
+                </Button>
+              </Stack>
             )}
           </Stack>
 
@@ -503,6 +562,87 @@ export const GateVehicleTypes: React.FC = () => {
         <DialogActions>
           <Button onClick={closeEdit}>Cancel</Button>
           <Button variant="contained" onClick={handleEditSave}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={customOpen} onClose={closeCustom} fullWidth maxWidth="sm">
+        <DialogTitle>Add Custom Vehicle Type</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Vehicle type code"
+              value={customForm.vehicle_type_code}
+              onChange={(event) =>
+                setCustomForm((prev) => ({ ...prev, vehicle_type_code: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Display label"
+              value={customForm.display_label}
+              onChange={(event) =>
+                setCustomForm((prev) => ({ ...prev, display_label: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Label (English)"
+              value={customForm.label_en}
+              onChange={(event) =>
+                setCustomForm((prev) => ({ ...prev, label_en: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Mandi"
+              value={customForm.mandi_id}
+              onChange={(event) => {
+                const value = event.target.value;
+                setCustomForm((prev) => ({
+                  ...prev,
+                  mandi_id: value === "ALL" ? "ALL" : Number(value),
+                }));
+              }}
+              size="small"
+              select
+              fullWidth
+            >
+              <MenuItem value="ALL">All Mandis</MenuItem>
+              {mandis.map((mandi) => (
+                <MenuItem key={mandi.mandi_id} value={mandi.mandi_id}>
+                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Sort order"
+              value={customForm.sort_order}
+              onChange={(event) =>
+                setCustomForm((prev) => ({ ...prev, sort_order: event.target.value }))
+              }
+              fullWidth
+            />
+            <TextField
+              label="Notes"
+              value={customForm.notes}
+              onChange={(event) =>
+                setCustomForm((prev) => ({ ...prev, notes: event.target.value }))
+              }
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCustom}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCustomSave}
+            disabled={!customForm.vehicle_type_code.trim() || !customForm.display_label.trim()}
+          >
             Save
           </Button>
         </DialogActions>

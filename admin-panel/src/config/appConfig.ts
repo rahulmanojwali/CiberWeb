@@ -163,6 +163,7 @@ export const API_TAGS = {
     import: "importGateVehicleTypes",
     editUser: "editGateVehicleTypeUser",
     toggleUser: "toggleGateVehicleTypeUser",
+    createCustom: "createGateVehicleTypeUserCustom",
   },
   GATE_DEVICES: {
     list: "getGateDevices",
@@ -391,6 +392,7 @@ export const API_ROUTES = {
     importGateVehicleTypes: "/admin/importGateVehicleTypes",
     editGateVehicleTypeUser: "/admin/editGateVehicleTypeUser",
     toggleGateVehicleTypeUser: "/admin/toggleGateVehicleTypeUser",
+    createGateVehicleTypeUserCustom: "/admin/createGateVehicleTypeUserCustom",
     getGateDevices: "/admin/getGateDevices",
     createGateDevice: "/admin/createGateDevice",
     updateGateDevice: "/admin/updateGateDevice",

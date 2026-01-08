@@ -79,49 +79,40 @@ export const deactivateGateEntryReason = async ({
     reason_code,
   });
 
-// Gate Vehicle Types
-export const fetchGateVehicleTypes = async (
-  items: {
-    username: string;
-    language?: string;
-    [key: string]: any;
-  },
-) => {
-  return postEncrypted(API_ROUTES.admin.getGateVehicleTypes, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.list,
-    language: DEFAULT_LANGUAGE,
-    ...items,
-  });
-};
-
-export const createGateVehicleType = async (items: Record<string, any>) =>
-  postEncrypted(API_ROUTES.admin.createGateVehicleType, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.create,
+// Gate Vehicle Types (master + user mapping)
+export const fetchGateVehicleTypesMaster = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.getGateVehicleTypesMaster, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.getMaster,
     language: DEFAULT_LANGUAGE,
     ...items,
   });
 
-export const updateGateVehicleType = async (items: Record<string, any>) =>
-  postEncrypted(API_ROUTES.admin.updateGateVehicleType, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.update,
+export const fetchGateVehicleTypesUser = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.getGateVehicleTypesUser, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.getUser,
     language: DEFAULT_LANGUAGE,
     ...items,
   });
 
-export const deactivateGateVehicleType = async ({
-  username,
-  language = DEFAULT_LANGUAGE,
-  vehicle_type_code,
-}: {
-  username: string;
-  language?: string;
-  vehicle_type_code: string;
-}) =>
-  postEncrypted(API_ROUTES.admin.deactivateGateVehicleType, {
-    api: API_TAGS.GATE_VEHICLE_TYPES.deactivate,
-    username,
-    language,
-    vehicle_type_code,
+export const importGateVehicleTypes = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.importGateVehicleTypes, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.import,
+    language: DEFAULT_LANGUAGE,
+    ...items,
+  });
+
+export const editGateVehicleTypeUser = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.editGateVehicleTypeUser, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.editUser,
+    language: DEFAULT_LANGUAGE,
+    ...items,
+  });
+
+export const toggleGateVehicleTypeUser = async (items: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.toggleGateVehicleTypeUser, {
+    api: API_TAGS.GATE_VEHICLE_TYPES.toggleUser,
+    language: DEFAULT_LANGUAGE,
+    ...items,
   });
 
 // Gate Devices
@@ -737,4 +728,3 @@ export const fetchGateScreenBootstrap = async ({
 //     mandi_id,
 //     search,
 //   });
-

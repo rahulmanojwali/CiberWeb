@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -9,32 +9,30 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
-import DirectionsCarFilledIcon from "@mui/icons-material/DirectionsCarFilled";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
+import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
-  fetchGateVehicleTypes,
-  createGateVehicleType,
-  updateGateVehicleType,
-  deactivateGateVehicleType,
+  editGateVehicleTypeUser,
+  fetchGateVehicleTypesMaster,
+  fetchGateVehicleTypesUser,
+  importGateVehicleTypes,
+  toggleGateVehicleTypeUser,
 } from "../../services/gateApi";
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 
 function currentUsername(): string | null {
   try {
@@ -46,495 +44,466 @@ function currentUsername(): string | null {
   }
 }
 
-type VehicleRow = {
+type UserVehicleRow = {
+  id: string;
   vehicle_type_code: string;
-  name_i18n: Record<string, string>;
+  display_label: string;
+  label_i18n?: Record<string, string>;
   is_active: "Y" | "N";
-  is_allowed: "Y" | "N";
-  requires_permit: "Y" | "N";
-  axle_count: number | null;
-  max_gvw_tonnes: number | null;
+  mandi_id?: number | null;
+  notes?: string | null;
+  sort_order?: number | null;
 };
 
-const defaultForm = {
-  vehicle_type_code: "",
-  name_en: "",
-  name_hi: "",
-  is_active: "Y" as "Y" | "N",
-  is_allowed: "Y" as "Y" | "N",
-  requires_permit: "N" as "Y" | "N",
-  axle_count: "" as number | "" | null,
-  max_gvw_tonnes: "" as number | "" | null,
-  max_dims_m: { length: "", width: "", height: "" } as Record<string, number | "" | null>,
+type MasterVehicleRow = {
+  id: string;
+  vehicle_type_code: string;
+  name_i18n?: Record<string, string>;
+};
+
+type MandiOption = {
+  mandi_id: number;
+  label?: string;
+  name_i18n?: Record<string, string>;
+  mandi_slug?: string;
+};
+
+type EditFormState = {
+  display_label: string;
+  label_en: string;
+  notes: string;
+  sort_order: string;
+};
+
+const defaultEditForm: EditFormState = {
+  display_label: "",
+  label_en: "",
+  notes: "",
+  sort_order: "",
 };
 
 export const GateVehicleTypes: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
-  const roleSlug = uiConfig.role || "";
-  const currentOrgId = (uiConfig as any)?.org_id || null;
-  const currentMandiId = (uiConfig as any)?.mandi_id || null;
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const [rows, setRows] = useState<VehicleRow[]>([]);
-  const [status, setStatus] = useState("ALL" as "ALL" | "Y" | "N");
-  const [loading, setLoading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [editCode, setEditCode] = useState<string | null>(null);
 
   const { canCreate, canEdit, canDeactivate } = useCrudPermissions("gate_vehicle_types_masters");
 
-  const columns = useMemo<GridColDef<VehicleRow>[]>(
+  const [rows, setRows] = useState<UserVehicleRow[]>([]);
+  const [mandis, setMandis] = useState<MandiOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [status, setStatus] = useState<"ALL" | "Y" | "N">("ALL");
+  const [mandiFilter, setMandiFilter] = useState<"ALL" | number>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [masterRows, setMasterRows] = useState<MasterVehicleRow[]>([]);
+  const [masterSearch, setMasterSearch] = useState("");
+  const [masterSelection, setMasterSelection] = useState<string[]>([]);
+  const [masterLoading, setMasterLoading] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState<UserVehicleRow | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>(defaultEditForm);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [status, mandiFilter, language]);
+
+  const mandiLookup = useMemo(() => {
+    const map = new Map<number, string>();
+    mandis.forEach((m) => {
+      const label = m?.label || m?.name_i18n?.en || m?.mandi_slug || String(m?.mandi_id || "");
+      if (typeof m?.mandi_id === "number") map.set(m.mandi_id, label);
+    });
+    return map;
+  }, [mandis]);
+
+  const loadUserData = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    setLoading(true);
+    try {
+      const payload: Record<string, any> = {
+        username,
+        language,
+        page,
+        pageSize,
+      };
+      if (debouncedSearch) payload.q = debouncedSearch;
+      if (status !== "ALL") payload.is_active = status;
+      if (mandiFilter !== "ALL") payload.mandi_id = mandiFilter;
+
+      const resp = await fetchGateVehicleTypesUser(payload);
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.vehicle_types || [];
+      const meta = data?.meta || {};
+      setRows(
+        list.map((item: any, index: number) => ({
+          id: String(item?._id || item?.id || `${item?.vehicle_type_code || "row"}-${index}`),
+          vehicle_type_code: item?.vehicle_type_code || "",
+          display_label: item?.display_label || item?.label || item?.vehicle_type_code || "",
+          label_i18n: item?.label_i18n || undefined,
+          is_active: item?.is_active || "Y",
+          mandi_id: item?.mandi_id ?? null,
+          notes: item?.notes || "",
+          sort_order: item?.sort_order ?? null,
+        })),
+      );
+      setMandis(Array.isArray(data?.filters?.mandis) ? data.filters.mandis : []);
+      setTotalCount(Number(meta.totalCount || list.length || 0));
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, language, mandiFilter, page, pageSize, status]);
+
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
+
+  const loadMasterList = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    setMasterLoading(true);
+    try {
+      const payload: Record<string, any> = {
+        username,
+        language,
+        page: 1,
+        pageSize: 200,
+      };
+      if (masterSearch.trim()) payload.q = masterSearch.trim();
+      const resp = await fetchGateVehicleTypesMaster(payload);
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.vehicle_types || [];
+      setMasterRows(
+        list.map((item: any, index: number) => ({
+          id: String(item?._id || item?.id || `${item?.vehicle_type_code || "master"}-${index}`),
+          vehicle_type_code: item?.vehicle_type_code || "",
+          name_i18n: item?.name_i18n || {},
+        })),
+      );
+    } finally {
+      setMasterLoading(false);
+    }
+  }, [language, masterSearch]);
+
+  useEffect(() => {
+    if (!importOpen) return;
+    const timer = setTimeout(() => {
+      loadMasterList();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [importOpen, loadMasterList]);
+
+  const openImport = () => {
+    setMasterSelection([]);
+    setMasterSearch("");
+    setImportOpen(true);
+  };
+
+  const closeImport = () => {
+    setImportOpen(false);
+  };
+
+  const handleImport = async () => {
+    const username = currentUsername();
+    if (!username || masterSelection.length === 0) return;
+    const mandi_id = mandiFilter === "ALL" ? 0 : Number(mandiFilter);
+    await importGateVehicleTypes({
+      username,
+      language,
+      mandi_id,
+      master_ids: masterSelection,
+    });
+    closeImport();
+    loadUserData();
+  };
+
+  const openEdit = (row: UserVehicleRow) => {
+    setEditRow(row);
+    setEditForm({
+      display_label: row.display_label || "",
+      label_en: row.label_i18n?.en || "",
+      notes: row.notes || "",
+      sort_order: row.sort_order === null || row.sort_order === undefined ? "" : String(row.sort_order),
+    });
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setEditOpen(false);
+    setEditRow(null);
+    setEditForm(defaultEditForm);
+  };
+
+  const handleEditSave = async () => {
+    const username = currentUsername();
+    if (!username || !editRow) return;
+    const payload: Record<string, any> = {
+      username,
+      language,
+      id: editRow.id,
+      display_label: editForm.display_label,
+      notes: editForm.notes,
+    };
+    if (editForm.label_en.trim()) {
+      payload.label_i18n = { en: editForm.label_en.trim() };
+    }
+    if (editForm.sort_order.trim()) {
+      payload.sort_order = Number(editForm.sort_order);
+    }
+    await editGateVehicleTypeUser(payload);
+    closeEdit();
+    loadUserData();
+  };
+
+  const handleToggle = async (row: UserVehicleRow) => {
+    const username = currentUsername();
+    if (!username) return;
+    const nextStatus = row.is_active === "Y" ? "N" : "Y";
+    await toggleGateVehicleTypeUser({
+      username,
+      language,
+      id: row.id,
+      is_active: nextStatus,
+    });
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === row.id ? { ...item, is_active: nextStatus } : item,
+      ),
+    );
+  };
+
+  const columns = useMemo<GridColDef<UserVehicleRow>[]>(
     () => [
-      { field: "vehicle_type_code", headerName: "Code", width: 150 },
+      { field: "vehicle_type_code", headerName: "Code", width: 160 },
       {
-        field: "name_i18n",
-        headerName: "Name",
+        field: "display_label",
+        headerName: "Label",
         flex: 1,
-        valueGetter: (params: any) => params?.row?.name_i18n?.en || params?.row?.vehicle_type_code || "",
+        minWidth: 220,
       },
       {
-        field: "is_allowed",
-        headerName: "Allowed",
-        width: 120,
-        renderCell: (params: any) => (
-          <Chip
-            size="small"
-            label={params?.row?.is_allowed === "Y" ? "Yes" : "No"}
-            color={params?.row?.is_allowed === "Y" ? "success" : "default"}
-            variant="outlined"
-          />
-        ),
-      },
-      {
-        field: "requires_permit",
-        headerName: "Permit",
-        width: 120,
-        renderCell: (params: any) => (
-          <Chip
-            size="small"
-            label={params?.row?.requires_permit === "Y" ? "Required" : "No"}
-            color={params?.row?.requires_permit === "Y" ? "warning" : "default"}
-            variant="outlined"
-          />
-        ),
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 160,
+        valueGetter: (params: any) => {
+          const mandiId = params?.row?.mandi_id;
+          if (typeof mandiId !== "number") return "All";
+          return mandiLookup.get(mandiId) || String(mandiId);
+        },
       },
       {
         field: "is_active",
-        headerName: "Active",
-        width: 110,
+        headerName: "Status",
+        width: 120,
         renderCell: (params: any) => (
           <Chip
             size="small"
-            label={params?.row?.is_active === "Y" ? "Active" : "Inactive"}
-            color={params?.row?.is_active === "Y" ? "success" : "default"}
             variant="outlined"
+            color={params?.row?.is_active === "Y" ? "success" : "default"}
+            label={params?.row?.is_active === "Y" ? "Active" : "Inactive"}
           />
         ),
       },
       {
         field: "actions",
         headerName: "Actions",
-        width: 180,
+        width: 140,
+        sortable: false,
+        filterable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-                Edit
-              </Button>
+              <Tooltip title="Edit">
+                <IconButton size="small" onClick={() => openEdit(params.row)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
             {canDeactivate && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.vehicle_type_code)}
-              >
-                Deactivate
-              </Button>
+              <Tooltip title={params.row.is_active === "Y" ? "Deactivate" : "Activate"}>
+                <IconButton size="small" onClick={() => handleToggle(params.row)}>
+                  {params.row.is_active === "Y" ? (
+                    <BlockIcon fontSize="small" />
+                  ) : (
+                    <CheckIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </Tooltip>
             )}
           </Stack>
         ),
       },
     ],
-    [canEdit, canDeactivate],
+    [canDeactivate, canEdit, mandiLookup],
   );
 
-  const loadData = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    setLoading(true);
-    try {
-      const payload: any = {
-        username,
-        language,
-      };
-      if (status !== "ALL") payload.is_active = status;
-      if (currentOrgId) payload.org_id = currentOrgId;
-      if (roleSlug === "MANDI_ADMIN" && currentMandiId) payload.mandi_id = currentMandiId;
-
-      const resp = await fetchGateVehicleTypes(payload);
-      const list = resp?.data?.vehicle_types || resp?.response?.data?.vehicle_types || [];
-      setRows(
-        list
-          .map((v: any) => {
-            const code = v?.vehicle_type_code || v?.code;
-            if (!code) return null;
-            return {
-              vehicle_type_code: code,
-              name_i18n: v?.name_i18n || { en: v?.name_en || code },
-              is_active: v?.is_active || "Y",
-              is_allowed: v?.is_allowed || "Y",
-              requires_permit: v?.requires_permit || "N",
-              axle_count: v?.axle_count ?? null,
-              max_gvw_tonnes: v?.max_gvw_tonnes ?? null,
-            } as VehicleRow;
-          })
-          .filter(Boolean) as VehicleRow[],
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [status, language]);
-
-  const openCreate = () => {
-    setIsEdit(false);
-    setEditCode(null);
-    setForm(defaultForm);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (row: VehicleRow) => {
-    setIsEdit(true);
-    setEditCode(row.vehicle_type_code);
-    setForm({
-      vehicle_type_code: row.vehicle_type_code,
-      name_en: row.name_i18n?.en || "",
-      name_hi: row.name_i18n?.hi || "",
-      is_active: row.is_active,
-      is_allowed: row.is_allowed || "Y",
-      requires_permit: row.requires_permit || "N",
-      axle_count: row.axle_count ?? "",
-      max_gvw_tonnes: row.max_gvw_tonnes ?? "",
-      max_dims_m: { length: "", width: "", height: "" },
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const items: any = {
-      username,
-      language,
-      vehicle_type_code: form.vehicle_type_code,
-      name_en: form.name_en,
-      is_active: form.is_active,
-      is_allowed: form.is_allowed,
-      requires_permit: form.requires_permit,
-    };
-    if (form.name_hi) items.name_hi = form.name_hi;
-    if (form.axle_count !== "" && form.axle_count !== null) items.axle_count = Number(form.axle_count);
-    if (form.max_gvw_tonnes !== "" && form.max_gvw_tonnes !== null) items.max_gvw_tonnes = Number(form.max_gvw_tonnes);
-    const dims = form.max_dims_m || {};
-    if (dims.length || dims.width || dims.height) {
-      items.max_dims_m = {
-        length: dims.length === "" ? null : Number(dims.length),
-        width: dims.width === "" ? null : Number(dims.width),
-        height: dims.height === "" ? null : Number(dims.height),
-      };
-    }
-    if (roleSlug === "MANDI_ADMIN" && currentMandiId) {
-      items.mandi_id = currentMandiId;
-    }
-    if (currentOrgId) {
-      items.org_id = currentOrgId;
-    }
-    if (isEdit && editCode) {
-      await updateGateVehicleType(items);
-    } else {
-      await createGateVehicleType(items);
-    }
-    setDialogOpen(false);
-    await loadData();
-  };
-
-  const handleDeactivate = async (vehicle_type_code: string) => {
-    const username = currentUsername();
-    if (!username) return;
-    await deactivateGateVehicleType({ username, language, vehicle_type_code });
-    await loadData();
-  };
+  const masterColumns = useMemo<GridColDef<MasterVehicleRow>[]>(
+    () => [
+      { field: "vehicle_type_code", headerName: "Code", width: 160 },
+      {
+        field: "name_i18n",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 220,
+        valueGetter: (params: any) => params?.row?.name_i18n?.en || params?.row?.vehicle_type_code,
+      },
+    ],
+    [],
+  );
 
   return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <DirectionsCarFilledIcon fontSize="small" />
-          {t("menu.gateVehicleTypes", { defaultValue: "Gate Vehicle Types" })}
-        </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }} width={{ xs: "100%", sm: "auto" }}>
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            fullWidth
-            sx={{ minWidth: { sm: 140 } }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="Y">Active</MenuItem>
-            <MenuItem value="N">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate} fullWidth>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </Stack>
-      </Stack>
-
-      {fullScreen ? (
-        <Stack spacing={2}>
-          {(rows || []).map((row) => (
-            <Card key={row.vehicle_type_code}>
-              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Code
-                  </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {row.vehicle_type_code}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Name
-                  </Typography>
-                  <Typography variant="body1">{row.name_i18n?.en || row.vehicle_type_code}</Typography>
-                </Box>
-                <Stack direction="row" spacing={2}>
-                  <Stack spacing={0.25}>
-                    <Typography variant="caption" color="text.secondary">
-                      Allowed
-                    </Typography>
-                    <Typography variant="body2">{row.is_allowed === "Y" ? "Yes" : "No"}</Typography>
-                  </Stack>
-                  <Stack spacing={0.25}>
-                    <Typography variant="caption" color="text.secondary">
-                      Permit
-                    </Typography>
-                    <Typography variant="body2">{row.requires_permit === "Y" ? "Required" : "No"}</Typography>
-                  </Stack>
-                  <Stack spacing={0.25}>
-                    <Typography variant="caption" color="text.secondary">
-                      Active
-                    </Typography>
-                    <Typography variant="body2">{row.is_active === "Y" ? "Active" : "Inactive"}</Typography>
-                  </Stack>
-                </Stack>
-                <Stack direction="row" spacing={2}>
-                  <Stack spacing={0.25}>
-                    <Typography variant="caption" color="text.secondary">
-                      Axle Count
-                    </Typography>
-                    <Typography variant="body2">{row.axle_count ?? "—"}</Typography>
-                  </Stack>
-                  <Stack spacing={0.25}>
-                    <Typography variant="caption" color="text.secondary">
-                      Max GVW (t)
-                    </Typography>
-                    <Typography variant="body2">{row.max_gvw_tonnes ?? "—"}</Typography>
-                  </Stack>
-                </Stack>
-                {(canEdit || canDeactivate) && (
-                  <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
-                    {canEdit && (
-                      <Button variant="text" size="small" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                        Edit
-                      </Button>
-                    )}
-                    {canDeactivate && (
-                      <Button
-                        variant="text"
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeactivate(row.vehicle_type_code)}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Deactivate
-                      </Button>
-                    )}
-                  </Stack>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      ) : (
-        <Card>
-          <CardContent>
-            <Box sx={{ width: "100%" }}>
-              <ResponsiveDataGrid
-                columns={columns}
-                rows={rows || []}
-                loading={loading}
-                getRowId={(r) => r.vehicle_type_code}
-                autoHeight
-              />
-            </Box>
-          </CardContent>
-        </Card>
-      )}
-
-      <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="md"
-        fullScreen={fullScreen}
-        PaperProps={{
-          sx: {
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: fullScreen ? "100vh" : "90vh",
-          },
-        }}
-      >
-        <DialogTitle>{isEdit ? "Edit Vehicle Type" : "Create Vehicle Type"}</DialogTitle>
-        <DialogContent
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflowY: "auto",
-            gap: 2,
-          }}
-        >
-          <TextField
-            label="Type Code"
-            id="vehicle-type-code"
-            value={form.vehicle_type_code}
-            onChange={(e) => setForm((f) => ({ ...f, vehicle_type_code: e.target.value }))}
-            fullWidth
-            disabled={isEdit}
-          />
-          <TextField
-            label="Name (EN)"
-            id="vehicle-type-name-en"
-            value={form.name_en}
-            onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Name (HI)"
-            id="vehicle-type-name-hi"
-            value={form.name_hi}
-            onChange={(e) => setForm((f) => ({ ...f, name_hi: e.target.value }))}
-            fullWidth
-          />
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+    <PageContainer title={t("gateVehicleTypes:title", "Gate Vehicle Types")}>
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
             <TextField
-              label="Axle Count"
-              type="number"
-              value={form.axle_count}
-              onChange={(e) => setForm((f) => ({ ...f, axle_count: e.target.value === "" ? "" : Number(e.target.value) }))}
-              fullWidth
+              label="Search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              size="small"
+              sx={{ minWidth: 220 }}
             />
             <TextField
-              label="Max GVW (tonnes)"
-              type="number"
-              value={form.max_gvw_tonnes}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, max_gvw_tonnes: e.target.value === "" ? "" : Number(e.target.value) }))
-              }
-              fullWidth
-            />
+              label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as "ALL" | "Y" | "N")}
+              size="small"
+              select
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
+            <TextField
+              label="Mandi"
+              value={mandiFilter}
+              onChange={(event) => {
+                const value = event.target.value;
+                setMandiFilter(value === "ALL" ? "ALL" : Number(value));
+              }}
+              size="small"
+              select
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="ALL">All Mandis</MenuItem>
+              {mandis.map((mandi) => (
+                <MenuItem key={mandi.mandi_id} value={mandi.mandi_id}>
+                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Box sx={{ flex: 1 }} />
+            {canCreate && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openImport}>
+                Import
+              </Button>
+            )}
           </Stack>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+
+          <ResponsiveDataGrid
+            rows={rows}
+            columns={columns}
+            loading={loading}
+            pageSizeOptions={[10, 25, 50, 100]}
+            paginationMode="server"
+            rowCount={totalCount}
+            paginationModel={{ page: page - 1, pageSize }}
+            onPaginationModelChange={(model) => {
+              setPage(model.page + 1);
+              setPageSize(model.pageSize);
+            }}
+            autoHeight
+          />
+        </CardContent>
+      </Card>
+
+      <Dialog open={importOpen} onClose={closeImport} fullWidth maxWidth="md">
+        <DialogTitle>Import Vehicle Types</DialogTitle>
+        <DialogContent>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
             <TextField
-              label="Length (m)"
-              type="number"
-              value={form.max_dims_m.length}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  max_dims_m: { ...f.max_dims_m, length: e.target.value === "" ? "" : Number(e.target.value) },
-                }))
-              }
-              fullWidth
+              label="Search master"
+              value={masterSearch}
+              onChange={(event) => setMasterSearch(event.target.value)}
+              size="small"
+              sx={{ minWidth: 240 }}
             />
-            <TextField
-              label="Width (m)"
-              type="number"
-              value={form.max_dims_m.width}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  max_dims_m: { ...f.max_dims_m, width: e.target.value === "" ? "" : Number(e.target.value) },
-                }))
-              }
-              fullWidth
-            />
-            <TextField
-              label="Height (m)"
-              type="number"
-              value={form.max_dims_m.height}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  max_dims_m: { ...f.max_dims_m, height: e.target.value === "" ? "" : Number(e.target.value) },
-                }))
-              }
-              fullWidth
-            />
+            <Typography sx={{ color: "text.secondary", alignSelf: "center" }}>
+              Selected: {masterSelection.length}
+            </Typography>
           </Stack>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <ResponsiveDataGrid
+            rows={masterRows}
+            columns={masterColumns}
+            loading={masterLoading}
+            checkboxSelection
+            onRowSelectionModelChange={(selection) => setMasterSelection(selection as string[])}
+            rowSelectionModel={masterSelection}
+            pageSizeOptions={[25, 50, 100, 200]}
+            autoHeight
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeImport}>Cancel</Button>
+          <Button variant="contained" onClick={handleImport} disabled={masterSelection.length === 0}>
+            Import Selected
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={editOpen} onClose={closeEdit} fullWidth maxWidth="sm">
+        <DialogTitle>Edit Vehicle Type</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              select
-              label="Allowed"
-              value={form.is_allowed}
-              onChange={(e) => setForm((f) => ({ ...f, is_allowed: e.target.value as "Y" | "N" }))}
+              label="Display label"
+              value={editForm.display_label}
+              onChange={(event) =>
+                setEditForm((prev) => ({ ...prev, display_label: event.target.value }))
+              }
               fullWidth
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </TextField>
+            />
             <TextField
-              select
-              label="Permit Required"
-              value={form.requires_permit}
-              onChange={(e) => setForm((f) => ({ ...f, requires_permit: e.target.value as "Y" | "N" }))}
+              label="Label (English)"
+              value={editForm.label_en}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, label_en: event.target.value }))}
               fullWidth
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </TextField>
+            />
             <TextField
-              select
-              label="Active"
-              value={form.is_active}
-              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value as "Y" | "N" }))}
+              label="Sort order"
+              value={editForm.sort_order}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, sort_order: event.target.value }))}
               fullWidth
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </TextField>
+            />
+            <TextField
+              label="Notes"
+              value={editForm.notes}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, notes: event.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
+            />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!form.vehicle_type_code || !form.name_en}>
-            {isEdit ? "Update" : "Create"}
+        <DialogActions>
+          <Button onClick={closeEdit}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditSave}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>

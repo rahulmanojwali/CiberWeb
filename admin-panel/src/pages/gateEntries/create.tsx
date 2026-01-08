@@ -17,7 +17,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { usePermissions } from "../../authz/usePermissions";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchMandiGates } from "../../services/mandiApi";
-import { fetchGateEntryReasons, fetchGateVehicleTypes } from "../../services/gateApi";
+import { fetchGateEntryReasons, fetchGateVehicleTypesMaster } from "../../services/gateApi";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 
@@ -114,7 +114,7 @@ export const GateEntryCreate: React.FC = () => {
     if (!username) return;
     setLoadingVehicleTypes(true);
     try {
-      const resp = await fetchGateVehicleTypes({ username, language, is_active: "Y" });
+      const resp = await fetchGateVehicleTypesMaster({ username, language, is_active: "Y" });
       const list = resp?.data?.vehicle_types || resp?.response?.data?.vehicle_types || [];
       setVehicleTypes(
         list.map((v: any) => ({

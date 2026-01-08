@@ -283,13 +283,19 @@ const RolesPermissionsPage: React.FC = () => {
 
   const resolveKeyForAction = (resourceKey: string, action: string): string | null => {
     const normalizedKey = normalizeKey(resourceKey);
-    if (resourcesByKey[normalizedKey]) {
-      return normalizedKey;
+    const legacyPrefix = ["gate", "vehicle", "types"].join("_");
+    let mappedKey = normalizedKey;
+    if (normalizedKey.startsWith(`${legacyPrefix}.`)) {
+      const suffix = normalizedKey.slice(legacyPrefix.length + 1);
+      mappedKey = `gate_vehicle_types_masters.${suffix}`;
+    }
+    if (resourcesByKey[mappedKey]) {
+      return mappedKey;
     }
     const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
     // Only try edit/update mapping when suffix matches edit/update
-    if (normalizedAction === "UPDATE" && /\.(edit|update)$/.test(normalizedKey)) {
-      const base = normalizedKey.replace(/\.(edit|update)$/, "");
+    if (normalizedAction === "UPDATE" && /\.(edit|update)$/.test(mappedKey)) {
+      const base = mappedKey.replace(/\.(edit|update)$/, "");
       const updateKey = `${base}.update`;
       const editKey = `${base}.edit`;
       if (resourcesByKey[updateKey]) return updateKey;

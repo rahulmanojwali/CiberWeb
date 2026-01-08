@@ -39,6 +39,7 @@ import {
 
 import { useSnackbar } from "notistack";
 import { usePermissions } from "../../authz/usePermissions";
+import { ActionGate } from "../../authz/ActionGate";
 
 type MandiOption = {
   mandi_id: number;
@@ -111,9 +112,14 @@ const GateDevicesPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { enqueueSnackbar } = useSnackbar();
-  const { authContext } = usePermissions();
+  const { authContext, can } = usePermissions();
 
   const orgId = String((authContext as any)?.org_id || "");
+
+  // RBAC (canonical keys used across this project)
+  const canCreate = can("cm_gate_devices.create", "CREATE");
+  const canEdit = can("cm_gate_devices.edit", "UPDATE");
+  const canToggle = can("cm_gate_devices.deactivate", "DEACTIVATE");
 
   // Single query state (primitives only)
   const [mandiId, setMandiId] = useState<number | "">("");
@@ -434,7 +440,8 @@ const GateDevicesPage: React.FC = () => {
   };
 
   const columns = useMemo<GridColDef<DeviceRow>[]>(
-    () => [
+    () => {
+      const cols: GridColDef<DeviceRow>[] = [
       { field: "device_code", headerName: "Device Code", width: 240 },
       {
         field: "device_label",
@@ -469,20 +476,26 @@ const GateDevicesPage: React.FC = () => {
           return v ? new Date(String(v)).toLocaleString() : "—";
         },
       },
-      {
-        field: "actions",
-        headerName: "",
-        width: 80,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => (
-          <IconButton size="small" onClick={(e) => openMenu(e, params.row as any)}>
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        ),
-      },
-    ],
-    [],
+      ];
+
+      if (canEdit || canToggle) {
+        cols.push({
+          field: "actions",
+          headerName: "",
+          width: 80,
+          sortable: false,
+          filterable: false,
+          renderCell: (params) => (
+            <IconButton size="small" onClick={(e) => openMenu(e, params.row as any)}>
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          ),
+        });
+      }
+
+      return cols;
+    },
+    [canEdit, canToggle],
   );
 
   const selectedOrgLabel = org?.org_name || org?.org_code || (authContext as any)?.org_name || (authContext as any)?.org_code;
@@ -581,9 +594,11 @@ const GateDevicesPage: React.FC = () => {
             />
 
             <Box sx={{ flex: "0 0 auto", width: { xs: "100%", md: "auto" } }}>
-              <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
-                Add Device
-              </Button>
+              <ActionGate resourceKey="cm_gate_devices.create" action="CREATE">
+                <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
+                  Add Device
+                </Button>
+              </ActionGate>
             </Box>
           </Stack>
         </CardContent>
@@ -611,9 +626,11 @@ const GateDevicesPage: React.FC = () => {
                           {safeLabel(r.device_label)}
                         </Typography>
                       </Box>
-                      <IconButton size="small" onClick={(e) => openMenu(e, r)}>
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
+                      {canEdit || canToggle ? (
+                        <IconButton size="small" onClick={(e) => openMenu(e, r)}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      ) : null}
                     </Stack>
 
                     <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
@@ -674,21 +691,27 @@ const GateDevicesPage: React.FC = () => {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <MenuItem
-          onClick={() => {
-            if (menuRow) openEdit(menuRow);
-            closeMenu();
-          }}
-        >
-          Edit
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            if (menuRow) toggleActive(menuRow);
-          }}
-        >
-          {String(menuRow?.status || "").toUpperCase() === "ACTIVE" ? "Deactivate" : "Activate"}
-        </MenuItem>
+        <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={menuRow}>
+          <MenuItem
+            onClick={() => {
+              if (menuRow) openEdit(menuRow);
+              closeMenu();
+            }}
+          >
+            Edit
+          </MenuItem>
+        </ActionGate>
+
+        <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={menuRow}>
+          <MenuItem
+            onClick={() => {
+              if (menuRow) toggleActive(menuRow);
+              closeMenu();
+            }}
+          >
+            {String(menuRow?.status || "").toUpperCase() === "ACTIVE" ? "Deactivate" : "Activate"}
+          </MenuItem>
+        </ActionGate>
       </Menu>
 
       {/* Add/Edit dialog */}
@@ -1602,3 +1625,4 @@ export default GateDevicesPage;
 // };
 
 // export default GateDevicesPage;
+

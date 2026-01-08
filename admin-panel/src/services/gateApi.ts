@@ -166,7 +166,7 @@ export const updateGateDevice = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.updateGateDevice, {
+  callEncrypted(API_ROUTES.admin.updateGateDevice, {
     api: API_TAGS.GATE_DEVICES.update,
     username,
     language,
@@ -202,7 +202,7 @@ export const deactivateGateDevice = async ({
   org_id: string;
   mandi_id: number;
 }) =>
-  postEncrypted(API_ROUTES.admin.deactivateGateDevice, {
+  callEncrypted(API_ROUTES.admin.deactivateGateDevice, {
     api: API_TAGS.GATE_DEVICES.deactivate,
     username,
     language,
@@ -367,8 +367,6 @@ export const fetchGateScreenBootstrap = async ({
     mandi_id,
     search,
   });
-
-
 
 // import { postEncrypted } from "./sharedEncryptedRequest";
 // import { API_TAGS, API_ROUTES, DEFAULT_LANGUAGE } from "../config/appConfig";
@@ -545,6 +543,21 @@ export const fetchGateScreenBootstrap = async ({
 //     ...payload,
 //   });
 
+// // export const deactivateGateDevice = async ({
+// //   username,
+// //   language = DEFAULT_LANGUAGE,
+// //   device_code,
+// // }: {
+// //   username: string;
+// //   language?: string;
+// //   device_code: string;
+// // }) =>
+// //   postEncrypted(API_ROUTES.admin.deactivateGateDevice, {
+// //     api: API_TAGS.GATE_DEVICES.deactivate,
+// //     username,
+// //     language,
+// //     device_code,
+// //   });
 
 // export const deactivateGateDevice = async ({
 //   username,
@@ -724,3 +737,4 @@ export const fetchGateScreenBootstrap = async ({
 //     mandi_id,
 //     search,
 //   });
+

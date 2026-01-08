@@ -39,9 +39,16 @@ export function usePermissions() {
     const map: Record<string, Set<string>> = {};
     const permSource = uiConfig.permissions || [];
     const fallback = (uiConfig as any).resources || [];
-    const merged = permSource.length ? permSource : fallback;
+    // const merged = permSource.length ? permSource : fallback;
+const merged = [...fallback, ...permSource];
+
     merged.forEach((res: any) => {
-      const key = canonicalizeResourceKey(res.resource_key || res.resource || "");
+      // const key = canonicalizeResourceKey(res.resource_key || res.resource || "");
+
+const key = canonicalizeResourceKey(
+  res.resource_key || res.resource || res.key || res.resourceKey || ""
+);
+
       if (!key) return;
       const actionsRaw = res.allowed_actions ?? res.actions ?? res.permissions ?? [];
       const actions = normalizeActionsArray(actionsRaw);

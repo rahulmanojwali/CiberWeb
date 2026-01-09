@@ -388,10 +388,10 @@ export const MandiCommodityProductsMasters: React.FC = () => {
     !form.mandi_id || !form.commodity_id || !form.product_id || !form.trade_type;
 
   return (
-    <PageContainer
-      title="Mandi Commodity Products"
-      subtitle="Manage mandi-level commodity product mappings"
-    >
+    <PageContainer title="Mandi Commodity Products">
+      <Typography sx={{ color: "text.secondary", mt: -1 }}>
+        Manage mandi-level commodity product mappings
+      </Typography>
       <Card>
         <CardContent>
           <Stack

@@ -3,6 +3,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Snackbar,
   Stack,
@@ -15,13 +19,19 @@ import {
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import DownloadIcon from "@mui/icons-material/Download";
+import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
-import { fetchCommodities, createCommodity } from "../../services/mandiApi";
+import {
+  fetchCommodities,
+  createCommodity,
+  updateCommodity,
+} from "../../services/mandiApi";
 
 type CommodityRow = {
   commodity_id: number;
@@ -29,6 +39,13 @@ type CommodityRow = {
   group?: string;
   code?: string;
   is_active: boolean;
+};
+
+type ImportedCommodityRow = {
+  commodity_id: number;
+  display_label: string;
+  commodity_slug?: string;
+  is_active: "Y" | "N";
 };
 
 function currentUsername(): string | null {
@@ -47,32 +64,73 @@ export const Commodities: React.FC = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
-  const [rows, setRows] = useState<CommodityRow[]>([]);
+  const [importedRows, setImportedRows] = useState<ImportedCommodityRow[]>([]);
+  const [masterRows, setMasterRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [rowCount, setRowCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
-  const [selectionModel, setSelectionModel] = useState<number[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [masterSelection, setMasterSelection] = useState<number[]>([]);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
     open: false,
     message: "",
     severity: "info",
   });
 
-  const { canCreate, canView } = useCrudPermissions("commodities_masters");
+  const { canCreate, canDeactivate } = useCrudPermissions("commodities_masters");
 
-  const columns = useMemo<GridColDef<CommodityRow>[]>(
+  const importedColumns = useMemo<GridColDef<ImportedCommodityRow>[]>(
     () => [
       { field: "commodity_id", headerName: "ID", width: 90 },
-      { field: "name", headerName: "Name", flex: 1, minWidth: 220 },
-      { field: "group", headerName: "Group", flex: 1, minWidth: 160 },
-      { field: "code", headerName: "Code", width: 160 },
+      { field: "display_label", headerName: "Name", flex: 1, minWidth: 220 },
+      { field: "commodity_slug", headerName: "Code", width: 180 },
       {
         field: "is_active",
         headerName: "Active",
         width: 110,
-        valueFormatter: (value) => (value ? "Y" : "N"),
+        renderCell: (params) => (
+          <Chip
+            label={params.value === "Y" ? "Active" : "Inactive"}
+            color={params.value === "Y" ? "success" : "default"}
+            size="small"
+          />
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 160,
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1}>
+            {canDeactivate && (
+              <Button
+                size="small"
+                startIcon={params.row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                color={params.row.is_active === "Y" ? "error" : "success"}
+                onClick={() => handleToggleImported(params.row)}
+              >
+                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+          </Stack>
+        ),
+      },
+    ],
+    [canDeactivate],
+  );
+
+  const masterColumns = useMemo<GridColDef<CommodityRow>[]>(
+    () => [
+      { field: "commodity_id", headerName: "ID", width: 90 },
+      { field: "name", headerName: "Name", flex: 1, minWidth: 220 },
+      { field: "group", headerName: "Group", flex: 1, minWidth: 160 },
+      { field: "code", headerName: "Code", width: 180 },
+      {
+        field: "is_active",
+        headerName: "Active",
+        width: 110,
         renderCell: (params) => (
           <Chip
             label={params.value ? "Active" : "Inactive"}
@@ -84,7 +142,7 @@ export const Commodities: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        width: 160,
+        width: 140,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canCreate && (
@@ -103,7 +161,7 @@ export const Commodities: React.FC = () => {
     [canCreate],
   );
 
-  const loadData = async () => {
+  const loadImported = async () => {
     const username = currentUsername();
     if (!username) return;
     setLoading(true);
@@ -112,16 +170,46 @@ export const Commodities: React.FC = () => {
         username,
         language,
         filters: {
-          is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE",
+          view: "IMPORTED",
+          mandi_id: 0,
+          is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" ? "Y" : "N",
           page: page + 1,
           pageSize,
         },
       });
       const data = resp?.data || resp?.response?.data || resp || {};
-      const list = data?.masters || data?.commodities || [];
+      const list = data?.rows || data?.imported || data?.org_selected || [];
       const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
       setRowCount(total);
-      setRows(
+      setImportedRows(
+        list.map((c: any) => ({
+          commodity_id: c.commodity_id,
+          display_label: c.display_label || c?.label_i18n?.en || String(c.commodity_id),
+          commodity_slug: c.commodity_slug || "",
+          is_active: c.is_active === "N" ? "N" : "Y",
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMasters = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    setLoading(true);
+    try {
+      const resp = await fetchCommodities({
+        username,
+        language,
+        filters: {
+          view: "MASTER",
+          is_active: "Y",
+        },
+      });
+      const data = resp?.data || resp?.response?.data || resp || {};
+      const list = data?.rows || data?.masters || data?.commodities || [];
+      setMasterRows(
         list.map((c: any) => ({
           commodity_id: c.commodity_id,
           name: c?.name_i18n?.en || c.slug || String(c.commodity_id),
@@ -136,7 +224,7 @@ export const Commodities: React.FC = () => {
   };
 
   useEffect(() => {
-    loadData();
+    loadImported();
   }, [language, statusFilter, page, pageSize]);
 
   const handleImport = async (commodityIds: number[]) => {
@@ -149,7 +237,30 @@ export const Commodities: React.FC = () => {
       const description = resp?.response?.description || resp?.description || "";
       if (String(responseCode) === "0") {
         setToast({ open: true, message: "Commodities imported.", severity: "success" });
-        setSelectionModel([]);
+        setMasterSelection([]);
+        await loadImported();
+      } else {
+        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
+      }
+    } catch (err: any) {
+      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
+    }
+  };
+
+  const handleToggleImported = async (row: ImportedCommodityRow) => {
+    const username = currentUsername();
+    if (!username) return;
+    try {
+      const nextStatus = row.is_active === "Y" ? "N" : "Y";
+      const resp = await updateCommodity({ username, language, payload: { commodity_id: row.commodity_id, is_active: nextStatus } });
+      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
+      const description = resp?.response?.description || resp?.description || "";
+      if (String(responseCode) === "0") {
+        setImportedRows((prev) =>
+          prev.map((item) =>
+            item.commodity_id === row.commodity_id ? { ...item, is_active: nextStatus } : item,
+          ),
+        );
       } else {
         setToast({ open: true, message: description || "Operation failed.", severity: "error" });
       }
@@ -176,28 +287,17 @@ export const Commodities: React.FC = () => {
               <MenuItem value="ACTIVE">Active</MenuItem>
               <MenuItem value="INACTIVE">Inactive</MenuItem>
             </TextField>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() =>
-                setToast({
-                  open: true,
-                  message: "Imported view will be available soon.",
-                  severity: "info",
-                })
-              }
-            >
-              View Imported
-            </Button>
             {canCreate && (
               <Button
                 variant="contained"
                 size="small"
                 startIcon={<DownloadIcon />}
-                disabled={!selectionModel.length}
-                onClick={() => handleImport(selectionModel)}
+                onClick={async () => {
+                  setImportDialogOpen(true);
+                  await loadMasters();
+                }}
               >
-                Import Selected {selectionModel.length ? `(${selectionModel.length})` : ""}
+                Import
               </Button>
             )}
           </Stack>
@@ -214,7 +314,7 @@ export const Commodities: React.FC = () => {
               overflowY: "auto",
             }}
           >
-            {rows.map((row) => (
+            {importedRows.map((row) => (
               <Box
                 key={row.commodity_id}
                 sx={{
@@ -227,11 +327,11 @@ export const Commodities: React.FC = () => {
                 <Stack spacing={1.25}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                      {row.name}
+                      {row.display_label}
                     </Typography>
                     <Chip
-                      label={row.is_active ? "Active" : "Inactive"}
-                      color={row.is_active ? "success" : "default"}
+                      label={row.is_active === "Y" ? "Active" : "Inactive"}
+                      color={row.is_active === "Y" ? "success" : "default"}
                       size="small"
                       sx={{ fontSize: "0.75rem" }}
                     />
@@ -251,29 +351,30 @@ export const Commodities: React.FC = () => {
                       Commodity Name
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                      {row.name || "-"}
+                      {row.display_label || "-"}
                     </Typography>
                   </Box>
 
-                  {canCreate && (
+                  {canDeactivate && (
                     <Stack direction="row" justifyContent="flex-end" spacing={1}>
                       <Button
                         size="small"
-                        variant="contained"
-                        startIcon={<DownloadIcon />}
-                        onClick={() => handleImport([row.commodity_id])}
+                        variant="text"
+                        color={row.is_active === "Y" ? "error" : "success"}
+                        startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                        onClick={() => handleToggleImported(row)}
                         sx={{ textTransform: "none" }}
                       >
-                        Import
+                        {row.is_active === "Y" ? "Deactivate" : "Activate"}
                       </Button>
                     </Stack>
                   )}
                 </Stack>
               </Box>
             ))}
-            {!rows.length && (
+            {!importedRows.length && (
               <Typography variant="body2" color="text.secondary">
-                No commodities found.
+                No commodities imported yet. Select from Master Catalogue and click Import.
               </Typography>
             )}
             {rowCount > pageSize && (
@@ -290,8 +391,8 @@ export const Commodities: React.FC = () => {
         ) : (
           <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
             <ResponsiveDataGrid
-              columns={columns}
-              rows={rows}
+              columns={importedColumns}
+              rows={importedRows}
               loading={loading}
               getRowId={(r) => r.commodity_id}
               paginationMode="server"
@@ -305,11 +406,6 @@ export const Commodities: React.FC = () => {
                 }
               }}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
-              checkboxSelection
-              rowSelectionModel={selectionModel}
-              onRowSelectionModelChange={(selection) =>
-                setSelectionModel((selection as number[]).map((value) => Number(value)))
-              }
               disableRowSelectionOnClick
               sx={{
                 "& .MuiDataGrid-columnHeaders": {
@@ -325,6 +421,38 @@ export const Commodities: React.FC = () => {
         )}
       </Box>
 
+      <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} fullWidth maxWidth="lg">
+        <DialogTitle>Import Commodities</DialogTitle>
+        <DialogContent>
+          <Box sx={{ height: 520 }}>
+            <ResponsiveDataGrid
+              columns={masterColumns}
+              rows={masterRows}
+              loading={loading}
+              getRowId={(r) => r.commodity_id}
+              checkboxSelection
+              rowSelectionModel={masterSelection}
+              onRowSelectionModelChange={(selection) =>
+                setMasterSelection((selection as number[]).map((value) => Number(value)))
+              }
+              disableRowSelectionOnClick
+              pageSizeOptions={[25, 50, 100, 200]}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportDialogOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            disabled={!masterSelection.length}
+            onClick={() => handleImport(masterSelection)}
+          >
+            Import Selected {masterSelection.length ? `(${masterSelection.length})` : ""}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}
@@ -334,7 +462,7 @@ export const Commodities: React.FC = () => {
         <Alert
           severity={toast.severity}
           onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-          sx={{ width: "100%" }}
+          sx={{ width: "100%" }
         >
           {toast.message}
         </Alert>

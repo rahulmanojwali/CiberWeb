@@ -82,7 +82,7 @@ export const Commodities: React.FC = () => {
     severity: "info",
   });
 
-  const { canCreate, canEdit, canDeactivate, canView } = useCrudPermissions("commodities", { masterOnly: true });
+  const { canCreate, canEdit, canDeactivate, canView } = useCrudPermissions("commodities_masters");
   const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
 
   const columns = useMemo<GridColDef<CommodityRow>[]>(

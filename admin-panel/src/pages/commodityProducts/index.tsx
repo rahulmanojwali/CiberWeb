@@ -94,7 +94,7 @@ export const CommodityProducts: React.FC = () => {
   const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
   const [orgFilterCode, setOrgFilterCode] = useState<string>(orgCode || "ALL");
 
-  const { canCreate, canEdit, canDeactivate, canView, isSuperAdmin } = useCrudPermissions("commodity_products");
+  const { canCreate, canEdit, canDeactivate, canView, isSuperAdmin } = useCrudPermissions("commodity_products_masters");
 
   const resolveOrgLabel = useCallback(
     (code?: string | null) => {

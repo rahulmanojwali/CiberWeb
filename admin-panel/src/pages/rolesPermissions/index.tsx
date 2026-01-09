@@ -65,7 +65,7 @@ const resolveModuleName = (key: string): string => {
   if (starts('organisations.') || starts('org_mandi_mappings.')) {
     return 'Organisation Management';
   }
-  if (starts('commodities.') || starts('commodity_products.')) {
+  if (starts('commodities_masters.') || starts('commodity_products_masters.')) {
     return 'Masters – Commodities';
   }
   if (
@@ -935,7 +935,7 @@ export default GuardedRolesPermissionsPage;
 //   if (starts('organisations.') || starts('org_mandi_mappings.')) {
 //     return 'Organisation Management';
 //   }
-//   if (starts('commodities.') || starts('commodity_products.')) {
+//   if (starts('commodities_masters.') || starts('commodity_products_masters.')) {
 //     return 'Masters – Commodities';
 //   }
 //   if (

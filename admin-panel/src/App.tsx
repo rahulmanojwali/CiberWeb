@@ -43,6 +43,7 @@ import StepUpPoliciesPage from "./pages/systemSecurity/stepupPolicies";
 import SecuritySwitchesPage from "./pages/systemSecurity/securitySwitches";
 import { Commodities } from "./pages/commodities";
 import { CommodityProducts } from "./pages/commodityProducts";
+import { MandiCommodityProductsMasters } from "./pages/mandiCommodityProductsMasters";
 import { MandiFacilities } from "./pages/mandiFacilities";
 import { MandiGates } from "./pages/mandiGates";
 import { MandiHoursTemplates } from "./pages/mandiHoursTemplates";
@@ -184,8 +185,11 @@ function App() {
                   <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
                     <Route path="/org-mandi" element={<OrgMandiMapping />} />
                     <Route path="/system/security/2fa" element={<TwoFactorSettings />} />
-                  <Route path="/commodities" element={<Commodities />} />
-                  <Route path="/commodity-products" element={<CommodityProducts />} />
+                  <Route path="/masters/commodities" element={<Commodities />} />
+                  <Route path="/masters/commodity-products" element={<CommodityProducts />} />
+                  <Route path="/masters/mandi-products" element={<MandiCommodityProductsMasters />} />
+                  <Route path="/commodities" element={<Navigate to="/masters/commodities" replace />} />
+                  <Route path="/commodity-products" element={<Navigate to="/masters/commodity-products" replace />} />
                   <Route path="/mandi-facilities" element={<MandiFacilities />} />
                   <Route path="/mandi-gates" element={<MandiGates />} />
                   <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />

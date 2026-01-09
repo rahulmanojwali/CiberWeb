@@ -53,12 +53,6 @@ export function useCrudPermissions(resourceKey: string, options: CrudOptions = {
       };
     }
 
-    // Org-admin fallback for org-scoped commodity products when policies are missing create/edit/deactivate.
-    if (resourceKey === "commodity_products" && roleSlug === "ORG_ADMIN" && uiConfig.scope?.org_code) {
-      if (!create) create = true;
-      if (!edit) edit = true;
-      if (!deactivate) deactivate = true;
-    }
     if (roleSlug === "MANDI_ADMIN") {
       const mandiKeys = new Set(["mandis", "org_mandi_mappings"]);
       if (mandiKeys.has(canonicalKey)) {

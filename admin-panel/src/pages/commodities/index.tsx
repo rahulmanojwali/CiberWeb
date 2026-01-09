@@ -77,9 +77,6 @@ export const Commodities: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     display_label: "",
-    commodity_slug: "",
-    commodity_group: "",
-    code: "",
     is_active: "Y",
   });
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
@@ -260,17 +257,13 @@ export const Commodities: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const displayLabel = createForm.display_label.trim();
-    const commoditySlug = createForm.commodity_slug.trim();
-    if (!displayLabel || !commoditySlug) {
-      setToast({ open: true, message: "Name and slug are required.", severity: "error" });
+    if (!displayLabel) {
+      setToast({ open: true, message: "Name is required.", severity: "error" });
       return;
     }
     try {
       const payload: Record<string, any> = {
         display_label: displayLabel,
-        commodity_slug: commoditySlug,
-        commodity_group: createForm.commodity_group || undefined,
-        code: createForm.code || undefined,
         is_active: createForm.is_active,
       };
       const resp = await createCommodity({ username, language, payload });
@@ -281,9 +274,6 @@ export const Commodities: React.FC = () => {
         setCreateDialogOpen(false);
         setCreateForm({
           display_label: "",
-          commodity_slug: "",
-          commodity_group: "",
-          code: "",
           is_active: "Y",
         });
         await loadImported();
@@ -522,26 +512,9 @@ export const Commodities: React.FC = () => {
               fullWidth
               required
             />
-            <TextField
-              label="Commodity Slug"
-              value={createForm.commodity_slug}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, commodity_slug: event.target.value }))}
-              helperText="Lowercase letters, numbers, and hyphens."
-              fullWidth
-              required
-            />
-            <TextField
-              label="Group (optional)"
-              value={createForm.commodity_group}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, commodity_group: event.target.value }))}
-              fullWidth
-            />
-            <TextField
-              label="Code (optional)"
-              value={createForm.code}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, code: event.target.value }))}
-              fullWidth
-            />
+            <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
+              Slug is generated automatically from the name.
+            </Typography>
             <TextField
               select
               label="Active"

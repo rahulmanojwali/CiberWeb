@@ -3,10 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   MenuItem,
   Snackbar,
   Stack,
@@ -18,21 +14,14 @@ import {
   Pagination,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
+import DownloadIcon from "@mui/icons-material/Download";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
-import {
-  fetchCommodities,
-  createCommodity,
-  updateCommodity,
-  deactivateCommodity,
-} from "../../services/mandiApi";
+import { fetchCommodities, createCommodity } from "../../services/mandiApi";
 
 type CommodityRow = {
   commodity_id: number;
@@ -40,13 +29,6 @@ type CommodityRow = {
   group?: string;
   code?: string;
   is_active: boolean;
-};
-
-const defaultForm = {
-  name_en: "",
-  commodity_group: "",
-  code: "",
-  is_active: true,
 };
 
 function currentUsername(): string | null {
@@ -64,38 +46,40 @@ export const Commodities: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const fullScreenDialog = isSmallScreen;
   const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const [rows, setRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [rowCount, setRowCount] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
+  const [selectionModel, setSelectionModel] = useState<number[]>([]);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
     open: false,
     message: "",
     severity: "info",
   });
 
-  const { canCreate, canEdit, canDeactivate, canView } = useCrudPermissions("commodities_masters");
-  const isReadOnly = useMemo(() => isEdit && !canEdit, [isEdit, canEdit]);
+  const { canCreate, canView } = useCrudPermissions("commodities_masters");
 
   const columns = useMemo<GridColDef<CommodityRow>[]>(
     () => [
-      { field: "commodity_id", headerName: "ID", width: 100 },
-      { field: "name", headerName: "Name", flex: 1 },
-      { field: "group", headerName: "Group", flex: 1 },
-      { field: "code", headerName: "Code", width: 140 },
+      { field: "commodity_id", headerName: "ID", width: 90 },
+      { field: "name", headerName: "Name", flex: 1, minWidth: 220 },
+      { field: "group", headerName: "Group", flex: 1, minWidth: 160 },
+      { field: "code", headerName: "Code", width: 160 },
       {
         field: "is_active",
         headerName: "Active",
         width: 110,
         valueFormatter: (value) => (value ? "Y" : "N"),
+        renderCell: (params) => (
+          <Chip
+            label={params.value ? "Active" : "Inactive"}
+            color={params.value ? "success" : "default"}
+            size="small"
+          />
+        ),
       },
       {
         field: "actions",
@@ -103,26 +87,20 @@ export const Commodities: React.FC = () => {
         width: 160,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
-                Edit
-              </Button>
-            )}
-            {canDeactivate && (
+            {canCreate && (
               <Button
                 size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.commodity_id)}
+                startIcon={<DownloadIcon />}
+                onClick={() => handleImport([params.row.commodity_id])}
               >
-                Deactivate
+                Import
               </Button>
             )}
           </Stack>
         ),
       },
     ],
-    [canEdit, canDeactivate],
+    [canCreate],
   );
 
   const loadData = async () => {
@@ -140,7 +118,7 @@ export const Commodities: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || resp || {};
-      const list = data?.commodities || [];
+      const list = data?.masters || data?.commodities || [];
       const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
       setRowCount(total);
       setRows(
@@ -161,67 +139,17 @@ export const Commodities: React.FC = () => {
     loadData();
   }, [language, statusFilter, page, pageSize]);
 
-  const openCreate = () => {
-    setIsEdit(false);
-    setSelectedId(null);
-    setForm(defaultForm);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (row: CommodityRow) => {
-    setIsEdit(true);
-    setSelectedId(row.commodity_id);
-    setForm({
-      name_en: row.name,
-      commodity_group: row.group || "",
-      code: row.code || "",
-      is_active: row.is_active,
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const payload: any = {
-      name_i18n: { en: form.name_en },
-      is_active: form.is_active,
-      commodity_group: form.commodity_group || undefined,
-      commodity_slug: form.code || undefined,
-      slug: form.code || undefined,
-    };
-    try {
-      let resp;
-      if (isEdit && selectedId) {
-        payload.commodity_id = selectedId;
-        resp = await updateCommodity({ username, language, payload });
-      } else {
-        resp = await createCommodity({ username, language, payload });
-      }
-      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
-      const description = resp?.response?.description || resp?.description || "";
-      if (String(responseCode) === "0") {
-        setToast({ open: true, message: isEdit ? "Commodity updated." : "Commodity created.", severity: "success" });
-        setDialogOpen(false);
-        await loadData();
-      } else {
-        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
-      }
-    } catch (err: any) {
-      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
-    }
-  };
-
-  const handleDeactivate = async (commodity_id: number) => {
+  const handleImport = async (commodityIds: number[]) => {
     const username = currentUsername();
     if (!username) return;
     try {
-      const resp = await deactivateCommodity({ username, language, commodity_id });
+      const payload = commodityIds.length === 1 ? { commodity_id: commodityIds[0] } : { commodity_ids: commodityIds };
+      const resp = await createCommodity({ username, language, payload });
       const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
       const description = resp?.response?.description || resp?.description || "";
       if (String(responseCode) === "0") {
-        setToast({ open: true, message: "Commodity deactivated.", severity: "success" });
-        await loadData();
+        setToast({ open: true, message: "Commodities imported.", severity: "success" });
+        setSelectionModel([]);
       } else {
         setToast({ open: true, message: description || "Operation failed.", severity: "error" });
       }
@@ -232,193 +160,170 @@ export const Commodities: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.commodities", { defaultValue: "Commodities" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="ACTIVE">Active</MenuItem>
-            <MenuItem value="INACTIVE">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </Stack>
-      </Stack>
-
-      {isSmallScreen ? (
-        <Stack
-          spacing={1.5}
-          sx={{
-            maxWidth: 640,
-            mx: "auto",
-            width: "100%",
-            flex: 1,
-            overflowY: "auto",
-          }}
-        >
-          {rows.map((row) => (
-            <Box
-              key={row.commodity_id}
-              sx={{
-                borderRadius: 2,
-                border: `1px solid ${theme.palette.divider}`,
-                p: 2,
-                boxShadow: 1,
-              }}
-              onClick={() => canView && openEdit(row)}
-            >
-              <Stack spacing={1.25}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                  <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                    {row.name}
-                  </Typography>
-                  <Chip
-                    label={row.is_active ? "Active" : "Inactive"}
-                    color={row.is_active ? "success" : "default"}
-                    size="small"
-                    sx={{ fontSize: "0.75rem" }}
-                  />
-                </Stack>
-
-                <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Commodity ID
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {row.commodity_id}
-                  </Typography>
-                </Box>
-
-                <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Commodity Name
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                    {row.name || "-"}
-                  </Typography>
-                </Box>
-
-                <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  {canEdit && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      Edit
-                    </Button>
-                  )}
-                  {canDeactivate && (
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="text"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeactivate(row.commodity_id);
-                      }}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Deactivate
-                    </Button>
-                  )}
-                  {!canEdit && canView && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => openEdit(row)}
-                      sx={{ textTransform: "none" }}
-                    >
-                      View
-                    </Button>
-                  )}
-                </Stack>
-              </Stack>
-            </Box>
-          ))}
-          {!rows.length && (
-            <Typography variant="body2" color="text.secondary">
-              No commodities found.
-            </Typography>
-          )}
-          {rowCount > pageSize && (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
-              <Pagination
-                count={Math.max(1, Math.ceil(rowCount / pageSize))}
-                page={page + 1}
-                onChange={(_event, newPage: number) => setPage(newPage - 1)}
-                color="primary"
-              />
-            </Box>
-          )}
-        </Stack>
-      ) : (
-        <Box sx={{ height: 520 }}>
-          <ResponsiveDataGrid
-            columns={columns}
-            rows={rows}
-            loading={loading}
-            getRowId={(r) => r.commodity_id}
-            paginationMode="server"
-            rowCount={rowCount}
-            paginationModel={{ page, pageSize }}
-            onPaginationModelChange={(model) => {
-              setPage(model.page);
-              if (model.pageSize !== pageSize) {
-                setPageSize(model.pageSize);
-                setPage(0);
-              }
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </Box>
-      )}
-
-      <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="md"
-        fullScreen={fullScreenDialog}
-      >
-        <DialogTitle>{isEdit ? "Edit Commodity" : "Create Commodity"}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Commodity Name"
-              value={form.name_en}
-              onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
-              fullWidth
-              disabled={isReadOnly}
-            />
+      <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, gap: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
+          <Typography variant="h5">{t("menu.commodities", { defaultValue: "Commodities" })}</Typography>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <TextField
               select
-              label="Active"
-              value={form.is_active ? "Y" : "N"}
-              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
-              fullWidth
-              disabled={isReadOnly}
+              label="Status"
+              size="small"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              sx={{ width: 140 }}
             >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="ACTIVE">Active</MenuItem>
+              <MenuItem value="INACTIVE">Inactive</MenuItem>
             </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          {(isEdit ? canEdit : canCreate) && (
-            <Button variant="contained" onClick={handleSave} disabled={isReadOnly}>
-              {isEdit ? "Update" : "Create"}
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() =>
+                setToast({
+                  open: true,
+                  message: "Imported view will be available soon.",
+                  severity: "info",
+                })
+              }
+            >
+              View Imported
             </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+            {canCreate && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<DownloadIcon />}
+                disabled={!selectionModel.length}
+                onClick={() => handleImport(selectionModel)}
+              >
+                Import Selected {selectionModel.length ? `(${selectionModel.length})` : ""}
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+
+        {isSmallScreen ? (
+          <Stack
+            spacing={1.5}
+            sx={{
+              maxWidth: 640,
+              mx: "auto",
+              width: "100%",
+              flex: 1,
+              overflowY: "auto",
+            }}
+          >
+            {rows.map((row) => (
+              <Box
+                key={row.commodity_id}
+                sx={{
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  p: 2,
+                  boxShadow: 1,
+                }}
+              >
+                <Stack spacing={1.25}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                      {row.name}
+                    </Typography>
+                    <Chip
+                      label={row.is_active ? "Active" : "Inactive"}
+                      color={row.is_active ? "success" : "default"}
+                      size="small"
+                      sx={{ fontSize: "0.75rem" }}
+                    />
+                  </Stack>
+
+                  <Box>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                      Commodity ID
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+                      {row.commodity_id}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
+                      Commodity Name
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                      {row.name || "-"}
+                    </Typography>
+                  </Box>
+
+                  {canCreate && (
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => handleImport([row.commodity_id])}
+                        sx={{ textTransform: "none" }}
+                      >
+                        Import
+                      </Button>
+                    </Stack>
+                  )}
+                </Stack>
+              </Box>
+            ))}
+            {!rows.length && (
+              <Typography variant="body2" color="text.secondary">
+                No commodities found.
+              </Typography>
+            )}
+            {rowCount > pageSize && (
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                <Pagination
+                  count={Math.max(1, Math.ceil(rowCount / pageSize))}
+                  page={page + 1}
+                  onChange={(_event, newPage: number) => setPage(newPage - 1)}
+                  color="primary"
+                />
+              </Box>
+            )}
+          </Stack>
+        ) : (
+          <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+            <ResponsiveDataGrid
+              columns={columns}
+              rows={rows}
+              loading={loading}
+              getRowId={(r) => r.commodity_id}
+              paginationMode="server"
+              rowCount={rowCount}
+              paginationModel={{ page, pageSize }}
+              onPaginationModelChange={(model) => {
+                setPage(model.page);
+                if (model.pageSize !== pageSize) {
+                  setPageSize(model.pageSize);
+                  setPage(0);
+                }
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              checkboxSelection
+              rowSelectionModel={selectionModel}
+              onRowSelectionModelChange={(selection) =>
+                setSelectionModel((selection as number[]).map((value) => Number(value)))
+              }
+              disableRowSelectionOnClick
+              sx={{
+                "& .MuiDataGrid-columnHeaders": {
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: theme.palette.background.paper,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                },
+              }}
+            />
+          </Box>
+        )}
+      </Box>
 
       <Snackbar
         open={toast.open}

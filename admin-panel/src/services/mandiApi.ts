@@ -295,6 +295,74 @@ export const deactivateCommodityProduct = async ({
     org_code,
   });
 
+// --- Mandi commodity products mapping ---
+export const fetchMandiCommodityProducts = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getMandiCommodityProducts, {
+    api: API_TAGS.MANDI_COMMODITY_PRODUCTS.list,
+    username,
+    language,
+    ...filters,
+  });
+
+export const createMandiCommodityProduct = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.createMandiCommodityProduct, {
+    api: API_TAGS.MANDI_COMMODITY_PRODUCTS.create,
+    username,
+    language,
+    ...payload,
+  });
+
+export const updateMandiCommodityProduct = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.updateMandiCommodityProduct, {
+    api: API_TAGS.MANDI_COMMODITY_PRODUCTS.update,
+    username,
+    language,
+    ...payload,
+  });
+
+export const deactivateMandiCommodityProduct = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  mapping_id,
+  is_active,
+}: {
+  username: string;
+  language?: string;
+  mapping_id: string;
+  is_active: "Y" | "N";
+}) =>
+  postEncrypted(API_ROUTES.admin.deactivateMandiCommodityProduct, {
+    api: API_TAGS.MANDI_COMMODITY_PRODUCTS.deactivate,
+    username,
+    language,
+    mapping_id,
+    is_active,
+  });
+
 // --- New org/system mandis (lite) ---
 export const fetchOrgMandisLite = async ({
   username,

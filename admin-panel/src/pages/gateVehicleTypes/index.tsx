@@ -630,7 +630,7 @@ export const GateVehicleTypes: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleCustomSave}
-            disabled={!customForm.vehicle_type_code.trim() || !customForm.display_label.trim()}
+            disabled={!customForm.display_label.trim()}
           >
             Save
           </Button>

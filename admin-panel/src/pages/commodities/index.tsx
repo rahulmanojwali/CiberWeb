@@ -462,7 +462,7 @@ export const Commodities: React.FC = () => {
         <Alert
           severity={toast.severity}
           onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-          sx={{ width: "100%" }
+          sx={{ width: "100%" }}
         >
           {toast.message}
         </Alert>

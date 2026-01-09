@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import DownloadIcon from "@mui/icons-material/Download";
+import AddIcon from "@mui/icons-material/Add";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
@@ -73,6 +74,14 @@ export const Commodities: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [masterSelection, setMasterSelection] = useState<number[]>([]);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    display_label: "",
+    commodity_slug: "",
+    commodity_group: "",
+    code: "",
+    is_active: "Y",
+  });
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
     open: false,
     message: "",
@@ -247,6 +256,45 @@ export const Commodities: React.FC = () => {
     }
   };
 
+  const handleManualCreate = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const displayLabel = createForm.display_label.trim();
+    const commoditySlug = createForm.commodity_slug.trim();
+    if (!displayLabel || !commoditySlug) {
+      setToast({ open: true, message: "Name and slug are required.", severity: "error" });
+      return;
+    }
+    try {
+      const payload: Record<string, any> = {
+        display_label: displayLabel,
+        commodity_slug: commoditySlug,
+        commodity_group: createForm.commodity_group || undefined,
+        code: createForm.code || undefined,
+        is_active: createForm.is_active,
+      };
+      const resp = await createCommodity({ username, language, payload });
+      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
+      const description = resp?.response?.description || resp?.description || "";
+      if (String(responseCode) === "0") {
+        setToast({ open: true, message: "Commodity created.", severity: "success" });
+        setCreateDialogOpen(false);
+        setCreateForm({
+          display_label: "",
+          commodity_slug: "",
+          commodity_group: "",
+          code: "",
+          is_active: "Y",
+        });
+        await loadImported();
+      } else {
+        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
+      }
+    } catch (err: any) {
+      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
+    }
+  };
+
   const handleToggleImported = async (row: ImportedCommodityRow) => {
     const username = currentUsername();
     if (!username) return;
@@ -288,17 +336,27 @@ export const Commodities: React.FC = () => {
               <MenuItem value="INACTIVE">Inactive</MenuItem>
             </TextField>
             {canCreate && (
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<DownloadIcon />}
-                onClick={async () => {
-                  setImportDialogOpen(true);
-                  await loadMasters();
-                }}
-              >
-                Import
-              </Button>
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateDialogOpen(true)}
+                >
+                  Create (Org Only)
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  onClick={async () => {
+                    setImportDialogOpen(true);
+                    await loadMasters();
+                  }}
+                >
+                  Import
+                </Button>
+              </>
             )}
           </Stack>
         </Stack>
@@ -449,6 +507,57 @@ export const Commodities: React.FC = () => {
             onClick={() => handleImport(masterSelection)}
           >
             Import Selected {masterSelection.length ? `(${masterSelection.length})` : ""}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Create Commodity (Org Only)</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Name"
+              value={createForm.display_label}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, display_label: event.target.value }))}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Commodity Slug"
+              value={createForm.commodity_slug}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, commodity_slug: event.target.value }))}
+              helperText="Lowercase letters, numbers, and hyphens."
+              fullWidth
+              required
+            />
+            <TextField
+              label="Group (optional)"
+              value={createForm.commodity_group}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, commodity_group: event.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Code (optional)"
+              value={createForm.code}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, code: event.target.value }))}
+              fullWidth
+            />
+            <TextField
+              select
+              label="Active"
+              value={createForm.is_active}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, is_active: event.target.value }))}
+              fullWidth
+            >
+              <MenuItem value="Y">Yes</MenuItem>
+              <MenuItem value="N">No</MenuItem>
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleManualCreate}>
+            Create
           </Button>
         </DialogActions>
       </Dialog>

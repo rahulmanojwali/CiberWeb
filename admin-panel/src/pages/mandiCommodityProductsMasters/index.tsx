@@ -12,6 +12,7 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -96,6 +97,9 @@ export const MandiCommodityProductsMasters: React.FC = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [importSelection, setImportSelection] = useState<number[]>([]);
   const [importTradeType, setImportTradeType] = useState<"PROCUREMENT" | "SALES" | "BOTH">("BOTH");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createProductId, setCreateProductId] = useState<string>("");
+  const [createTradeType, setCreateTradeType] = useState<"PROCUREMENT" | "SALES" | "BOTH">("BOTH");
 
   const mappedProductIds = useMemo(() => new Set(rows.map((r) => r.product_id)), [rows]);
 
@@ -244,6 +248,28 @@ export const MandiCommodityProductsMasters: React.FC = () => {
     await loadMappings();
   }, [importSelection, importTradeType, language, loadMappings, selectedCommodityId, selectedMandiId]);
 
+  const handleCreate = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId || !selectedCommodityId || !createProductId) return;
+    const payload = {
+      mandi_id: Number(selectedMandiId),
+      commodity_id: Number(selectedCommodityId),
+      product_ids: [Number(createProductId)],
+      trade_type: createTradeType,
+    };
+    console.log("[mandiCommodityProducts] create payload", payload);
+    const resp = await createMandiCommodityProduct({
+      username,
+      language,
+      payload,
+    });
+    console.log("[mandiCommodityProducts] create response", resp);
+    setCreateProductId("");
+    setCreateTradeType("BOTH");
+    setCreateOpen(false);
+    await loadMappings();
+  }, [createProductId, createTradeType, language, loadMappings, selectedCommodityId, selectedMandiId]);
+
   const handleToggle = useCallback(
     async (row: MappingRow) => {
       const username = currentUsername();
@@ -373,15 +399,35 @@ export const MandiCommodityProductsMasters: React.FC = () => {
             </TextField>
             <Box sx={{ flex: 1 }} />
             {canCreate && (
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={() => setImportOpen(true)}
-                disabled={!selectedMandiId || !selectedCommodityId}
-                sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
-              >
-                Import to Mandi
-              </Button>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Tooltip
+                  title={
+                    !selectedMandiId || !selectedCommodityId
+                      ? "Select mandi and commodity first"
+                      : ""
+                  }
+                >
+                  <span>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setCreateOpen(true)}
+                      disabled={!selectedMandiId || !selectedCommodityId}
+                      sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
+                    >
+                      Create
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => setImportOpen(true)}
+                  disabled={!selectedMandiId || !selectedCommodityId}
+                  sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
+                >
+                  Import to Mandi
+                </Button>
+              </Stack>
             )}
           </Stack>
 
@@ -471,6 +517,50 @@ export const MandiCommodityProductsMasters: React.FC = () => {
             onClick={handleImport}
           >
             Import Selected {importSelection.length ? `(${importSelection.length})` : ""}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Create Mapping</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Product"
+              value={createProductId}
+              onChange={(event) => setCreateProductId(String(event.target.value))}
+              fullWidth
+            >
+              <MenuItem value="">Select product</MenuItem>
+              {availableProducts.map((product) => (
+                <MenuItem key={product.product_id} value={String(product.product_id)}>
+                  {product.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Trade Type"
+              value={createTradeType}
+              onChange={(event) =>
+                setCreateTradeType(event.target.value as "PROCUREMENT" | "SALES" | "BOTH")
+              }
+            >
+              <MenuItem value="PROCUREMENT">Procurement</MenuItem>
+              <MenuItem value="SALES">Sales</MenuItem>
+              <MenuItem value="BOTH">Both</MenuItem>
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            disabled={!createProductId || !selectedMandiId || !selectedCommodityId}
+          >
+            Create
           </Button>
         </DialogActions>
       </Dialog>

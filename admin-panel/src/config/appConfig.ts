@@ -72,6 +72,9 @@ export const API_TAGS = {
     update: "updateCommodityProduct",
     deactivate: "deactivateCommodityProduct",
   },
+  UNITS: {
+    list: "getUnits",
+  },
   MANDI_COMMODITY_PRODUCTS: {
     list: "getMandiCommodityProducts",
     create: "createMandiCommodityProduct",
@@ -346,6 +349,7 @@ export const API_ROUTES = {
     createCommodityProduct: "/admin/createCommodityProduct",
     updateCommodityProduct: "/admin/updateCommodityProduct",
     deactivateCommodityProduct: "/admin/deactivateCommodityProduct",
+    getUnits: "/admin/getUnits",
     getMandiCommodityProducts: "/admin/getMandiCommodityProducts",
     createMandiCommodityProduct: "/admin/createMandiCommodityProduct",
     updateMandiCommodityProduct: "/admin/updateMandiCommodityProduct",

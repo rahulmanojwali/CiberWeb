@@ -33,6 +33,7 @@ import {
   fetchCommodities,
   createCommodityProduct,
   updateCommodityProduct,
+  fetchUnits,
 } from "../../services/mandiApi";
 
 type CommodityOption = {
@@ -50,9 +51,14 @@ type ProductRow = {
   is_active: "Y" | "N";
 };
 
+type UnitOption = {
+  value: string;
+  label: string;
+};
+
 const defaultCreateForm = {
   display_label: "",
-  unit: "",
+  unit: "kg",
   notes: "",
   is_active: "Y" as "Y" | "N",
 };
@@ -89,6 +95,7 @@ export const CommodityProducts: React.FC = () => {
   const [masterSelection, setMasterSelection] = useState<number[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState(defaultCreateForm);
+  const [units, setUnits] = useState<UnitOption[]>([]);
 
   const { canCreate, canDeactivate } = useCrudPermissions("commodity_products_masters");
 
@@ -123,6 +130,22 @@ export const CommodityProducts: React.FC = () => {
     console.log("[CommodityProducts] selected commodity", selectedCommodityId);
     setCommodities(options);
   }, [language, selectedCommodityId]);
+
+  const loadUnits = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchUnits({ username, language });
+    const data = resp?.data || resp?.response?.data || resp || {};
+    const list = data?.rows || [];
+    const options = list.map((u: any) => ({
+      value: String(u.unit_code),
+      label: String(u.display_label || u.unit_code),
+    }));
+    setUnits(options);
+    if (!createForm.unit && options.some((o) => o.value === "kg")) {
+      setCreateForm((prev) => ({ ...prev, unit: "kg" }));
+    }
+  }, [createForm.unit, language]);
 
   const loadImportedProducts = useCallback(async () => {
     const username = currentUsername();
@@ -200,6 +223,10 @@ export const CommodityProducts: React.FC = () => {
   }, [loadCommodities]);
 
   useEffect(() => {
+    loadUnits();
+  }, [loadUnits]);
+
+  useEffect(() => {
     loadImportedProducts();
   }, [loadImportedProducts]);
 
@@ -223,14 +250,14 @@ export const CommodityProducts: React.FC = () => {
   const handleCreate = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
-    if (!selectedCommodityId || !createForm.display_label.trim()) return;
+    if (!selectedCommodityId || !createForm.display_label.trim() || !createForm.unit) return;
     await createCommodityProduct({
       username,
       language,
       payload: {
         commodity_id: Number(selectedCommodityId),
         display_label: createForm.display_label.trim(),
-        unit: createForm.unit || null,
+        unit: createForm.unit,
         notes: createForm.notes || null,
         is_active: createForm.is_active,
       },
@@ -551,11 +578,24 @@ export const CommodityProducts: React.FC = () => {
               fullWidth
             />
             <TextField
+              select
               label="Unit"
               value={createForm.unit}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, unit: e.target.value }))}
               fullWidth
-            />
+              required
+            >
+              {units.map((unit) => (
+                <MenuItem key={unit.value} value={unit.value}>
+                  {unit.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            {!createForm.unit && (
+              <Typography sx={{ color: "error.main", fontSize: 12 }}>
+                Unit is required.
+              </Typography>
+            )}
             <TextField
               label="Notes"
               value={createForm.notes}
@@ -578,7 +618,11 @@ export const CommodityProducts: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!createForm.display_label.trim()}>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            disabled={!createForm.display_label.trim() || !createForm.unit}
+          >
             Create
           </Button>
         </DialogActions>

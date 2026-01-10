@@ -295,6 +295,20 @@ export const deactivateCommodityProduct = async ({
     org_code,
   });
 
+// --- Units (master list) ---
+export const fetchUnits = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+}: {
+  username: string;
+  language?: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getUnits, {
+    api: API_TAGS.UNITS.list,
+    username,
+    language,
+  });
+
 // --- Mandi commodity products mapping ---
 export const fetchMandiCommodityProducts = async ({
   username,

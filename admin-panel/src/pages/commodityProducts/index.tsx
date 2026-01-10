@@ -142,7 +142,7 @@ export const CommodityProducts: React.FC = () => {
       label: String(u.display_label || u.unit_code),
     }));
     setUnits(options);
-    if (!createForm.unit && options.some((o) => o.value === "kg")) {
+    if (!createForm.unit && options.some((o: UnitOption) => o.value === "kg")) {
       setCreateForm((prev) => ({ ...prev, unit: "kg" }));
     }
   }, [createForm.unit, language]);

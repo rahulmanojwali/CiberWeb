@@ -18,8 +18,9 @@ import {
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
+import DownloadIcon from "@mui/icons-material/Download";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
@@ -32,25 +33,28 @@ import {
   fetchCommodities,
   createCommodityProduct,
   updateCommodityProduct,
-  deactivateCommodityProduct,
 } from "../../services/mandiApi";
+
+type CommodityOption = {
+  value: string;
+  label: string;
+  is_active?: "Y" | "N";
+};
 
 type ProductRow = {
   product_id: number;
   commodity_id: number;
-  commodity_name: string;
-  name: string;
+  display_label: string;
+  product_slug?: string;
   unit: string | null;
-  is_active: boolean;
-  scope_type?: string;
-  org_code?: string | null;
+  is_active: "Y" | "N";
 };
 
-const defaultForm = {
-  commodity_id: "",
-  name_en: "",
+const defaultCreateForm = {
+  display_label: "",
   unit: "",
-  is_active: true,
+  notes: "",
+  is_active: "Y" as "Y" | "N",
 };
 
 function currentUsername(): string | null {
@@ -68,214 +72,234 @@ export const CommodityProducts: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const fullScreenDialog = isSmallScreen;
   const uiConfig = useAdminUiConfig();
-  const orgCode = uiConfig?.scope?.org_code || null;
-  const orgOptions: { code: string; label: string }[] = useMemo(() => {
-    const codes = Array.isArray((uiConfig as any)?.scope?.org_codes)
-      ? (uiConfig as any).scope.org_codes
-      : orgCode
-      ? [orgCode]
-      : [];
-    return codes.map((c: string) => ({ code: c, label: c }));
-  }, [uiConfig, orgCode]);
+  const orgCode = uiConfig?.scope?.org_code || "";
 
   const [rows, setRows] = useState<ProductRow[]>([]);
-  const [commodities, setCommodities] = useState<any[]>([]);
+  const [masterRows, setMasterRows] = useState<ProductRow[]>([]);
+  const [commodities, setCommodities] = useState<CommodityOption[]>([]);
+  const [selectedCommodityId, setSelectedCommodityId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [rowCount, setRowCount] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [filters, setFilters] = useState({ commodity_id: "", status: "ALL" as "ALL" | "ACTIVE" | "INACTIVE" });
-  const [orgFilterCode, setOrgFilterCode] = useState<string>(orgCode || "ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [masterSelection, setMasterSelection] = useState<number[]>([]);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(defaultCreateForm);
 
-  const { canCreate, canEdit, canDeactivate, canView, isSuperAdmin } = useCrudPermissions("commodity_products_masters");
+  const { canCreate, canDeactivate } = useCrudPermissions("commodity_products_masters");
 
-  const resolveOrgLabel = useCallback(
-    (code?: string | null) => {
-      if (!code) return "Global";
-      return code;
-    },
-    [],
-  );
+  const commodityLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    commodities.forEach((c) => map.set(c.value, c.label));
+    return map;
+  }, [commodities]);
 
   const loadCommodities = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchCommodities({ username, language });
-    const list = resp?.data?.commodities || [];
-    setCommodities(list);
-  }, [language]);
-
-  const loadData = useCallback(async () => {
-    const username = currentUsername();
-    if (!username) return;
-    setLoading(true);
-    try {
-    const resp = await fetchCommodityProducts({
+    const resp = await fetchCommodities({
       username,
       language,
       filters: {
-        page: page + 1,
-        pageSize,
-        commodity_id: filters.commodity_id || undefined,
-        is_active: filters.status === "ALL" ? undefined : filters.status === "ACTIVE",
-        org_code: isSuperAdmin
-          ? orgFilterCode === "ALL"
-            ? undefined
-            : orgFilterCode
-          : orgCode || undefined,
+        view: "IMPORTED",
+        mandi_id: 0,
       },
     });
-    const data = resp?.data || resp?.response?.data || {};
-    const list = data?.products || [];
-    const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
-    setRowCount(total);
-      const mapCommodityName = (cid: number) =>
-        commodities.find((c) => Number(c.commodity_id) === Number(cid))?.name_i18n?.en || String(cid);
+    console.log("[CommodityProducts] commodities raw", resp);
+    const data = resp?.data || resp?.response?.data || resp || {};
+    const list = data?.rows || data?.imported || data?.org_selected || [];
+    const options = list
+      .filter((item: any) => item?.is_active !== "N")
+      .map((item: any) => ({
+        value: String(item.commodity_id),
+        label: String(item.display_label || item?.label_i18n?.en || item.commodity_id),
+        is_active: item?.is_active || "Y",
+      }));
+    console.log("[CommodityProducts] commodity options", options);
+    console.log("[CommodityProducts] selected commodity", selectedCommodityId);
+    setCommodities(options);
+  }, [language, selectedCommodityId]);
+
+  const loadImportedProducts = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    if (!selectedCommodityId) {
+      setRows([]);
+      setRowCount(0);
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetchCommodityProducts({
+        username,
+        language,
+        filters: {
+          view: "IMPORTED",
+          commodity_id: Number(selectedCommodityId),
+          is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" ? "Y" : "N",
+          page: page + 1,
+          pageSize,
+        },
+      });
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.rows || [];
+      const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
+      setRowCount(total);
       setRows(
         list.map((p: any) => ({
           product_id: p.product_id,
           commodity_id: p.commodity_id,
-          commodity_name: mapCommodityName(p.commodity_id),
-          name: p?.name_i18n?.en || p.slug || String(p.product_id),
+          display_label: p.display_label || p?.label_i18n?.en || String(p.product_id),
+          product_slug: p.product_slug || "",
           unit: p.unit || null,
-          is_active: Boolean(p.is_active),
-          scope_type: p.scope_type || "GLOBAL",
-          org_code: p.org_code || null,
+          is_active: p.is_active === "N" ? "N" : "Y",
         })),
       );
     } finally {
       setLoading(false);
     }
-  }, [commodities, filters.commodity_id, filters.status, language, page, pageSize, orgCode, orgFilterCode, isSuperAdmin]);
+  }, [language, page, pageSize, selectedCommodityId, statusFilter]);
+
+  const loadMasterProducts = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    if (!selectedCommodityId) return;
+    setLoading(true);
+    try {
+      const resp = await fetchCommodityProducts({
+        username,
+        language,
+        filters: {
+          view: "MASTER",
+          commodity_id: Number(selectedCommodityId),
+        },
+      });
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.rows || [];
+      setMasterRows(
+        list.map((p: any) => ({
+          product_id: p.product_id,
+          commodity_id: p.commodity_id,
+          display_label: p?.name_i18n?.en || p.product_slug || String(p.product_id),
+          product_slug: p.product_slug || p.slug || "",
+          unit: p.unit || null,
+          is_active: p.is_active === false ? "N" : "Y",
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [language, selectedCommodityId]);
 
   useEffect(() => {
     loadCommodities();
   }, [loadCommodities]);
 
   useEffect(() => {
-    if (commodities.length) {
-      loadData();
-    }
-  }, [commodities.length, loadData]);
+    loadImportedProducts();
+  }, [loadImportedProducts]);
 
-  useEffect(() => {
-    if (orgCode && orgFilterCode === "ALL") {
-      setOrgFilterCode(orgCode);
-    }
-  }, [orgCode, orgFilterCode]);
-
-  const openCreate = useCallback(() => {
-    setIsEdit(false);
-    setSelectedId(null);
-    setForm(defaultForm);
-    setDialogOpen(true);
-  }, []);
-
-  const openEdit = useCallback((row: ProductRow) => {
-    setIsEdit(true);
-    setSelectedId(row.product_id);
-    setForm({
-      commodity_id: String(row.commodity_id),
-      name_en: row.name,
-      unit: row.unit || "",
-      is_active: row.is_active,
-    });
-    setDialogOpen(true);
-  }, []);
-
-  const handleSave = useCallback(async () => {
+  const handleImport = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
-    const payload: any = {
-      commodity_id: Number(form.commodity_id),
-      name_i18n: { en: form.name_en },
-      unit: form.unit || null,
-      is_active: form.is_active,
-    };
-    if (!isSuperAdmin && orgCode) {
-      payload.org_code = orgCode;
-    }
-    if (isSuperAdmin && orgFilterCode !== "ALL") {
-      payload.org_code = orgFilterCode;
-    }
-    if (isEdit && selectedId) {
-      payload.product_id = selectedId;
-      await updateCommodityProduct({ username, language, payload });
-    } else {
-      await createCommodityProduct({ username, language, payload });
-    }
-    setDialogOpen(false);
-    await loadData();
-  }, [form.commodity_id, form.is_active, form.name_en, form.unit, isEdit, isSuperAdmin, orgCode, language, loadData, selectedId]);
-
-  const handleDeactivate = useCallback(async (product_id: number) => {
-    const username = currentUsername();
-    if (!username) return;
-    await deactivateCommodityProduct({
+    if (!selectedCommodityId || masterSelection.length === 0) return;
+    await createCommodityProduct({
       username,
       language,
-      product_id,
-      org_code: !isSuperAdmin && orgCode ? orgCode : undefined,
+      payload: {
+        commodity_id: Number(selectedCommodityId),
+        product_ids: masterSelection,
+      },
     });
-    await loadData();
-  }, [language, loadData, orgCode, isSuperAdmin]);
+    setMasterSelection([]);
+    setImportDialogOpen(false);
+    await loadImportedProducts();
+  }, [language, loadImportedProducts, masterSelection, selectedCommodityId]);
+
+  const handleCreate = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    if (!selectedCommodityId || !createForm.display_label.trim()) return;
+    await createCommodityProduct({
+      username,
+      language,
+      payload: {
+        commodity_id: Number(selectedCommodityId),
+        display_label: createForm.display_label.trim(),
+        unit: createForm.unit || null,
+        notes: createForm.notes || null,
+        is_active: createForm.is_active,
+      },
+    });
+    setCreateDialogOpen(false);
+    setCreateForm(defaultCreateForm);
+    await loadImportedProducts();
+  }, [createForm, language, loadImportedProducts, selectedCommodityId]);
+
+  const handleToggle = useCallback(
+    async (row: ProductRow) => {
+      const username = currentUsername();
+      if (!username) return;
+      const nextStatus = row.is_active === "Y" ? "N" : "Y";
+      await updateCommodityProduct({
+        username,
+        language,
+        payload: {
+          product_id: row.product_id,
+          is_active: nextStatus,
+        },
+      });
+      setRows((prev) =>
+        prev.map((item) =>
+          item.product_id === row.product_id ? { ...item, is_active: nextStatus } : item,
+        ),
+      );
+    },
+    [language],
+  );
 
   const columns = useMemo<GridColDef<ProductRow>[]>(
     () => [
       { field: "product_id", headerName: "ID", width: 90 },
-      { field: "name", headerName: "Product", flex: 1 },
-      { field: "commodity_name", headerName: "Commodity", width: 180 },
+      { field: "display_label", headerName: "Product", flex: 1 },
+      {
+        field: "commodity",
+        headerName: "Commodity",
+        width: 180,
+        valueGetter: () => commodityLabelMap.get(selectedCommodityId) || "",
+      },
       { field: "unit", headerName: "Unit", width: 100 },
       {
         field: "is_active",
         headerName: "Active",
         width: 100,
-        valueFormatter: (value) => (value ? "Y" : "N"),
+        valueFormatter: (value) => (value === "Y" ? "Y" : "N"),
       },
       {
         field: "actions",
         headerName: "Actions",
         width: 190,
-        renderCell: (params) => {
-          const row = params.row;
-          const isOrgOwned = row.scope_type === "ORG" && row.org_code && orgCode && row.org_code === orgCode;
-          const canEditRow = canEdit && (isSuperAdmin || isOrgOwned);
-          const canDeactivateRow = canDeactivate && (isSuperAdmin || isOrgOwned);
-          return (
-            <Stack direction="row" spacing={1}>
-              {canEditRow && (
-                <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-                  Edit
-                </Button>
-              )}
-              {canDeactivateRow && (
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<BlockIcon />}
-                  onClick={() => handleDeactivate(row.product_id)}
-                >
-                  Deactivate
-                </Button>
-              )}
-              {!canEditRow && canView && (
-                <Button size="small" onClick={() => openEdit(row)}>
-                  View
-                </Button>
-              )}
-            </Stack>
-          );
-        },
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1}>
+            {canDeactivate && (
+              <Button
+                size="small"
+                color={params.row.is_active === "Y" ? "error" : "success"}
+                startIcon={params.row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                onClick={() => handleToggle(params.row)}
+              >
+                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+          </Stack>
+        ),
       },
     ],
-    [canEdit, canDeactivate, canView, isSuperAdmin, orgCode, openEdit, handleDeactivate],
+    [canDeactivate, commodityLabelMap, handleToggle, selectedCommodityId],
   );
 
   const listContent = useMemo(() => {
@@ -291,7 +315,6 @@ export const CommodityProducts: React.FC = () => {
                 p: 2,
                 boxShadow: 1,
               }}
-              onClick={() => canView && openEdit(row)}
             >
               <Stack spacing={1.25}>
                 <Box>
@@ -307,7 +330,7 @@ export const CommodityProducts: React.FC = () => {
                     Product Name
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: "0.9rem" }}>
-                    {row.name}
+                    {row.display_label}
                   </Typography>
                 </Box>
                 <Box>
@@ -315,51 +338,33 @@ export const CommodityProducts: React.FC = () => {
                     Commodity
                   </Typography>
                   <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {row.commodity_name}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                    Organisation
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                    {resolveOrgLabel(row.org_code)}
+                    {commodityLabelMap.get(selectedCommodityId) || ""}
                   </Typography>
                 </Box>
                 <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  {(isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code)) && canEdit && (
-                    <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                      Edit
+                  {canDeactivate && (
+                    <Button
+                      size="small"
+                      color={row.is_active === "Y" ? "error" : "success"}
+                      variant="text"
+                      onClick={() => handleToggle(row)}
+                      sx={{ textTransform: "none" }}
+                    >
+                      {row.is_active === "Y" ? "Deactivate" : "Activate"}
                     </Button>
                   )}
-                  {(isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code)) &&
-                    canDeactivate && (
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="text"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeactivate(row.product_id);
-                        }}
-                        sx={{ textTransform: "none" }}
-                      >
-                        Deactivate
-                      </Button>
-                    )}
-                  {!(canEdit && (isSuperAdmin || (row.scope_type === "ORG" && row.org_code && orgCode === row.org_code))) &&
-                    canView && (
-                      <Button size="small" variant="text" onClick={() => openEdit(row)} sx={{ textTransform: "none" }}>
-                        View
-                      </Button>
-                    )}
                 </Stack>
               </Stack>
             </Box>
           ))}
-          {!rows.length && (
+          {!rows.length && selectedCommodityId && (
             <Typography variant="body2" color="text.secondary">
               No products found.
+            </Typography>
+          )}
+          {!selectedCommodityId && (
+            <Typography variant="body2" color="text.secondary">
+              Select a commodity to view products.
             </Typography>
           )}
           {rowCount > pageSize && (
@@ -406,19 +411,15 @@ export const CommodityProducts: React.FC = () => {
     isSmallScreen,
     rows,
     theme.palette.divider,
-    canView,
-    canEdit,
-    canDeactivate,
-    handleDeactivate,
     page,
     pageSize,
     rowCount,
     columns,
     loading,
-    openEdit,
-    orgCode,
-    isSuperAdmin,
-    resolveOrgLabel,
+    canDeactivate,
+    handleToggle,
+    commodityLabelMap,
+    selectedCommodityId,
   ]);
 
   return (
@@ -431,46 +432,29 @@ export const CommodityProducts: React.FC = () => {
           alignItems={isSmallScreen ? "stretch" : "center"}
         >
           <TextField
-            select
             label="Organisation"
             size="small"
-            value={orgFilterCode}
-            onChange={(e) => {
-              setOrgFilterCode(e.target.value);
-              setPage(0);
-            }}
+            value={orgCode || ""}
+            disabled
             sx={{ minWidth: isSmallScreen ? "100%" : 200 }}
             fullWidth={isSmallScreen}
-          >
-            <MenuItem value="ALL">All organisations</MenuItem>
-            {Array.isArray((uiConfig as any)?.scope?.org_codes)
-              ? (uiConfig as any).scope.org_codes.map((code: string) => (
-                  <MenuItem key={code} value={code}>
-                    {code}
-                  </MenuItem>
-                ))
-              : orgCode
-              ? [orgCode].map((code) => (
-                  <MenuItem key={code} value={code}>
-                    {code}
-                  </MenuItem>
-                ))
-              : null}
-          </TextField>
-
+          />
           <TextField
             select
             label="Commodity"
             size="small"
-            value={filters.commodity_id}
-            onChange={(e) => setFilters((f) => ({ ...f, commodity_id: e.target.value }))}
-            sx={{ minWidth: isSmallScreen ? "100%" : 180 }}
+            value={selectedCommodityId}
+            onChange={(e) => {
+              setSelectedCommodityId(String(e.target.value));
+              setPage(0);
+            }}
+            sx={{ minWidth: isSmallScreen ? "100%" : 220 }}
             fullWidth={isSmallScreen}
           >
-            <MenuItem value="">All</MenuItem>
-            {commodities.map((c: any) => (
-              <MenuItem key={c.commodity_id} value={c.commodity_id}>
-                {c?.name_i18n?.en || c.slug || c.commodity_id}
+            <MenuItem value="">Select commodity</MenuItem>
+            {commodities.map((c) => (
+              <MenuItem key={c.value} value={c.value}>
+                {c.label}
               </MenuItem>
             ))}
           </TextField>
@@ -478,8 +462,8 @@ export const CommodityProducts: React.FC = () => {
             select
             label="Status"
             size="small"
-            value={filters.status}
-            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as any }))}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
             sx={{ width: isSmallScreen ? "100%" : 160 }}
             fullWidth={isSmallScreen}
           >
@@ -488,71 +472,103 @@ export const CommodityProducts: React.FC = () => {
             <MenuItem value="INACTIVE">Inactive</MenuItem>
           </TextField>
           {canCreate && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={openCreate}
-              fullWidth={isSmallScreen}
-              sx={{ minWidth: isSmallScreen ? "100%" : 160 }}
-            >
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
+            <Stack direction="row" spacing={1} sx={{ width: isSmallScreen ? "100%" : "auto" }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+                disabled={!selectedCommodityId}
+                fullWidth={isSmallScreen}
+              >
+                Add Custom Product
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<DownloadIcon />}
+                onClick={async () => {
+                  setImportDialogOpen(true);
+                  await loadMasterProducts();
+                }}
+                disabled={!selectedCommodityId}
+                fullWidth={isSmallScreen}
+              >
+                Import
+              </Button>
+            </Stack>
           )}
         </Stack>
       </Stack>
 
       {listContent}
 
-      <Dialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        fullWidth
-        maxWidth="md"
-        fullScreen={fullScreenDialog}
-      >
-        <DialogTitle>{isEdit ? "Edit Product" : "Create Product"}</DialogTitle>
-        <DialogContent dividers>
+      <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} fullWidth maxWidth="lg">
+        <DialogTitle>Import Products</DialogTitle>
+        <DialogContent>
+          <Box sx={{ height: 520 }}>
+            <ResponsiveDataGrid
+              columns={[
+                { field: "product_id", headerName: "ID", width: 90 },
+                { field: "display_label", headerName: "Product", flex: 1 },
+                { field: "product_slug", headerName: "Slug", width: 180 },
+                { field: "unit", headerName: "Unit", width: 100 },
+              ]}
+              rows={masterRows}
+              loading={loading}
+              getRowId={(r) => r.product_id}
+              checkboxSelection
+              rowSelectionModel={masterSelection}
+              onRowSelectionModelChange={(selection) =>
+                setMasterSelection((selection as number[]).map((value) => Number(value)))
+              }
+              disableRowSelectionOnClick
+              pageSizeOptions={[25, 50, 100, 200]}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportDialogOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            disabled={!masterSelection.length}
+            onClick={handleImport}
+          >
+            Import Selected {masterSelection.length ? `(${masterSelection.length})` : ""}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add Custom Product</DialogTitle>
+        <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            {orgCode && !isSuperAdmin && (
-              <TextField
-                label="Organisation"
-                value={orgCode}
-                fullWidth
-                disabled
-              />
-            )}
             <TextField
-              select
-              label="Commodity"
-              value={form.commodity_id}
-              onChange={(e) => setForm((f) => ({ ...f, commodity_id: e.target.value }))}
-              fullWidth
-              disabled={isEdit ? false : false}
-            >
-              {commodities.map((c: any) => (
-                <MenuItem key={c.commodity_id} value={c.commodity_id}>
-                  {c?.name_i18n?.en || c.slug || c.commodity_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Product Name (EN)"
-              value={form.name_en}
-              onChange={(e) => setForm((f) => ({ ...f, name_en: e.target.value }))}
+              label="Product Name"
+              value={createForm.display_label}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, display_label: e.target.value }))}
               fullWidth
             />
             <TextField
               label="Unit"
-              value={form.unit}
-              onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+              value={createForm.unit}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, unit: e.target.value }))}
               fullWidth
+            />
+            <TextField
+              label="Notes"
+              value={createForm.notes}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
             />
             <TextField
               select
               label="Active"
-              value={form.is_active ? "Y" : "N"}
-              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "Y" }))}
+              value={createForm.is_active}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, is_active: e.target.value as "Y" | "N" }))}
               fullWidth
             >
               <MenuItem value="Y">Yes</MenuItem>
@@ -561,12 +577,10 @@ export const CommodityProducts: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          {(isEdit ? canEdit : canCreate) && (
-            <Button variant="contained" onClick={handleSave}>
-              {isEdit ? "Update" : "Create"}
-            </Button>
-          )}
+          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={!createForm.display_label.trim()}>
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

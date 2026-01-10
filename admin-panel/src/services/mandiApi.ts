@@ -321,6 +321,7 @@ export const fetchMandiCommodityProducts = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.getMandiCommodityProducts, {
     api: API_TAGS.MANDI_COMMODITY_PRODUCTS.list,
+    api_name: API_TAGS.MANDI_COMMODITY_PRODUCTS.list,
     username,
     language,
     ...filters,
@@ -337,6 +338,7 @@ export const createMandiCommodityProduct = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.createMandiCommodityProduct, {
     api: API_TAGS.MANDI_COMMODITY_PRODUCTS.create,
+    api_name: API_TAGS.MANDI_COMMODITY_PRODUCTS.create,
     username,
     language,
     ...payload,

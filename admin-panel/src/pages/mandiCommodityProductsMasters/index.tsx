@@ -119,6 +119,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
       language,
       filters: { view: "IMPORTED", mandi_id: 0 },
     });
+    console.log("[mandiCommodityProducts] commodities response", resp);
     const data = resp?.data || resp?.response?.data || resp || {};
     const list = data?.rows || data?.imported || data?.org_selected || [];
     const options = list
@@ -127,6 +128,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
         value: String(item.commodity_id),
         label: String(item.display_label || item?.label_i18n?.en || item.commodity_id),
       }));
+    console.log("[mandiCommodityProducts] commodity options", options);
     setCommodities(options);
   }, [language]);
 
@@ -147,6 +149,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
         pageSize: 500,
       },
     });
+    console.log("[mandiCommodityProducts] products response", resp);
     const data = resp?.data || resp?.response?.data || {};
     const list = data?.rows || [];
     const options = list.map((p: any) => ({
@@ -165,17 +168,20 @@ export const MandiCommodityProductsMasters: React.FC = () => {
     }
     setLoading(true);
     try {
+      const payload = {
+        mandi_id: Number(selectedMandiId),
+        commodity_id: Number(selectedCommodityId),
+        is_active: statusFilter === "ALL" ? undefined : statusFilter,
+        page: 1,
+        pageSize: 200,
+      };
+      console.log("[mandiCommodityProducts] list payload", payload);
       const resp = await fetchMandiCommodityProducts({
         username,
         language,
-        filters: {
-          mandi_id: Number(selectedMandiId),
-          commodity_id: Number(selectedCommodityId),
-          is_active: statusFilter === "ALL" ? undefined : statusFilter,
-          page: 1,
-          pageSize: 200,
-        },
+        filters: payload,
       });
+      console.log("[mandiCommodityProducts] list response", resp);
       const data = resp?.data || resp?.response?.data || {};
       const list = data?.rows || [];
       setRows(
@@ -210,19 +216,29 @@ export const MandiCommodityProductsMasters: React.FC = () => {
     loadMappings();
   }, [loadMappings]);
 
+  useEffect(() => {
+    console.log("[mandiCommodityProducts] selection", {
+      mandi_id: selectedMandiId,
+      commodity_id: selectedCommodityId,
+    });
+  }, [selectedMandiId, selectedCommodityId]);
+
   const handleImport = useCallback(async () => {
     const username = currentUsername();
     if (!username || !selectedMandiId || !selectedCommodityId || importSelection.length === 0) return;
-    await createMandiCommodityProduct({
+    const payload = {
+      mandi_id: Number(selectedMandiId),
+      commodity_id: Number(selectedCommodityId),
+      product_ids: importSelection,
+      trade_type: importTradeType,
+    };
+    console.log("[mandiCommodityProducts] create payload", payload);
+    const resp = await createMandiCommodityProduct({
       username,
       language,
-      payload: {
-        mandi_id: Number(selectedMandiId),
-        commodity_id: Number(selectedCommodityId),
-        product_ids: importSelection,
-        trade_type: importTradeType,
-      },
+      payload,
     });
+    console.log("[mandiCommodityProducts] create response", resp);
     setImportSelection([]);
     setImportOpen(false);
     await loadMappings();

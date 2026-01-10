@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,14 +22,34 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
-  fetchMandiHoursMasters,
+  fetchMandiHoursTemplates,
   createMandiHoursTemplate,
   updateMandiHoursTemplate,
   deactivateMandiHoursTemplate,
-  fetchMandis,
+  getMandisForCurrentScope,
 } from "../../services/mandiApi";
+
+type MandiOption = {
+  mandi_id: number;
+  label?: string;
+  name_i18n?: Record<string, string>;
+  mandi_slug?: string;
+};
+
+type HoursRow = {
+  id: string;
+  mandi_id: number;
+  timezone: string;
+  is_active: "Y" | "N";
+  effective_from?: string | null;
+  effective_to?: string | null;
+  open_days?: string[];
+  day_hours?: any[];
+};
+
+const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 function currentUsername(): string | null {
   try {
@@ -39,47 +61,236 @@ function currentUsername(): string | null {
   }
 }
 
-type HoursRow = {
-  id: string;
-  mandi_id: number;
-  timezone: string;
-  is_active: string;
-};
-
-const defaultForm = {
-  mandi_id: "",
-  timezone: "Asia/Kolkata",
-  open_days: "MON,TUE,WED,THU,FRI,SAT",
-  day_hours_json: "",
-  is_active: "Y",
-};
+function formatSummary(openDays: string[] = [], dayHours: any[] = []) {
+  if (!openDays.length || !dayHours.length) return "No schedule";
+  const times = dayHours
+    .map((w: any) => `${w.open_time || w.open}-${w.close_time || w.close}`)
+    .filter(Boolean);
+  return `${openDays.join(", ")} ${times.join(", ")}`;
+}
 
 export const MandiHoursTemplates: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
 
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_hours_templates");
+
+  const [mandis, setMandis] = useState<MandiOption[]>([]);
+  const [selectedMandiId, setSelectedMandiId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "Y" | "N">("ALL");
   const [rows, setRows] = useState<HoursRow[]>([]);
-  const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-  const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "Y" | "N");
+  const [loading, setLoading] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
-  const [form, setForm] = useState(defaultForm);
   const [editId, setEditId] = useState<string | null>(null);
+  const [effectiveFrom, setEffectiveFrom] = useState<string>("");
+  const [effectiveTo, setEffectiveTo] = useState<string>("");
+  const [timezone, setTimezone] = useState<string>("Asia/Kolkata");
+  const [openDays, setOpenDays] = useState<string[]>([]);
+  const [dayHours, setDayHours] = useState<Record<string, { open: string; close: string; note?: string }[]>>({});
 
-  const canCreate = useMemo(() => can(uiConfig.resources, "mandi_hours.create", "CREATE"), [uiConfig.resources]);
-  const canEdit = useMemo(() => can(uiConfig.resources, "mandi_hours.edit", "UPDATE"), [uiConfig.resources]);
-  const canDeactivate = useMemo(() => can(uiConfig.resources, "mandi_hours.deactivate", "DEACTIVATE"), [uiConfig.resources]);
+  const loadMandis = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !orgId) return;
+    const resp = await getMandisForCurrentScope({
+      username,
+      language,
+      org_id: orgId,
+      filters: { page: 1, pageSize: 200 },
+    });
+    setMandis(Array.isArray(resp) ? resp : []);
+  }, [language, orgId]);
+
+  const loadTemplates = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId) {
+      setRows([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetchMandiHoursTemplates({
+        username,
+        language,
+        filters: {
+          mandi_id: Number(selectedMandiId),
+          is_active: statusFilter === "ALL" ? undefined : statusFilter,
+        },
+      });
+      const list = resp?.data?.items || resp?.response?.data?.items || [];
+      setRows(
+        list.map((item: any) => ({
+          id: String(item.template_id || item._id),
+          mandi_id: Number(item.mandi_id || 0),
+          timezone: item.timezone || "Asia/Kolkata",
+          is_active: item.is_active || "Y",
+          effective_from: item.effective_from || null,
+          effective_to: item.effective_to || null,
+          open_days: item.open_days || [],
+          day_hours: item.day_hours || [],
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [language, selectedMandiId, statusFilter]);
+
+  useEffect(() => {
+    loadMandis();
+  }, [loadMandis]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const resetForm = useCallback(() => {
+    setEffectiveFrom("");
+    setEffectiveTo("");
+    setTimezone("Asia/Kolkata");
+    setOpenDays([]);
+    setDayHours({});
+  }, []);
+
+  const openCreate = () => {
+    setIsEdit(false);
+    setEditId(null);
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const openEdit = (row: HoursRow) => {
+    setIsEdit(true);
+    setEditId(row.id);
+    setEffectiveFrom(row.effective_from ? String(row.effective_from).slice(0, 10) : "");
+    setEffectiveTo(row.effective_to ? String(row.effective_to).slice(0, 10) : "");
+    setTimezone(row.timezone || "Asia/Kolkata");
+    setOpenDays(row.open_days || []);
+    const nextDayHours: Record<string, { open: string; close: string; note?: string }[]> = {};
+    (row.day_hours || []).forEach((w: any) => {
+      const day = w.day || "MON";
+      if (!nextDayHours[day]) nextDayHours[day] = [];
+      nextDayHours[day].push({
+        open: w.open_time || w.open || "",
+        close: w.close_time || w.close || "",
+        note: w.note || "",
+      });
+    });
+    setDayHours(nextDayHours);
+    setDialogOpen(true);
+  };
+
+  const toggleDay = (day: string) => {
+    setOpenDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+    setDayHours((prev) => {
+      if (prev[day]) return prev;
+      return { ...prev, [day]: [{ open: "09:00", close: "17:00" }] };
+    });
+  };
+
+  const updateWindow = (day: string, index: number, field: "open" | "close" | "note", value: string) => {
+    setDayHours((prev) => {
+      const next = { ...prev };
+      const list = [...(next[day] || [])];
+      const row = { ...list[index], [field]: value };
+      list[index] = row;
+      next[day] = list;
+      return next;
+    });
+  };
+
+  const addWindow = (day: string) => {
+    setDayHours((prev) => ({
+      ...prev,
+      [day]: [...(prev[day] || []), { open: "09:00", close: "17:00" }],
+    }));
+  };
+
+  const removeWindow = (day: string, index: number) => {
+    setDayHours((prev) => {
+      const list = [...(prev[day] || [])];
+      list.splice(index, 1);
+      return { ...prev, [day]: list };
+    });
+  };
+
+  const handleSave = async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId) return;
+    const compiledHours = openDays.flatMap((day) =>
+      (dayHours[day] || []).map((w) => ({
+        day,
+        open_time: w.open,
+        close_time: w.close,
+        note: w.note || undefined,
+      })),
+    );
+    const payload: any = {
+      mandi_id: Number(selectedMandiId),
+      timezone,
+      open_days: openDays,
+      day_hours: compiledHours,
+      effective_from: effectiveFrom || undefined,
+      effective_to: effectiveTo || undefined,
+      is_active: "Y",
+    };
+    if (isEdit && editId) {
+      payload.template_id = editId;
+      await updateMandiHoursTemplate({ username, language, payload });
+    } else {
+      await createMandiHoursTemplate({ username, language, payload });
+    }
+    setDialogOpen(false);
+    await loadTemplates();
+  };
+
+  const handleDeactivate = async (row: HoursRow) => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId) return;
+    await deactivateMandiHoursTemplate({
+      username,
+      language,
+      payload: {
+        mandi_id: Number(selectedMandiId),
+        template_id: row.id,
+        is_active: "N",
+      },
+    });
+    await loadTemplates();
+  };
 
   const columns = useMemo<GridColDef<HoursRow>[]>(
     () => [
-      { field: "mandi_id", headerName: "Mandi ID", width: 120 },
-      { field: "timezone", headerName: "Timezone", flex: 1 },
-      { field: "is_active", headerName: "Active", width: 110 },
+      { field: "mandi_id", headerName: "Mandi", width: 120 },
+      {
+        field: "summary",
+        headerName: "Schedule",
+        flex: 1,
+        minWidth: 260,
+        valueGetter: (_, row) => formatSummary(row.open_days, row.day_hours),
+      },
+      {
+        field: "effective_from",
+        headerName: "Effective From",
+        width: 150,
+        valueGetter: (_, row) => (row.effective_from ? String(row.effective_from).slice(0, 10) : ""),
+      },
+      {
+        field: "effective_to",
+        headerName: "Effective To",
+        width: 150,
+        valueGetter: (_, row) => (row.effective_to ? String(row.effective_to).slice(0, 10) : ""),
+      },
+      { field: "is_active", headerName: "Status", width: 120 },
       {
         field: "actions",
         headerName: "Actions",
-        width: 170,
+        width: 180,
+        sortable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canEdit && (
@@ -92,7 +303,7 @@ export const MandiHoursTemplates: React.FC = () => {
                 size="small"
                 color="error"
                 startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row.id)}
+                onClick={() => handleDeactivate(params.row)}
               >
                 Deactivate
               </Button>
@@ -101,182 +312,150 @@ export const MandiHoursTemplates: React.FC = () => {
         ),
       },
     ],
-    [canEdit, canDeactivate],
+    [canDeactivate, canEdit],
   );
 
-  const loadMandis = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const mandis = resp?.data?.mandis || [];
-    setMandiOptions(mandis);
-  };
-
-  const loadData = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchMandiHoursMasters({
-      username,
-      language,
-      filters: { is_active: statusFilter === "ALL" ? undefined : statusFilter },
-    });
-    const list = resp?.data?.items || [];
-    setRows(
-      list.map((h: any) => ({
-        id: h._id,
-        mandi_id: h.mandi_id,
-        timezone: h.timezone,
-        is_active: h.is_active,
-      })),
-    );
-  };
-
-  useEffect(() => {
-    loadMandis();
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [statusFilter]);
-
-  const openCreate = () => {
-    setIsEdit(false);
-    setEditId(null);
-    setForm(defaultForm);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (row: HoursRow) => {
-    setIsEdit(true);
-    setEditId(row.id);
-    setForm({
-      mandi_id: String(row.mandi_id),
-      timezone: row.timezone,
-      open_days: defaultForm.open_days,
-      day_hours_json: "",
-      is_active: row.is_active,
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    let day_hours: any = [];
-    try {
-      day_hours = form.day_hours_json ? JSON.parse(form.day_hours_json) : [];
-    } catch {
-      // leave empty
-    }
-    const payload: any = {
-      mandi_id: Number(form.mandi_id),
-      timezone: form.timezone,
-      country: "IN",
-      state_code: null,
-      district_id: null,
-      open_days: form.open_days.split(",").map((s) => s.trim()).filter(Boolean),
-      day_hours,
-      is_active: form.is_active,
-    };
-    if (isEdit && editId) {
-      payload._id = editId;
-      await updateMandiHoursTemplate({ username, language, payload });
-    } else {
-      await createMandiHoursTemplate({ username, language, payload });
-    }
-    setDialogOpen(false);
-    await loadData();
-  };
-
-  const handleDeactivate = async (id: string) => {
-    const username = currentUsername();
-    if (!username) return;
-    await deactivateMandiHoursTemplate({ username, language, _id: id });
-    await loadData();
-  };
-
   return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Typography variant="h5">{t("menu.mandiHoursTemplates", { defaultValue: "Mandi Hours Templates" })}</Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            sx={{ width: 140 }}
-          >
-            <MenuItem value="ALL">All</MenuItem>
-            <MenuItem value="Y">Active</MenuItem>
-            <MenuItem value="N">Inactive</MenuItem>
-          </TextField>
-          {canCreate && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
+    <PageContainer title="Mandi Hours Templates">
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            <TextField
+              label="Mandi"
+              size="small"
+              select
+              value={selectedMandiId}
+              onChange={(event) => setSelectedMandiId(String(event.target.value))}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">Select mandi</MenuItem>
+              {mandis.map((mandi) => (
+                <MenuItem key={mandi.mandi_id} value={String(mandi.mandi_id)}>
+                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Status"
+              size="small"
+              select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "ALL" | "Y" | "N")}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
+            <Box sx={{ flex: 1 }} />
+            {canCreate && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} disabled={!selectedMandiId}>
+                Create Template
+              </Button>
+            )}
+          </Stack>
+
+          {!selectedMandiId && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Select a mandi to view hours templates.
+            </Typography>
           )}
-        </Stack>
-      </Stack>
 
-      <Box sx={{ height: 520 }}>
-        <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
-      </Box>
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <ResponsiveDataGrid
+              rows={rows}
+              columns={columns}
+              loading={loading}
+              pageSizeOptions={[10, 25, 50]}
+              paginationMode="client"
+              autoHeight
+              disableRowSelectionOnClick
+            />
+          </Box>
+        </CardContent>
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{isEdit ? "Edit Hours Template" : "Create Hours Template"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            select
-            label="Mandi"
-            value={form.mandi_id}
-            onChange={(e) => setForm((f) => ({ ...f, mandi_id: e.target.value }))}
-            fullWidth
-          >
-            {mandiOptions.map((m: any) => (
-              <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-              </MenuItem>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>{isEdit ? "Edit Template" : "Create Template"}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Effective From"
+                type="date"
+                value={effectiveFrom}
+                onChange={(event) => setEffectiveFrom(event.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                label="Effective To"
+                type="date"
+                value={effectiveTo}
+                onChange={(event) => setEffectiveTo(event.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Timezone"
+              value={timezone}
+              onChange={(event) => setTimezone(event.target.value)}
+              fullWidth
+            />
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {DAYS.map((day) => (
+                <Button
+                  key={day}
+                  variant={openDays.includes(day) ? "contained" : "outlined"}
+                  size="small"
+                  onClick={() => toggleDay(day)}
+                >
+                  {day}
+                </Button>
+              ))}
+            </Stack>
+            {openDays.map((day) => (
+              <Box key={day} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
+                <Typography sx={{ fontWeight: 700, mb: 1 }}>{day}</Typography>
+                <Stack spacing={1}>
+                  {(dayHours[day] || []).map((window, index) => (
+                    <Stack key={`${day}-${index}`} direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        label="Open"
+                        type="time"
+                        value={window.open}
+                        onChange={(event) => updateWindow(day, index, "open", event.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                      <TextField
+                        label="Close"
+                        type="time"
+                        value={window.close}
+                        onChange={(event) => updateWindow(day, index, "close", event.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                      <TextField
+                        label="Note"
+                        value={window.note || ""}
+                        onChange={(event) => updateWindow(day, index, "note", event.target.value)}
+                        fullWidth
+                      />
+                      <Button onClick={() => removeWindow(day, index)}>Remove</Button>
+                    </Stack>
+                  ))}
+                  <Button variant="outlined" onClick={() => addWindow(day)}>
+                    Add Window
+                  </Button>
+                </Stack>
+              </Box>
             ))}
-          </TextField>
-          <TextField
-            label="Timezone"
-            value={form.timezone}
-            onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Open Days (CSV)"
-            value={form.open_days}
-            onChange={(e) => setForm((f) => ({ ...f, open_days: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            label="Day Hours JSON"
-            value={form.day_hours_json}
-            onChange={(e) => setForm((f) => ({ ...f, day_hours_json: e.target.value }))}
-            fullWidth
-            multiline
-            minRows={3}
-            placeholder='e.g. [{"day":"MON","windows":[{"open_time":"09:00","close_time":"18:00"}]}]'
-          />
-          <TextField
-            select
-            label="Active"
-            value={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            {isEdit ? "Update" : "Create"}
+          <Button variant="contained" onClick={handleSave} disabled={!selectedMandiId || !openDays.length}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>

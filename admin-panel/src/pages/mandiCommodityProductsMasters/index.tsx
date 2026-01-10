@@ -414,7 +414,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
                       disabled={!selectedMandiId || !selectedCommodityId}
                       sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
                     >
-                      Create
+                      Add Mapping
                     </Button>
                   </span>
                 </Tooltip>
@@ -425,7 +425,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
                   disabled={!selectedMandiId || !selectedCommodityId}
                   sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
                 >
-                  Import to Mandi
+                  Bulk Import Mapping
                 </Button>
               </Stack>
             )}

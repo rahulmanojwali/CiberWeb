@@ -464,6 +464,7 @@ export const fetchMandiFacilitiesMasters = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.getMandiFacilitiesMasters, {
     api: API_TAGS.FACILITY_MASTERS.list,
+    api_name: API_TAGS.FACILITY_MASTERS.list,
     username,
     language,
   });
@@ -479,6 +480,7 @@ export const createMandiFacilityMaster = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.createMandiFacilityMaster, {
     api: API_TAGS.FACILITY_MASTERS.create,
+    api_name: API_TAGS.FACILITY_MASTERS.create,
     username,
     language,
     ...payload,
@@ -495,6 +497,7 @@ export const updateMandiFacilityMaster = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.updateMandiFacilityMaster, {
     api: API_TAGS.FACILITY_MASTERS.update,
+    api_name: API_TAGS.FACILITY_MASTERS.update,
     username,
     language,
     ...payload,
@@ -511,6 +514,7 @@ export const deactivateMandiFacilityMaster = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateMandiFacilityMaster, {
     api: API_TAGS.FACILITY_MASTERS.deactivate,
+    api_name: API_TAGS.FACILITY_MASTERS.deactivate,
     username,
     language,
     _id,
@@ -528,6 +532,7 @@ export const fetchMandiFacilities = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.getMandiFacilities, {
     api: API_TAGS.FACILITIES.list,
+    api_name: API_TAGS.FACILITIES.list,
     username,
     language,
     ...filters,
@@ -544,6 +549,7 @@ export const createMandiFacility = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.createMandiFacility, {
     api: API_TAGS.FACILITIES.create,
+    api_name: API_TAGS.FACILITIES.create,
     username,
     language,
     ...payload,
@@ -560,6 +566,7 @@ export const updateMandiFacility = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.updateMandiFacility, {
     api: API_TAGS.FACILITIES.update,
+    api_name: API_TAGS.FACILITIES.update,
     username,
     language,
     ...payload,
@@ -568,17 +575,18 @@ export const updateMandiFacility = async ({
 export const deactivateMandiFacility = async ({
   username,
   language = DEFAULT_LANGUAGE,
-  _id,
+  payload,
 }: {
   username: string;
   language?: string;
-  _id: string;
+  payload: Record<string, any>;
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateMandiFacility, {
     api: API_TAGS.FACILITIES.deactivate,
+    api_name: API_TAGS.FACILITIES.deactivate,
     username,
     language,
-    _id,
+    ...payload,
   });
 
 // --- Gates ---
@@ -650,7 +658,7 @@ export const deactivateMandiGate = async ({
   });
 
 // --- Hours templates ---
-export const fetchMandiHoursMasters = async ({
+export const fetchMandiHoursTemplates = async ({
   username,
   language = DEFAULT_LANGUAGE,
   filters = {},
@@ -659,8 +667,9 @@ export const fetchMandiHoursMasters = async ({
   language?: string;
   filters?: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.getMandiHoursMasters, {
+  postEncrypted(API_ROUTES.admin.getMandiHoursTemplates, {
     api: API_TAGS.HOURS.list,
+    api_name: API_TAGS.HOURS.list,
     username,
     language,
     ...filters,
@@ -677,6 +686,7 @@ export const createMandiHoursTemplate = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.createMandiHoursTemplate, {
     api: API_TAGS.HOURS.create,
+    api_name: API_TAGS.HOURS.create,
     username,
     language,
     ...payload,
@@ -693,6 +703,7 @@ export const updateMandiHoursTemplate = async ({
 }) =>
   postEncrypted(API_ROUTES.admin.updateMandiHoursTemplate, {
     api: API_TAGS.HOURS.update,
+    api_name: API_TAGS.HOURS.update,
     username,
     language,
     ...payload,
@@ -701,17 +712,18 @@ export const updateMandiHoursTemplate = async ({
 export const deactivateMandiHoursTemplate = async ({
   username,
   language = DEFAULT_LANGUAGE,
-  _id,
+  payload,
 }: {
   username: string;
   language?: string;
-  _id: string;
+  payload: Record<string, any>;
 }) =>
   postEncrypted(API_ROUTES.admin.deactivateMandiHoursTemplate, {
     api: API_TAGS.HOURS.deactivate,
+    api_name: API_TAGS.HOURS.deactivate,
     username,
     language,
-    _id,
+    ...payload,
   });
 
 //committed on 07-jun 2026 at 8:54 am

@@ -109,7 +109,7 @@ export const API_TAGS = {
     generate: "generateGateDevicePairCode",
   },
   HOURS: {
-    list: "getMandiHoursMasters",
+    list: "getMandiHoursTemplates",
     create: "createMandiHoursTemplate",
     update: "updateMandiHoursTemplate",
     deactivate: "deactivateMandiHoursTemplate",
@@ -376,7 +376,7 @@ export const API_ROUTES = {
     generateGateDevicePairCode: "/admin/gates/generateGateDevicePairCode",
     // Backward-compatible alias
     getGateScreenBootstrap: "/admin/gates/getGateScreenBootstrap",
-    getMandiHoursMasters: "/admin/getMandiHoursMasters",
+    getMandiHoursTemplates: "/admin/getMandiHoursTemplates",
     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",
     updateMandiHoursTemplate: "/admin/updateMandiHoursTemplate",
     deactivateMandiHoursTemplate: "/admin/deactivateMandiHoursTemplate",

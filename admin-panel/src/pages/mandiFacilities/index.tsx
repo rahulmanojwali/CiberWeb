@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogActions,
   DialogContent,
@@ -9,33 +11,54 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
+  Typography,
   useMediaQuery,
   useTheme,
-  Card,
-  CardContent,
-  Typography,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
+import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { can } from "../../utils/adminUiConfig";
+import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
   fetchMandiFacilitiesMasters,
-  createMandiFacilityMaster,
-  updateMandiFacilityMaster,
-  deactivateMandiFacilityMaster,
   fetchMandiFacilities,
   createMandiFacility,
   updateMandiFacility,
   deactivateMandiFacility,
-  fetchMandis,
+  getMandisForCurrentScope,
 } from "../../services/mandiApi";
+
+type MandiOption = {
+  mandi_id: number;
+  label?: string;
+  name_i18n?: Record<string, string>;
+  mandi_slug?: string;
+};
+
+type MasterFacility = {
+  facility_code: string;
+  label: string;
+  is_active: string;
+};
+
+type FacilityRow = {
+  id: string;
+  facility_code: string;
+  facility_label: string;
+  capacity_num?: number | null;
+  capacity_unit?: string | null;
+  notes?: string | null;
+  is_active: "Y" | "N";
+};
 
 function currentUsername(): string | null {
   try {
@@ -47,604 +70,491 @@ function currentUsername(): string | null {
   }
 }
 
-type MasterRow = {
-  id: string;
-  facility_code: string;
-  name: string;
-  is_active: string;
-};
-
-type FacilityRow = {
-  id: string;
-  mandi_id: number;
-  facility_code: string;
-  facility_name?: string;
-  is_active: string;
-  capacity_num?: string;
-  capacity_unit?: string;
-  gate_code_hint?: string;
-  notes?: string;
-};
-
-const masterDefault = { facility_code: "", name_en: "", is_active: "Y" };
-const facilityDefault = { facility_code: "", is_active: "Y" };
-const facilityDetailDefault = {
-  facility_code: "",
-  is_active: "Y",
-  capacity_num: "",
-  capacity_unit: "",
-  gate_code_hint: "",
-  notes: "",
-};
-
 export const MandiFacilities: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
   const theme = useTheme();
-  const fullScreenDialog = useMediaQuery(theme.breakpoints.down("sm"));
-  const isSmallScreen = fullScreenDialog;
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const [masters, setMasters] = useState<MasterRow[]>([]);
-  const [facilities, setFacilities] = useState<FacilityRow[]>([]);
-  const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-  const [selectedMandi, setSelectedMandi] = useState<string>("");
-  const [masterDialog, setMasterDialog] = useState(false);
-  const [facilityDialog, setFacilityDialog] = useState(false);
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_facilities");
+
+  const [mandis, setMandis] = useState<MandiOption[]>([]);
+  const [masters, setMasters] = useState<MasterFacility[]>([]);
+  const [rows, setRows] = useState<FacilityRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [selectedMandiId, setSelectedMandiId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "Y" | "N">("ALL");
+  const [search, setSearch] = useState<string>("");
+
   const [createOpen, setCreateOpen] = useState(false);
-  const [masterForm, setMasterForm] = useState(masterDefault);
-  const [facilityForm, setFacilityForm] = useState(facilityDefault);
-  const [masterEditId, setMasterEditId] = useState<string | null>(null);
-  const [facilityEditId, setFacilityEditId] = useState<string | null>(null);
-  const [masterStatus, setMasterStatus] = useState("ALL" as "ALL" | "Y" | "N");
-  const [facilityStatus, setFacilityStatus] = useState("ALL" as "ALL" | "Y" | "N");
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
-  const canCreateMaster = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities_masters.create", "CREATE"),
-    [uiConfig.resources],
-  );
-  const canEditMaster = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities_masters.edit", "UPDATE"),
-    [uiConfig.resources],
-  );
-  const canDeactivateMaster = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities_masters.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
-  );
+  const [createFacilityCode, setCreateFacilityCode] = useState<string>("");
+  const [createCapacityNum, setCreateCapacityNum] = useState<string>("");
+  const [createCapacityUnit, setCreateCapacityUnit] = useState<string>("");
+  const [createNotes, setCreateNotes] = useState<string>("");
 
-  const canCreateMandiFacility = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities.create", "CREATE"),
-    [uiConfig.resources],
-  );
-  const canEditFacility = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities.edit", "UPDATE"),
-    [uiConfig.resources],
-  );
-  const canDeactivateFacility = useMemo(
-    () => can(uiConfig.resources, "mandi_facilities.deactivate", "DEACTIVATE"),
-    [uiConfig.resources],
+  const [bulkSelection, setBulkSelection] = useState<string[]>([]);
+
+  const [editRow, setEditRow] = useState<FacilityRow | null>(null);
+  const [editCapacityNum, setEditCapacityNum] = useState<string>("");
+  const [editCapacityUnit, setEditCapacityUnit] = useState<string>("");
+  const [editNotes, setEditNotes] = useState<string>("");
+
+  const masterMap = useMemo(() => {
+    const map = new Map<string, MasterFacility>();
+    masters.forEach((m) => map.set(m.facility_code, m));
+    return map;
+  }, [masters]);
+
+  const mappedCodes = useMemo(() => new Set(rows.map((r) => r.facility_code)), [rows]);
+
+  const availableMasters = useMemo(
+    () => masters.filter((m) => !mappedCodes.has(m.facility_code)),
+    [masters, mappedCodes],
   );
 
-  const masterColumns = useMemo<GridColDef<MasterRow>[]>(
-    () => [
-      { field: "facility_code", headerName: "Facility Code", width: 160 },
-      { field: "name", headerName: "Name", flex: 1 },
-      { field: "is_active", headerName: "Active", width: 100 },
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 170,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEditMaster && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openMasterEdit(params.row)}>
-                Edit
-              </Button>
-            )}
-            {canDeactivateMaster && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleMasterDeactivate(params.row.id)}
-              >
-                Deactivate
-              </Button>
-            )}
-          </Stack>
-        ),
+  const filteredRows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) => {
+      const label = row.facility_label.toLowerCase();
+      return label.includes(needle) || row.facility_code.toLowerCase().includes(needle);
+    });
+  }, [rows, search]);
+
+  const loadMasters = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchMandiFacilitiesMasters({ username, language });
+    const list = resp?.data?.items || resp?.response?.data?.items || [];
+    setMasters(
+      list
+        .filter((item: any) => item?.is_active !== "N")
+        .map((item: any) => ({
+          facility_code: String(item.facility_code),
+          label: String(item.label_i18n?.en || item.label_i18n?.hi || item.facility_code),
+          is_active: item.is_active || "Y",
+        })),
+    );
+  }, [language]);
+
+  const loadMandis = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !orgId) return;
+    const resp = await getMandisForCurrentScope({
+      username,
+      language,
+      org_id: orgId,
+      filters: { page: 1, pageSize: 200 },
+    });
+    setMandis(Array.isArray(resp) ? resp : []);
+  }, [language, orgId]);
+
+  const loadFacilities = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId) {
+      setRows([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetchMandiFacilities({
+        username,
+        language,
+        filters: {
+          mandi_id: Number(selectedMandiId),
+          is_active: statusFilter === "ALL" ? undefined : statusFilter,
+        },
+      });
+      const list = resp?.data?.items || resp?.response?.data?.items || [];
+      setRows(
+        list.map((item: any) => ({
+          id: String(item._id || `${item.mandi_id}-${item.facility_code}`),
+          facility_code: String(item.facility_code),
+          facility_label:
+            masterMap.get(String(item.facility_code))?.label || String(item.facility_code),
+          capacity_num: item.capacity_num ?? null,
+          capacity_unit: item.capacity_unit ?? null,
+          notes: item.notes ?? null,
+          is_active: item.is_active || "Y",
+        })),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [language, masterMap, selectedMandiId, statusFilter]);
+
+  useEffect(() => {
+    loadMasters();
+    loadMandis();
+  }, [loadMandis, loadMasters]);
+
+  useEffect(() => {
+    loadFacilities();
+  }, [loadFacilities]);
+
+  const handleCreate = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId || !createFacilityCode) return;
+    await createMandiFacility({
+      username,
+      language,
+      payload: {
+        mandi_id: Number(selectedMandiId),
+        facility_code: createFacilityCode,
+        capacity_num: createCapacityNum ? Number(createCapacityNum) : undefined,
+        capacity_unit: createCapacityUnit || undefined,
+        notes: createNotes || undefined,
       },
-    ],
-    [canEditMaster, canDeactivateMaster],
+    });
+    setCreateFacilityCode("");
+    setCreateCapacityNum("");
+    setCreateCapacityUnit("");
+    setCreateNotes("");
+    setCreateOpen(false);
+    await loadFacilities();
+  }, [createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId]);
+
+  const handleBulkCreate = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId || !bulkSelection.length) return;
+    await createMandiFacility({
+      username,
+      language,
+      payload: {
+        mandi_id: Number(selectedMandiId),
+        facility_codes: bulkSelection,
+      },
+    });
+    setBulkSelection([]);
+    setBulkOpen(false);
+    await loadFacilities();
+  }, [bulkSelection, language, loadFacilities, selectedMandiId]);
+
+  const openEdit = useCallback((row: FacilityRow) => {
+    setEditRow(row);
+    setEditCapacityNum(row.capacity_num !== null && row.capacity_num !== undefined ? String(row.capacity_num) : "");
+    setEditCapacityUnit(row.capacity_unit || "");
+    setEditNotes(row.notes || "");
+    setEditOpen(true);
+  }, []);
+
+  const handleEditSave = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId || !editRow) return;
+    await updateMandiFacility({
+      username,
+      language,
+      payload: {
+        mandi_id: Number(selectedMandiId),
+        facility_code: editRow.facility_code,
+        capacity_num: editCapacityNum ? Number(editCapacityNum) : undefined,
+        capacity_unit: editCapacityUnit || undefined,
+        notes: editNotes || undefined,
+      },
+    });
+    setEditOpen(false);
+    setEditRow(null);
+    await loadFacilities();
+  }, [editCapacityNum, editCapacityUnit, editNotes, editRow, language, loadFacilities, selectedMandiId]);
+
+  const handleToggle = useCallback(
+    async (row: FacilityRow) => {
+      const username = currentUsername();
+      if (!username || !selectedMandiId) return;
+      const nextState = row.is_active === "Y" ? "N" : "Y";
+      await deactivateMandiFacility({
+        username,
+        language,
+        payload: {
+          mandi_id: Number(selectedMandiId),
+          facility_code: row.facility_code,
+          is_active: nextState,
+        },
+      });
+      setRows((prev) =>
+        prev.map((item) => (item.id === row.id ? { ...item, is_active: nextState } : item)),
+      );
+    },
+    [language, selectedMandiId],
   );
 
-const facilityColumns = useMemo<GridColDef<FacilityRow>[]>(
+  const columns = useMemo<GridColDef<FacilityRow>[]>(
     () => [
-      { field: "facility_name", headerName: "Facility Name", flex: 1 },
-      { field: "facility_code", headerName: "Facility Code", width: 160 },
-      { field: "mandi_id", headerName: "Mandi ID", width: 110 },
+      { field: "facility_label", headerName: "Facility", flex: 1, minWidth: 180 },
+      { field: "facility_code", headerName: "Code", width: 140 },
       {
         field: "capacity",
         headerName: "Capacity",
         width: 140,
-        valueGetter: (params: any) => {
-          const row = params?.row || {};
+        valueGetter: (_, row) => {
           const num = row.capacity_num || "";
           const unit = row.capacity_unit || "";
           return num ? `${num}${unit ? ` ${unit}` : ""}` : "";
         },
       },
-      { field: "gate_code_hint", headerName: "Gate Hint", width: 140 },
-      { field: "is_active", headerName: "Active", width: 100 },
+      {
+        field: "is_active",
+        headerName: "Status",
+        width: 120,
+        valueGetter: (_, row) => (row.is_active === "Y" ? "Active" : "Inactive"),
+      },
       {
         field: "actions",
         headerName: "Actions",
-        width: 170,
-        renderCell: (params: any) => (
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
           <Stack direction="row" spacing={1}>
-            {canEditFacility && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openFacilityEdit(params.row)}>
+            {canEdit && (
+              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
                 Edit
               </Button>
             )}
-            {canDeactivateFacility && (
+            {canDeactivate && (
               <Button
                 size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleFacilityDeactivate(params.row.id)}
+                color={params.row.is_active === "Y" ? "error" : "success"}
+                startIcon={params.row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                onClick={() => handleToggle(params.row)}
               >
-                Deactivate
+                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
               </Button>
             )}
           </Stack>
         ),
       },
     ],
-    [canEditFacility, canDeactivateFacility],
+    [canDeactivate, canEdit, handleToggle, openEdit],
   );
 
-  const loadMasters = async () => {
-    const username = currentUsername();
-    const resp = await fetchMandiFacilitiesMasters({ username: username || "", language });
-    const list = resp?.data?.items || resp?.data || resp?.response?.data?.items || [];
-    const filtered = masterStatus === "ALL" ? list : list.filter((m: any) => m.is_active === masterStatus);
-    setMasters(
-      filtered.map((m: any) => ({
-        id: m._id,
-        facility_code: m.facility_code,
-        name: m?.name_i18n?.en || m.facility_code,
-        is_active: m.is_active,
-      })),
-    );
-  };
-
-  const loadMandis = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const mandis = resp?.data?.mandis || [];
-    setMandiOptions(mandis);
-    if (!selectedMandi && mandis.length) setSelectedMandi(String(mandis[0].mandi_id));
-  };
-
-  const loadFacilities = async () => {
-    const username = currentUsername();
-    if (!username || !selectedMandi) return;
-    const resp = await fetchMandiFacilities({
-      username,
-      language,
-      filters: {
-        mandi_id: Number(selectedMandi),
-        is_active: facilityStatus === "ALL" ? undefined : facilityStatus,
-      },
-    });
-    const list = resp?.data?.items || [];
-    const nameMap = masters.reduce((acc: Record<string, string>, m) => {
-      acc[m.facility_code] = m.name;
-      return acc;
-    }, {});
-    setFacilities(
-      list.map((f: any) => ({
-        id: f._id,
-        mandi_id: f.mandi_id,
-        facility_code: f.facility_code,
-        is_active: f.is_active,
-        facility_name: nameMap[f.facility_code] || f.facility_code,
-        capacity_num: f.capacity_num,
-        capacity_unit: f.capacity_unit,
-        gate_code_hint: f.gate_code_hint,
-        notes: f.notes,
-      })),
-    );
-  };
-
-  useEffect(() => {
-    loadMasters();
-    loadMandis();
-  }, []);
-
-  useEffect(() => {
-    loadMasters();
-  }, [masterStatus]);
-
-  useEffect(() => {
-    loadFacilities();
-  }, [selectedMandi, facilityStatus, masters]);
-
-  const openMasterCreate = () => {
-    setMasterEditId(null);
-    setMasterForm(masterDefault);
-    setMasterDialog(true);
-  };
-
-  const openMasterEdit = (row: MasterRow) => {
-    setMasterEditId(row.id);
-    setMasterForm({ facility_code: row.facility_code, name_en: row.name, is_active: row.is_active });
-    setMasterDialog(true);
-  };
-
-  const saveMaster = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const payload: any = {
-      facility_code: masterForm.facility_code,
-      name_i18n: { en: masterForm.name_en },
-      is_active: masterForm.is_active,
-    };
-    if (masterEditId) {
-      payload._id = masterEditId;
-      await updateMandiFacilityMaster({ username, language, payload });
-    } else {
-      await createMandiFacilityMaster({ username, language, payload });
-    }
-    setMasterDialog(false);
-    await loadMasters();
-  };
-
-  const handleMasterDeactivate = async (id: string) => {
-    const username = currentUsername();
-    if (!username) return;
-    await deactivateMandiFacilityMaster({ username, language, _id: id });
-    await loadMasters();
-  };
-
-  const openFacilityCreate = () => {
-    setFacilityEditId(null);
-    setFacilityForm(facilityDetailDefault as any);
-    setFacilityDialog(true);
-  };
-
-  const handleOpenCreate = () => {
-    setCreateOpen(true);
-    openFacilityCreate();
-  };
-
-  const handleCloseCreate = () => {
-    setCreateOpen(false);
-    setFacilityDialog(false);
-  };
-
-  const openFacilityEdit = (row: FacilityRow) => {
-    setCreateOpen(false);
-    setFacilityEditId(row.id);
-    setFacilityForm({
-      facility_code: row.facility_code,
-      is_active: row.is_active,
-      capacity_num: row.capacity_num || "",
-      capacity_unit: row.capacity_unit || "",
-      gate_code_hint: row.gate_code_hint || "",
-      notes: row.notes || "",
-    } as any);
-    setFacilityDialog(true);
-  };
-
-  const saveFacility = async () => {
-    const username = currentUsername();
-    if (!username || !selectedMandi) return;
-    const payload: any = {
-      mandi_id: Number(selectedMandi),
-      facility_code: facilityForm.facility_code,
-      is_active: facilityForm.is_active,
-      capacity_num: (facilityForm as any).capacity_num || undefined,
-      capacity_unit: (facilityForm as any).capacity_unit || undefined,
-      gate_code_hint: (facilityForm as any).gate_code_hint || undefined,
-      notes: (facilityForm as any).notes || undefined,
-    };
-    if (facilityEditId) {
-      payload._id = facilityEditId;
-      await updateMandiFacility({ username, language, payload });
-    } else {
-      await createMandiFacility({ username, language, payload });
-    }
-    handleCloseCreate();
-    await loadFacilities();
-  };
-
-  const handleFacilityDeactivate = async (id: string) => {
-    const username = currentUsername();
-    if (!username) return;
-    await deactivateMandiFacility({ username, language, _id: id });
-    await loadFacilities();
-  };
-
   return (
-    <PageContainer
-      title={t("mandiFacilities.title", { defaultValue: "Mandi Facilities" })}
-      actions={
-        canCreateMandiFacility && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            disabled={createOpen}
-            onClick={handleOpenCreate}
-          >
-            {t("mandiFacilities.actions.add", { defaultValue: "Add facility" })}
-          </Button>
-        )
-      }
-    >
-      <Card sx={{ mb: 3 }}>
+    <PageContainer title="Mandi Facilities">
+      <Typography sx={{ color: "text.secondary", mt: -1 }}>
+        Manage mandi facilities for the selected mandi.
+      </Typography>
+      <Card>
         <CardContent>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} mb={2}>
-            <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
-              Facility Types (Master)
-            </Typography>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
-              <TextField
-                select
-                label="Status"
-                size="small"
-                value={masterStatus}
-                onChange={(e) => setMasterStatus(e.target.value as any)}
-                sx={{ width: { xs: "100%", sm: 140 } }}
-              >
-                <MenuItem value="ALL">All</MenuItem>
-                <MenuItem value="Y">Active</MenuItem>
-                <MenuItem value="N">Inactive</MenuItem>
-              </TextField>
-              {canCreateMaster && (
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", md: "center" }}
+            sx={{ mb: 2 }}
+          >
+            <TextField
+              label="Mandi"
+              size="small"
+              select
+              value={selectedMandiId}
+              onChange={(event) => setSelectedMandiId(String(event.target.value))}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">Select mandi</MenuItem>
+              {mandis.map((mandi) => (
+                <MenuItem key={mandi.mandi_id} value={String(mandi.mandi_id)}>
+                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Status"
+              size="small"
+              select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "ALL" | "Y" | "N")}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
+            <TextField
+              label="Search"
+              size="small"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              sx={{ minWidth: 200 }}
+            />
+            <Box sx={{ flex: 1 }} />
+            {canCreate && (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Tooltip title={!selectedMandiId ? "Select mandi first" : ""}>
+                  <span>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={() => setCreateOpen(true)}
+                      disabled={!selectedMandiId}
+                      sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
+                    >
+                      Add Facility
+                    </Button>
+                  </span>
+                </Tooltip>
                 <Button
                   variant="contained"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={openMasterCreate}
-                  sx={{ width: { xs: "100%", sm: "auto" } }}
+                  startIcon={<DownloadIcon />}
+                  onClick={() => setBulkOpen(true)}
+                  disabled={!selectedMandiId}
+                  sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
                 >
-                  Add Facility Type
+                  Bulk Add
                 </Button>
-              )}
-            </Stack>
+              </Stack>
+            )}
           </Stack>
+
+          {!selectedMandiId && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Select a mandi to view facilities.
+            </Typography>
+          )}
+
           <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <ResponsiveDataGrid columns={masterColumns} rows={masters} loading={false} getRowId={(r) => r.id} autoHeight />
+            <ResponsiveDataGrid
+              rows={filteredRows}
+              columns={columns}
+              loading={loading}
+              pageSizeOptions={[10, 25, 50]}
+              paginationMode="client"
+              autoHeight
+              disableRowSelectionOnClick
+              sx={{
+                "& .MuiDataGrid-columnHeaders": {
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: theme.palette.background.paper,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                },
+              }}
+            />
           </Box>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} mb={2}>
-            <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
-              Facilities in Mandi
-            </Typography>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
-              <TextField
-                select
-                label="Mandi"
-                size="small"
-                value={selectedMandi}
-                onChange={(e) => setSelectedMandi(e.target.value)}
-                sx={{ minWidth: { xs: "100%", sm: 200 } }}
-                fullWidth
-              >
-                {mandiOptions.map((m: any) => (
-                  <MenuItem key={m.mandi_id} value={m.mandi_id}>
-                    {m?.name_i18n?.en || m.mandi_slug || m.mandi_id}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Status"
-                size="small"
-                value={facilityStatus}
-                onChange={(e) => setFacilityStatus(e.target.value as any)}
-                sx={{ width: { xs: "100%", sm: 160 } }}
-                fullWidth
-              >
-                <MenuItem value="ALL">All</MenuItem>
-                <MenuItem value="Y">Active</MenuItem>
-                <MenuItem value="N">Inactive</MenuItem>
-              </TextField>
-            </Stack>
-          </Stack>
-
-          {isSmallScreen ? (
-            <Stack spacing={1.5}>
-              {facilities.map((row) => (
-                <Card key={row.id} variant="outlined">
-                  <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Facility Name
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {row.facility_name || row.facility_code}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Code: {row.facility_code}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Capacity
-                      </Typography>
-                      <Typography variant="body2">
-                        {row.capacity_num ? `${row.capacity_num}${row.capacity_unit ? ` ${row.capacity_unit}` : ""}` : "—"}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Gate Hint
-                      </Typography>
-                      <Typography variant="body2">{row.gate_code_hint || "—"}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Status
-                      </Typography>
-                      <Typography variant="body2">{row.is_active === "Y" ? "Active" : "Inactive"}</Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end" pt={0.5}>
-                      {canEditFacility && (
-                        <Button size="small" onClick={() => openFacilityEdit(row)}>
-                          Edit
-                        </Button>
-                      )}
-                      {canDeactivateFacility && (
-                        <Button size="small" color="error" onClick={() => handleFacilityDeactivate(row.id)}>
-                          Deactivate
-                        </Button>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-              {!facilities.length && <Typography color="text.secondary">No facilities found.</Typography>}
-            </Stack>
-          ) : (
-            <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
-                columns={facilityColumns}
-                rows={facilities}
-                loading={false}
-                getRowId={(r) => r.id}
-                autoHeight
-              />
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Master dialog */}
-      <Dialog open={masterDialog} onClose={() => setMasterDialog(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{masterEditId ? "Edit Facility Type" : "Add Facility Type"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Facility Code"
-            value={masterForm.facility_code}
-            onChange={(e) => setMasterForm((f) => ({ ...f, facility_code: e.target.value }))}
-            fullWidth
-            disabled={!!masterEditId}
-          />
-          <TextField
-            label="Name (EN)"
-            value={masterForm.name_en}
-            onChange={(e) => setMasterForm((f) => ({ ...f, name_en: e.target.value }))}
-            fullWidth
-          />
-          <TextField
-            select
-            label="Active"
-            value={masterForm.is_active}
-            onChange={(e) => setMasterForm((f) => ({ ...f, is_active: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMasterDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={saveMaster}>
-            {masterEditId ? "Update" : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Facility dialog */}
-      <Dialog
-        open={facilityDialog}
-        onClose={handleCloseCreate}
-        fullWidth
-        maxWidth="md"
-        fullScreen={fullScreenDialog}
-      >
-        <DialogTitle>{facilityEditId ? "Edit Facility" : "Add Facility"}</DialogTitle>
-        <DialogContent dividers sx={{ mt: 1 }}>
-          <Stack spacing={2}>
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add Facility</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              id="facility-code"
               select
-              label="Facility Code"
-              value={facilityForm.facility_code}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, facility_code: e.target.value }))}
+              label="Facility"
+              value={createFacilityCode}
+              onChange={(event) => setCreateFacilityCode(String(event.target.value))}
               fullWidth
-              required
             >
-              {masters
-                .filter((m) => m.is_active === "Y")
-                .map((m) => {
-                  const assigned = facilities.some(
-                    (f) => f.facility_code === m.facility_code && f.mandi_id === Number(selectedMandi),
-                  );
-                  const disabled = !facilityEditId && assigned;
-                  return (
-                    <MenuItem key={m.facility_code} value={m.facility_code} disabled={disabled}>
-                      {m.name} ({m.facility_code})
-                    </MenuItem>
-                  );
-                })}
+              <MenuItem value="">Select facility</MenuItem>
+              {availableMasters.map((facility) => (
+                <MenuItem key={facility.facility_code} value={facility.facility_code}>
+                  {facility.label}
+                </MenuItem>
+              ))}
             </TextField>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Capacity"
+                value={createCapacityNum}
+                onChange={(event) => setCreateCapacityNum(event.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Unit"
+                value={createCapacityUnit}
+                onChange={(event) => setCreateCapacityUnit(event.target.value)}
+                fullWidth
+              />
+            </Stack>
             <TextField
-              id="capacity-num"
-              label="Capacity Number"
-              type="number"
-              value={(facilityForm as any).capacity_num || ""}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_num: e.target.value }))}
-              fullWidth
-            />
-            <TextField
-              id="capacity-unit"
-              label="Capacity Unit"
-              value={(facilityForm as any).capacity_unit || ""}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, capacity_unit: e.target.value }))}
-              fullWidth
-            />
-            <TextField
-              id="gate-code-hint"
-              label="Gate Code Hint"
-              value={(facilityForm as any).gate_code_hint || ""}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, gate_code_hint: e.target.value }))}
-              fullWidth
-            />
-            <TextField
-              id="notes"
               label="Notes"
-              value={(facilityForm as any).notes || ""}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, notes: e.target.value }))}
+              value={createNotes}
+              onChange={(event) => setCreateNotes(event.target.value)}
               fullWidth
               multiline
               minRows={2}
             />
-            <TextField
-              id="is-active"
-              select
-              label="Active"
-              value={facilityForm.is_active}
-              onChange={(e) => setFacilityForm((f) => ({ ...f, is_active: e.target.value }))}
-              fullWidth
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseCreate}>Cancel</Button>
-          <Button variant="contained" onClick={saveFacility}>
-            {facilityEditId ? "Update" : "Create"}
+          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={!createFacilityCode || !selectedMandiId}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Bulk Add Facilities</DialogTitle>
+        <DialogContent>
+          <Box sx={{ height: 520, mt: 1 }}>
+            <ResponsiveDataGrid
+              rows={availableMasters}
+              columns={[
+                { field: "facility_code", headerName: "Code", width: 140 },
+                { field: "label", headerName: "Facility", flex: 1 },
+              ]}
+              getRowId={(row) => row.facility_code}
+              checkboxSelection
+              rowSelectionModel={bulkSelection}
+              onRowSelectionModelChange={(selection) =>
+                setBulkSelection((selection as (string | number)[]).map(String))
+              }
+              disableRowSelectionOnClick
+              pageSizeOptions={[25, 50, 100]}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleBulkCreate}
+            disabled={!bulkSelection.length}
+          >
+            Add Selected {bulkSelection.length ? `(${bulkSelection.length})` : ""}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Edit Facility</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography>{editRow?.facility_label}</Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Capacity"
+                value={editCapacityNum}
+                onChange={(event) => setEditCapacityNum(event.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Unit"
+                value={editCapacityUnit}
+                onChange={(event) => setEditCapacityUnit(event.target.value)}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Notes"
+              value={editNotes}
+              onChange={(event) => setEditNotes(event.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditSave} disabled={!editRow}>
+            Save
           </Button>
         </DialogActions>
       </Dialog>

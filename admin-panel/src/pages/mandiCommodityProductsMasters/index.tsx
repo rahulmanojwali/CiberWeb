@@ -9,18 +9,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   MenuItem,
   Stack,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
+import DownloadIcon from "@mui/icons-material/Download";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
@@ -28,11 +25,14 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import {
   createMandiCommodityProduct,
   deactivateMandiCommodityProduct,
   fetchMandiCommodityProducts,
-  updateMandiCommodityProduct,
+  fetchCommodityProducts,
+  fetchCommodities,
+  getMandisForCurrentScope,
 } from "../../services/mandiApi";
 
 type MandiOption = {
@@ -43,16 +43,14 @@ type MandiOption = {
 };
 
 type CommodityOption = {
-  commodity_id: number;
-  name_i18n?: Record<string, string>;
-  label?: string;
+  value: string;
+  label: string;
 };
 
 type ProductOption = {
   product_id: number;
-  commodity_id?: number;
-  name_i18n?: Record<string, string>;
-  label?: string;
+  label: string;
+  unit?: string | null;
 };
 
 type MappingRow = {
@@ -62,37 +60,8 @@ type MappingRow = {
   product_id: number;
   trade_type: "PROCUREMENT" | "SALES" | "BOTH";
   is_active: "Y" | "N";
-  mandi_label?: string | null;
-  commodity_label?: string | null;
-  product_label?: string | null;
   notes?: string | null;
-  sort_order?: number | null;
 };
-
-type FormState = {
-  mandi_id: number | "";
-  commodity_id: number | "";
-  product_id: number | "";
-  trade_type: "PROCUREMENT" | "SALES" | "BOTH";
-  notes: string;
-  sort_order: string;
-};
-
-const defaultForm: FormState = {
-  mandi_id: "",
-  commodity_id: "",
-  product_id: "",
-  trade_type: "BOTH",
-  notes: "",
-  sort_order: "",
-};
-
-const tradeTypeOptions = [
-  { value: "ALL", label: "All" },
-  { value: "PROCUREMENT", label: "Procurement" },
-  { value: "SALES", label: "Sales" },
-  { value: "BOTH", label: "Both" },
-] as const;
 
 function currentUsername(): string | null {
   try {
@@ -109,186 +78,155 @@ export const MandiCommodityProductsMasters: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const uiConfig = useAdminUiConfig();
+  const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
 
-  const { canCreate, canEdit, canDeactivate } =
-    useCrudPermissions("mandi_commodity_products_masters");
+  const { canCreate, canDeactivate } = useCrudPermissions("mandi_commodity_products_masters");
 
-  const [rows, setRows] = useState<MappingRow[]>([]);
-  const [loading, setLoading] = useState(false);
   const [mandis, setMandis] = useState<MandiOption[]>([]);
   const [commodities, setCommodities] = useState<CommodityOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [totalCount, setTotalCount] = useState(0);
+  const [rows, setRows] = useState<MappingRow[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [filters, setFilters] = useState<{
-    mandi_id: number | "ALL";
-    commodity_id: number | "ALL";
-    product_id: number | "ALL";
-    trade_type: "ALL" | "PROCUREMENT" | "SALES" | "BOTH";
-    status: "ALL" | "Y" | "N";
-  }>({
-    mandi_id: "ALL",
-    commodity_id: "ALL",
-    product_id: "ALL",
-    trade_type: "ALL",
-    status: "ALL",
-  });
+  const [selectedMandiId, setSelectedMandiId] = useState<string>("");
+  const [selectedCommodityId, setSelectedCommodityId] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "Y" | "N">("ALL");
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [activeRow, setActiveRow] = useState<MappingRow | null>(null);
-  const [form, setForm] = useState<FormState>(defaultForm);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importSelection, setImportSelection] = useState<number[]>([]);
+  const [importTradeType, setImportTradeType] = useState<"PROCUREMENT" | "SALES" | "BOTH">("BOTH");
 
-  const mandiLookup = useMemo(() => {
-    const map = new Map<number, string>();
-    mandis.forEach((m) => {
-      const label = m.label || m.name_i18n?.en || m.mandi_slug || String(m.mandi_id);
-      map.set(m.mandi_id, label);
+  const mappedProductIds = useMemo(() => new Set(rows.map((r) => r.product_id)), [rows]);
+
+  const loadMandis = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !orgId) return;
+    const resp = await getMandisForCurrentScope({
+      username,
+      language,
+      org_id: orgId,
+      filters: { page: 1, pageSize: 200 },
     });
-    return map;
-  }, [mandis]);
+    setMandis(Array.isArray(resp) ? resp : []);
+  }, [language, orgId]);
 
-  const commodityLookup = useMemo(() => {
-    const map = new Map<number, string>();
-    commodities.forEach((c) => {
-      const label = c.label || c.name_i18n?.en || String(c.commodity_id);
-      map.set(c.commodity_id, label);
+  const loadCommodities = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchCommodities({
+      username,
+      language,
+      filters: { view: "IMPORTED", mandi_id: 0 },
     });
-    return map;
-  }, [commodities]);
+    const data = resp?.data || resp?.response?.data || resp || {};
+    const list = data?.rows || data?.imported || data?.org_selected || [];
+    const options = list
+      .filter((item: any) => item?.is_active !== "N")
+      .map((item: any) => ({
+        value: String(item.commodity_id),
+        label: String(item.display_label || item?.label_i18n?.en || item.commodity_id),
+      }));
+    setCommodities(options);
+  }, [language]);
 
-  const productLookup = useMemo(() => {
-    const map = new Map<number, string>();
-    products.forEach((p) => {
-      const label = p.label || p.name_i18n?.en || String(p.product_id);
-      map.set(p.product_id, label);
+  const loadProducts = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !selectedCommodityId) {
+      setProducts([]);
+      return;
+    }
+    const resp = await fetchCommodityProducts({
+      username,
+      language,
+      filters: {
+        view: "IMPORTED",
+        commodity_id: Number(selectedCommodityId),
+        is_active: "Y",
+        page: 1,
+        pageSize: 500,
+      },
     });
-    return map;
-  }, [products]);
+    const data = resp?.data || resp?.response?.data || {};
+    const list = data?.rows || [];
+    const options = list.map((p: any) => ({
+      product_id: p.product_id,
+      label: String(p.display_label || p?.label_i18n?.en || p.product_id),
+      unit: p.unit || null,
+    }));
+    setProducts(options);
+  }, [language, selectedCommodityId]);
 
   const loadMappings = useCallback(async () => {
     const username = currentUsername();
-    if (!username) return;
+    if (!username || !selectedMandiId || !selectedCommodityId) {
+      setRows([]);
+      return;
+    }
     setLoading(true);
     try {
-      const payload: Record<string, any> = {
-        page,
-        pageSize,
-      };
-      if (filters.mandi_id !== "ALL") payload.mandi_id = filters.mandi_id;
-      if (filters.commodity_id !== "ALL") payload.commodity_id = filters.commodity_id;
-      if (filters.product_id !== "ALL") payload.product_id = filters.product_id;
-      if (filters.trade_type !== "ALL") payload.trade_type = filters.trade_type;
-      if (filters.status !== "ALL") payload.is_active = filters.status;
-
       const resp = await fetchMandiCommodityProducts({
         username,
         language,
-        filters: payload,
+        filters: {
+          mandi_id: Number(selectedMandiId),
+          commodity_id: Number(selectedCommodityId),
+          is_active: statusFilter === "ALL" ? undefined : statusFilter,
+          page: 1,
+          pageSize: 200,
+        },
       });
-      const root = resp?.data ?? resp?.response ?? resp ?? {};
-      const data = root?.data ?? root;
-      const items = data?.items || data?.mappings || data?.mandi_products || [];
-      const meta = data?.meta || {};
-      const responseFilters = data?.filters || {};
-
+      const data = resp?.data || resp?.response?.data || {};
+      const list = data?.rows || [];
       setRows(
-        items.map((item: any, index: number) => ({
+        list.map((item: any, index: number) => ({
           id: String(item?._id || item?.id || `${item?.mandi_id}-${item?.product_id}-${index}`),
           mandi_id: Number(item?.mandi_id || 0),
           commodity_id: Number(item?.commodity_id || 0),
           product_id: Number(item?.product_id || 0),
           trade_type: item?.trade_type || "BOTH",
           is_active: item?.is_active || "Y",
-          mandi_label: item?.mandi_label || item?.mandi_name || null,
-          commodity_label: item?.commodity_label || item?.commodity_name || null,
-          product_label: item?.product_label || item?.product_name || null,
           notes: item?.notes || null,
-          sort_order: item?.sort_order ?? null,
         })),
       );
-      setTotalCount(Number(meta.totalCount || items.length || 0));
-      if (Array.isArray(responseFilters?.mandis)) setMandis(responseFilters.mandis);
-      if (Array.isArray(responseFilters?.commodities)) setCommodities(responseFilters.commodities);
-      if (Array.isArray(responseFilters?.products)) setProducts(responseFilters.products);
     } finally {
       setLoading(false);
     }
-  }, [filters, language, page, pageSize]);
+  }, [language, selectedCommodityId, selectedMandiId, statusFilter]);
+
+  useEffect(() => {
+    loadMandis();
+  }, [loadMandis]);
+
+  useEffect(() => {
+    loadCommodities();
+  }, [loadCommodities]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   useEffect(() => {
     loadMappings();
   }, [loadMappings]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [filters.mandi_id, filters.commodity_id, filters.product_id, filters.trade_type, filters.status]);
-
-  const openCreate = useCallback(() => {
-    setForm(defaultForm);
-    setCreateOpen(true);
-  }, []);
-
-  const closeCreate = useCallback(() => {
-    setCreateOpen(false);
-  }, []);
-
-  const openEdit = useCallback((row: MappingRow) => {
-    setActiveRow(row);
-    setForm({
-      mandi_id: row.mandi_id,
-      commodity_id: row.commodity_id,
-      product_id: row.product_id,
-      trade_type: row.trade_type,
-      notes: row.notes || "",
-      sort_order: row.sort_order !== null && row.sort_order !== undefined ? String(row.sort_order) : "",
-    });
-    setEditOpen(true);
-  }, []);
-
-  const closeEdit = useCallback(() => {
-    setEditOpen(false);
-    setActiveRow(null);
-  }, []);
-
-  const handleCreate = useCallback(async () => {
+  const handleImport = useCallback(async () => {
     const username = currentUsername();
-    if (!username) return;
+    if (!username || !selectedMandiId || !selectedCommodityId || importSelection.length === 0) return;
     await createMandiCommodityProduct({
       username,
       language,
       payload: {
-        mandi_id: Number(form.mandi_id),
-        commodity_id: Number(form.commodity_id),
-        product_id: Number(form.product_id),
-        trade_type: form.trade_type,
-        notes: form.notes || undefined,
-        sort_order: form.sort_order ? Number(form.sort_order) : undefined,
+        mandi_id: Number(selectedMandiId),
+        commodity_id: Number(selectedCommodityId),
+        product_ids: importSelection,
+        trade_type: importTradeType,
       },
     });
-    setCreateOpen(false);
-    loadMappings();
-  }, [form, language, loadMappings]);
-
-  const handleEdit = useCallback(async () => {
-    if (!activeRow) return;
-    const username = currentUsername();
-    if (!username) return;
-    await updateMandiCommodityProduct({
-      username,
-      language,
-      payload: {
-        id: activeRow.id,
-        trade_type: form.trade_type,
-        notes: form.notes || undefined,
-        sort_order: form.sort_order ? Number(form.sort_order) : undefined,
-      },
-    });
-    closeEdit();
-    loadMappings();
-  }, [activeRow, closeEdit, form, language, loadMappings]);
+    setImportSelection([]);
+    setImportOpen(false);
+    await loadMappings();
+  }, [importSelection, importTradeType, language, loadMappings, selectedCommodityId, selectedMandiId]);
 
   const handleToggle = useCallback(
     async (row: MappingRow) => {
@@ -311,28 +249,12 @@ export const MandiCommodityProductsMasters: React.FC = () => {
   const columns = useMemo<GridColDef<MappingRow>[]>(
     () => [
       {
-        field: "mandi_id",
-        headerName: "Mandi",
-        flex: 1,
-        minWidth: 160,
-        valueGetter: (_, row) =>
-          row.mandi_label || mandiLookup.get(row.mandi_id) || String(row.mandi_id),
-      },
-      {
-        field: "commodity_id",
-        headerName: "Commodity",
-        flex: 1,
-        minWidth: 160,
-        valueGetter: (_, row) =>
-          row.commodity_label || commodityLookup.get(row.commodity_id) || String(row.commodity_id),
-      },
-      {
         field: "product_id",
         headerName: "Product",
         flex: 1,
-        minWidth: 180,
+        minWidth: 200,
         valueGetter: (_, row) =>
-          row.product_label || productLookup.get(row.product_id) || String(row.product_id),
+          products.find((p) => p.product_id === row.product_id)?.label || String(row.product_id),
       },
       {
         field: "trade_type",
@@ -355,37 +277,28 @@ export const MandiCommodityProductsMasters: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        minWidth: 130,
+        minWidth: 140,
         sortable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Tooltip title="Edit">
-                <IconButton size="small" onClick={() => openEdit(params.row)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
             {canDeactivate && (
-              <Tooltip title={params.row.is_active === "Y" ? "Deactivate" : "Activate"}>
-                <IconButton size="small" onClick={() => handleToggle(params.row)}>
-                  {params.row.is_active === "Y" ? (
-                    <BlockIcon fontSize="small" />
-                  ) : (
-                    <CheckIcon fontSize="small" />
-                  )}
-                </IconButton>
-              </Tooltip>
+              <Button
+                size="small"
+                color={params.row.is_active === "Y" ? "error" : "success"}
+                startIcon={params.row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                onClick={() => handleToggle(params.row)}
+              >
+                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
+              </Button>
             )}
           </Stack>
         ),
       },
     ],
-    [canDeactivate, canEdit, commodityLookup, handleToggle, mandiLookup, openEdit, productLookup],
+    [canDeactivate, handleToggle, products],
   );
 
-  const isCreateDisabled =
-    !form.mandi_id || !form.commodity_id || !form.product_id || !form.trade_type;
+  const availableProducts = products.filter((p) => !mappedProductIds.has(p.product_id));
 
   return (
     <PageContainer title="Mandi Commodity Products">
@@ -404,18 +317,13 @@ export const MandiCommodityProductsMasters: React.FC = () => {
               label="Mandi"
               size="small"
               select
-              value={filters.mandi_id}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  mandi_id: event.target.value === "ALL" ? "ALL" : Number(event.target.value),
-                }))
-              }
+              value={selectedMandiId}
+              onChange={(event) => setSelectedMandiId(String(event.target.value))}
               sx={{ minWidth: 200 }}
             >
-              <MenuItem value="ALL">All Mandis</MenuItem>
+              <MenuItem value="">Select mandi</MenuItem>
               {mandis.map((mandi) => (
-                <MenuItem key={mandi.mandi_id} value={mandi.mandi_id}>
+                <MenuItem key={mandi.mandi_id} value={String(mandi.mandi_id)}>
                   {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
                 </MenuItem>
               ))}
@@ -424,59 +332,14 @@ export const MandiCommodityProductsMasters: React.FC = () => {
               label="Commodity"
               size="small"
               select
-              value={filters.commodity_id}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  commodity_id:
-                    event.target.value === "ALL" ? "ALL" : Number(event.target.value),
-                }))
-              }
-              sx={{ minWidth: 200 }}
+              value={selectedCommodityId}
+              onChange={(event) => setSelectedCommodityId(String(event.target.value))}
+              sx={{ minWidth: 220 }}
             >
-              <MenuItem value="ALL">All Commodities</MenuItem>
+              <MenuItem value="">Select commodity</MenuItem>
               {commodities.map((commodity) => (
-                <MenuItem key={commodity.commodity_id} value={commodity.commodity_id}>
-                  {commodity.label || commodity.name_i18n?.en || commodity.commodity_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Product"
-              size="small"
-              select
-              value={filters.product_id}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  product_id: event.target.value === "ALL" ? "ALL" : Number(event.target.value),
-                }))
-              }
-              sx={{ minWidth: 200 }}
-            >
-              <MenuItem value="ALL">All Products</MenuItem>
-              {products.map((product) => (
-                <MenuItem key={product.product_id} value={product.product_id}>
-                  {product.label || product.name_i18n?.en || product.product_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Trade Type"
-              size="small"
-              select
-              value={filters.trade_type}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  trade_type: event.target.value as FormState["trade_type"] | "ALL",
-                }))
-              }
-              sx={{ minWidth: 160 }}
-            >
-              {tradeTypeOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+                <MenuItem key={commodity.value} value={commodity.value}>
+                  {commodity.label}
                 </MenuItem>
               ))}
             </TextField>
@@ -484,13 +347,8 @@ export const MandiCommodityProductsMasters: React.FC = () => {
               label="Status"
               size="small"
               select
-              value={filters.status}
-              onChange={(event) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  status: event.target.value as "ALL" | "Y" | "N",
-                }))
-              }
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "ALL" | "Y" | "N")}
               sx={{ minWidth: 140 }}
             >
               <MenuItem value="ALL">All</MenuItem>
@@ -501,14 +359,26 @@ export const MandiCommodityProductsMasters: React.FC = () => {
             {canCreate && (
               <Button
                 variant="contained"
-                startIcon={<AddIcon />}
-                onClick={openCreate}
+                startIcon={<DownloadIcon />}
+                onClick={() => setImportOpen(true)}
+                disabled={!selectedMandiId || !selectedCommodityId}
                 sx={{ alignSelf: isSmallScreen ? "stretch" : "center" }}
               >
-                Add Mapping
+                Import to Mandi
               </Button>
             )}
           </Stack>
+
+          {!selectedCommodityId && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Select a commodity to load products.
+            </Typography>
+          )}
+          {selectedCommodityId && products.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Import/create products first.
+            </Typography>
+          )}
 
           <Box sx={{ width: "100%", overflowX: "auto" }}>
             <ResponsiveDataGrid
@@ -517,153 +387,74 @@ export const MandiCommodityProductsMasters: React.FC = () => {
               loading={loading}
               pageSizeOptions={[10, 25, 50, 100]}
               paginationMode="server"
-              rowCount={totalCount}
-              paginationModel={{ page: page - 1, pageSize }}
-              onPaginationModelChange={(model) => {
-                setPage(model.page + 1);
-                setPageSize(model.pageSize);
-              }}
+              rowCount={rows.length}
+              paginationModel={{ page: 0, pageSize: 25 }}
               autoHeight
               disableRowSelectionOnClick
+              sx={{
+                "& .MuiDataGrid-columnHeaders": {
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: theme.palette.background.paper,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                },
+              }}
             />
           </Box>
         </CardContent>
       </Card>
 
-      <Dialog open={createOpen} onClose={closeCreate} fullWidth maxWidth="sm">
-        <DialogTitle>Create Mandi Commodity Product</DialogTitle>
+      <Dialog open={importOpen} onClose={() => setImportOpen(false)} fullWidth maxWidth="lg">
+        <DialogTitle>Import Products to Mandi</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
             <TextField
-              label="Mandi"
-              value={form.mandi_id}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, mandi_id: Number(event.target.value) }))
-              }
               select
-              fullWidth
-            >
-              {mandis.map((mandi) => (
-                <MenuItem key={mandi.mandi_id} value={mandi.mandi_id}>
-                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Commodity"
-              value={form.commodity_id}
+              label="Trade Type"
+              value={importTradeType}
               onChange={(event) =>
-                setForm((prev) => ({ ...prev, commodity_id: Number(event.target.value) }))
+                setImportTradeType(event.target.value as "PROCUREMENT" | "SALES" | "BOTH")
               }
-              select
-              fullWidth
+              sx={{ minWidth: 200 }}
             >
-              {commodities.map((commodity) => (
-                <MenuItem key={commodity.commodity_id} value={commodity.commodity_id}>
-                  {commodity.label || commodity.name_i18n?.en || commodity.commodity_id}
-                </MenuItem>
-              ))}
+              <MenuItem value="PROCUREMENT">Procurement</MenuItem>
+              <MenuItem value="SALES">Sales</MenuItem>
+              <MenuItem value="BOTH">Both</MenuItem>
             </TextField>
-            <TextField
-              label="Product"
-              value={form.product_id}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, product_id: Number(event.target.value) }))
-              }
-              select
-              fullWidth
-            >
-              {products.map((product) => (
-                <MenuItem key={product.product_id} value={product.product_id}>
-                  {product.label || product.name_i18n?.en || product.product_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Trade type"
-              value={form.trade_type}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, trade_type: event.target.value as FormState["trade_type"] }))
-              }
-              select
-              fullWidth
-            >
-              {tradeTypeOptions
-                .filter((option) => option.value !== "ALL")
-                .map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-            </TextField>
-            <TextField
-              label="Notes"
-              value={form.notes}
-              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-            <TextField
-              label="Sort order"
-              value={form.sort_order}
-              onChange={(event) => setForm((prev) => ({ ...prev, sort_order: event.target.value }))}
-              fullWidth
-            />
-            <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
-              Mapping is created for the selected mandi, commodity, and product.
+            <Typography sx={{ color: "text.secondary", alignSelf: "center" }}>
+              Select products to enable for this mandi.
             </Typography>
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeCreate}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={isCreateDisabled}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={editOpen} onClose={closeEdit} fullWidth maxWidth="sm">
-        <DialogTitle>Edit Mapping</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Trade type"
-              value={form.trade_type}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, trade_type: event.target.value as FormState["trade_type"] }))
+          <Box sx={{ height: 520 }}>
+            <ResponsiveDataGrid
+              rows={availableProducts}
+              columns={[
+                { field: "product_id", headerName: "ID", width: 90 },
+                { field: "label", headerName: "Product", flex: 1 },
+                { field: "unit", headerName: "Unit", width: 120 },
+              ]}
+              loading={loading}
+              getRowId={(r) => r.product_id}
+              checkboxSelection
+              rowSelectionModel={importSelection}
+              onRowSelectionModelChange={(selection) =>
+                setImportSelection((selection as number[]).map((value) => Number(value)))
               }
-              select
-              fullWidth
-            >
-              {tradeTypeOptions
-                .filter((option) => option.value !== "ALL")
-                .map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-            </TextField>
-            <TextField
-              label="Notes"
-              value={form.notes}
-              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-              fullWidth
-              multiline
-              minRows={2}
+              disableRowSelectionOnClick
+              pageSizeOptions={[25, 50, 100, 200]}
             />
-            <TextField
-              label="Sort order"
-              value={form.sort_order}
-              onChange={(event) => setForm((prev) => ({ ...prev, sort_order: event.target.value }))}
-              fullWidth
-            />
-          </Stack>
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeEdit}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={!activeRow}>
-            Update
+          <Button onClick={() => setImportOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            disabled={!importSelection.length}
+            onClick={handleImport}
+          >
+            Import Selected {importSelection.length ? `(${importSelection.length})` : ""}
           </Button>
         </DialogActions>
       </Dialog>

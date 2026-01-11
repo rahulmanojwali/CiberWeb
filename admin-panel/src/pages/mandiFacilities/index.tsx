@@ -49,17 +49,15 @@ type MandiOption = {
 type MasterFacility = {
   facility_code: string;
   label: string;
+  name_i18n?: Record<string, string>;
   is_active: string;
-  capacity_required?: boolean;
-  default_capacity?: number | null;
-  default_unit?: string | null;
-  allowed_units?: string[] | null;
 };
 
 type FacilityRow = {
   id: string;
   facility_code: string;
   facility_label: string;
+  facility_name_i18n?: Record<string, string>;
   capacity_num?: number | null;
   capacity_unit?: string | null;
   notes?: string | null;
@@ -79,6 +77,27 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
+}
+
+const DEFAULT_UNIT_BY_FACILITY: Record<string, string[]> = {
+  WEIGHBRIDGE: ["quintal", "tonne"],
+  COLD_STORAGE: ["tonne", "kg"],
+  WAREHOUSE: ["tonne", "kg"],
+  PARKING: ["slot"],
+  RESTROOMS: ["nos"],
+  DRINKING_WATER: ["nos"],
+  FIRST_AID: ["nos"],
+};
+
+function pickDefaultUnit(facilityCode: string, options: UnitOption[]): string {
+  const preferred = DEFAULT_UNIT_BY_FACILITY[facilityCode.toUpperCase()];
+  if (!preferred || !preferred.length) return "";
+  const lookup = new Map(options.map((unit) => [unit.unit_code.toLowerCase(), unit.unit_code]));
+  for (const candidate of preferred) {
+    const match = lookup.get(candidate.toLowerCase());
+    if (match) return match;
+  }
+  return "";
 }
 export const MandiFacilities: React.FC = () => {
   const { i18n } = useTranslation();
@@ -128,35 +147,7 @@ export const MandiFacilities: React.FC = () => {
     () => masterMap.get(createFacilityCode || "") || null,
     [createFacilityCode, masterMap],
   );
-
-  const capacityRequired = selectedMaster?.capacity_required !== false;
-
-  const editMaster = useMemo(
-    () => (editRow ? masterMap.get(editRow.facility_code) || null : null),
-    [editRow, masterMap],
-  );
-
-  const editCapacityRequired = editMaster?.capacity_required !== false;
-
-  const allowedUnitCodes = useMemo(() => {
-    if (!selectedMaster?.allowed_units || !selectedMaster.allowed_units.length) return null;
-    return new Set(selectedMaster.allowed_units.map((u) => String(u)));
-  }, [selectedMaster]);
-
-  const unitOptions = useMemo(() => {
-    if (!allowedUnitCodes) return units;
-    return units.filter((u) => allowedUnitCodes.has(u.unit_code));
-  }, [allowedUnitCodes, units]);
-
-  const editAllowedUnitCodes = useMemo(() => {
-    if (!editMaster?.allowed_units || !editMaster.allowed_units.length) return null;
-    return new Set(editMaster.allowed_units.map((u) => String(u)));
-  }, [editMaster]);
-
-  const editUnitOptions = useMemo(() => {
-    if (!editAllowedUnitCodes) return units;
-    return units.filter((u) => editAllowedUnitCodes.has(u.unit_code));
-  }, [editAllowedUnitCodes, units]);
+  const unitOptions = useMemo(() => units, [units]);
 
   const mappedCodes = useMemo(() => new Set(rows.map((r) => r.facility_code)), [rows]);
 
@@ -184,14 +175,15 @@ export const MandiFacilities: React.FC = () => {
         .filter((item: any) => item?.is_active !== "N")
         .map((item: any) => ({
           facility_code: String(item.facility_code),
-          label: String(item.label_i18n?.en || item.label_i18n?.hi || item.facility_code),
+          label: String(
+            item.name_i18n?.en ||
+              item.name_i18n?.hi ||
+              item.label_i18n?.en ||
+              item.label_i18n?.hi ||
+              item.facility_code,
+          ),
+          name_i18n: item.name_i18n || item.label_i18n || undefined,
           is_active: item.is_active || "Y",
-          capacity_required: item.capacity_required !== false,
-          default_capacity: item.default_capacity ?? null,
-          default_unit: item.default_unit ?? null,
-          allowed_units: Array.isArray(item.allowed_units)
-            ? item.allowed_units.map((u: any) => String(u))
-            : null,
         })),
     );
   }, [language]);
@@ -244,6 +236,7 @@ export const MandiFacilities: React.FC = () => {
           facility_code: String(item.facility_code),
           facility_label:
             masterMap.get(String(item.facility_code))?.label || String(item.facility_code),
+          facility_name_i18n: masterMap.get(String(item.facility_code))?.name_i18n,
           capacity_num: item.capacity_num ?? null,
           capacity_unit: item.capacity_unit ?? null,
           notes: item.notes ?? null,
@@ -274,8 +267,9 @@ export const MandiFacilities: React.FC = () => {
       payload: {
         mandi_id: Number(selectedMandiId),
         facility_code: createFacilityCode,
-        ...(capacityRequired && createCapacityNum ? { capacity_num: Number(createCapacityNum) } : {}),
-        ...(capacityRequired && createCapacityUnit ? { unit_code: createCapacityUnit } : {}),
+        facility_name_i18n: selectedMaster?.name_i18n,
+        ...(createCapacityNum ? { capacity_num: Number(createCapacityNum) } : {}),
+        ...(createCapacityUnit ? { capacity_unit: createCapacityUnit } : {}),
         ...(createNotes ? { notes: createNotes } : {}),
       },
     });
@@ -286,43 +280,20 @@ export const MandiFacilities: React.FC = () => {
     setShowCreateNotes(false);
     setCreateOpen(false);
     await loadFacilities();
-  }, [capacityRequired, createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId]);
+  }, [createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId, selectedMaster]);
 
   useEffect(() => {
-    if (!selectedMaster) {
-      setCreateCapacityNum("");
-      setCreateCapacityUnit("");
-      return;
-    }
-    if (selectedMaster.default_capacity !== null && selectedMaster.default_capacity !== undefined) {
-      setCreateCapacityNum(String(selectedMaster.default_capacity));
-    }
-    if (selectedMaster.default_unit) {
-      setCreateCapacityUnit(String(selectedMaster.default_unit));
-    }
-    if (!capacityRequired) {
-      setCreateCapacityNum("");
-      setCreateCapacityUnit("");
-    }
-  }, [capacityRequired, selectedMaster]);
+    setCreateCapacityNum("");
+    setCreateCapacityUnit("");
+  }, [createFacilityCode]);
 
   useEffect(() => {
-    if (!editMaster) {
-      setEditCapacityNum("");
-      setEditCapacityUnit("");
-      return;
+    if (!selectedMaster || createCapacityUnit) return;
+    const defaultUnit = pickDefaultUnit(selectedMaster.facility_code, units);
+    if (defaultUnit) {
+      setCreateCapacityUnit(defaultUnit);
     }
-    if (editMaster.default_capacity !== null && editMaster.default_capacity !== undefined) {
-      setEditCapacityNum(String(editMaster.default_capacity));
-    }
-    if (editMaster.default_unit) {
-      setEditCapacityUnit(String(editMaster.default_unit));
-    }
-    if (!editCapacityRequired) {
-      setEditCapacityNum("");
-      setEditCapacityUnit("");
-    }
-  }, [editCapacityRequired, editMaster]);
+  }, [createCapacityUnit, selectedMaster, units]);
 
   const handleBulkCreate = useCallback(async () => {
     const username = currentUsername();
@@ -359,7 +330,7 @@ export const MandiFacilities: React.FC = () => {
         mandi_id: Number(selectedMandiId),
         facility_code: editRow.facility_code,
         ...(editCapacityNum ? { capacity_num: Number(editCapacityNum) } : {}),
-        ...(editCapacityUnit ? { unit_code: editCapacityUnit } : {}),
+        ...(editCapacityUnit ? { capacity_unit: editCapacityUnit } : {}),
         ...(editNotes ? { notes: editNotes } : {}),
       },
     });
@@ -561,30 +532,28 @@ export const MandiFacilities: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
-            {capacityRequired && (
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Capacity"
-                  value={createCapacityNum}
-                  onChange={(event) => setCreateCapacityNum(event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  select
-                  label="Unit"
-                  value={createCapacityUnit}
-                  onChange={(event) => setCreateCapacityUnit(event.target.value)}
-                  fullWidth
-                >
-                  <MenuItem value="">Select unit</MenuItem>
-                  {unitOptions.map((unit) => (
-                    <MenuItem key={unit.unit_code} value={unit.unit_code}>
-                      {unit.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-            )}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Capacity (optional)"
+                value={createCapacityNum}
+                onChange={(event) => setCreateCapacityNum(event.target.value)}
+                fullWidth
+              />
+              <TextField
+                select
+                label="Unit (optional)"
+                value={createCapacityUnit}
+                onChange={(event) => setCreateCapacityUnit(event.target.value)}
+                fullWidth
+              >
+                <MenuItem value="">Select unit</MenuItem>
+                {unitOptions.map((unit) => (
+                  <MenuItem key={unit.unit_code} value={unit.unit_code}>
+                    {unit.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
             <Button
               variant="text"
               onClick={() => setShowCreateNotes((prev) => !prev)}
@@ -609,7 +578,7 @@ export const MandiFacilities: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!createFacilityCode || !selectedMandiId || (capacityRequired && !createCapacityUnit)}
+            disabled={!createFacilityCode || !selectedMandiId}
           >
             Save
           </Button>
@@ -655,30 +624,28 @@ export const MandiFacilities: React.FC = () => {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography>{editRow?.facility_label}</Typography>
-            {editCapacityRequired && (
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Capacity"
-                  value={editCapacityNum}
-                  onChange={(event) => setEditCapacityNum(event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  select
-                  label="Unit"
-                  value={editCapacityUnit}
-                  onChange={(event) => setEditCapacityUnit(event.target.value)}
-                  fullWidth
-                >
-                  <MenuItem value="">Select unit</MenuItem>
-                  {editUnitOptions.map((unit) => (
-                    <MenuItem key={unit.unit_code} value={unit.unit_code}>
-                      {unit.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-            )}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Capacity (optional)"
+                value={editCapacityNum}
+                onChange={(event) => setEditCapacityNum(event.target.value)}
+                fullWidth
+              />
+              <TextField
+                select
+                label="Unit (optional)"
+                value={editCapacityUnit}
+                onChange={(event) => setEditCapacityUnit(event.target.value)}
+                fullWidth
+              >
+                <MenuItem value="">Select unit</MenuItem>
+                {unitOptions.map((unit) => (
+                  <MenuItem key={unit.unit_code} value={unit.unit_code}>
+                    {unit.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
             <Button
               variant="text"
               onClick={() => setShowEditNotes((prev) => !prev)}

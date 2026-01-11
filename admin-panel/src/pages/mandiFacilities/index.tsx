@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -31,6 +32,7 @@ import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
   fetchMandiFacilitiesMasters,
   fetchMandiFacilities,
+  fetchUnitsMasters,
   createMandiFacility,
   updateMandiFacility,
   deactivateMandiFacility,
@@ -48,6 +50,10 @@ type MasterFacility = {
   facility_code: string;
   label: string;
   is_active: string;
+  capacity_required?: boolean;
+  default_capacity?: number | null;
+  default_unit?: string | null;
+  allowed_units?: string[] | null;
 };
 
 type FacilityRow = {
@@ -60,6 +66,11 @@ type FacilityRow = {
   is_active: "Y" | "N";
 };
 
+type UnitOption = {
+  unit_code: string;
+  label: string;
+};
+
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -69,7 +80,6 @@ function currentUsername(): string | null {
     return null;
   }
 }
-//testing
 export const MandiFacilities: React.FC = () => {
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -82,6 +92,7 @@ export const MandiFacilities: React.FC = () => {
 
   const [mandis, setMandis] = useState<MandiOption[]>([]);
   const [masters, setMasters] = useState<MasterFacility[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
   const [rows, setRows] = useState<FacilityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -97,6 +108,7 @@ export const MandiFacilities: React.FC = () => {
   const [createCapacityNum, setCreateCapacityNum] = useState<string>("");
   const [createCapacityUnit, setCreateCapacityUnit] = useState<string>("");
   const [createNotes, setCreateNotes] = useState<string>("");
+  const [showCreateNotes, setShowCreateNotes] = useState(false);
 
   const [bulkSelection, setBulkSelection] = useState<string[]>([]);
 
@@ -104,12 +116,47 @@ export const MandiFacilities: React.FC = () => {
   const [editCapacityNum, setEditCapacityNum] = useState<string>("");
   const [editCapacityUnit, setEditCapacityUnit] = useState<string>("");
   const [editNotes, setEditNotes] = useState<string>("");
+  const [showEditNotes, setShowEditNotes] = useState(false);
 
   const masterMap = useMemo(() => {
     const map = new Map<string, MasterFacility>();
     masters.forEach((m) => map.set(m.facility_code, m));
     return map;
   }, [masters]);
+
+  const selectedMaster = useMemo(
+    () => masterMap.get(createFacilityCode || "") || null,
+    [createFacilityCode, masterMap],
+  );
+
+  const capacityRequired = selectedMaster?.capacity_required !== false;
+
+  const editMaster = useMemo(
+    () => (editRow ? masterMap.get(editRow.facility_code) || null : null),
+    [editRow, masterMap],
+  );
+
+  const editCapacityRequired = editMaster?.capacity_required !== false;
+
+  const allowedUnitCodes = useMemo(() => {
+    if (!selectedMaster?.allowed_units || !selectedMaster.allowed_units.length) return null;
+    return new Set(selectedMaster.allowed_units.map((u) => String(u)));
+  }, [selectedMaster]);
+
+  const unitOptions = useMemo(() => {
+    if (!allowedUnitCodes) return units;
+    return units.filter((u) => allowedUnitCodes.has(u.unit_code));
+  }, [allowedUnitCodes, units]);
+
+  const editAllowedUnitCodes = useMemo(() => {
+    if (!editMaster?.allowed_units || !editMaster.allowed_units.length) return null;
+    return new Set(editMaster.allowed_units.map((u) => String(u)));
+  }, [editMaster]);
+
+  const editUnitOptions = useMemo(() => {
+    if (!editAllowedUnitCodes) return units;
+    return units.filter((u) => editAllowedUnitCodes.has(u.unit_code));
+  }, [editAllowedUnitCodes, units]);
 
   const mappedCodes = useMemo(() => new Set(rows.map((r) => r.facility_code)), [rows]);
 
@@ -139,7 +186,26 @@ export const MandiFacilities: React.FC = () => {
           facility_code: String(item.facility_code),
           label: String(item.label_i18n?.en || item.label_i18n?.hi || item.facility_code),
           is_active: item.is_active || "Y",
+          capacity_required: item.capacity_required !== false,
+          default_capacity: item.default_capacity ?? null,
+          default_unit: item.default_unit ?? null,
+          allowed_units: Array.isArray(item.allowed_units)
+            ? item.allowed_units.map((u: any) => String(u))
+            : null,
         })),
+    );
+  }, [language]);
+
+  const loadUnits = useCallback(async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchUnitsMasters({ username, language });
+    const list = resp?.data?.items || resp?.response?.data?.items || [];
+    setUnits(
+      list.map((item: any) => ({
+        unit_code: String(item.unit_code || item.code || ""),
+        label: String(item.display_label || item.label || item.unit_code || item.code || ""),
+      })),
     );
   }, [language]);
 
@@ -192,7 +258,8 @@ export const MandiFacilities: React.FC = () => {
   useEffect(() => {
     loadMasters();
     loadMandis();
-  }, [loadMandis, loadMasters]);
+    loadUnits();
+  }, [loadMandis, loadMasters, loadUnits]);
 
   useEffect(() => {
     loadFacilities();
@@ -207,18 +274,55 @@ export const MandiFacilities: React.FC = () => {
       payload: {
         mandi_id: Number(selectedMandiId),
         facility_code: createFacilityCode,
-        capacity_num: createCapacityNum ? Number(createCapacityNum) : undefined,
-        capacity_unit: createCapacityUnit || undefined,
-        notes: createNotes || undefined,
+        ...(capacityRequired && createCapacityNum ? { capacity_num: Number(createCapacityNum) } : {}),
+        ...(capacityRequired && createCapacityUnit ? { unit_code: createCapacityUnit } : {}),
+        ...(createNotes ? { notes: createNotes } : {}),
       },
     });
     setCreateFacilityCode("");
     setCreateCapacityNum("");
     setCreateCapacityUnit("");
     setCreateNotes("");
+    setShowCreateNotes(false);
     setCreateOpen(false);
     await loadFacilities();
-  }, [createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId]);
+  }, [capacityRequired, createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId]);
+
+  useEffect(() => {
+    if (!selectedMaster) {
+      setCreateCapacityNum("");
+      setCreateCapacityUnit("");
+      return;
+    }
+    if (selectedMaster.default_capacity !== null && selectedMaster.default_capacity !== undefined) {
+      setCreateCapacityNum(String(selectedMaster.default_capacity));
+    }
+    if (selectedMaster.default_unit) {
+      setCreateCapacityUnit(String(selectedMaster.default_unit));
+    }
+    if (!capacityRequired) {
+      setCreateCapacityNum("");
+      setCreateCapacityUnit("");
+    }
+  }, [capacityRequired, selectedMaster]);
+
+  useEffect(() => {
+    if (!editMaster) {
+      setEditCapacityNum("");
+      setEditCapacityUnit("");
+      return;
+    }
+    if (editMaster.default_capacity !== null && editMaster.default_capacity !== undefined) {
+      setEditCapacityNum(String(editMaster.default_capacity));
+    }
+    if (editMaster.default_unit) {
+      setEditCapacityUnit(String(editMaster.default_unit));
+    }
+    if (!editCapacityRequired) {
+      setEditCapacityNum("");
+      setEditCapacityUnit("");
+    }
+  }, [editCapacityRequired, editMaster]);
 
   const handleBulkCreate = useCallback(async () => {
     const username = currentUsername();
@@ -241,6 +345,7 @@ export const MandiFacilities: React.FC = () => {
     setEditCapacityNum(row.capacity_num !== null && row.capacity_num !== undefined ? String(row.capacity_num) : "");
     setEditCapacityUnit(row.capacity_unit || "");
     setEditNotes(row.notes || "");
+    setShowEditNotes(Boolean(row.notes));
     setEditOpen(true);
   }, []);
 
@@ -253,9 +358,9 @@ export const MandiFacilities: React.FC = () => {
       payload: {
         mandi_id: Number(selectedMandiId),
         facility_code: editRow.facility_code,
-        capacity_num: editCapacityNum ? Number(editCapacityNum) : undefined,
-        capacity_unit: editCapacityUnit || undefined,
-        notes: editNotes || undefined,
+        ...(editCapacityNum ? { capacity_num: Number(editCapacityNum) } : {}),
+        ...(editCapacityUnit ? { unit_code: editCapacityUnit } : {}),
+        ...(editNotes ? { notes: editNotes } : {}),
       },
     });
     setEditOpen(false);
@@ -456,33 +561,56 @@ export const MandiFacilities: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            {capacityRequired && (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Capacity"
+                  value={createCapacityNum}
+                  onChange={(event) => setCreateCapacityNum(event.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  select
+                  label="Unit"
+                  value={createCapacityUnit}
+                  onChange={(event) => setCreateCapacityUnit(event.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">Select unit</MenuItem>
+                  {unitOptions.map((unit) => (
+                    <MenuItem key={unit.unit_code} value={unit.unit_code}>
+                      {unit.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+            )}
+            <Button
+              variant="text"
+              onClick={() => setShowCreateNotes((prev) => !prev)}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              {showCreateNotes ? "Hide notes" : "Add notes (optional)"}
+            </Button>
+            <Collapse in={showCreateNotes}>
               <TextField
-                label="Capacity"
-                value={createCapacityNum}
-                onChange={(event) => setCreateCapacityNum(event.target.value)}
+                label="Notes"
+                value={createNotes}
+                onChange={(event) => setCreateNotes(event.target.value)}
                 fullWidth
+                multiline
+                minRows={2}
               />
-              <TextField
-                label="Unit"
-                value={createCapacityUnit}
-                onChange={(event) => setCreateCapacityUnit(event.target.value)}
-                fullWidth
-              />
-            </Stack>
-            <TextField
-              label="Notes"
-              value={createNotes}
-              onChange={(event) => setCreateNotes(event.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-            />
+            </Collapse>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!createFacilityCode || !selectedMandiId}>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            disabled={!createFacilityCode || !selectedMandiId || (capacityRequired && !createCapacityUnit)}
+          >
             Save
           </Button>
         </DialogActions>
@@ -527,28 +655,47 @@ export const MandiFacilities: React.FC = () => {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Typography>{editRow?.facility_label}</Typography>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            {editCapacityRequired && (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Capacity"
+                  value={editCapacityNum}
+                  onChange={(event) => setEditCapacityNum(event.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  select
+                  label="Unit"
+                  value={editCapacityUnit}
+                  onChange={(event) => setEditCapacityUnit(event.target.value)}
+                  fullWidth
+                >
+                  <MenuItem value="">Select unit</MenuItem>
+                  {editUnitOptions.map((unit) => (
+                    <MenuItem key={unit.unit_code} value={unit.unit_code}>
+                      {unit.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+            )}
+            <Button
+              variant="text"
+              onClick={() => setShowEditNotes((prev) => !prev)}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              {showEditNotes ? "Hide notes" : "Add notes (optional)"}
+            </Button>
+            <Collapse in={showEditNotes}>
               <TextField
-                label="Capacity"
-                value={editCapacityNum}
-                onChange={(event) => setEditCapacityNum(event.target.value)}
+                label="Notes"
+                value={editNotes}
+                onChange={(event) => setEditNotes(event.target.value)}
                 fullWidth
+                multiline
+                minRows={2}
               />
-              <TextField
-                label="Unit"
-                value={editCapacityUnit}
-                onChange={(event) => setEditCapacityUnit(event.target.value)}
-                fullWidth
-              />
-            </Stack>
-            <TextField
-              label="Notes"
-              value={editNotes}
-              onChange={(event) => setEditNotes(event.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-            />
+            </Collapse>
           </Stack>
         </DialogContent>
         <DialogActions>

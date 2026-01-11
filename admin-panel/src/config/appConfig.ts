@@ -75,6 +75,9 @@ export const API_TAGS = {
   UNITS: {
     list: "getUnits",
   },
+  UNITS_MASTERS: {
+    list: "getUnitsMasters",
+  },
   MANDI_COMMODITY_PRODUCTS: {
     list: "getMandiCommodityProducts",
     create: "createMandiCommodityProduct",
@@ -380,6 +383,7 @@ export const API_ROUTES = {
     createMandiHoursTemplate: "/admin/createMandiHoursTemplate",
     updateMandiHoursTemplate: "/admin/updateMandiHoursTemplate",
     deactivateMandiHoursTemplate: "/admin/deactivateMandiHoursTemplate",
+    getUnitsMasters: "/admin/getUnitsMasters",
     getAuctionMethods: "/admin/getAuctionMethods",
     createAuctionMethod: "/admin/createAuctionMethod",
     updateAuctionMethod: "/admin/updateAuctionMethod",

@@ -469,6 +469,20 @@ export const fetchMandiFacilitiesMasters = async ({
     language,
   });
 
+export const fetchUnitsMasters = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+}: {
+  username: string;
+  language?: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getUnitsMasters, {
+    api: API_TAGS.UNITS_MASTERS.list,
+    api_name: API_TAGS.UNITS_MASTERS.list,
+    username,
+    language,
+  });
+
 export const createMandiFacilityMaster = async ({
   username,
   language = DEFAULT_LANGUAGE,

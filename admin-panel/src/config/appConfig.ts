@@ -199,6 +199,9 @@ export const API_TAGS = {
   ROLE_POLICIES: {
     dashboard: "getRolePoliciesDashboardData",
     update: "updateRolePolicies",
+    catalog: "getUiResourcesCatalog",
+    get: "getRolePolicy",
+    updateOne: "updateRolePolicy",
   },
   RESOURCE_REGISTRY: {
     list: "getResourceRegistry",
@@ -423,6 +426,9 @@ export const API_ROUTES = {
     deactivateGateDeviceConfig: "/admin/deactivateGateDeviceConfig",
     getRolePoliciesDashboardData: "/admin/getRolePoliciesDashboardData",
     updateRolePolicies: "/admin/updateRolePolicies",
+    getUiResourcesCatalog: "/admin/getUiResourcesCatalog",
+    getRolePolicy: "/admin/getRolePolicy",
+    updateRolePolicy: "/admin/updateRolePolicy",
     getResourceRegistry: "/admin/getResourceRegistry",
     updateResourceRegistry: "/admin/updateResourceRegistry",
     getAdminUsersWithRoles: "/admin/getAdminUsersWithRoles",

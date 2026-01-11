@@ -64,6 +64,7 @@ import { WeighmentTickets } from "./pages/weighmentTickets";
 import { GateMovements } from "./pages/gateMovements";
 import GateTokenDetail from "./pages/gateTokens/detail";
 import RolesPermissionsPage from "./pages/rolesPermissions";
+import { PermissionsManager } from "./pages/permissionsManager";
 import UserRoleManagerPage from "./pages/userRoleManager";
 import { AuctionSessions } from "./pages/auctionSessions";
 import { AuctionLots } from "./pages/auctionLots";
@@ -208,6 +209,7 @@ function App() {
                   <Route path="/gate-movements" element={<GateMovements />} />
                   <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
                   <Route path="/system/role-policy-manager" element={<RolesPermissionsPage />} />
+                  <Route path="/system/permissions-manager" element={<PermissionsManager />} />
                   <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />

@@ -27,16 +27,12 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
 import {
-  fetchMandiFacilitiesMasters,
-  fetchMandiFacilities,
-  fetchUnitsMasters,
+  fetchMandiFacilitiesBootstrap,
   createMandiFacility,
   updateMandiFacility,
   deactivateMandiFacility,
-  getMandisForCurrentScope,
 } from "../../services/mandiApi";
 
 type MandiOption = {
@@ -51,6 +47,9 @@ type MasterFacility = {
   label: string;
   name_i18n?: Record<string, string>;
   is_active: string;
+  default_capacity_num?: number | null;
+  default_capacity_unit?: string | null;
+  default_notes?: string | null;
 };
 
 type FacilityRow = {
@@ -79,31 +78,9 @@ function currentUsername(): string | null {
   }
 }
 
-const DEFAULT_UNIT_BY_FACILITY: Record<string, string[]> = {
-  WEIGHBRIDGE: ["quintal", "tonne"],
-  COLD_STORAGE: ["tonne", "kg"],
-  WAREHOUSE: ["tonne", "kg"],
-  PARKING: ["slot"],
-  RESTROOMS: ["nos"],
-  DRINKING_WATER: ["nos"],
-  FIRST_AID: ["nos"],
-};
-
-function pickDefaultUnit(facilityCode: string, options: UnitOption[]): string {
-  const preferred = DEFAULT_UNIT_BY_FACILITY[facilityCode.toUpperCase()];
-  if (!preferred || !preferred.length) return "";
-  const lookup = new Map(options.map((unit) => [unit.unit_code.toLowerCase(), unit.unit_code]));
-  for (const candidate of preferred) {
-    const match = lookup.get(candidate.toLowerCase());
-    if (match) return match;
-  }
-  return "";
-}
 export const MandiFacilities: React.FC = () => {
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
-  const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -165,98 +142,87 @@ export const MandiFacilities: React.FC = () => {
     });
   }, [rows, search]);
 
-  const loadMasters = useCallback(async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchMandiFacilitiesMasters({ username, language });
-    const list = resp?.data?.items || resp?.response?.data?.items || [];
-    setMasters(
-      list
-        .filter((item: any) => item?.is_active !== "N")
-        .map((item: any) => ({
-          facility_code: String(item.facility_code),
-          label: String(
-            item.name_i18n?.en ||
-              item.name_i18n?.hi ||
-              item.label_i18n?.en ||
-              item.label_i18n?.hi ||
-              item.facility_code,
-          ),
-          name_i18n: item.name_i18n || item.label_i18n || undefined,
-          is_active: item.is_active || "Y",
-        })),
-    );
-  }, [language]);
+  const loadBootstrap = useCallback(
+    async (mandiId?: string) => {
+      const username = currentUsername();
+      if (!username) return;
+      const filters: Record<string, any> = {};
+      if (mandiId) {
+        filters.mandi_id = Number(mandiId);
+        if (statusFilter !== "ALL") filters.is_active = statusFilter;
+      }
+      setLoading(Boolean(mandiId));
+      try {
+        const resp = await fetchMandiFacilitiesBootstrap({ username, language, filters });
+        const data = resp?.data || resp?.response?.data || {};
 
-  const loadUnits = useCallback(async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const resp = await fetchUnitsMasters({ username, language });
-    const list = resp?.data?.items || resp?.response?.data?.items || [];
-    setUnits(
-      list.map((item: any) => ({
-        unit_code: String(item.unit_code || item.code || ""),
-        label: String(item.display_label || item.label || item.unit_code || item.code || ""),
-      })),
-    );
-  }, [language]);
+        const mandisList = Array.isArray(data.mandis) ? data.mandis : [];
+        const mastersList = Array.isArray(data.facilityMasters) ? data.facilityMasters : [];
+        const unitsList = Array.isArray(data.units) ? data.units : [];
+        const itemsList = Array.isArray(data.items) ? data.items : [];
 
-  const loadMandis = useCallback(async () => {
-    const username = currentUsername();
-    if (!username || !orgId) return;
-    const resp = await getMandisForCurrentScope({
-      username,
-      language,
-      org_id: orgId,
-      filters: { page: 1, pageSize: 200 },
-    });
-    setMandis(Array.isArray(resp) ? resp : []);
-  }, [language, orgId]);
+        const mastersMapped = mastersList
+            .filter((item: any) => item?.is_active !== "N")
+            .map((item: any) => ({
+              facility_code: String(item.facility_code),
+              label: String(
+                item.name_i18n?.en ||
+                  item.name_i18n?.hi ||
+                  item.label_i18n?.en ||
+                  item.label_i18n?.hi ||
+                  item.facility_code,
+              ),
+              name_i18n: item.name_i18n || item.label_i18n || undefined,
+              is_active: item.is_active || "Y",
+              default_capacity_num:
+                item.default_capacity_num !== undefined ? item.default_capacity_num : null,
+              default_capacity_unit:
+                item.default_capacity_unit !== undefined ? item.default_capacity_unit : null,
+              default_notes: item.default_notes !== undefined ? item.default_notes : null,
+            }));
+        const mastersMap = new Map(
+          mastersMapped.map((entry) => [entry.facility_code, entry]),
+        );
 
-  const loadFacilities = useCallback(async () => {
-    const username = currentUsername();
-    if (!username || !selectedMandiId) {
+        setMandis(mandisList);
+        setMasters(mastersMapped);
+        setUnits(
+          unitsList.map((item: any) => ({
+            unit_code: String(item.unit_code || item.code || ""),
+            label: String(item.display_label || item.label || item.unit_code || item.code || ""),
+          })),
+        );
+        setRows(
+          itemsList.map((item: any) => ({
+            id: String(item._id || `${item.mandi_id}-${item.facility_code}`),
+            facility_code: String(item.facility_code),
+            facility_label:
+              mastersMap.get(String(item.facility_code))?.label || String(item.facility_code),
+            facility_name_i18n: mastersMap.get(String(item.facility_code))?.name_i18n,
+            capacity_num: item.capacity_num ?? null,
+            capacity_unit: item.capacity_unit ?? null,
+            notes: item.notes ?? null,
+            is_active: item.is_active || "Y",
+          })),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [language, statusFilter],
+  );
+
+  useEffect(() => {
+    loadBootstrap();
+  }, [loadBootstrap]);
+
+  useEffect(() => {
+    if (!selectedMandiId) {
       setRows([]);
       return;
     }
-    setLoading(true);
-    try {
-      const resp = await fetchMandiFacilities({
-        username,
-        language,
-        filters: {
-          mandi_id: Number(selectedMandiId),
-          is_active: statusFilter === "ALL" ? undefined : statusFilter,
-        },
-      });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
-      setRows(
-        list.map((item: any) => ({
-          id: String(item._id || `${item.mandi_id}-${item.facility_code}`),
-          facility_code: String(item.facility_code),
-          facility_label:
-            masterMap.get(String(item.facility_code))?.label || String(item.facility_code),
-          facility_name_i18n: masterMap.get(String(item.facility_code))?.name_i18n,
-          capacity_num: item.capacity_num ?? null,
-          capacity_unit: item.capacity_unit ?? null,
-          notes: item.notes ?? null,
-          is_active: item.is_active || "Y",
-        })),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [language, masterMap, selectedMandiId, statusFilter]);
-
-  useEffect(() => {
-    loadMasters();
-    loadMandis();
-    loadUnits();
-  }, [loadMandis, loadMasters, loadUnits]);
-
-  useEffect(() => {
-    loadFacilities();
-  }, [loadFacilities]);
+    loadBootstrap(selectedMandiId);
+  }, [loadBootstrap, selectedMandiId, statusFilter]);
 
   const handleCreate = useCallback(async () => {
     const username = currentUsername();
@@ -279,21 +245,29 @@ export const MandiFacilities: React.FC = () => {
     setCreateNotes("");
     setShowCreateNotes(false);
     setCreateOpen(false);
-    await loadFacilities();
-  }, [createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadFacilities, selectedMandiId, selectedMaster]);
+    await loadBootstrap(selectedMandiId);
+  }, [createCapacityNum, createCapacityUnit, createFacilityCode, createNotes, language, loadBootstrap, selectedMandiId, selectedMaster]);
 
   useEffect(() => {
-    setCreateCapacityNum("");
-    setCreateCapacityUnit("");
-  }, [createFacilityCode]);
-
-  useEffect(() => {
-    if (!selectedMaster || createCapacityUnit) return;
-    const defaultUnit = pickDefaultUnit(selectedMaster.facility_code, units);
-    if (defaultUnit) {
-      setCreateCapacityUnit(defaultUnit);
+    if (!createFacilityCode) {
+      setCreateCapacityNum("");
+      setCreateCapacityUnit("");
+      setCreateNotes("");
+      setShowCreateNotes(false);
+      return;
     }
-  }, [createCapacityUnit, selectedMaster, units]);
+    if (!selectedMaster) return;
+    setCreateCapacityNum(
+      selectedMaster.default_capacity_num !== null && selectedMaster.default_capacity_num !== undefined
+        ? String(selectedMaster.default_capacity_num)
+        : "",
+    );
+    setCreateCapacityUnit(
+      selectedMaster.default_capacity_unit ? String(selectedMaster.default_capacity_unit) : "",
+    );
+    setCreateNotes(selectedMaster.default_notes ? String(selectedMaster.default_notes) : "");
+    setShowCreateNotes(Boolean(selectedMaster.default_notes));
+  }, [createFacilityCode, selectedMaster]);
 
   const handleBulkCreate = useCallback(async () => {
     const username = currentUsername();
@@ -308,8 +282,8 @@ export const MandiFacilities: React.FC = () => {
     });
     setBulkSelection([]);
     setBulkOpen(false);
-    await loadFacilities();
-  }, [bulkSelection, language, loadFacilities, selectedMandiId]);
+    await loadBootstrap(selectedMandiId);
+  }, [bulkSelection, language, loadBootstrap, selectedMandiId]);
 
   const openEdit = useCallback((row: FacilityRow) => {
     setEditRow(row);
@@ -336,8 +310,8 @@ export const MandiFacilities: React.FC = () => {
     });
     setEditOpen(false);
     setEditRow(null);
-    await loadFacilities();
-  }, [editCapacityNum, editCapacityUnit, editNotes, editRow, language, loadFacilities, selectedMandiId]);
+    await loadBootstrap(selectedMandiId);
+  }, [editCapacityNum, editCapacityUnit, editNotes, editRow, language, loadBootstrap, selectedMandiId]);
 
   const handleToggle = useCallback(
     async (row: FacilityRow) => {

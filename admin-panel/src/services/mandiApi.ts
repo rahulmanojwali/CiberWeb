@@ -552,6 +552,23 @@ export const fetchMandiFacilities = async ({
     ...filters,
   });
 
+export const fetchMandiFacilitiesBootstrap = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getMandiFacilitiesBootstrap, {
+    api: API_TAGS.FACILITIES.bootstrap,
+    api_name: API_TAGS.FACILITIES.bootstrap,
+    username,
+    language,
+    ...filters,
+  });
+
 export const createMandiFacility = async ({
   username,
   language = DEFAULT_LANGUAGE,

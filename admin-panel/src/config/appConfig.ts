@@ -95,6 +95,7 @@ export const API_TAGS = {
     create: "createMandiFacility",
     update: "updateMandiFacility",
     deactivate: "deactivateMandiFacility",
+    bootstrap: "getMandiFacilitiesBootstrap",
   },
   GATES: {
     list: "getMandiGates",
@@ -365,6 +366,7 @@ export const API_ROUTES = {
     createMandiFacility: "/admin/createMandiFacility",
     updateMandiFacility: "/admin/updateMandiFacility",
     deactivateMandiFacility: "/admin/deactivateMandiFacility",
+    getMandiFacilitiesBootstrap: "/admin/getMandiFacilitiesBootstrap",
     getMandiGates: "/admin/getMandiGates",
     addMandiGate: "/admin/addMandiGate",
     editMandiGate: "/admin/editMandiGate",

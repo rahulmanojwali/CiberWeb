@@ -161,7 +161,7 @@ export const MandiFacilities: React.FC = () => {
         const unitsList = Array.isArray(data.units) ? data.units : [];
         const itemsList = Array.isArray(data.items) ? data.items : [];
 
-        const mastersMapped = mastersList
+        const mastersMapped: MasterFacility[] = mastersList
             .filter((item: any) => item?.is_active !== "N")
             .map((item: any) => ({
               facility_code: String(item.facility_code),
@@ -180,8 +180,8 @@ export const MandiFacilities: React.FC = () => {
                 item.default_capacity_unit !== undefined ? item.default_capacity_unit : null,
               default_notes: item.default_notes !== undefined ? item.default_notes : null,
             }));
-        const mastersMap = new Map(
-          mastersMapped.map((entry) => [entry.facility_code, entry]),
+        const mastersMap = new Map<string, MasterFacility>(
+          mastersMapped.map((entry: MasterFacility) => [entry.facility_code, entry]),
         );
 
         setMandis(mandisList);

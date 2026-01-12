@@ -160,15 +160,6 @@ export const APP_MENU: AppMenuItem[] = [
       {
         key: "rolesPermissions",
         labelKey: "menu.rolePermissions",
-        path: "/system/role-policy-manager",
-        icon: React.createElement(SecurityOutlinedIcon),
-        resourceKey: "menu.role_policies",
-        requiredAction: "VIEW",
-        roles: ["SUPER_ADMIN"],
-      },
-      {
-        key: "permissionsManager",
-        labelKey: "menu.permissionsManager",
         path: "/system/permissions-manager",
         icon: React.createElement(SecurityOutlinedIcon),
         resourceKey: "menu.role_policies",

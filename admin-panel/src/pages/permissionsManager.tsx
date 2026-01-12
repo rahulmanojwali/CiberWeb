@@ -256,9 +256,12 @@ export const PermissionsManager: React.FC = () => {
             alignItems={{ xs: "stretch", lg: "center" }}
           >
             <Box sx={{ flex: 1 }}>
-              <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
+                <Chip size="small" color="default" label="SUPER_ADMIN only" />
+              </Stack>
               <Typography variant="body2" color="text.secondary">
-                Manage what each role can access (VIEW / CREATE / UPDATE / DEACTIVATE).
+                Manage permissions for each role. SUPER_ADMIN only.
               </Typography>
             </Box>
             <FormControl size="small" sx={{ minWidth: 220 }}>

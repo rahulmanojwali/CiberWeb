@@ -226,9 +226,11 @@ const UserRoleManagerPage: React.FC = () => {
   return (
     <PageContainer>
       <Stack spacing={1} mb={2}>
-        <Typography variant="h5">{t("menu.userRoleManager", { defaultValue: "User Role Manager" })}</Typography>
+        <Typography variant="h5">
+          {t("menu.userRoleManager", { defaultValue: "User Role Assignment" })}
+        </Typography>
         <Typography variant="body2" color="text.secondary">
-          View admin users and their assigned roles.
+          Assign roles to users. This does not change what roles can do.
         </Typography>
       </Stack>
 

@@ -120,6 +120,43 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const translateMenuLabel = (menuItem: NavMenuItem) =>
     t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
 
+  const SYSTEM_ONLY_MENU_KEYS = new Set([
+    "menu.role_policies",
+    "resource_registry.menu",
+    "ui_resources.menu",
+    "admin_users.menu",
+    "auction_policies.menu",
+    "system_reports.menu",
+  ]);
+
+  const isSuperAdmin = effectiveRole === "SUPER_ADMIN";
+
+  const normalizeKey = (key?: string) => (key || "").trim().toLowerCase();
+  const isSystemOnlyKey = (key?: string) => SYSTEM_ONLY_MENU_KEYS.has(normalizeKey(key));
+
+  const filterMenuTree = useCallback(
+    (items: NavMenuItem[], predicate: (item: NavMenuItem) => boolean): NavMenuItem[] => {
+      return items
+        .map((item) => {
+          const children = item.children ? filterMenuTree(item.children, predicate) : [];
+          const keep = predicate(item) || children.length > 0;
+          if (!keep) return null;
+          return { ...item, children: children.length ? children : undefined };
+        })
+        .filter(Boolean) as NavMenuItem[];
+    },
+    [],
+  );
+
+  const systemAdminItems = useMemo(
+    () => (isSuperAdmin ? filterMenuTree(navItems, (item) => isSystemOnlyKey(item.resourceKey)) : []),
+    [filterMenuTree, isSuperAdmin, navItems],
+  );
+  const platformOpsItems = useMemo(
+    () => filterMenuTree(navItems, (item) => !isSystemOnlyKey(item.resourceKey)),
+    [filterMenuTree, navItems],
+  );
+
 
   if (isSmall) {
     return null;
@@ -204,14 +241,22 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               />
             </ListItem>
           )}
-          {navItems.map((item) => {
+          {systemAdminItems.length > 0 && !collapsed && (
+            <Typography
+              variant="caption"
+              sx={{ px: 1.5, py: 1, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.6 }}
+            >
+              {t("menu.systemAdministration", { defaultValue: "System Administration" })}
+            </Typography>
+          )}
+          {systemAdminItems.map((item) => {
             const isGroup = !!item.children?.length && !item.path;
             const labelKey = item.key || item.labelKey || item.path;
             if (!isGroup) {
               const active = !!item.path && location.pathname.startsWith(item.path);
               return (
                 <ListItem
-                  key={labelKey}
+                  key={`system-${labelKey}`}
                   disablePadding
                   sx={{ display: "block" }}
                 >
@@ -259,7 +304,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             const groupKey = item.key || item.labelKey || item.path || `${labelKey}-group`;
             const isExpanded = !!expanded[groupKey];
             return (
-              <Box key={groupKey} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
+              <Box key={`system-${groupKey}`} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
                 <ListItem disablePadding>
                   <ListItemButton
                     onClick={() => toggleGroup(groupKey)}
@@ -309,7 +354,172 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                         const active = !!child.path && location.pathname.startsWith(child.path);
                         return (
                           <ListItem
-                            key={childKey}
+                            key={`system-${childKey}`}
+                            disablePadding
+                            sx={{ display: "block" }}
+                          >
+                            <ListItemButton
+                              selected={active}
+                              onClick={() =>
+                                child.path && menuNavigate(child.path, child.resourceKey)
+                              }
+                              sx={{
+                                minHeight: 48,
+                                py: 0.75,
+                                justifyContent: "flex-start",
+                                px: 2.5,
+                                "&.Mui-selected": {
+                                  backgroundColor: "#e0f2f1",
+                                  borderRadius: 1,
+                                },
+                              }}
+                            >
+                              {child.icon && (
+                                <ListItemIcon
+                                  sx={{
+                                    minWidth: 0,
+                                    mr: 1.1,
+                                    justifyContent: "center",
+                                    "& svg": { fontSize: 20 },
+                                  }}
+                                >
+                                  {child.icon}
+                                </ListItemIcon>
+                              )}
+                              <ListItemText
+                                primary={translateMenuLabel(child)}
+                                primaryTypographyProps={{
+                                  variant: "body2",
+                                  fontWeight: active ? 600 : 500,
+                                  fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
+                                }}
+                              />
+                            </ListItemButton>
+                          </ListItem>
+                        );
+                      })}
+                    </List>
+                  </Collapse>
+                )}
+                <Divider sx={{ my: 1, opacity: 0.3 }} />
+              </Box>
+            );
+          })}
+
+          {platformOpsItems.length > 0 && !collapsed && (
+            <Typography
+              variant="caption"
+              sx={{ px: 1.5, py: 1, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.6 }}
+            >
+              {t("menu.platformOperations", { defaultValue: "Platform Operations" })}
+            </Typography>
+          )}
+          {platformOpsItems.map((item) => {
+            const isGroup = !!item.children?.length && !item.path;
+            const labelKey = item.key || item.labelKey || item.path;
+            if (!isGroup) {
+              const active = !!item.path && location.pathname.startsWith(item.path);
+              return (
+                <ListItem
+                  key={`platform-${labelKey}`}
+                  disablePadding
+                  sx={{ display: "block" }}
+                >
+                  <ListItemButton
+                    selected={active}
+                    onClick={() => item.path && menuNavigate(item.path, item.resourceKey)}
+                    sx={{
+                      minHeight: 48,
+                      py: 0.75,
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      px: collapsed ? 1.25 : 2,
+                      "&.Mui-selected": {
+                        backgroundColor: "#e0f2f1",
+                        borderRadius: 1,
+                      },
+                    }}
+                  >
+                    {item.icon && (
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: collapsed ? 0 : 1.25,
+                          justifyContent: "center",
+                          "& svg": { fontSize: 20 },
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                    )}
+                    {!collapsed && (
+                      <ListItemText
+                        primary={translateMenuLabel(item)}
+                        primaryTypographyProps={{
+                          fontWeight: active ? 600 : 500,
+                          variant: "body2",
+                          fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
+                        }}
+                      />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              );
+            }
+
+            const groupKey = item.key || item.labelKey || item.path || `${labelKey}-group`;
+            const isExpanded = !!expanded[groupKey];
+            return (
+              <Box key={`platform-${groupKey}`} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => toggleGroup(groupKey)}
+                    sx={{
+                      minHeight: 48,
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      px: collapsed ? 1.25 : 2,
+                      py: 0.75,
+                    }}
+                  >
+                    {item.icon && (
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: collapsed ? 0 : 1,
+                          justifyContent: "center",
+                          "& svg": { fontSize: 20 },
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                    )}
+                    {!collapsed && (
+                      <ListItemText
+                        primary={translateMenuLabel(item)}
+                        primaryTypographyProps={{
+                          variant: "subtitle2",
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                        }}
+                      />
+                    )}
+                    {!collapsed && (
+                      isExpanded ? (
+                        <ExpandLess sx={{ fontSize: 18 }} />
+                      ) : (
+                        <ExpandMore sx={{ fontSize: 18 }} />
+                      )
+                    )}
+                  </ListItemButton>
+                </ListItem>
+                {!collapsed && (
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {item.children!.map((child) => {
+                        const childKey = child.key || child.labelKey || child.path;
+                        const active = !!child.path && location.pathname.startsWith(child.path);
+                        return (
+                          <ListItem
+                            key={`platform-${childKey}`}
                             disablePadding
                             sx={{ display: "block" }}
                           >

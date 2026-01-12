@@ -91,6 +91,8 @@
     "auctionMethodsMaster": "Auction Methods (Master)",
     "traderApprovalQueue": "Trader Approval Queue",
     "system": "System",
+    "systemAdministration": "System Administration",
+    "platformOperations": "Platform Operations",
     "rolePermissions": "Role Permission Manager",
     "userRoleManager": "User Role Assignment",
     "resourceRegistry": "Resource Registry",

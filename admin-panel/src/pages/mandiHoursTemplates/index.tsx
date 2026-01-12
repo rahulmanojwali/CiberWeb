@@ -75,7 +75,7 @@ export const MandiHoursTemplates: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
 
-  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_hours_templates");
+  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_hours");
 
   const [mandis, setMandis] = useState<MandiOption[]>([]);
   const [selectedMandiId, setSelectedMandiId] = useState<string>("");

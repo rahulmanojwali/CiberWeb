@@ -113,6 +113,7 @@ export const PermissionsManager: React.FC = () => {
   const [baselineMap, setBaselineMap] = useState<Map<string, Set<string>>>(new Map());
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const moduleOrderRef = useRef<string[]>([]);
+  const loggedUsernameRef = useRef(false);
 
   const groupedResources = useMemo(() => {
     const map = new Map<
@@ -320,6 +321,12 @@ export const PermissionsManager: React.FC = () => {
   }, [roleSlug]);
 
   useEffect(() => {
+    if (loggedUsernameRef.current) return;
+    loggedUsernameRef.current = true;
+    console.log("RBAC username:", currentUsername());
+  }, []);
+
+  useEffect(() => {
     if (moduleOrderRef.current.length || !catalog.length) return;
     const prefixes = new Set<string>();
     catalog.forEach((entry) => {
@@ -405,7 +412,10 @@ export const PermissionsManager: React.FC = () => {
 
   const handleSave = async () => {
     const username = currentUsername();
-    if (!username || !roleSlug) return;
+    if (!username || !roleSlug) {
+      enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
+      return;
+    }
     setSaving(true);
     try {
       const permissions = [];
@@ -517,7 +527,7 @@ export const PermissionsManager: React.FC = () => {
               gridTemplateColumns: "1fr",
               gap: 2,
               alignItems: "start",
-              pb: 10,
+              pb: 12,
             }}
           >
             {groupedResources.map((group) => (
@@ -674,9 +684,10 @@ export const PermissionsManager: React.FC = () => {
 
         <Box
           sx={{
-            position: "sticky",
+            position: "fixed",
+            left: 0,
+            right: 0,
             bottom: 0,
-            mt: 2,
             py: 1.5,
             bgcolor: "background.paper",
             borderTop: "1px solid",
@@ -685,6 +696,8 @@ export const PermissionsManager: React.FC = () => {
             alignItems: "center",
             justifyContent: "space-between",
             gap: 2,
+            px: { xs: 2, md: 3 },
+            zIndex: 10,
           }}
         >
           {hasUnsavedChanges ? (

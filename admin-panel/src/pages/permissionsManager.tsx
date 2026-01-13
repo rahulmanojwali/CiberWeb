@@ -450,9 +450,11 @@ export const PermissionsManager: React.FC = () => {
             sx={{
               position: "sticky",
               top: 64,
-              zIndex: 1,
+              zIndex: 2,
               bgcolor: "background.default",
               pb: 1.5,
+              borderBottom: "1px solid",
+              borderColor: "divider",
             }}
           >
             <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems={{ lg: "center" }}>
@@ -509,15 +511,13 @@ export const PermissionsManager: React.FC = () => {
             </Stack>
           </Box>
 
-          {hasUnsavedChanges && (
-            <Chip color="warning" label="● Unsaved changes" sx={{ alignSelf: "flex-start" }} />
-          )}
           <Box
             sx={{
               display: "grid",
               gridTemplateColumns: "1fr",
               gap: 2,
               alignItems: "start",
+              pb: 10,
             }}
           >
             {groupedResources.map((group) => (
@@ -579,7 +579,10 @@ export const PermissionsManager: React.FC = () => {
                     </Button>
                   </Stack>
                 </AccordionSummary>
-                <AccordionDetails sx={{ p: 1.25 }} onClick={(event) => event.stopPropagation()}>
+                <AccordionDetails
+                  sx={{ p: 1.25, maxHeight: 520, overflow: "auto" }}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <Stack spacing={1.5}>
                     {group.entries.map((entry) => (
                       <Box
@@ -673,15 +676,22 @@ export const PermissionsManager: React.FC = () => {
           sx={{
             position: "sticky",
             bottom: 0,
-            mt: 3,
-            py: 2,
+            mt: 2,
+            py: 1.5,
             bgcolor: "background.paper",
             borderTop: "1px solid",
             borderColor: "divider",
             display: "flex",
-            justifyContent: "flex-end",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
           }}
         >
+          {hasUnsavedChanges ? (
+            <Chip color="warning" label="● Unsaved changes" />
+          ) : (
+            <Box />
+          )}
           <Button
             variant="contained"
             onClick={handleSave}

@@ -82,6 +82,13 @@ function formatSummary(openDays: string[] = [], dayHours: any[] = []) {
   return `${openDays.join(", ")} ${times.join(", ")}`;
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString();
+}
+
 export const MandiHoursTemplates: React.FC = () => {
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -357,9 +364,38 @@ export const MandiHoursTemplates: React.FC = () => {
     await loadTemplates();
   };
 
+  const handleActivate = async (row: HoursRow) => {
+    const username = currentUsername();
+    if (!username || !selectedMandiId) return;
+    await deactivateMandiHoursTemplate({
+      username,
+      language,
+      payload: {
+        mandi_id: Number(selectedMandiId),
+        template_id: row.id,
+        is_active: "Y",
+      },
+    });
+    await loadTemplates();
+  };
+
+  const mandiNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    mandis.forEach((mandi) => {
+      const name = mandi.label || mandi.name_i18n?.en || mandi.mandi_slug;
+      if (name) map.set(mandi.mandi_id, name);
+    });
+    return map;
+  }, [mandis]);
+
   const columns = useMemo<GridColDef<HoursRow>[]>(
     () => [
-      { field: "mandi_id", headerName: "Mandi", width: 120 },
+      {
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 200,
+        valueGetter: (_, row) => mandiNameById.get(row.mandi_id) ?? String(row.mandi_id),
+      },
       {
         field: "summary",
         headerName: "Schedule",
@@ -371,19 +407,24 @@ export const MandiHoursTemplates: React.FC = () => {
         field: "effective_from",
         headerName: "Effective From",
         width: 150,
-        valueGetter: (_, row) => (row.effective_from ? String(row.effective_from).slice(0, 10) : ""),
+        valueGetter: (_, row) => formatDate(row.effective_from),
       },
       {
         field: "effective_to",
         headerName: "Effective To",
         width: 150,
-        valueGetter: (_, row) => (row.effective_to ? String(row.effective_to).slice(0, 10) : ""),
+        valueGetter: (_, row) => formatDate(row.effective_to),
       },
-      { field: "is_active", headerName: "Status", width: 120 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 120,
+        valueGetter: (_, row) => (row.is_active === "Y" ? "Active" : "Inactive"),
+      },
       {
         field: "actions",
         headerName: "Actions",
-        width: 180,
+        width: 220,
         sortable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
@@ -393,20 +434,26 @@ export const MandiHoursTemplates: React.FC = () => {
               </Button>
             )}
             {canDeactivate && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => handleDeactivate(params.row)}
-              >
-                Deactivate
-              </Button>
+              params.row.is_active === "Y" ? (
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<BlockIcon />}
+                  onClick={() => handleDeactivate(params.row)}
+                >
+                  Deactivate
+                </Button>
+              ) : (
+                <Button size="small" onClick={() => handleActivate(params.row)}>
+                  Activate
+                </Button>
+              )
             )}
           </Stack>
         ),
       },
     ],
-    [canDeactivate, canEdit],
+    [canDeactivate, canEdit, mandiNameById],
   );
 
   return (

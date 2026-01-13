@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -56,6 +57,7 @@ type HoursRow = {
 };
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 function currentUsername(): string | null {
   try {
@@ -69,9 +71,14 @@ function currentUsername(): string | null {
 
 function formatSummary(openDays: string[] = [], dayHours: any[] = []) {
   if (!openDays.length || !dayHours.length) return "No schedule";
-  const times = dayHours
-    .map((w: any) => `${w.open_time || w.open}-${w.close_time || w.close}`)
-    .filter(Boolean);
+  const times = dayHours.flatMap((entry: any) => {
+    if (Array.isArray(entry?.windows)) {
+      return entry.windows.map(
+        (w: any) => `${w.open_time || w.open}-${w.close_time || w.close}`,
+      );
+    }
+    return [`${entry.open_time || entry.open}-${entry.close_time || entry.close}`];
+  }).filter(Boolean);
   return `${openDays.join(", ")} ${times.join(", ")}`;
 }
 
@@ -94,10 +101,15 @@ export const MandiHoursTemplates: React.FC = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [effectiveFrom, setEffectiveFrom] = useState<string>("");
   const [effectiveTo, setEffectiveTo] = useState<string>("");
+  const [useEndDate, setUseEndDate] = useState(false);
   const [timezone, setTimezone] = useState<string>("Asia/Kolkata");
   const [openDays, setOpenDays] = useState<string[]>([]);
+  const [openAllDays, setOpenAllDays] = useState(false);
   const [dayHours, setDayHours] = useState<Record<string, { open: string; close: string; note?: string }[]>>({});
-  const [closedOnFirstDay, setClosedOnFirstDay] = useState(false);
+  const [closedOnMonthlyDay, setClosedOnMonthlyDay] = useState(false);
+  const [monthlyDays, setMonthlyDays] = useState<string[]>([]);
+  const [closedOnDates, setClosedOnDates] = useState(false);
+  const [closedDates, setClosedDates] = useState<string[]>([]);
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
@@ -157,10 +169,15 @@ export const MandiHoursTemplates: React.FC = () => {
   const resetForm = useCallback(() => {
     setEffectiveFrom("");
     setEffectiveTo("");
+    setUseEndDate(false);
     setTimezone("Asia/Kolkata");
     setOpenDays([]);
+    setOpenAllDays(false);
     setDayHours({});
-    setClosedOnFirstDay(false);
+    setClosedOnMonthlyDay(false);
+    setMonthlyDays([]);
+    setClosedOnDates(false);
+    setClosedDates([]);
   }, []);
 
   const openCreate = () => {
@@ -175,21 +192,37 @@ export const MandiHoursTemplates: React.FC = () => {
     setEditId(row.id);
     setEffectiveFrom(row.effective_from ? String(row.effective_from).slice(0, 10) : "");
     setEffectiveTo(row.effective_to ? String(row.effective_to).slice(0, 10) : "");
+    setUseEndDate(Boolean(row.effective_to));
     setTimezone(row.timezone || "Asia/Kolkata");
     setOpenDays(row.open_days || []);
     const nextDayHours: Record<string, { open: string; close: string; note?: string }[]> = {};
     (row.day_hours || []).forEach((w: any) => {
       const day = w.day || "MON";
-      if (!nextDayHours[day]) nextDayHours[day] = [];
-      nextDayHours[day].push({
-        open: w.open_time || w.open || "",
-        close: w.close_time || w.close || "",
-        note: w.note || "",
-      });
+      if (Array.isArray(w.windows)) {
+        w.windows.forEach((win: any) => {
+          if (!nextDayHours[day]) nextDayHours[day] = [];
+          nextDayHours[day].push({
+            open: win.open_time || win.open || "",
+            close: win.close_time || win.close || "",
+            note: win.note || "",
+          });
+        });
+      } else {
+        if (!nextDayHours[day]) nextDayHours[day] = [];
+        nextDayHours[day].push({
+          open: w.open_time || w.open || "",
+          close: w.close_time || w.close || "",
+          note: w.note || "",
+        });
+      }
     });
     setDayHours(nextDayHours);
     const excludeDayOfMonth = row.exclusions?.exclude_day_of_month || [];
-    setClosedOnFirstDay(excludeDayOfMonth.includes(1));
+    const excludeDates = row.exclusions?.exclude_dates || [];
+    setClosedOnMonthlyDay(excludeDayOfMonth.length > 0);
+    setMonthlyDays(excludeDayOfMonth.map((d) => String(d)));
+    setClosedOnDates(excludeDates.length > 0);
+    setClosedDates(excludeDates.map((d) => String(d).slice(0, 10)));
     setDialogOpen(true);
   };
 
@@ -229,33 +262,80 @@ export const MandiHoursTemplates: React.FC = () => {
     });
   };
 
+  useEffect(() => {
+    setOpenAllDays(openDays.length === DAYS.length);
+  }, [openDays]);
+
+  const handleToggleAllDays = (checked: boolean) => {
+    setOpenAllDays(checked);
+    if (checked) {
+      setOpenDays(DAYS);
+      setDayHours((prev) => {
+        const next = { ...prev };
+        DAYS.forEach((day) => {
+          if (!next[day] || next[day].length === 0) {
+            next[day] = [{ open: "09:00", close: "17:00" }];
+          }
+        });
+        return next;
+      });
+    }
+  };
+
+  const addClosedDate = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setClosedDates((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+  };
+
+  const removeClosedDate = (value: string) => {
+    setClosedDates((prev) => prev.filter((item) => item !== value));
+  };
+
   const handleSave = async () => {
     const username = currentUsername();
     if (!username || !selectedMandiId) return;
-    const compiledHours = openDays.flatMap((day) =>
-      (dayHours[day] || []).map((w) => ({
-        day,
+    const compiledHours = openDays.map((day) => ({
+      day,
+      windows: (dayHours[day] || []).map((w) => ({
         open_time: w.open,
         close_time: w.close,
         note: w.note || undefined,
       })),
-    );
+    }));
+    const effectiveFromValue =
+      effectiveFrom || new Date().toISOString().slice(0, 10);
     const payload: any = {
       mandi_id: Number(selectedMandiId),
       timezone,
       open_days: openDays,
       day_hours: compiledHours,
-      effective_from: effectiveFrom || undefined,
-      effective_to: effectiveTo || undefined,
+      effective_from: effectiveFromValue,
+      effective_to: useEndDate ? effectiveTo || undefined : null,
       is_active: "Y",
     };
-    if (closedOnFirstDay) {
-      payload.closed_on_first_day_of_month = true;
-    }
     if (isEdit && editId) {
+      const exclusionDays = closedOnMonthlyDay
+        ? monthlyDays.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+        : [];
+      const exclusionDates = closedOnDates ? closedDates : [];
+      payload.exclusions = {
+        exclude_day_of_month: exclusionDays,
+        exclude_dates: exclusionDates,
+      };
       payload.template_id = editId;
       await updateMandiHoursTemplate({ username, language, payload });
     } else {
+      const exclusionDays = closedOnMonthlyDay
+        ? monthlyDays.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+        : [];
+      const exclusionDates = closedOnDates ? closedDates : [];
+      if (exclusionDays.length || exclusionDates.length) {
+        payload.exclusions = {
+          exclude_day_of_month: exclusionDays,
+          exclude_dates: exclusionDates,
+        };
+      }
       await createMandiHoursTemplate({ username, language, payload });
     }
     setDialogOpen(false);
@@ -402,6 +482,21 @@ export const MandiHoursTemplates: React.FC = () => {
                 InputLabelProps={{ shrink: true }}
                 fullWidth
               />
+            </Stack>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={useEndDate}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setUseEndDate(checked);
+                    if (!checked) setEffectiveTo("");
+                  }}
+                />
+              }
+              label="Set end date"
+            />
+            {useEndDate && (
               <TextField
                 label="Effective To"
                 type="date"
@@ -410,7 +505,7 @@ export const MandiHoursTemplates: React.FC = () => {
                 InputLabelProps={{ shrink: true }}
                 fullWidth
               />
-            </Stack>
+            )}
             <TextField
               label="Timezone"
               value={timezone}
@@ -420,11 +515,11 @@ export const MandiHoursTemplates: React.FC = () => {
             <FormControlLabel
               control={
                 <Switch
-                  checked={closedOnFirstDay}
-                  onChange={(event) => setClosedOnFirstDay(event.target.checked)}
+                  checked={openAllDays}
+                  onChange={(event) => handleToggleAllDays(event.target.checked)}
                 />
               }
-              label="Closed on 1st of every month"
+              label="Open all days"
             />
             <Stack direction="row" spacing={1} flexWrap="wrap">
               {DAYS.map((day) => (
@@ -473,6 +568,78 @@ export const MandiHoursTemplates: React.FC = () => {
                 </Stack>
               </Box>
             ))}
+            <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
+              <Typography sx={{ fontWeight: 700, mb: 1 }}>Exceptions (Optional)</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Exceptions override weekly schedule.
+              </Typography>
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={closedOnMonthlyDay}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setClosedOnMonthlyDay(checked);
+                        if (checked && monthlyDays.length === 0) {
+                          setMonthlyDays(["1"]);
+                        }
+                      }}
+                    />
+                  }
+                  label="Closed on a day every month"
+                />
+                {closedOnMonthlyDay && (
+                  <TextField
+                    label="Day of month"
+                    select
+                    SelectProps={{ multiple: true }}
+                    value={monthlyDays}
+                    onChange={(event) => setMonthlyDays(event.target.value as string[])}
+                    fullWidth
+                  >
+                    {MONTH_DAYS.map((day) => (
+                      <MenuItem key={day} value={day}>
+                        {day}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={closedOnDates}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setClosedOnDates(checked);
+                        if (!checked) setClosedDates([]);
+                      }}
+                    />
+                  }
+                  label="Closed on specific dates"
+                />
+                {closedOnDates && (
+                  <Stack spacing={1}>
+                    <TextField
+                      label="Add date"
+                      type="date"
+                      InputLabelProps={{ shrink: true }}
+                      onChange={(event) => addClosedDate(event.target.value)}
+                    />
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      {closedDates.map((date) => (
+                        <Chip
+                          key={date}
+                          label={date}
+                          onDelete={() => removeClosedDate(date)}
+                          size="small"
+                        />
+                      ))}
+                    </Stack>
+                  </Stack>
+                )}
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>

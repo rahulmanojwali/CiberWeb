@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -112,6 +112,7 @@ export const PermissionsManager: React.FC = () => {
   const [permissionsMap, setPermissionsMap] = useState<Map<string, Set<string>>>(new Map());
   const [baselineMap, setBaselineMap] = useState<Map<string, Set<string>>>(new Map());
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
+  const moduleOrderRef = useRef<string[]>([]);
 
   const groupedResources = useMemo(() => {
     const map = new Map<
@@ -240,6 +241,7 @@ export const PermissionsManager: React.FC = () => {
       };
     });
 
+    const order = moduleOrderRef.current;
     return groupList
       .filter((group) => {
         if (!group.total) return false;
@@ -249,10 +251,12 @@ export const PermissionsManager: React.FC = () => {
         return group.entries.length > 0;
       })
       .sort((a, b) => {
-        const ratioA = a.total ? a.granted / a.total : 0;
-        const ratioB = b.total ? b.granted / b.total : 0;
-        if (ratioB !== ratioA) return ratioB - ratioA;
-        if (b.granted !== a.granted) return b.granted - a.granted;
+        const idxA = order.indexOf(a.key);
+        const idxB = order.indexOf(b.key);
+        if (idxA !== -1 || idxB !== -1) {
+          return (idxA === -1 ? Number.MAX_SAFE_INTEGER : idxA) -
+            (idxB === -1 ? Number.MAX_SAFE_INTEGER : idxB);
+        }
         return a.title.localeCompare(b.title);
       });
   }, [catalog, filterMode, hideEmptyModules, permissionsMap, search]);
@@ -316,14 +320,24 @@ export const PermissionsManager: React.FC = () => {
   }, [roleSlug]);
 
   useEffect(() => {
+    if (moduleOrderRef.current.length || !catalog.length) return;
+    const prefixes = new Set<string>();
+    catalog.forEach((entry) => {
+      const key = String(entry.resource_key || "").trim().toLowerCase();
+      if (!key) return;
+      const prefix = key.startsWith("menu.")
+        ? key.split(".")[1] || "other"
+        : key.split(".")[0] || "other";
+      prefixes.add(prefix);
+    });
+    moduleOrderRef.current = Array.from(prefixes).sort((a, b) => a.localeCompare(b));
+  }, [catalog]);
+
+  useEffect(() => {
     setExpandedModule(null);
   }, [search]);
 
   const toggleAction = (resourceKey: string, action: string) => {
-    if (filterMode !== "all") {
-      setFilterMode("all");
-      enqueueSnackbar("Switched to All view while editing.", { variant: "info" });
-    }
     setPermissionsMap((prev) => {
       const next = new Map(prev);
       const existing = next.get(resourceKey) || new Set();
@@ -376,19 +390,47 @@ export const PermissionsManager: React.FC = () => {
     });
   };
 
+  const allowedActionsByKey = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    catalog.forEach((entry) => {
+      const key = String(entry.resource_key || "").trim().toLowerCase();
+      if (!key) return;
+      const action = String(entry.action_code || "").trim().toUpperCase();
+      if (!action) return;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(action);
+    });
+    return map;
+  }, [catalog]);
+
   const handleSave = async () => {
     const username = currentUsername();
     if (!username || !roleSlug) return;
     setSaving(true);
     try {
-      const permissions = Array.from(permissionsMap.entries()).map(([resource_key, actionsSet]) => ({
-        resource_key,
-        actions: Array.from(actionsSet),
-      }));
+      const permissions = [];
+      for (const [resource_key, actionsSet] of permissionsMap.entries()) {
+        const allowed = allowedActionsByKey.get(resource_key) || new Set<string>();
+        const checked = Array.from(actionsSet);
+        const invalid = checked.filter((action) => !allowed.has(action));
+        if (invalid.length) {
+          const allowedList = Array.from(allowed).join(", ") || "none";
+          enqueueSnackbar(
+            `Invalid action selected for ${resource_key}. Allowed: ${allowedList}.`,
+            { variant: "error" },
+          );
+          setSaving(false);
+          return;
+        }
+        const actions = checked.filter((action) => allowed.has(action));
+        if (actions.length) {
+          permissions.push({ resource_key, actions });
+        }
+      }
       const resp = await updateRolePolicy({ username, role_slug: roleSlug, permissions });
-      const description = resp?.response?.description || "Permissions saved.";
+      const description = resp?.response?.description || "Permissions updated successfully.";
       enqueueSnackbar(description, { variant: "success" });
-      await loadRolePolicy(roleSlug);
+      setBaselineMap(new Map(permissionsMap));
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Failed to save permissions.", { variant: "error" });
     } finally {
@@ -468,7 +510,7 @@ export const PermissionsManager: React.FC = () => {
           </Box>
 
           {hasUnsavedChanges && (
-            <Chip color="warning" label="Unsaved changes" sx={{ alignSelf: "flex-start" }} />
+            <Chip color="warning" label="● Unsaved changes" sx={{ alignSelf: "flex-start" }} />
           )}
           <Box
             sx={{
@@ -500,6 +542,9 @@ export const PermissionsManager: React.FC = () => {
                     bgcolor: "grey.50",
                     borderBottom: "1px solid",
                     borderColor: "divider",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
                   }}
                 >
                   <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1 }}>
@@ -637,7 +682,11 @@ export const PermissionsManager: React.FC = () => {
             justifyContent: "flex-end",
           }}
         >
-          <Button variant="contained" onClick={handleSave} disabled={saving || loadingPolicy}>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving || loadingPolicy || !hasUnsavedChanges}
+          >
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </Box>

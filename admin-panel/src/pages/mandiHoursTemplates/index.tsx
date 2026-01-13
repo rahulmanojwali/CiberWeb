@@ -8,8 +8,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -47,6 +49,10 @@ type HoursRow = {
   effective_to?: string | null;
   open_days?: string[];
   day_hours?: any[];
+  exclusions?: {
+    exclude_day_of_month?: number[];
+    exclude_dates?: string[];
+  };
 };
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -91,6 +97,7 @@ export const MandiHoursTemplates: React.FC = () => {
   const [timezone, setTimezone] = useState<string>("Asia/Kolkata");
   const [openDays, setOpenDays] = useState<string[]>([]);
   const [dayHours, setDayHours] = useState<Record<string, { open: string; close: string; note?: string }[]>>({});
+  const [closedOnFirstDay, setClosedOnFirstDay] = useState(false);
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
@@ -131,6 +138,7 @@ export const MandiHoursTemplates: React.FC = () => {
           effective_to: item.effective_to || null,
           open_days: item.open_days || [],
           day_hours: item.day_hours || [],
+          exclusions: item.exclusions || undefined,
         })),
       );
     } finally {
@@ -152,6 +160,7 @@ export const MandiHoursTemplates: React.FC = () => {
     setTimezone("Asia/Kolkata");
     setOpenDays([]);
     setDayHours({});
+    setClosedOnFirstDay(false);
   }, []);
 
   const openCreate = () => {
@@ -179,6 +188,8 @@ export const MandiHoursTemplates: React.FC = () => {
       });
     });
     setDayHours(nextDayHours);
+    const excludeDayOfMonth = row.exclusions?.exclude_day_of_month || [];
+    setClosedOnFirstDay(excludeDayOfMonth.includes(1));
     setDialogOpen(true);
   };
 
@@ -238,6 +249,9 @@ export const MandiHoursTemplates: React.FC = () => {
       effective_to: effectiveTo || undefined,
       is_active: "Y",
     };
+    if (closedOnFirstDay) {
+      payload.closed_on_first_day_of_month = true;
+    }
     if (isEdit && editId) {
       payload.template_id = editId;
       await updateMandiHoursTemplate({ username, language, payload });
@@ -402,6 +416,15 @@ export const MandiHoursTemplates: React.FC = () => {
               value={timezone}
               onChange={(event) => setTimezone(event.target.value)}
               fullWidth
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={closedOnFirstDay}
+                  onChange={(event) => setClosedOnFirstDay(event.target.checked)}
+                />
+              }
+              label="Closed on 1st of every month"
             />
             <Stack direction="row" spacing={1} flexWrap="wrap">
               {DAYS.map((day) => (

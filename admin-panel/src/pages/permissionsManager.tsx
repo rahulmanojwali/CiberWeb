@@ -320,6 +320,10 @@ export const PermissionsManager: React.FC = () => {
   }, [search]);
 
   const toggleAction = (resourceKey: string, action: string) => {
+    if (filterMode !== "all") {
+      setFilterMode("all");
+      enqueueSnackbar("Switched to All view while editing.", { variant: "info" });
+    }
     setPermissionsMap((prev) => {
       const next = new Map(prev);
       const existing = next.get(resourceKey) || new Set();
@@ -337,17 +341,21 @@ export const PermissionsManager: React.FC = () => {
     });
   };
 
-  const setModuleAction = (entries: CatalogEntry[], action: string, enabled: boolean) => {
+  const setModuleAction = (entries: CatalogEntry[], actionsToSet: string[], enabled: boolean) => {
     setPermissionsMap((prev) => {
       const next = new Map(prev);
       entries.forEach((entry) => {
-        if (!entry.actions.includes(action)) return;
+        const hasAny = actionsToSet.some((action) => entry.actions.includes(action));
+        if (!hasAny) return;
         const existing = next.get(entry.resource_key) || new Set<string>();
-        if (enabled) {
-          existing.add(action);
-        } else {
-          existing.delete(action);
-        }
+        actionsToSet.forEach((action) => {
+          if (!entry.actions.includes(action)) return;
+          if (enabled) {
+            existing.add(action);
+          } else {
+            existing.delete(action);
+          }
+        });
         if (existing.size) {
           next.set(entry.resource_key, new Set(existing));
         } else {
@@ -507,7 +515,7 @@ export const PermissionsManager: React.FC = () => {
                       sx={{ color: "text.secondary" }}
                       onClick={(event) => {
                         event.stopPropagation();
-                        setModuleAction(group.allEntries, "VIEW", true);
+                        setModuleAction(group.allEntries, ["VIEW", "VIEW_DETAIL"], true);
                       }}
                     >
                       Grant VIEW all

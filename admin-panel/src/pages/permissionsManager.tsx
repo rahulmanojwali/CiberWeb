@@ -12,6 +12,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -41,6 +42,10 @@ type RolePolicy = {
   actions: string[];
 };
 
+type CatalogEntry = UiResource & {
+  actions: string[];
+};
+
 const ROLE_SLUGS = [
   "SUPER_ADMIN",
   "ORG_ADMIN",
@@ -54,14 +59,35 @@ const ROLE_SLUGS = [
   "VIEWER",
 ];
 
-const ACTION_ORDER = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+const ACTION_ORDER = [
+  "VIEW",
+  "VIEW_DETAIL",
+  "CREATE",
+  "UPDATE",
+  "DEACTIVATE",
+  "DELETE",
+  "RESET_PASSWORD",
+  "UPDATE_STATUS",
+  "BULK_UPLOAD",
+  "APPROVE",
+  "REJECT",
+  "REQUEST_MORE_INFO",
+];
 const ROW_ORDER = ["menu", "list", "detail", "view", "create", "edit", "update", "deactivate"];
 
 const ACTION_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
   VIEW: "primary",
+  VIEW_DETAIL: "primary",
   CREATE: "success",
   UPDATE: "warning",
   DEACTIVATE: "error",
+  DELETE: "error",
+  RESET_PASSWORD: "warning",
+  UPDATE_STATUS: "warning",
+  BULK_UPLOAD: "success",
+  APPROVE: "success",
+  REJECT: "error",
+  REQUEST_MORE_INFO: "warning",
 };
 
 function currentUsername(): string | null {
@@ -80,11 +106,12 @@ export const PermissionsManager: React.FC = () => {
   const [roleSlug, setRoleSlug] = useState<string>("SUPER_ADMIN");
   const [search, setSearch] = useState<string>("");
   const [filterMode, setFilterMode] = useState<"granted" | "all" | "missing">("granted");
+  const [hideEmptyModules, setHideEmptyModules] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingPolicy, setLoadingPolicy] = useState(false);
   const [permissionsMap, setPermissionsMap] = useState<Map<string, Set<string>>>(new Map());
   const [baselineMap, setBaselineMap] = useState<Map<string, Set<string>>>(new Map());
-  const [expandedModules, setExpandedModules] = useState<string[]>([]);
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
   const groupedResources = useMemo(() => {
     const map = new Map<
@@ -116,26 +143,17 @@ export const PermissionsManager: React.FC = () => {
       if (action) map.get(key)!.actions.add(action);
     });
 
-    const list = Array.from(map.values()).map((entry) => ({
+    const list: CatalogEntry[] = Array.from(map.values()).map((entry) => ({
       ...entry,
-      actions: Array.from(entry.actions).sort((a, b) => ACTION_ORDER.indexOf(a) - ACTION_ORDER.indexOf(b)),
+      actions: Array.from(entry.actions).sort((a, b) => {
+        const idxA = ACTION_ORDER.indexOf(a);
+        const idxB = ACTION_ORDER.indexOf(b);
+        const rankA = idxA === -1 ? ACTION_ORDER.length : idxA;
+        const rankB = idxB === -1 ? ACTION_ORDER.length : idxB;
+        if (rankA !== rankB) return rankA - rankB;
+        return a.localeCompare(b);
+      }),
     }));
-
-    const menuLabelByPrefix = new Map<string, string>();
-    list.forEach((entry) => {
-      const isMenu = entry.resource_key.endsWith(".menu") || entry.resource_key.startsWith("menu.");
-      if (!isMenu) return;
-      const prefix = entry.resource_key.startsWith("menu.")
-        ? entry.resource_key.split(".")[1] || ""
-        : entry.resource_key.split(".")[0] || "";
-      if (!prefix) return;
-      const label =
-        entry.label ||
-        entry.element ||
-        entry.screen ||
-        prettifyScreenFromKey(prefix);
-      menuLabelByPrefix.set(prefix, label);
-    });
 
     const filter = search.trim().toLowerCase();
     const visibleList = list;
@@ -143,7 +161,7 @@ export const PermissionsManager: React.FC = () => {
     const groups: Record<
       string,
       {
-        entries: typeof list;
+        entries: CatalogEntry[];
         title: string;
       }
     > = {};
@@ -155,7 +173,7 @@ export const PermissionsManager: React.FC = () => {
       if (!groups[prefix]) {
         groups[prefix] = {
           entries: [],
-          title: menuLabelByPrefix.get(prefix) || prettifyScreenFromKey(prefix),
+          title: prettifyScreenFromKey(prefix),
         };
       }
       groups[prefix].entries.push(entry);
@@ -171,6 +189,16 @@ export const PermissionsManager: React.FC = () => {
         const actions = permissionsMap.get(entry.resource_key);
         return count + (actions && actions.size ? 1 : 0);
       }, 0);
+      const hasList = rows.some((entry) => {
+        const suffix = entry.resource_key.split(".").slice(-1)[0] || "";
+        if (suffix !== "list") return false;
+        const actions = permissionsMap.get(entry.resource_key);
+        return Boolean(actions && actions.has("VIEW"));
+      });
+      const hasCreate = rows.some((entry) => {
+        const actions = permissionsMap.get(entry.resource_key);
+        return Boolean(actions && actions.has("CREATE"));
+      });
 
       const matchesGroup = filter
         ? data.title.toLowerCase().includes(filter)
@@ -184,11 +212,14 @@ export const PermissionsManager: React.FC = () => {
         if (!filter) return true;
         if (matchesGroup) return true;
         const label = friendlyLabel(entry.resource_key, entry.element).toLowerCase();
+        const screenText = (entry.screen || "").toLowerCase();
+        const labelText = (entry.label_i18n?.en || entry.label_i18n?.hi || "").toLowerCase();
+        const elementText = (entry.element || "").toLowerCase();
         return (
           entry.resource_key.includes(filter) ||
-          entry.screen.toLowerCase().includes(filter) ||
-          (entry.label || "").toLowerCase().includes(filter) ||
-          (entry.element || "").toLowerCase().includes(filter) ||
+          screenText.includes(filter) ||
+          labelText.includes(filter) ||
+          elementText.includes(filter) ||
           label.includes(filter)
         );
       });
@@ -198,6 +229,8 @@ export const PermissionsManager: React.FC = () => {
         title: data.title,
         total,
         granted,
+        listWarning: hasCreate && !hasList,
+        allEntries: rows,
         entries: filteredRows.sort((a, b) => {
           const orderA = rowOrderForKey(a.resource_key);
           const orderB = rowOrderForKey(b.resource_key);
@@ -212,13 +245,17 @@ export const PermissionsManager: React.FC = () => {
         if (!group.total) return false;
         if (filterMode === "granted") return group.granted > 0 && group.entries.length > 0;
         if (filterMode === "missing") return group.granted < group.total && group.entries.length > 0;
+        if (hideEmptyModules && !filter) return group.granted > 0 && group.entries.length > 0;
         return group.entries.length > 0;
       })
       .sort((a, b) => {
+        const ratioA = a.total ? a.granted / a.total : 0;
+        const ratioB = b.total ? b.granted / b.total : 0;
+        if (ratioB !== ratioA) return ratioB - ratioA;
         if (b.granted !== a.granted) return b.granted - a.granted;
         return a.title.localeCompare(b.title);
       });
-  }, [catalog, filterMode, permissionsMap, search]);
+  }, [catalog, filterMode, hideEmptyModules, permissionsMap, search]);
 
   const hasUnsavedChanges = useMemo(() => {
     const currentKeys = Array.from(permissionsMap.keys()).sort();
@@ -279,10 +316,8 @@ export const PermissionsManager: React.FC = () => {
   }, [roleSlug]);
 
   useEffect(() => {
-    const hasSearch = Boolean(search.trim());
-    if (!hasSearch) return;
-    setExpandedModules(groupedResources.map((group) => group.key));
-  }, [groupedResources, search]);
+    setExpandedModule(null);
+  }, [search]);
 
   const toggleAction = (resourceKey: string, action: string) => {
     setPermissionsMap((prev) => {
@@ -298,6 +333,37 @@ export const PermissionsManager: React.FC = () => {
       } else {
         next.delete(resourceKey);
       }
+      return next;
+    });
+  };
+
+  const setModuleAction = (entries: CatalogEntry[], action: string, enabled: boolean) => {
+    setPermissionsMap((prev) => {
+      const next = new Map(prev);
+      entries.forEach((entry) => {
+        if (!entry.actions.includes(action)) return;
+        const existing = next.get(entry.resource_key) || new Set<string>();
+        if (enabled) {
+          existing.add(action);
+        } else {
+          existing.delete(action);
+        }
+        if (existing.size) {
+          next.set(entry.resource_key, new Set(existing));
+        } else {
+          next.delete(entry.resource_key);
+        }
+      });
+      return next;
+    });
+  };
+
+  const clearModule = (entries: CatalogEntry[]) => {
+    setPermissionsMap((prev) => {
+      const next = new Map(prev);
+      entries.forEach((entry) => {
+        next.delete(entry.resource_key);
+      });
       return next;
     });
   };
@@ -330,140 +396,217 @@ export const PermissionsManager: React.FC = () => {
     >
       <PageContainer title="Role Permission Manager">
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Stack
-            direction={{ xs: "column", lg: "row" }}
-            spacing={2}
-            alignItems={{ xs: "stretch", lg: "center" }}
+          <Box
+            sx={{
+              position: "sticky",
+              top: 64,
+              zIndex: 1,
+              bgcolor: "background.default",
+              pb: 1.5,
+            }}
           >
-            <Box sx={{ flex: 1 }}>
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems={{ lg: "center" }}>
+              <Box sx={{ flex: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
+                  <Chip size="small" color="default" label="SUPER_ADMIN only" />
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Manage permissions for each role. SUPER_ADMIN only.
+                </Typography>
+              </Box>
+              <FormControl size="small" sx={{ minWidth: 220 }}>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  label="Role"
+                  value={roleSlug}
+                  onChange={(event) => setRoleSlug(String(event.target.value))}
+                >
+                  {ROLE_SLUGS.map((role) => (
+                    <MenuItem key={role} value={role}>
+                      {role}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Filter</InputLabel>
+                <Select
+                  label="Filter"
+                  value={filterMode}
+                  onChange={(event) => setFilterMode(event.target.value as "granted" | "all" | "missing")}
+                >
+                  <MenuItem value="granted">Granted only</MenuItem>
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="missing">Missing only</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                size="small"
+                label="Search permissions"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                sx={{ minWidth: { xs: "100%", lg: 320 } }}
+              />
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
-                <Chip size="small" color="default" label="SUPER_ADMIN only" />
+                <Switch
+                  size="small"
+                  checked={hideEmptyModules}
+                  onChange={(event) => setHideEmptyModules(event.target.checked)}
+                />
+                <Typography variant="body2">Hide empty modules</Typography>
               </Stack>
-              <Typography variant="body2" color="text.secondary">
-                Manage permissions for each role. SUPER_ADMIN only.
-              </Typography>
-            </Box>
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Role</InputLabel>
-              <Select
-                label="Role"
-                value={roleSlug}
-                onChange={(event) => setRoleSlug(String(event.target.value))}
-              >
-                {ROLE_SLUGS.map((role) => (
-                  <MenuItem key={role} value={role}>
-                    {role}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Filter</InputLabel>
-              <Select
-                label="Filter"
-                value={filterMode}
-                onChange={(event) => setFilterMode(event.target.value as "granted" | "all" | "missing")}
-              >
-                <MenuItem value="granted">Granted only</MenuItem>
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="missing">Missing only</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              label="Search permissions"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              sx={{ minWidth: 260 }}
-            />
-          </Stack>
+            </Stack>
+          </Box>
 
           {hasUnsavedChanges && (
             <Chip color="warning" label="Unsaved changes" sx={{ alignSelf: "flex-start" }} />
           )}
-          <Typography variant="caption" color="text.secondary">
-            Create buttons may require List permission as well.
-          </Typography>
-
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" },
+              gridTemplateColumns: "1fr",
               gap: 2,
+              alignItems: "start",
             }}
           >
             {groupedResources.map((group) => (
               <Accordion
                 key={group.key}
-                expanded={expandedModules.includes(group.key)}
+                expanded={expandedModule === group.key}
                 onChange={() =>
-                  setExpandedModules((prev) =>
-                    prev.includes(group.key)
-                      ? prev.filter((item) => item !== group.key)
-                      : [...prev, group.key],
-                  )
+                  setExpandedModule(expandedModule === group.key ? null : group.key)
                 }
                 sx={{
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: 2,
                   bgcolor: "background.paper",
+                  alignSelf: "start",
+                  overflow: "hidden",
                 }}
               >
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    bgcolor: "grey.50",
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1 }}>
                     <Typography sx={{ fontWeight: 700 }}>{group.title}</Typography>
-                    <Chip
+                    <Chip size="small" variant="outlined" label={`${group.granted}/${group.total}`} />
+                    {group.listWarning && <Chip size="small" color="warning" label="List missing" />}
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button
                       size="small"
-                      variant="outlined"
-                      label={`${group.granted}/${group.total}`}
-                    />
+                      variant="text"
+                      color="inherit"
+                      sx={{ color: "text.secondary" }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setModuleAction(group.allEntries, "VIEW", true);
+                      }}
+                    >
+                      Grant VIEW all
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="text"
+                      color="inherit"
+                      sx={{ color: "error.main" }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        clearModule(group.allEntries);
+                      }}
+                    >
+                      Clear module
+                    </Button>
                   </Stack>
                 </AccordionSummary>
-                <AccordionDetails>
+                <AccordionDetails sx={{ p: 1.25 }} onClick={(event) => event.stopPropagation()}>
                   <Stack spacing={1.5}>
                     {group.entries.map((entry) => (
                       <Box
                         key={entry.resource_key}
+                        onClick={(event) => event.stopPropagation()}
                         sx={{
-                          borderRadius: 1.5,
-                          border: "1px solid",
+                          display: "grid",
+                          gridTemplateColumns: { xs: "1fr", sm: "minmax(120px, 180px) 1fr auto" },
+                          gap: 0.75,
+                          alignItems: "center",
+                          borderBottom: "1px solid",
                           borderColor: "divider",
-                          p: 1.5,
+                          py: 0.75,
+                          "&:hover": { bgcolor: "action.hover" },
                         }}
                       >
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
-                          <Box sx={{ flex: 1 }}>
-                            <Typography sx={{ fontWeight: 600 }}>
-                              {friendlyLabel(entry.resource_key, entry.element)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {entry.resource_key}
-                            </Typography>
-                          </Box>
-                          <Stack direction="row" spacing={1} flexWrap="wrap">
-                            {entry.actions.map((action) => {
-                              const checked = permissionsMap.get(entry.resource_key)?.has(action) || false;
-                              const color = ACTION_COLORS[action] || "default";
-                              return (
-                                <Box key={action} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                  <Checkbox
-                                    size="small"
-                                    checked={checked}
-                                    onChange={() => toggleAction(entry.resource_key, action)}
-                                  />
-                                  <Chip
-                                    size="small"
-                                    label={action}
-                                    color={color}
-                                    variant={checked ? "filled" : "outlined"}
-                                  />
-                                </Box>
-                              );
-                            })}
-                          </Stack>
-                        </Stack>
+                        <Typography sx={{ fontWeight: 600, minWidth: 120 }}>
+                          {friendlyLabel(entry.resource_key, entry.element)}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontFamily: "monospace" }}
+                        >
+                          {entry.resource_key}
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "flex-end",
+                            gap: 0.5,
+                            maxWidth: 220,
+                          }}
+                        >
+                          {entry.actions.map((action) => {
+                            const checked = permissionsMap.get(entry.resource_key)?.has(action) || false;
+                            const color = ACTION_COLORS[action] || "default";
+                            const isDanger = ["DEACTIVATE", "DELETE", "REJECT"].includes(action);
+                            const variant = isDanger ? "filled" : "outlined";
+                            const labelText = action.replaceAll("_", " ");
+                            return (
+                              <Box
+                                key={action}
+                                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Checkbox
+                                  size="small"
+                                  checked={checked}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onChange={(event) => {
+                                    event.stopPropagation();
+                                    toggleAction(entry.resource_key, action);
+                                  }}
+                                />
+                                <Chip
+                                  size="small"
+                                  label={labelText}
+                                  color={color}
+                                  variant={variant}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleAction(entry.resource_key, action);
+                                  }}
+                                  sx={{
+                                    px: 0.75,
+                                    height: 22,
+                                    fontSize: 12,
+                                    maxWidth: 140,
+                                    "& .MuiChip-label": {
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    },
+                                  }}
+                                />
+                              </Box>
+                            );
+                          })}
+                        </Box>
                       </Box>
                     ))}
                   </Stack>
@@ -513,7 +656,7 @@ function friendlyLabel(resourceKey: string, element?: string): string {
   const suffix = resourceKey.split(".").slice(-1)[0] || "";
   if (suffix === "menu") return "Menu";
   if (suffix === "list") return "List";
-  if (suffix === "detail" || suffix === "view") return "Detail";
+  if (suffix === "detail" || suffix === "view" || suffix === "view_detail") return "Detail";
   if (suffix === "create") return "Create";
   if (suffix === "edit" || suffix === "update") return "Edit";
   if (suffix === "deactivate") return "Deactivate";

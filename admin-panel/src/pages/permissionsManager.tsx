@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
   Checkbox,
@@ -9,11 +12,11 @@ import {
   MenuItem,
   Select,
   Stack,
-  Switch,
   TextField,
   Typography,
 } from "@mui/material";
 import { useSnackbar } from "notistack";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { PageContainer } from "../components/PageContainer";
 import { StepUpGuard } from "../components/StepUpGuard";
 import {
@@ -52,7 +55,7 @@ const ROLE_SLUGS = [
 ];
 
 const ACTION_ORDER = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
-const ROW_ORDER = ["menu", "list", "detail", "create", "edit", "deactivate"];
+const ROW_ORDER = ["menu", "list", "detail", "view", "create", "edit", "update", "deactivate"];
 
 const ACTION_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
   VIEW: "primary",
@@ -76,11 +79,12 @@ export const PermissionsManager: React.FC = () => {
   const [catalog, setCatalog] = useState<UiResource[]>([]);
   const [roleSlug, setRoleSlug] = useState<string>("SUPER_ADMIN");
   const [search, setSearch] = useState<string>("");
-  const [showEnabledOnly, setShowEnabledOnly] = useState<boolean>(false);
+  const [filterMode, setFilterMode] = useState<"granted" | "all" | "missing">("granted");
   const [saving, setSaving] = useState(false);
   const [loadingPolicy, setLoadingPolicy] = useState(false);
   const [permissionsMap, setPermissionsMap] = useState<Map<string, Set<string>>>(new Map());
   const [baselineMap, setBaselineMap] = useState<Map<string, Set<string>>>(new Map());
+  const [expandedModules, setExpandedModules] = useState<string[]>([]);
 
   const groupedResources = useMemo(() => {
     const map = new Map<
@@ -119,52 +123,102 @@ export const PermissionsManager: React.FC = () => {
 
     const menuLabelByPrefix = new Map<string, string>();
     list.forEach((entry) => {
-      if (!entry.resource_key.endsWith(".menu")) return;
-      const prefix = entry.resource_key.split(".")[0] || "";
+      const isMenu = entry.resource_key.endsWith(".menu") || entry.resource_key.startsWith("menu.");
+      if (!isMenu) return;
+      const prefix = entry.resource_key.startsWith("menu.")
+        ? entry.resource_key.split(".")[1] || ""
+        : entry.resource_key.split(".")[0] || "";
       if (!prefix) return;
       const label =
         entry.label ||
         entry.element ||
         entry.screen ||
-        prettifyScreenFromKey(entry.resource_key);
+        prettifyScreenFromKey(prefix);
       menuLabelByPrefix.set(prefix, label);
     });
 
     const filter = search.trim().toLowerCase();
-    const filteredByActive = showEnabledOnly
-      ? list.filter((entry) => String(entry.is_active || "").toUpperCase() !== "N")
-      : list;
-    const filtered = filter
-      ? filteredByActive.filter(
-          (entry) =>
-            entry.resource_key.includes(filter) ||
-            entry.screen.toLowerCase().includes(filter) ||
-            (entry.label || "").toLowerCase().includes(filter) ||
-            (entry.element || "").toLowerCase().includes(filter),
-        )
-      : filteredByActive;
+    const visibleList = list;
 
-    const groups: Record<string, typeof list> = {};
-    filtered.forEach((entry) => {
-      const prefix = entry.resource_key.split(".")[0] || "other";
-      if (!groups[prefix]) groups[prefix] = [];
-      groups[prefix].push(entry);
+    const groups: Record<
+      string,
+      {
+        entries: typeof list;
+        title: string;
+      }
+    > = {};
+
+    visibleList.forEach((entry) => {
+      const prefix = entry.resource_key.startsWith("menu.")
+        ? entry.resource_key.split(".")[1] || "other"
+        : entry.resource_key.split(".")[0] || "other";
+      if (!groups[prefix]) {
+        groups[prefix] = {
+          entries: [],
+          title: menuLabelByPrefix.get(prefix) || prettifyScreenFromKey(prefix),
+        };
+      }
+      groups[prefix].entries.push(entry);
     });
 
-    return Object.entries(groups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([prefix, entries]) => ({
-        screen: menuLabelByPrefix.get(prefix) || prettifyScreenFromKey(prefix),
-        entries: entries
-          .filter((entry) => !entry.resource_key.endsWith(".menu"))
-          .sort((a, b) => {
-            const orderA = rowOrderForKey(a.resource_key);
-            const orderB = rowOrderForKey(b.resource_key);
-            if (orderA !== orderB) return orderA - orderB;
-            return a.resource_key.localeCompare(b.resource_key);
-          }),
-      }));
-  }, [catalog, search, showEnabledOnly]);
+    const groupList = Object.entries(groups).map(([prefix, data]) => {
+      const allEntries = data.entries;
+      const rows = allEntries.filter(
+        (entry) => !entry.resource_key.endsWith(".menu") && !entry.resource_key.startsWith("menu."),
+      );
+      const total = rows.length;
+      const granted = rows.reduce((count, entry) => {
+        const actions = permissionsMap.get(entry.resource_key);
+        return count + (actions && actions.size ? 1 : 0);
+      }, 0);
+
+      const matchesGroup = filter
+        ? data.title.toLowerCase().includes(filter)
+        : false;
+
+      const filteredRows = rows.filter((entry) => {
+        const actions = permissionsMap.get(entry.resource_key);
+        const isGranted = Boolean(actions && actions.size);
+        if (filterMode === "granted" && !isGranted) return false;
+        if (filterMode === "missing" && isGranted) return false;
+        if (!filter) return true;
+        if (matchesGroup) return true;
+        const label = friendlyLabel(entry.resource_key, entry.element).toLowerCase();
+        return (
+          entry.resource_key.includes(filter) ||
+          entry.screen.toLowerCase().includes(filter) ||
+          (entry.label || "").toLowerCase().includes(filter) ||
+          (entry.element || "").toLowerCase().includes(filter) ||
+          label.includes(filter)
+        );
+      });
+
+      return {
+        key: prefix,
+        title: data.title,
+        total,
+        granted,
+        entries: filteredRows.sort((a, b) => {
+          const orderA = rowOrderForKey(a.resource_key);
+          const orderB = rowOrderForKey(b.resource_key);
+          if (orderA !== orderB) return orderA - orderB;
+          return a.resource_key.localeCompare(b.resource_key);
+        }),
+      };
+    });
+
+    return groupList
+      .filter((group) => {
+        if (!group.total) return false;
+        if (filterMode === "granted") return group.granted > 0 && group.entries.length > 0;
+        if (filterMode === "missing") return group.granted < group.total && group.entries.length > 0;
+        return group.entries.length > 0;
+      })
+      .sort((a, b) => {
+        if (b.granted !== a.granted) return b.granted - a.granted;
+        return a.title.localeCompare(b.title);
+      });
+  }, [catalog, filterMode, permissionsMap, search]);
 
   const hasUnsavedChanges = useMemo(() => {
     const currentKeys = Array.from(permissionsMap.keys()).sort();
@@ -223,6 +277,12 @@ export const PermissionsManager: React.FC = () => {
   useEffect(() => {
     loadRolePolicy(roleSlug);
   }, [roleSlug]);
+
+  useEffect(() => {
+    const hasSearch = Boolean(search.trim());
+    if (!hasSearch) return;
+    setExpandedModules(groupedResources.map((group) => group.key));
+  }, [groupedResources, search]);
 
   const toggleAction = (resourceKey: string, action: string) => {
     setPermissionsMap((prev) => {
@@ -298,6 +358,18 @@ export const PermissionsManager: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Filter</InputLabel>
+              <Select
+                label="Filter"
+                value={filterMode}
+                onChange={(event) => setFilterMode(event.target.value as "granted" | "all" | "missing")}
+              >
+                <MenuItem value="granted">Granted only</MenuItem>
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="missing">Missing only</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               size="small"
               label="Search permissions"
@@ -305,18 +377,14 @@ export const PermissionsManager: React.FC = () => {
               onChange={(event) => setSearch(event.target.value)}
               sx={{ minWidth: 260 }}
             />
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Switch
-                checked={showEnabledOnly}
-                onChange={(event) => setShowEnabledOnly(event.target.checked)}
-              />
-              <Typography variant="body2">Show only enabled</Typography>
-            </Stack>
           </Stack>
 
           {hasUnsavedChanges && (
             <Chip color="warning" label="Unsaved changes" sx={{ alignSelf: "flex-start" }} />
           )}
+          <Typography variant="caption" color="text.secondary">
+            Create buttons may require List permission as well.
+          </Typography>
 
           <Box
             sx={{
@@ -326,66 +394,81 @@ export const PermissionsManager: React.FC = () => {
             }}
           >
             {groupedResources.map((group) => (
-              <Box
-                key={group.screen}
+              <Accordion
+                key={group.key}
+                expanded={expandedModules.includes(group.key)}
+                onChange={() =>
+                  setExpandedModules((prev) =>
+                    prev.includes(group.key)
+                      ? prev.filter((item) => item !== group.key)
+                      : [...prev, group.key],
+                  )
+                }
                 sx={{
                   border: "1px solid",
                   borderColor: "divider",
                   borderRadius: 2,
-                  p: 2,
                   bgcolor: "background.paper",
                 }}
               >
-                <Typography sx={{ fontWeight: 700 }}>{group.screen}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {group.entries.length} permissions
-                </Typography>
-                <Stack spacing={1.5} sx={{ mt: 2 }}>
-                  {group.entries.map((entry) => (
-                    <Box
-                      key={entry.resource_key}
-                      sx={{
-                        borderRadius: 1.5,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        p: 1.5,
-                      }}
-                    >
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
-                        <Box sx={{ flex: 1 }}>
-                          <Typography sx={{ fontWeight: 600 }}>
-                            {friendlyLabel(entry.resource_key, entry.element)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {entry.resource_key}
-                          </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {entry.actions.map((action) => {
-                            const checked = permissionsMap.get(entry.resource_key)?.has(action) || false;
-                            const color = ACTION_COLORS[action] || "default";
-                            return (
-                              <Box key={action} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                <Checkbox
-                                  size="small"
-                                  checked={checked}
-                                  onChange={() => toggleAction(entry.resource_key, action)}
-                                />
-                                <Chip
-                                  size="small"
-                                  label={action}
-                                  color={color}
-                                  variant={checked ? "filled" : "outlined"}
-                                />
-                              </Box>
-                            );
-                          })}
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Typography sx={{ fontWeight: 700 }}>{group.title}</Typography>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`${group.granted}/${group.total}`}
+                    />
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Stack spacing={1.5}>
+                    {group.entries.map((entry) => (
+                      <Box
+                        key={entry.resource_key}
+                        sx={{
+                          borderRadius: 1.5,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          p: 1.5,
+                        }}
+                      >
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="flex-start">
+                          <Box sx={{ flex: 1 }}>
+                            <Typography sx={{ fontWeight: 600 }}>
+                              {friendlyLabel(entry.resource_key, entry.element)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {entry.resource_key}
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            {entry.actions.map((action) => {
+                              const checked = permissionsMap.get(entry.resource_key)?.has(action) || false;
+                              const color = ACTION_COLORS[action] || "default";
+                              return (
+                                <Box key={action} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                  <Checkbox
+                                    size="small"
+                                    checked={checked}
+                                    onChange={() => toggleAction(entry.resource_key, action)}
+                                  />
+                                  <Chip
+                                    size="small"
+                                    label={action}
+                                    color={color}
+                                    variant={checked ? "filled" : "outlined"}
+                                  />
+                                </Box>
+                              );
+                            })}
+                          </Stack>
                         </Stack>
-                      </Stack>
-                    </Box>
-                  ))}
-                </Stack>
-              </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                </AccordionDetails>
+              </Accordion>
             ))}
           </Box>
         </Stack>

@@ -567,7 +567,7 @@ export const PermissionsManager: React.FC = () => {
                             const color = ACTION_COLORS[action] || "default";
                             const isDanger = ["DEACTIVATE", "DELETE", "REJECT"].includes(action);
                             const variant = isDanger ? "filled" : "outlined";
-                            const labelText = action.replaceAll("_", " ");
+                            const labelText = action.split("_").join(" ");
                             return (
                               <Box
                                 key={action}

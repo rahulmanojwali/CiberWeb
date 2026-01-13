@@ -595,7 +595,10 @@ export const MandiHoursTemplates: React.FC = () => {
                     select
                     SelectProps={{ multiple: true }}
                     value={monthlyDays}
-                    onChange={(event) => setMonthlyDays(event.target.value as string[])}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setMonthlyDays(Array.isArray(value) ? value : String(value).split(","));
+                    }}
                     fullWidth
                   >
                     {MONTH_DAYS.map((day) => (

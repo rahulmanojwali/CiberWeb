@@ -129,7 +129,7 @@ export const OrgMandiMapping: React.FC = () => {
   const lastFetchKeyRef = useRef<string>("");
 
   const canToggleStatus = useMemo(
-    () => can(uiConfig.resources, "mandis.org.remove", "DEACTIVATE"),
+    () => can(uiConfig.resources, "mandis.deactivate", "DEACTIVATE"),
     [uiConfig.resources],
   );
 

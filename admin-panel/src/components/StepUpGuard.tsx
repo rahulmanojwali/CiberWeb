@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 
 import { useStepUp } from "../security/stepup/useStepUp";
 import { resolveLockedStepupKey } from "../security/stepup/resolveLockedStepupKey";
@@ -48,7 +48,25 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({
   }
 
   if (!allowed) {
-    return null;
+    return (
+      <Box
+        sx={{
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          p: 3,
+          mt: 2,
+        }}
+      >
+        <Typography sx={{ fontWeight: 700, mb: 0.5 }}>Forbidden</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          You don’t have permission to view this module.
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Required: {resourceKey || "unknown"} · Action: {action}
+        </Typography>
+      </Box>
+    );
   }
 
   return <>{children}</>;

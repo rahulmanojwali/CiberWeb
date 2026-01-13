@@ -247,7 +247,11 @@ export const PermissionsManager: React.FC = () => {
   };
 
   return (
-    <StepUpGuard username={currentUsername() || ""} resourceKey="menu.role_policies">
+    <StepUpGuard
+      username={currentUsername() || ""}
+      resourceKey="role_policies.view"
+      action="VIEW"
+    >
       <PageContainer title="Role Permission Manager">
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Stack

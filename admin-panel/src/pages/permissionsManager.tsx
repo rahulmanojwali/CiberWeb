@@ -117,6 +117,19 @@ export const PermissionsManager: React.FC = () => {
       actions: Array.from(entry.actions).sort((a, b) => ACTION_ORDER.indexOf(a) - ACTION_ORDER.indexOf(b)),
     }));
 
+    const menuLabelByPrefix = new Map<string, string>();
+    list.forEach((entry) => {
+      if (!entry.resource_key.endsWith(".menu")) return;
+      const prefix = entry.resource_key.split(".")[0] || "";
+      if (!prefix) return;
+      const label =
+        entry.label ||
+        entry.element ||
+        entry.screen ||
+        prettifyScreenFromKey(entry.resource_key);
+      menuLabelByPrefix.set(prefix, label);
+    });
+
     const filter = search.trim().toLowerCase();
     const filteredByActive = showEnabledOnly
       ? list.filter((entry) => String(entry.is_active || "").toUpperCase() !== "N")
@@ -133,20 +146,23 @@ export const PermissionsManager: React.FC = () => {
 
     const groups: Record<string, typeof list> = {};
     filtered.forEach((entry) => {
-      if (!groups[entry.screen]) groups[entry.screen] = [];
-      groups[entry.screen].push(entry);
+      const prefix = entry.resource_key.split(".")[0] || "other";
+      if (!groups[prefix]) groups[prefix] = [];
+      groups[prefix].push(entry);
     });
 
     return Object.entries(groups)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([screen, entries]) => ({
-        screen,
-        entries: entries.sort((a, b) => {
-          const orderA = rowOrderForKey(a.resource_key);
-          const orderB = rowOrderForKey(b.resource_key);
-          if (orderA !== orderB) return orderA - orderB;
-          return a.resource_key.localeCompare(b.resource_key);
-        }),
+      .map(([prefix, entries]) => ({
+        screen: menuLabelByPrefix.get(prefix) || prettifyScreenFromKey(prefix),
+        entries: entries
+          .filter((entry) => !entry.resource_key.endsWith(".menu"))
+          .sort((a, b) => {
+            const orderA = rowOrderForKey(a.resource_key);
+            const orderB = rowOrderForKey(b.resource_key);
+            if (orderA !== orderB) return orderA - orderB;
+            return a.resource_key.localeCompare(b.resource_key);
+          }),
       }));
   }, [catalog, search, showEnabledOnly]);
 

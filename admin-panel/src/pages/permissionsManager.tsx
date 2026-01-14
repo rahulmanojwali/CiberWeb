@@ -25,7 +25,6 @@ import {
   fetchUiResourcesCatalog,
   updateRolePolicy,
 } from "../services/rolePoliciesApi";
-import { API_ROUTES } from "../config/appConfig";
 
 type UiResource = {
   resource_key: string;
@@ -118,6 +117,83 @@ function cloneMapOfSets(source: Map<string, Set<string>>): Map<string, Set<strin
   return next;
 }
 
+/**
+ * Diff count between maps (row-level)
+ */
+function computeDiffCount(
+  permissionsMap: Map<string, Set<string>>,
+  baselineMap: Map<string, Set<string>>,
+): number {
+  const allKeys = new Set([...permissionsMap.keys(), ...baselineMap.keys()]);
+  let changed = 0;
+
+  for (const key of allKeys) {
+    const a = permissionsMap.get(key) || new Set<string>();
+    const b = baselineMap.get(key) || new Set<string>();
+
+    if (a.size !== b.size) {
+      changed += 1;
+      continue;
+    }
+    for (const action of a) {
+      if (!b.has(action)) {
+        changed += 1;
+        break;
+      }
+    }
+  }
+  return changed;
+}
+
+/**
+ * ✅ CRITICAL FIX:
+ * Previous code blocked save on "invalid actions".
+ * In practice, the catalog sometimes uses VIEW_DETAIL vs VIEW (detail),
+ * and UPDATE_STATUS vs UPDATE (status edit), etc.
+ *
+ * This function:
+ * - auto-maps VIEW -> VIEW_DETAIL for `.detail` when needed
+ * - auto-maps UPDATE <-> UPDATE_STATUS when needed
+ * - drops anything not allowed by catalog
+ * - NEVER blocks save
+ */
+function normalizeActionsForSave(
+  resourceKey: string,
+  selected: string[],
+  allowed: Set<string>,
+): { actions: string[]; dropped: string[]; mapped: Array<{ from: string; to: string }> } {
+  const key = normalizeKey(resourceKey);
+
+  const picked = new Set<string>(selected.map(normalizeAction).filter(Boolean));
+  const mapped: Array<{ from: string; to: string }> = [];
+  const dropped: string[] = [];
+
+  const swapIfNeeded = (from: string, to: string) => {
+    if (picked.has(from) && !allowed.has(from) && allowed.has(to)) {
+      picked.delete(from);
+      picked.add(to);
+      mapped.push({ from, to });
+    }
+  };
+
+  // detail rows often are VIEW_DETAIL in master
+  if (key.endsWith(".detail")) {
+    swapIfNeeded("VIEW", "VIEW_DETAIL");
+  }
+
+  // status-change actions vary by master
+  swapIfNeeded("UPDATE", "UPDATE_STATUS");
+  swapIfNeeded("UPDATE_STATUS", "UPDATE");
+
+  const final: string[] = [];
+  Array.from(picked).forEach((a) => {
+    if (allowed.has(a)) final.push(a);
+    else dropped.push(a);
+  });
+
+  return { actions: final, dropped, mapped };
+}
+
 export const PermissionsManager: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
 
@@ -136,7 +212,6 @@ export const PermissionsManager: React.FC = () => {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
   const moduleOrderRef = useRef<string[]>([]);
-  const loggedUsernameRef = useRef(false);
 
   const allowedActionsByKey = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -150,6 +225,13 @@ export const PermissionsManager: React.FC = () => {
     });
     return map;
   }, [catalog]);
+
+  const diffCount = useMemo(
+    () => computeDiffCount(permissionsMap, baselineMap),
+    [permissionsMap, baselineMap],
+  );
+
+  const hasUnsavedChanges = diffCount > 0;
 
   const groupedResources = useMemo(() => {
     const map = new Map<
@@ -308,26 +390,6 @@ export const PermissionsManager: React.FC = () => {
       });
   }, [catalog, filterMode, hideEmptyModules, permissionsMap, search]);
 
-  const hasUnsavedChanges = useMemo(() => {
-    const currentKeys = Array.from(permissionsMap.keys()).sort();
-    const baselineKeys = Array.from(baselineMap.keys()).sort();
-    if (currentKeys.length !== baselineKeys.length) return true;
-
-    for (let i = 0; i < currentKeys.length; i += 1) {
-      if (currentKeys[i] !== baselineKeys[i]) return true;
-    }
-
-    return currentKeys.some((key) => {
-      const current = permissionsMap.get(key) || new Set();
-      const baseline = baselineMap.get(key) || new Set();
-      if (current.size !== baseline.size) return true;
-      for (const action of current) {
-        if (!baseline.has(action)) return true;
-      }
-      return false;
-    });
-  }, [permissionsMap, baselineMap]);
-
   const loadCatalog = async () => {
     const username = currentUsername();
     if (!username) {
@@ -356,13 +418,9 @@ export const PermissionsManager: React.FC = () => {
         const key = normalizeKey(perm.resource_key);
         if (!key) return;
         const actions = Array.isArray(perm.actions) ? perm.actions : [];
-        map.set(
-          key,
-          new Set(actions.map((a) => normalizeAction(a)).filter(Boolean)),
-        );
+        map.set(key, new Set(actions.map((a) => normalizeAction(a)).filter(Boolean)));
       });
 
-      // ✅ IMPORTANT: store deep-cloned copies so baseline never shares Set refs
       const cloned = cloneMapOfSets(map);
       setPermissionsMap(cloned);
       setBaselineMap(cloneMapOfSets(cloned));
@@ -380,12 +438,6 @@ export const PermissionsManager: React.FC = () => {
     loadRolePolicy(roleSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleSlug]);
-
-  useEffect(() => {
-    if (loggedUsernameRef.current) return;
-    loggedUsernameRef.current = true;
-    // keep minimal, no noisy logs in prod
-  }, []);
 
   useEffect(() => {
     if (moduleOrderRef.current.length || !catalog.length) return;
@@ -415,11 +467,8 @@ export const PermissionsManager: React.FC = () => {
       } else {
         existing.add(action);
       }
-      if (existing.size) {
-        next.set(resourceKey, existing);
-      } else {
-        next.delete(resourceKey);
-      }
+      if (existing.size) next.set(resourceKey, existing);
+      else next.delete(resourceKey);
       return next;
     });
   };
@@ -452,100 +501,105 @@ export const PermissionsManager: React.FC = () => {
   const clearModule = (entries: CatalogEntry[]) => {
     setPermissionsMap((prev) => {
       const next = new Map(prev);
-      entries.forEach((entry) => {
-        next.delete(entry.resource_key);
-      });
+      entries.forEach((entry) => next.delete(entry.resource_key));
       return next;
     });
   };
 
+  /**
+   * Save flow:
+   * - show proof alerts at key steps (remove once stable)
+   * - never block on catalog mismatch; map/drop and continue
+   */
   const handleSave = async () => {
-    // eslint-disable-next-line no-console
-    console.log("[SAVE] entered handleSave()", {
-      roleSlug,
-      saving,
-      loadingPolicy,
-      hasUnsavedChanges,
-    });
+    alert("A: SAVE CLICKED");
 
     const username = currentUsername();
+    alert(
+      `B: username=${String(username)} role=${String(roleSlug)} diff=${diffCount} saving=${String(
+        saving,
+      )} loadingPolicy=${String(loadingPolicy)}`,
+    );
+
     if (!username || !roleSlug) {
-      // eslint-disable-next-line no-console
-      console.log("[SAVE] early-exit: missing session/role", { username, roleSlug });
       enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
       return;
     }
 
-    // No-op guard: if nothing changed, don’t call API
     if (!hasUnsavedChanges) {
-      // eslint-disable-next-line no-console
-      console.log("[SAVE] early-exit: hasUnsavedChanges=false");
       enqueueSnackbar("No changes to save.", { variant: "info" });
       return;
     }
 
     setSaving(true);
     try {
+      alert("C: building permissions payload");
       const permissions: Array<{ resource_key: string; actions: string[] }> = [];
+      const droppedSummary: Array<{ resource_key: string; dropped: string[] }> = [];
+      const mappedSummary: Array<{ resource_key: string; mapped: Array<{ from: string; to: string }> }> = [];
 
-      for (const [resource_key, actionsSet] of permissionsMap.entries()) {
+      for (const [resource_key_raw, actionsSet] of permissionsMap.entries()) {
+        const resource_key = normalizeKey(resource_key_raw);
         const allowed = allowedActionsByKey.get(resource_key) || new Set<string>();
-        const checked = Array.from(actionsSet);
 
-        const invalid = checked.filter((action) => !allowed.has(action));
-        if (invalid.length) {
-          // eslint-disable-next-line no-console
-          console.log("[SAVE] early-exit: invalid actions", {
-            resource_key,
-            invalid,
-            allowed: Array.from(allowed),
-          });
-          const allowedList = Array.from(allowed).join(", ") || "none";
-          enqueueSnackbar(
-            `Invalid action selected for ${resource_key}. Allowed: ${allowedList}.`,
-            { variant: "error" },
-          );
-          return;
-        }
+        const selected = Array.from(actionsSet);
+        const { actions, dropped, mapped } = normalizeActionsForSave(resource_key, selected, allowed);
 
-        const actions = checked.filter((action) => allowed.has(action));
-        if (actions.length) {
-          permissions.push({ resource_key, actions });
-        }
+        if (mapped.length) mappedSummary.push({ resource_key, mapped });
+        if (dropped.length) droppedSummary.push({ resource_key, dropped });
+
+        if (actions.length) permissions.push({ resource_key, actions });
       }
 
+      // Debug: log but DO NOT block
       // eslint-disable-next-line no-console
-      console.log("[SAVE] before API call", {
-        route: (API_ROUTES as any)?.admin?.updateRolePolicies,
+      console.log("[SAVE_DEBUG] mappedSummary", mappedSummary);
+      // eslint-disable-next-line no-console
+      console.log("[SAVE_DEBUG] droppedSummary", droppedSummary);
+
+      if (droppedSummary.length) {
+        enqueueSnackbar(
+          `⚠️ Some actions were ignored because they are not allowed by the master catalog (${droppedSummary.length} rows).`,
+          { variant: "warning" },
+        );
+      }
+
+      alert(`D: payload built permissionsCount=${permissions.length}`);
+
+      const payload: any = {
+        api: "updateRolePolicies",
+        api_name: "updateRolePolicies",
         username,
         role_slug: roleSlug,
-        permissionsCount: permissions.length,
-      });
+        permissions,
+        _client_nonce: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      };
 
-      const resp: any = await updateRolePolicy({ username, role_slug: roleSlug, permissions });
+      alert("E: ABOUT TO CALL API updateRolePolicy()");
+      const resp: any = await updateRolePolicy(payload);
+      alert("F: API RETURNED");
 
       // eslint-disable-next-line no-console
-      console.log("[SAVE] after API call resp=", resp);
+      console.log("[SAVE_DEBUG] updateRolePolicy resp", resp);
 
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+
       if (rc !== undefined && String(rc) !== "0") {
-        enqueueSnackbar(resp?.response?.description || resp?.description || "Save failed.", {
-          variant: "error",
-        });
+        enqueueSnackbar(desc || "Save failed.", { variant: "error" });
         return;
       }
 
       enqueueSnackbar("Permissions updated successfully.", { variant: "success" });
 
-      // ✅ IMPORTANT: baseline must be deep-cloned snapshot
+      // snapshot baseline
       setBaselineMap(cloneMapOfSets(permissionsMap));
     } catch (err: any) {
       // eslint-disable-next-line no-console
-      console.error("[SAVE] API threw error", err);
+      console.error("[SAVE_DEBUG] error", err);
       enqueueSnackbar(err?.message || "Failed to save permissions.", { variant: "error" });
     } finally {
-      // eslint-disable-next-line no-console
-      console.log("[SAVE] leaving handleSave()");
+      alert("G: finally (saving=false)");
       setSaving(false);
     }
   };
@@ -558,7 +612,7 @@ export const PermissionsManager: React.FC = () => {
     >
       <PageContainer title="Role Permission Manager">
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {/* Sticky top filters */}
+          {/* Sticky top filters (kept as-is) */}
           <Box
             sx={{
               position: "sticky",
@@ -575,6 +629,11 @@ export const PermissionsManager: React.FC = () => {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
                   <Chip size="small" color="default" label="SUPER_ADMIN only" />
+                  <Chip
+                    size="small"
+                    color={hasUnsavedChanges ? "warning" : "default"}
+                    label={`diff=${diffCount}`}
+                  />
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
                   Manage permissions for each role. SUPER_ADMIN only.
@@ -656,6 +715,9 @@ export const PermissionsManager: React.FC = () => {
                   overflow: "hidden",
                 }}
               >
+                {/* IMPORTANT: AccordionSummary renders a BUTTON.
+                    Do NOT put <Button> inside it (nested button error).
+                    Actions are moved to details header below. */}
                 <AccordionSummary
                   expandIcon={<ExpandMoreIcon />}
                   sx={{
@@ -672,14 +734,37 @@ export const PermissionsManager: React.FC = () => {
                     <Chip size="small" variant="outlined" label={`${group.granted}/${group.total}`} />
                     {group.listWarning && <Chip size="small" color="warning" label="List missing" />}
                   </Stack>
+                </AccordionSummary>
 
-                  <Stack direction="row" spacing={1} alignItems="center">
+                <AccordionDetails
+                  sx={{ p: 1.25, maxHeight: 520, overflow: "auto" }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {/* Module actions (safe here; no nested button) */}
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="flex-end"
+                    sx={{
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 2,
+                      bgcolor: "background.paper",
+                      py: 0.5,
+                      mb: 1,
+                      borderBottom: "1px dashed",
+                      borderColor: "divider",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       size="small"
                       variant="text"
                       color="inherit"
                       sx={{ color: "text.secondary" }}
                       onClick={(event) => {
+                        event.preventDefault();
                         event.stopPropagation();
                         setModuleAction(group.allEntries, ["VIEW", "VIEW_DETAIL"], true);
                       }}
@@ -693,6 +778,7 @@ export const PermissionsManager: React.FC = () => {
                       color="inherit"
                       sx={{ color: "error.main" }}
                       onClick={(event) => {
+                        event.preventDefault();
                         event.stopPropagation();
                         clearModule(group.allEntries);
                       }}
@@ -700,12 +786,7 @@ export const PermissionsManager: React.FC = () => {
                       Clear module
                     </Button>
                   </Stack>
-                </AccordionSummary>
 
-                <AccordionDetails
-                  sx={{ p: 1.25, maxHeight: 520, overflow: "auto" }}
-                  onClick={(event) => event.stopPropagation()}
-                >
                   <Stack spacing={1.5}>
                     {group.entries.map((entry) => (
                       <Box
@@ -827,7 +908,7 @@ export const PermissionsManager: React.FC = () => {
               e.stopPropagation();
               handleSave();
             }}
-            disabled={saving || loadingPolicy || !hasUnsavedChanges}
+            disabled={saving || loadingPolicy}
           >
             {saving ? "Saving..." : "Save Changes"}
           </Button>
@@ -867,6 +948,7 @@ function friendlyLabel(resourceKey: string, element?: string): string {
   }
   return element || resourceKey;
 }
+
 
 
 // import React, { useEffect, useMemo, useRef, useState } from "react";

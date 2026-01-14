@@ -512,15 +512,15 @@ export const PermissionsManager: React.FC = () => {
    * - never block on catalog mismatch; map/drop and continue
    */
   const handleSave = async () => {
-    alert("A: SAVE CLICKED");
+    //alert("A: SAVE CLICKED");
 
     const username = currentUsername();
-    alert(
-      `B: username=${String(username)} role=${String(roleSlug)} diff=${diffCount} saving=${String(
-        saving,
-      )} loadingPolicy=${String(loadingPolicy)}`,
-    );
-
+  // //  alert(
+  //     `B: username=${String(username)} role=${String(roleSlug)} diff=${diffCount} saving=${String(
+  //       saving,
+  //     )} loadingPolicy=${String(loadingPolicy)}`,
+  //   );
+``
     if (!username || !roleSlug) {
       enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
       return;
@@ -533,7 +533,7 @@ export const PermissionsManager: React.FC = () => {
 
     setSaving(true);
     try {
-      alert("C: building permissions payload");
+      //alert("C: building permissions payload");
       const permissions: Array<{ resource_key: string; actions: string[] }> = [];
       const droppedSummary: Array<{ resource_key: string; dropped: string[] }> = [];
       const mappedSummary: Array<{ resource_key: string; mapped: Array<{ from: string; to: string }> }> = [];
@@ -564,7 +564,7 @@ export const PermissionsManager: React.FC = () => {
         );
       }
 
-      alert(`D: payload built permissionsCount=${permissions.length}`);
+      //alert(`D: payload built permissionsCount=${permissions.length}`);
 
       const payload: any = {
         api: "updateRolePolicies",
@@ -575,9 +575,9 @@ export const PermissionsManager: React.FC = () => {
         _client_nonce: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
       };
 
-      alert("E: ABOUT TO CALL API updateRolePolicy()");
+     // alert("E: ABOUT TO CALL API updateRolePolicy()");
       const resp: any = await updateRolePolicy(payload);
-      alert("F: API RETURNED");
+     // alert("F: API RETURNED");
 
       // eslint-disable-next-line no-console
       console.log("[SAVE_DEBUG] updateRolePolicy resp", resp);
@@ -599,7 +599,7 @@ export const PermissionsManager: React.FC = () => {
       console.error("[SAVE_DEBUG] error", err);
       enqueueSnackbar(err?.message || "Failed to save permissions.", { variant: "error" });
     } finally {
-      alert("G: finally (saving=false)");
+      //alert("G: finally (saving=false)");
       setSaving(false);
     }
   };

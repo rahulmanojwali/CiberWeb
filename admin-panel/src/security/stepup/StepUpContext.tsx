@@ -693,9 +693,11 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       const storedUser = getStoredAdminUser();
       const username = storedUser?.username || getCurrentAdminUsername();
       if (!username) {
+        console.warn("[STEPUP_REQUIRE] missing username", { resourceKey, action });
         throw new Error("Unable to resolve current user for step-up");
       }
 
+      console.log("[STEPUP_REQUIRE] calling requireStepUp", { resourceKey, action, username });
       const browserSessionId = getBrowserSessionId();
       const sessionId = getStoredStepupSessionId();
 

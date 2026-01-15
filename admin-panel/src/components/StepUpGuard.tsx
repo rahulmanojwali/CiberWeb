@@ -22,6 +22,8 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({
   const [allowed, setAllowed] = React.useState(false);
 
   React.useEffect(() => {
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+    console.log("[STEPUP_GUARD_MOUNT]", currentPath);
     let active = true;
     setLoading(true);
     setAllowed(false);

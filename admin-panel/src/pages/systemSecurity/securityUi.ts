@@ -7,8 +7,7 @@ const baseCard: SxProps<Theme> = {
 
 export const securityUi = {
   container: {
-    minHeight: "100vh",
-    py: 4,
+    py: { xs: 2, md: 3 },
     px: { xs: 2, md: 4 },
     backgroundColor: "background.default",
   } as SxProps<Theme>,

@@ -643,6 +643,16 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
   const resolveRef = React.useRef<((result: boolean) => void) | null>(null);
   const loadPromiseRef = React.useRef<Promise<void> | null>(null);
 
+  React.useEffect(() => {
+    if (!modalOpen) return;
+    console.log(
+      "[STEPUP_MODAL]",
+      `open=true reason=${pendingPrompt ? "OTP_REQUIRED" : "unknown"}`,
+      `resource=${pendingPrompt?.resourceKey || "unknown"}`,
+      `action=${pendingPrompt?.action || "unknown"}`
+    );
+  }, [modalOpen, pendingPrompt]);
+
   const ensureCacheLoaded = React.useCallback(async () => {
     if (cacheReady) return;
     if (loadPromiseRef.current) return loadPromiseRef.current;

@@ -16,7 +16,7 @@ export const securityUi = {
     mx: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: 24,
+    gap: 2,
   } as SxProps<Theme>,
   headerRow: {
     display: "flex",

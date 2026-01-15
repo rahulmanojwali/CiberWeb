@@ -554,6 +554,7 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
+  IconButton,
   Switch,
   TextField,
   Typography,
@@ -570,6 +571,7 @@ import {
 import { getBrowserSessionId } from "./browserSession";
 import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/VpnKey";
+import CloseIcon from "@mui/icons-material/Close";
 import { registerStepUpTrigger } from "./stepupService";
 
 type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
@@ -860,6 +862,17 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     }
   }, [backupCode, enqueueSnackbar, markVerified, otp, pendingPrompt, useBackup]);
 
+  const handleCloseModal = React.useCallback(() => {
+    if (verifying) return;
+    setModalOpen(false);
+    setOtp("");
+    setBackupCode("");
+    setUseBackup(false);
+    setPendingPrompt(null);
+    resolveRef.current?.(false);
+    resolveRef.current = null;
+  }, [verifying]);
+
   React.useEffect(() => {
     const trigger = (resourceKey?: string | null, action?: string, opts?: { source?: string }) => {
       const source = normalizeStepupSource(opts?.source);
@@ -885,6 +898,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       {children}
       <StepUpModal
         open={modalOpen}
+        onClose={handleCloseModal}
         onRetry={handleRetry}
         onVerify={handleVerify}
         verifying={verifying}
@@ -909,6 +923,7 @@ export const useStepUpContext = () => {
 
 const StepUpModal: React.FC<{
   open: boolean;
+  onClose: () => void;
   onRetry: () => void;
   onVerify: () => void;
   verifying: boolean;
@@ -920,6 +935,7 @@ const StepUpModal: React.FC<{
   setBackupCode: (value: string) => void;
 }> = ({
   open,
+  onClose,
   onRetry,
   onVerify,
   verifying,
@@ -932,6 +948,11 @@ const StepUpModal: React.FC<{
 }) => (
   <Dialog
     open={open}
+    onClose={(_, reason) => {
+      if (verifying && reason === "backdropClick") return;
+      if (verifying && reason === "escapeKeyDown") return;
+      onClose();
+    }}
     fullWidth
     maxWidth="xs"
     PaperProps={{
@@ -983,6 +1004,14 @@ const StepUpModal: React.FC<{
         variant="outlined"
         sx={{ fontWeight: 700 }}
       />
+      <IconButton
+        aria-label="Close verification dialog"
+        onClick={onClose}
+        disabled={verifying}
+        sx={{ ml: 0.5 }}
+      >
+        <CloseIcon fontSize="small" />
+      </IconButton>
     </Box>
 
     <Divider />

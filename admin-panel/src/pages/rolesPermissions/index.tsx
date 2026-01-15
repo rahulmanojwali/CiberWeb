@@ -59,7 +59,7 @@ const resolveModuleName = (key: string): string => {
   const k = normalizeKey(key);
   const starts = (p: string) => k.startsWith(p);
 
-  if (starts('menu.role_policies') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
+  if (starts('role_policies.menu') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
     return 'System Administration';
   }
   if (starts('organisations.') || starts('org_mandi_mappings.')) {
@@ -869,7 +869,7 @@ const RolesPermissionsPage: React.FC = () => {
 const GuardedRolesPermissionsPage: React.FC = () => {
   const username = currentUsername();
   return (
-    <StepUpGuard username={username} resourceKey="menu.role_policies" action="VIEW">
+    <StepUpGuard username={username} resourceKey="role_policies.menu" action="VIEW">
       <RolesPermissionsPage />
     </StepUpGuard>
   );

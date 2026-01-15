@@ -121,7 +121,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
 
   const SYSTEM_ONLY_MENU_KEYS = new Set([
-    "menu.role_policies",
+    "role_policies.menu",
     "resource_registry.menu",
     "ui_resources.menu",
     "admin_users.menu",

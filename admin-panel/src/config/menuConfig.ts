@@ -162,7 +162,7 @@ export const APP_MENU: AppMenuItem[] = [
         labelKey: "menu.rolePermissions",
         path: "/system/permissions-manager",
         icon: React.createElement(SecurityOutlinedIcon),
-        resourceKey: "menu.role_policies",
+        resourceKey: "role_policies.menu",
         requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
       },
@@ -987,7 +987,7 @@ export function filterMenuByResources(
 
     const filtered = filterHierarchy(augmentedMenu, (item, hasChildren) => {
       const watchKeys = new Set([
-        "menu.role_policies",
+        "role_policies.menu",
         "user_roles.menu",
         "resource_registry.menu",
       ]);

@@ -12,9 +12,12 @@ export async function fetchRolePoliciesDashboardData({
 }) {
   const items: Record<string, any> = {
     api: "getRolePoliciesDashboardData",
+    api_name: "getRolePoliciesDashboardData",
     username,
     language,
     country,
+    resource_key: "role_policies.view",
+    action: "VIEW",
   };
 
   // TEMP DEBUG LOG
@@ -78,11 +81,14 @@ export async function updateRolePolicies({
 }) {
   const items: Record<string, any> = {
     api: "updateRolePolicies",
+    api_name: "updateRolePolicies",
     username,
     language,
     country,
     role_slug,
     permissions,
+    resource_key: "role_policies.edit",
+    action: "UPDATE",
   };
 
   // TEMP DEBUG LOG
@@ -142,6 +148,8 @@ export async function updateRolePolicy({
     country,
     role_slug,
     permissions,
+    resource_key: "role_policies.edit",
+    action: "UPDATE",
 
     // Dedupe-buster for debugging / safety. Backend ignores unknown fields.
     _client_nonce: `${Date.now()}_${Math.random().toString(16).slice(2)}`,

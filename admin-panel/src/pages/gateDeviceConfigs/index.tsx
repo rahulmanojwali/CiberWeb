@@ -114,8 +114,8 @@ export const GateDeviceConfigs: React.FC = () => {
 
   const [selectedOrgId, setSelectedOrgId] = useState<string>(initialOrgId);
   const [selectedOrgCode, setSelectedOrgCode] = useState<string>(isOrgScoped ? authContext.org_code || "" : "");
-  const [mandiSource, setMandiSource] = useState<"ORG" | "SYSTEM">("ORG");
   const [mandiSearchText, setMandiSearchText] = useState("");
+  const [mandiSearchTextForm, setMandiSearchTextForm] = useState("");
   const [mandiLoading, setMandiLoading] = useState(false);
   const lastMandiParams = React.useRef<string>("");
 
@@ -174,13 +174,12 @@ export const GateDeviceConfigs: React.FC = () => {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      // avoid firing until org code (or SYSTEM) is known to prevent tight loops
-      if (mandiSource === "SYSTEM" || selectedOrgCode || isOrgScoped) {
+      if (selectedOrgCode || isOrgScoped) {
         loadMandis(mandiSearchText);
       }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [mandiSearchText, mandiSource, selectedOrgCode, isOrgScoped]);
+  }, [mandiSearchText, selectedOrgCode, isOrgScoped]);
 
   const loadOrgs = async () => {
     // Only SUPER_ADMIN should fetch organisations; scoped users rely on auth context
@@ -209,9 +208,9 @@ export const GateDeviceConfigs: React.FC = () => {
   const loadMandis = async (search?: string) => {
     const username = currentUsername();
     if (!username) return;
-    if (mandiSource === "ORG" && !selectedOrgId) return;
-    const org_code = mandiSource === "SYSTEM" ? "SYSTEM" : selectedOrgCode || authContext.org_code || undefined;
-    const key = `${selectedOrgId || "NOORG"}|${org_code || "ORG"}|${mandiSource}|${search || mandiSearchText || ""}`;
+    if (!selectedOrgId && !isOrgScoped) return;
+    const org_code = selectedOrgCode || authContext.org_code || undefined;
+    const key = `${selectedOrgId || "NOORG"}|${org_code || "ORG"}|${search || mandiSearchText || ""}`;
     if (key === lastMandiParams.current) return;
     lastMandiParams.current = key;
     setMandiLoading(true);
@@ -219,7 +218,6 @@ export const GateDeviceConfigs: React.FC = () => {
       console.log("[gateDeviceConfigs] Loading mandis", {
         org_id: selectedOrgId,
         org_code,
-        mandiSource,
         search: search || mandiSearchText || "",
       });
       const resp = await fetchMandisWithGatesSummary({
@@ -227,7 +225,6 @@ export const GateDeviceConfigs: React.FC = () => {
         language,
         filters: {
           org_id: selectedOrgId,
-          mandi_source: mandiSource,
           search: search || mandiSearchText || undefined,
           page: 1,
           pageSize: 50,
@@ -316,13 +313,19 @@ export const GateDeviceConfigs: React.FC = () => {
   }, [orgOptions, selectedOrgId, isOrgScoped, selectedOrgCode]);
 
   useEffect(() => {
+    if (!selectedOrgId && !isOrgScoped) return;
+    loadMandis("");
+  }, [selectedOrgId, selectedOrgCode, isOrgScoped]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => {
-      if (mandiSource === "SYSTEM" || selectedOrgId || selectedOrgCode || isOrgScoped) {
-        loadMandis(mandiSearchText);
+      if (!dialogOpen) return;
+      if (selectedOrgId || selectedOrgCode || isOrgScoped) {
+        loadMandis(mandiSearchTextForm);
       }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [mandiSearchText, mandiSource, selectedOrgId, selectedOrgCode, isOrgScoped]);
+  }, [mandiSearchTextForm, selectedOrgId, selectedOrgCode, isOrgScoped, dialogOpen]);
 
   useEffect(() => {
     const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id));
@@ -339,6 +342,27 @@ export const GateDeviceConfigs: React.FC = () => {
       loadDevices(form.mandi_id, form.gate_code);
     }
   }, [dialogOpen, form.mandi_id, form.gate_code, selectedOrgId, mandiOptions]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (!form.mandi_id && mandiOptions.length === 1) {
+      setForm((f) => ({ ...f, mandi_id: String(mandiOptions[0].mandi_id) }));
+    }
+  }, [dialogOpen, form.mandi_id, mandiOptions]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (!form.gate_code && gateOptions.length === 1) {
+      setForm((f) => ({ ...f, gate_code: gateOptions[0].gate_code }));
+    }
+  }, [dialogOpen, form.gate_code, gateOptions]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (!form.device_code && deviceOptions.length === 1) {
+      setForm((f) => ({ ...f, device_code: deviceOptions[0].device_code }));
+    }
+  }, [dialogOpen, form.device_code, deviceOptions]);
 
   useEffect(() => {
     fetchData();
@@ -505,29 +529,6 @@ export const GateDeviceConfigs: React.FC = () => {
       <Card>
         <CardContent>
           <Stack direction={isMobile ? "column" : "row"} spacing={2}>
-            <TextField
-              select
-              label="Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
-              size="small"
-              sx={{ minWidth: 150 }}
-            >
-              <MenuItem value="ALL">All</MenuItem>
-              <MenuItem value="Y">Active</MenuItem>
-              <MenuItem value="N">Inactive</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="Mandi Source"
-              value={mandiSource}
-              onChange={(e) => setMandiSource(e.target.value as "ORG" | "SYSTEM")}
-              size="small"
-              sx={{ minWidth: 170 }}
-            >
-              <MenuItem value="ORG">Organisation Mandis</MenuItem>
-              <MenuItem value="SYSTEM">System Mandis</MenuItem>
-            </TextField>
             {!isOrgScoped && (
               <TextField
                 select
@@ -536,8 +537,17 @@ export const GateDeviceConfigs: React.FC = () => {
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedOrgId(val);
+                  setFilters((f) => ({
+                    ...f,
+                    mandi_id: "",
+                    gate_code: "",
+                    device_code: "",
+                  }));
                   const org = orgOptions.find((o) => oidToString(o._id) === oidToString(val));
                   setSelectedOrgCode(org?.org_code || "");
+                  setMandiOptions([]);
+                  setGateOptions([]);
+                  setDeviceOptions([]);
                 }}
                 size="small"
                 sx={{ minWidth: 180 }}
@@ -559,12 +569,25 @@ export const GateDeviceConfigs: React.FC = () => {
                 sx={{ minWidth: 200 }}
               />
             )}
+            <TextField
+              select
+              label="Status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              size="small"
+              sx={{ minWidth: 150 }}
+            >
+              <MenuItem value="ALL">All</MenuItem>
+              <MenuItem value="Y">Active</MenuItem>
+              <MenuItem value="N">Inactive</MenuItem>
+            </TextField>
             <Autocomplete
               size="small"
               options={mandiOptions}
               loading={mandiLoading}
               getOptionLabel={(option: any) => option.name_i18n?.en || option.mandi_slug || String(option.mandi_id)}
               isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+              disabled={!isOrgScoped && !selectedOrgId}
               value={
                 filters.mandi_id
                   ? mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id)) || null
@@ -573,7 +596,12 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(_, val: any) => {
                 const nextId = val ? String(val.mandi_id) : "";
                 if (nextId === filters.mandi_id) return;
-                setFilters((f) => ({ ...f, mandi_id: nextId }));
+                setFilters((f) => ({
+                  ...f,
+                  mandi_id: nextId,
+                  gate_code: "",
+                  device_code: "",
+                }));
                 if (val) {
                   loadDevices(val.mandi_id);
                 } else {
@@ -603,6 +631,7 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, gate_code: e.target.value }))}
               size="small"
               sx={{ minWidth: 140 }}
+              disabled={!filters.mandi_id}
             >
               <MenuItem value="">All</MenuItem>
               {gateOptions.map((g: any) => (
@@ -617,6 +646,7 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
               size="small"
               sx={{ minWidth: 160 }}
+              disabled={!filters.gate_code}
             />
           </Stack>
         </CardContent>
@@ -688,6 +718,7 @@ export const GateDeviceConfigs: React.FC = () => {
               loading={mandiLoading}
               getOptionLabel={(option: any) => option.name_i18n?.en || option.mandi_slug || String(option.mandi_id)}
               isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
+              disabled={!isOrgScoped && !selectedOrgId}
               value={
                 form.mandi_id
                   ? mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id)) || null
@@ -696,7 +727,12 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(_, val: any) => {
                 const nextId = val ? String(val.mandi_id) : "";
                 if (nextId === form.mandi_id) return;
-                setForm((f) => ({ ...f, mandi_id: nextId }));
+                setForm((f) => ({
+                  ...f,
+                  mandi_id: nextId,
+                  gate_code: "",
+                  device_code: "",
+                }));
                 if (val) {
                   loadDevices(val.mandi_id);
                 } else {
@@ -704,10 +740,10 @@ export const GateDeviceConfigs: React.FC = () => {
                   setDeviceOptions([]);
                 }
               }}
-              inputValue={mandiSearchText}
+              inputValue={mandiSearchTextForm}
               onInputChange={(_, val) => {
-                if (val === mandiSearchText) return;
-                setMandiSearchText(val);
+                if (val === mandiSearchTextForm) return;
+                setMandiSearchTextForm(val);
               }}
               renderInput={(params) => (
                 <TextField {...params} label="Mandi" placeholder="Select mandi" size="small" />
@@ -723,6 +759,7 @@ export const GateDeviceConfigs: React.FC = () => {
               }}
               fullWidth
               size="small"
+              disabled={!form.mandi_id}
             >
               <MenuItem value="">Select</MenuItem>
               {gateOptions.map((g: any) => (
@@ -738,6 +775,7 @@ export const GateDeviceConfigs: React.FC = () => {
               select
               fullWidth
               size="small"
+              disabled={!form.gate_code}
             >
               <MenuItem value="">Select</MenuItem>
               {deviceOptions.map((d: any) => (

@@ -176,6 +176,15 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "resourceHealth",
+        labelKey: "menu.resourceHealth",
+        path: "/system/resource-health",
+        icon: React.createElement(SecurityOutlinedIcon),
+        resourceKey: "resource_registry.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
         key: "securityTwoFactor",
         labelKey: "menu.twoFactorSecurity",
         path: "/system/security/2fa",

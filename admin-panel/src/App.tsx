@@ -82,6 +82,7 @@ import { SubscriptionInvoices } from "./pages/subscriptionInvoices";
 import { SettlementsPage } from "./pages/settlements";
 import { PaymentsLog } from "./pages/paymentsLog";
 import ResourceRegistryPage from "./pages/resourceRegistry";
+import ResourceHealthPage from "./pages/resourceHealth";
 
 import { Layout } from "./components/layout";
 
@@ -211,6 +212,7 @@ function App() {
                   <Route path="/system/role-policy-manager" element={<PermissionsManager />} />
                   <Route path="/system/permissions-manager" element={<PermissionsManager />} />
                   <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
+                  <Route path="/system/resource-health" element={<ResourceHealthPage />} />
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />

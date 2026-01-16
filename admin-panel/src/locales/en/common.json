@@ -96,6 +96,7 @@
     "rolePermissions": "Role Permission Manager",
     "userRoleManager": "User Role Assignment",
     "resourceRegistry": "Resource Registry",
+    "resourceHealth": "Resource Health",
     "twoFactorSecurity": "2FA Security",
     "securitySwitches": "Security Switches"
   },

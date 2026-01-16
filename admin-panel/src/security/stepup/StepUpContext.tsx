@@ -592,7 +592,7 @@ type StepUpContextValue = {
   ensureStepUp: (
     resourceKey?: string | null,
     action?: string,
-    opts?: { source?: StepUpRequestSource },
+    opts?: { source?: StepUpRequestSource; force?: boolean },
   ) => Promise<boolean>;
   isLocked: (resourceKey?: string | null) => boolean;
   markVerified: () => void;
@@ -786,17 +786,23 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     async (
       resourceKey?: string | null,
       action: string = "VIEW",
-      opts?: { source?: StepUpRequestSource },
+      opts?: { source?: StepUpRequestSource; force?: boolean },
     ) => {
       const normalized = canonicalizeResourceKey(resourceKey);
       if (!normalized) return true;
       const lockedSet = getStepupLockedSet();
       const isLockedScreen = Boolean(normalized && lockedSet.has(normalized));
+      const shouldForce = Boolean(opts?.force);
       console.info(
         "[STEPUP_UI]",
-        { resource_key: normalized, locked: isLockedScreen, source: opts?.source ?? "UNKNOWN" },
+        {
+          resource_key: normalized,
+          locked: isLockedScreen,
+          force: shouldForce,
+          source: opts?.source ?? "UNKNOWN"
+        },
       );
-      if (!isLockedScreen) return true;
+      if (!isLockedScreen && !shouldForce) return true;
 
       try {
         const stepup = await issueStepUpCheck(normalized, action);

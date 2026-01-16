@@ -30,10 +30,11 @@ export const StepUpGuard: React.FC<StepUpGuardProps> = ({
 
     (async () => {
       const stepupKey = resolveLockedStepupKey(resourceKey, isLocked) || resourceKey;
+      const forceStepup = Boolean(stepupKey && stepupKey.startsWith("role_policies."));
       const route = typeof window !== "undefined" ? window.location.pathname : "";
       console.log("[STEPUP_NAV]", `route=${route}`, `key=${resourceKey || "none"}`, `locked=${Boolean(stepupKey)}`);
       console.log("[REQUIRE_SETUP]", `called=true configured=${Boolean(stepupKey)}`, `key=${stepupKey || "none"}`);
-      const ok = await ensureStepUp(stepupKey, action, { source: "GUARD" });
+      const ok = await ensureStepUp(stepupKey, action, { source: "GUARD", force: forceStepup });
       if (!active) return;
       setAllowed(ok);
       setLoading(false);

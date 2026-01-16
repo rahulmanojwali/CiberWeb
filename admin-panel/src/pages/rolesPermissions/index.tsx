@@ -91,7 +91,7 @@ const resolveModuleName = (key: string): string => {
     starts('mandi_gates.') ||
     starts('gate_entry_reasons_masters.') ||
     starts('gate_vehicle_types_masters.') ||
-    starts('cm_gate_devices.') ||
+    starts('gate_devices.') ||
     starts('gate_entry_tokens.') ||
     starts('gate_pass_tokens.') ||
     starts('weighment_tickets.') ||

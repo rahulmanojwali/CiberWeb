@@ -434,7 +434,7 @@ export const APP_MENU: AppMenuItem[] = [
       path: "/gate-devices",
       icon: React.createElement(QrCodeScannerOutlinedIcon),
       // Use legacy key to match current policy assignments (canonical: gate_devices.menu)
-      resourceKey: "cm_gate_devices.menu",
+      resourceKey: "gate_devices.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
     },

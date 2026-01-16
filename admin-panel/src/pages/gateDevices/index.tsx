@@ -118,9 +118,9 @@ const GateDevicesPage: React.FC = () => {
   const orgId = String((authContext as any)?.org_id || "");
 
   // RBAC (canonical keys used across this project)
-  const canCreate = can("cm_gate_devices.create", "CREATE");
-  const canEdit = can("cm_gate_devices.edit", "UPDATE");
-  const canToggle = can("cm_gate_devices.deactivate", "DEACTIVATE");
+  const canCreate = can("gate_devices.create", "CREATE");
+  const canEdit = can("gate_devices.edit", "UPDATE");
+  const canToggle = can("gate_devices.deactivate", "DEACTIVATE");
   const showActions = canEdit || canToggle;
 
   // Single query state (primitives only)
@@ -475,7 +475,7 @@ const GateDevicesPage: React.FC = () => {
 
           return (
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={row}>
+              <ActionGate resourceKey="gate_devices.edit" action="UPDATE" record={row}>
                 <Tooltip title="Edit">
                   <IconButton size="small" onClick={() => openEdit(row)}>
                     <EditOutlinedIcon fontSize="small" />
@@ -483,7 +483,7 @@ const GateDevicesPage: React.FC = () => {
                 </Tooltip>
               </ActionGate>
 
-              <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={row}>
+              <ActionGate resourceKey="gate_devices.deactivate" action="DEACTIVATE" record={row}>
                 <Tooltip title={isActive ? "Deactivate" : "Activate"}>
                   <IconButton size="small" onClick={() => toggleActive(row)}>
                     {isActive ? <ToggleOffOutlinedIcon fontSize="small" /> : <ToggleOnOutlinedIcon fontSize="small" />}
@@ -596,7 +596,7 @@ const GateDevicesPage: React.FC = () => {
             />
 
             <Box sx={{ flex: "0 0 auto", width: { xs: "100%", md: "auto" } }}>
-              <ActionGate resourceKey="cm_gate_devices.create" action="CREATE">
+              <ActionGate resourceKey="gate_devices.create" action="CREATE">
                 <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
                   Add Device
                 </Button>
@@ -633,7 +633,7 @@ const GateDevicesPage: React.FC = () => {
 
                         {showActions ? (
                           <Stack direction="row" spacing={0.5} alignItems="center">
-                            <ActionGate resourceKey="cm_gate_devices.edit" action="UPDATE" record={r}>
+                            <ActionGate resourceKey="gate_devices.edit" action="UPDATE" record={r}>
                               <Tooltip title="Edit">
                                 <IconButton size="small" onClick={() => openEdit(r)}>
                                   <EditOutlinedIcon fontSize="small" />
@@ -641,7 +641,7 @@ const GateDevicesPage: React.FC = () => {
                               </Tooltip>
                             </ActionGate>
 
-                            <ActionGate resourceKey="cm_gate_devices.deactivate" action="DEACTIVATE" record={r}>
+                            <ActionGate resourceKey="gate_devices.deactivate" action="DEACTIVATE" record={r}>
                               <Tooltip title={isActive ? "Deactivate" : "Activate"}>
                                 <IconButton size="small" onClick={() => toggleActive(r)}>
                                   {isActive ? (

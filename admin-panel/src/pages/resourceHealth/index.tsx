@@ -18,8 +18,8 @@ type UiResource = {
   action_code?: string;
   ui_type?: string;
   route?: string | null;
-  screen?: string;
-  element?: string;
+  screen?: string | null;
+  element?: string | null;
   is_active?: string | boolean;
 };
 

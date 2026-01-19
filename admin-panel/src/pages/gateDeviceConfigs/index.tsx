@@ -516,33 +516,41 @@ export const GateDeviceConfigs: React.FC = () => {
     return found?.name_i18n?.en || found?.mandi_slug || mandiId;
   };
 
-  const columns = useMemo<GridColDef<ConfigRow>[]>(
-    () => [
+  const columns = useMemo<GridColDef<ConfigRow>[]>(() => {
+    const cols: GridColDef<ConfigRow>[] = [
       { field: "device_code", headerName: "Device Code", width: 150 },
       { field: "gate_code", headerName: "Gate", width: 120 },
-      {
-        field: "org_id",
-        headerName: "Org",
-        width: 140,
-        valueGetter: (params: any) => orgLabel(params.row.org_id),
-      },
-      {
-        field: "mandi_id",
-        headerName: "Mandi",
-        width: 140,
-        valueGetter: (params: any) => mandiLabel(params.row.mandi_id),
-      },
+    ];
+
+    if (!isOrgScoped) {
+      cols.push(
+        {
+          field: "org_id",
+          headerName: "Org",
+          width: 140,
+          valueGetter: (params: any) => orgLabel(params?.row?.org_id),
+        },
+        {
+          field: "mandi_id",
+          headerName: "Mandi",
+          width: 140,
+          valueGetter: (params: any) => mandiLabel(params?.row?.mandi_id),
+        },
+      );
+    }
+
+    cols.push(
       {
         field: "qr_format",
         headerName: "QR Format",
         width: 140,
-        valueGetter: (params: any) => params.row.qr_format || "—",
+        valueGetter: (params: any) => params?.row?.qr_format || "—",
       },
       {
         field: "qr_payload_template",
         headerName: "QR Template",
         flex: 1,
-        valueGetter: (params: any) => params.row.qr_payload_template || "—",
+        valueGetter: (params: any) => params?.row?.qr_payload_template || "—",
       },
       {
         field: "is_active",
@@ -550,8 +558,12 @@ export const GateDeviceConfigs: React.FC = () => {
         width: 110,
         renderCell: (params: any) => (
           <Stack direction="row" spacing={1} alignItems="center">
-            {params.row.is_active === "Y" ? <CheckCircleIcon color="success" fontSize="small" /> : <BlockIcon color="error" fontSize="small" />}
-            <Typography variant="body2">{params.row.is_active}</Typography>
+            {params?.row?.is_active === "Y" ? (
+              <CheckCircleIcon color="success" fontSize="small" />
+            ) : (
+              <BlockIcon color="error" fontSize="small" />
+            )}
+            <Typography variant="body2">{params?.row?.is_active}</Typography>
           </Stack>
         ),
       },
@@ -560,7 +572,7 @@ export const GateDeviceConfigs: React.FC = () => {
         headerName: "Actions",
         width: 240,
         renderCell: (params: any) => {
-          const row = params.row as ConfigRow;
+          const row = params?.row as ConfigRow;
           return (
             <Stack direction="row" spacing={1}>
               <ActionGate resourceKey="gate_device_configs.edit" action="UPDATE" record={row}>
@@ -571,11 +583,11 @@ export const GateDeviceConfigs: React.FC = () => {
               <ActionGate resourceKey="gate_device_configs.deactivate" action="DEACTIVATE" record={row}>
                 <Button
                   size="small"
-                  color={row.is_active === "Y" ? "error" : "success"}
-                  startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
+                  color={row?.is_active === "Y" ? "error" : "success"}
+                  startIcon={row?.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
                   onClick={() => handleToggle(row)}
                 >
-                  {row.is_active === "Y" ? "Deactivate" : "Activate"}
+                  {row?.is_active === "Y" ? "Deactivate" : "Activate"}
                 </Button>
               </ActionGate>
               {debug && (
@@ -583,16 +595,17 @@ export const GateDeviceConfigs: React.FC = () => {
                   canEdit:{String(can("gate_device_configs.edit", "UPDATE"))} | canDeact:
                   {String(can("gate_device_configs.deactivate", "DEACTIVATE"))} | locked:
                   {String(isRecordLocked(row, authContext).locked)} | org:{oidToString(authContext.org_id)} vs{" "}
-                  {oidToString(row.org_id || row.owner_org_id)}
+                  {oidToString(row?.org_id || row?.owner_org_id)}
                 </Typography>
               )}
             </Stack>
           );
         },
       },
-    ],
-    [debug, authContext],
-  );
+    );
+
+    return cols;
+  }, [debug, authContext, isOrgScoped]);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 

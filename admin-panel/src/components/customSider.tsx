@@ -124,7 +124,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     "role_policies.menu",
     "resource_registry.menu",
     "ui_resources.menu",
-    "admin_users.menu",
     "auction_policies.menu",
     "system_reports.menu",
   ]);
@@ -133,6 +132,12 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const normalizeKey = (key?: string) => (key || "").trim().toLowerCase();
   const isSystemOnlyKey = (key?: string) => SYSTEM_ONLY_MENU_KEYS.has(normalizeKey(key));
+  const canShowAdminUsersMenu = effectiveRole === "SUPER_ADMIN" || effectiveRole === "ORG_ADMIN";
+  const shouldHidePlatformItem = (key?: string) => {
+    const normalized = normalizeKey(key);
+    if (normalized === "admin_users.menu") return !canShowAdminUsersMenu;
+    return false;
+  };
 
   const filterMenuTree = useCallback(
     (items: NavMenuItem[], predicate: (item: NavMenuItem) => boolean): NavMenuItem[] => {
@@ -153,8 +158,8 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     [filterMenuTree, isSuperAdmin, navItems],
   );
   const platformOpsItems = useMemo(
-    () => filterMenuTree(navItems, (item) => !isSystemOnlyKey(item.resourceKey)),
-    [filterMenuTree, navItems],
+    () => filterMenuTree(navItems, (item) => !isSystemOnlyKey(item.resourceKey) && !shouldHidePlatformItem(item.resourceKey)),
+    [filterMenuTree, navItems, canShowAdminUsersMenu],
   );
 
 

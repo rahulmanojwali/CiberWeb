@@ -17,9 +17,10 @@ import { PageContainer } from "../../components/PageContainer";
 import { usePermissions } from "../../authz/usePermissions";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchMandiGates } from "../../services/mandiApi";
-import { fetchGateEntryReasons, fetchGateVehicleTypesMaster } from "../../services/gateApi";
+import { fetchGateDevices, fetchGateEntryReasons, fetchGateVehicleTypesMaster } from "../../services/gateApi";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
+import { fetchGateOperatorContext, issueGateToken } from "../../services/gateOpsApi";
 
 type SelectOption = { value: string; label: string };
 
@@ -37,7 +38,7 @@ export const GateEntryCreate: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const { can, permissionsMap } = usePermissions();
-  useAdminUiConfig(); // keep subscription for consistency, even if not used directly
+  const uiConfig = useAdminUiConfig();
   const language = normalizeLanguageCode(DEFAULT_LANGUAGE);
 
   const canCreate = useMemo(
@@ -48,15 +49,25 @@ export const GateEntryCreate: React.FC = () => {
   const [form, setForm] = useState({
     vehicle_no: "",
     gate_code: "",
+    device_code: "",
     reason_code: "",
     vehicle_type_code: "",
     notes: "",
   });
 
+  const [context, setContext] = useState({
+    org_id: "",
+    mandi_id: "",
+    gate_code: "",
+    device_code: "",
+  });
+
   const [gateOptions, setGateOptions] = useState<SelectOption[]>([]);
+  const [deviceOptions, setDeviceOptions] = useState<SelectOption[]>([]);
   const [reasonOptions, setReasonOptions] = useState<SelectOption[]>([]);
   const [vehicleTypes, setVehicleTypes] = useState<SelectOption[]>([]);
   const [loadingGates, setLoadingGates] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(false);
   const [loadingReasons, setLoadingReasons] = useState(false);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
 
@@ -66,16 +77,46 @@ export const GateEntryCreate: React.FC = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const loadOperatorContext = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    try {
+      const resp = await fetchGateOperatorContext({ username, language });
+      const ctx = resp?.data?.context || resp?.response?.data?.context || null;
+      if (!ctx) return;
+      setContext({
+        org_id: ctx.org_id || "",
+        mandi_id: ctx.mandi_id ?? "",
+        gate_code: ctx.gate_code || "",
+        device_code: ctx.device_code || "",
+      });
+      setForm((prev) => ({
+        ...prev,
+        gate_code: prev.gate_code || ctx.gate_code || "",
+        device_code: prev.device_code || ctx.device_code || "",
+      }));
+    } catch (_) {
+      // Ignore context failures; fallback to manual selection.
+    }
+  };
+
   const loadGates = async () => {
     if (!can("mandi_gates.list", "VIEW")) return;
     const username = currentUsername();
     if (!username) return;
+    const scopedOrgId = context.org_id || uiConfig.scope?.org_id || "";
+    const scopedMandiId = context.mandi_id ?? "";
     setLoadingGates(true);
     try {
+      const filters: Record<string, any> = { is_active: "Y" };
+      if (scopedOrgId) filters.org_id = scopedOrgId;
+      if (scopedMandiId !== "" && scopedMandiId !== null && scopedMandiId !== undefined) {
+        filters.mandi_id = scopedMandiId;
+      }
       const resp = await fetchMandiGates({
         username,
         language,
-        filters: { is_active: "Y" },
+        filters,
       });
       const list = resp?.data?.items || resp?.response?.data?.items || [];
       setGateOptions(
@@ -86,6 +127,39 @@ export const GateEntryCreate: React.FC = () => {
       );
     } finally {
       setLoadingGates(false);
+    }
+  };
+
+  const loadDevices = async (gateCode?: string) => {
+    if (!can("gate_devices.list", "VIEW")) return;
+    const username = currentUsername();
+    if (!username) return;
+    const scopedOrgId = context.org_id || uiConfig.scope?.org_id || "";
+    const scopedMandiId = context.mandi_id ?? "";
+    if (!gateCode) {
+      setDeviceOptions([]);
+      return;
+    }
+    setLoadingDevices(true);
+    try {
+      const filters: Record<string, any> = {
+        gate_code: gateCode,
+        status: "ACTIVE",
+      };
+      if (scopedOrgId) filters.org_id = scopedOrgId;
+      if (scopedMandiId !== "" && scopedMandiId !== null && scopedMandiId !== undefined) {
+        filters.mandi_id = scopedMandiId;
+      }
+      const resp = await fetchGateDevices({ username, language, filters });
+      const list = resp?.data?.devices || resp?.response?.data?.devices || [];
+      setDeviceOptions(
+        list.map((d: any) => ({
+          value: d.device_code || d.device_id || "",
+          label: d.device_label || d.device_name || d.device_code || d.device_id || "",
+        })),
+      );
+    } finally {
+      setLoadingDevices(false);
     }
   };
 
@@ -128,27 +202,79 @@ export const GateEntryCreate: React.FC = () => {
   };
 
   useEffect(() => {
+    loadOperatorContext();
     loadGates();
     loadReasons();
     loadVehicleTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    loadGates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.org_id, context.mandi_id, uiConfig.scope?.org_id]);
+
+  useEffect(() => {
+    if (!form.gate_code) {
+      setDeviceOptions([]);
+      return;
+    }
+    loadDevices(form.gate_code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.gate_code]);
+
+  const handleSubmit = async () => {
     if (!canCreate) return;
-    if (!form.vehicle_no.trim() || !form.gate_code.trim() || !form.reason_code.trim()) {
+    const username = currentUsername();
+    if (!username) {
+      enqueueSnackbar("Not authorized.", { variant: "error" });
+      return;
+    }
+    if (
+      !form.gate_code.trim() ||
+      !form.device_code.trim() ||
+      !form.reason_code.trim() ||
+      !form.vehicle_type_code.trim()
+    ) {
       enqueueSnackbar("Please fill required fields.", { variant: "warning" });
       return;
     }
+    const scopedOrgId = context.org_id || uiConfig.scope?.org_id || "";
+    const scopedMandiId = context.mandi_id ?? "";
+    if (!scopedOrgId || scopedMandiId === "" || scopedMandiId === null || scopedMandiId === undefined) {
+      enqueueSnackbar("Missing operator context (org/mandi).", { variant: "warning" });
+      return;
+    }
     const payload = {
-      vehicle_no: form.vehicle_no.trim(),
+      username,
+      language,
+      org_id: scopedOrgId,
+      mandi_id: scopedMandiId,
       gate_code: form.gate_code.trim(),
+      device_code: form.device_code.trim(),
+      vehicle_type_code: form.vehicle_type_code.trim(),
       reason_code: form.reason_code.trim(),
-      vehicle_type_code: form.vehicle_type_code.trim() || null,
-      notes: form.notes.trim() || null,
+      vehicle_no: form.vehicle_no.trim() || null,
+      remarks: form.notes.trim() || null,
     };
-    console.log("[GateEntryCreate] Create Gate Entry payload", payload);
-    enqueueSnackbar("Create API not wired yet (UI ready). Payload logged.", { variant: "info" });
+    try {
+      const resp = await issueGateToken(payload);
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "Failed to issue token.";
+      if (code !== "0") {
+        enqueueSnackbar(desc, { variant: "error" });
+        return;
+      }
+      const tokenCode = resp?.data?.token_code || resp?.response?.data?.token_code || "";
+      enqueueSnackbar(`Token issued: ${tokenCode || "unknown"}`, { variant: "success" });
+      if (tokenCode) {
+        navigate(`/gate-tokens/${encodeURIComponent(tokenCode)}`);
+      } else {
+        navigate("/gate-tokens");
+      }
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Unable to issue token.", { variant: "error" });
+    }
   };
 
   if (!canCreate) {
@@ -194,14 +320,16 @@ export const GateEntryCreate: React.FC = () => {
             label="Vehicle Number"
             value={form.vehicle_no}
             onChange={(e) => updateField("vehicle_no", e.target.value)}
-            required
             fullWidth
           />
           <TextField
             select
             label="Gate"
             value={form.gate_code}
-            onChange={(e) => updateField("gate_code", e.target.value)}
+            onChange={(e) => {
+              updateField("gate_code", e.target.value);
+              updateField("device_code", "");
+            }}
             required
             fullWidth
             helperText={loadingGates ? "Loading gates..." : gateOptions.length ? "Select gate" : "No gates found"}
@@ -214,6 +342,36 @@ export const GateEntryCreate: React.FC = () => {
               <em>Select gate</em>
             </MenuItem>
             {gateOptions.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Device"
+            value={form.device_code}
+            onChange={(e) => updateField("device_code", e.target.value)}
+            required
+            fullWidth
+            helperText={
+              loadingDevices
+                ? "Loading devices..."
+                : form.gate_code
+                  ? deviceOptions.length
+                    ? "Select device"
+                    : "No active devices for this gate"
+                  : "Select a gate first"
+            }
+            SelectProps={{ displayEmpty: true }}
+            InputProps={{
+              endAdornment: loadingDevices ? <CircularProgress size={18} /> : undefined,
+            }}
+          >
+            <MenuItem value="">
+              <em>Select device</em>
+            </MenuItem>
+            {deviceOptions.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
                 {opt.label}
               </MenuItem>
@@ -246,8 +404,9 @@ export const GateEntryCreate: React.FC = () => {
             label="Vehicle Type"
             value={form.vehicle_type_code}
             onChange={(e) => updateField("vehicle_type_code", e.target.value)}
+            required
             fullWidth
-            helperText={loadingVehicleTypes ? "Loading vehicle types..." : "Optional"}
+            helperText={loadingVehicleTypes ? "Loading vehicle types..." : "Select vehicle type"}
             SelectProps={{ displayEmpty: true }}
             InputProps={{
               endAdornment: loadingVehicleTypes ? <CircularProgress size={18} /> : undefined,

@@ -461,7 +461,7 @@ export const APP_MENU: AppMenuItem[] = [
       labelKey: "menu.gateEntries",
       path: "/gate-tokens",
       icon: React.createElement(TimelineOutlinedIcon),
-      resourceKey: "gate_entry_tokens.list",
+      resourceKey: "gate_entry_tokens.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
     },
@@ -1017,10 +1017,10 @@ export function filterMenuByResources(
       const set = permissionsMap![normalizedKey];
       if (!set || set.size === 0) return false;
       // Require that the menu key exists in ui_resources (keeps unseen keys out),
-      // except for known keys that currently have no ui_resource but are permissioned (e.g., gate_entry_tokens.list).
+      // except for known keys that currently have no ui_resource but are permissioned (e.g., gate_entry_tokens.menu).
       const hasUiResource = menuResourceKeys.has(normalizedKey);
       if (!hasUiResource) {
-        const allowMissingUiResource = normalizedKey === "gate_entry_tokens.list";
+        const allowMissingUiResource = normalizedKey === "gate_entry_tokens.menu";
         if (!allowMissingUiResource) return false;
       }
       return true;

@@ -33,6 +33,31 @@ export const fetchGateEntryTokens = async ({
     ...filters,
   });
 
+export const fetchGateOperatorContext = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+}: {
+  username: string;
+  language?: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getGateOperatorContext, {
+    api: API_TAGS.GATE_OPERATOR_CONTEXT.context,
+    username,
+    language,
+  });
+
+export const issueGateToken = async (payload: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.issueGateToken, {
+    api: API_TAGS.GATE_TOKEN_APIS.issue,
+    ...payload,
+  });
+
+export const scanGateToken = async (payload: Record<string, any>) =>
+  postEncrypted(API_ROUTES.admin.scanGateToken, {
+    api: API_TAGS.GATE_TOKEN_APIS.scan,
+    ...payload,
+  });
+
 export const fetchGateMovements = async ({
   username,
   language = DEFAULT_LANGUAGE,

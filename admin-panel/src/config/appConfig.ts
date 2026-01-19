@@ -218,6 +218,13 @@ export const API_TAGS = {
   GATE_ENTRY_TOKENS: {
     list: "getGateEntryTokens",
   },
+  GATE_OPERATOR_CONTEXT: {
+    context: "getGateOperatorContext",
+  },
+  GATE_TOKEN_APIS: {
+    issue: "issueGateToken",
+    scan: "scanGateToken",
+  },
   GATE_MOVEMENTS: {
     list: "getGateMovements",
   },
@@ -437,6 +444,9 @@ export const API_ROUTES = {
     getGatePassTokens: "/admin/getGatePassTokens",
     getGateEntryTokens: "/admin/getGateEntryTokens",
     getGateMovements: "/admin/getGateMovements",
+    getGateOperatorContext: "/admin/getGateOperatorContext",
+    issueGateToken: "/admin/issueGateToken",
+    scanGateToken: "/admin/scanGateToken",
     getWeighmentTickets: "/admin/getWeighmentTickets",
     getAdminUiConfig: "/admin/getAdminUiConfig",
     getTraders: "/admin/getTraders",

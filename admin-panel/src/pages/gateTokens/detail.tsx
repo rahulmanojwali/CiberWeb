@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
   Divider,
@@ -15,11 +16,12 @@ import {
   Avatar,
 } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
-import { fetchGateEntryTokens, fetchGatePassTokens, fetchGateMovements } from "../../services/gateOpsApi";
+import { fetchGateEntryTokens, fetchGatePassTokens, fetchGateMovements, scanGateToken } from "../../services/gateOpsApi";
 
 type TokenDetail = {
   token_code: string;
@@ -57,6 +59,7 @@ function formatDate(value?: string | Date | null) {
 export const GateTokenDetail: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
+  const { enqueueSnackbar } = useSnackbar();
   const uiConfig = useAdminUiConfig();
   const { tokenCode: tokenCodeParam } = useParams<{ tokenCode: string }>();
   const tokenCode = useMemo(() => (tokenCodeParam ? decodeURIComponent(tokenCodeParam) : ""), [tokenCodeParam]);
@@ -68,6 +71,7 @@ export const GateTokenDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [movementsError, setMovementsError] = useState<string | null>(null);
   const [movementsMeta, setMovementsMeta] = useState<{ code: string; desc: string }>({ code: "", desc: "" });
+  const [scanLoading, setScanLoading] = useState(false);
 
   const canViewEntry = useMemo(
     () => can(uiConfig.resources, "gate_entry_tokens.view", "VIEW"),
@@ -81,6 +85,19 @@ export const GateTokenDetail: React.FC = () => {
     () => can(uiConfig.resources, "gate_movements_log.view", "VIEW"),
     [uiConfig.resources],
   );
+  const canUpdateEntry = useMemo(
+    () => can(uiConfig.resources, "gate_entry_tokens.update", "UPDATE"),
+    [uiConfig.resources],
+  );
+
+  const resolvedDeviceCode = useMemo(() => {
+    if (detail?.device_code) return detail.device_code;
+    const movementMatch = movements.find((mv) => mv?.details?.device_code);
+    return movementMatch?.details?.device_code || "";
+  }, [detail?.device_code, movements]);
+
+  const canMarkEntry =
+    canUpdateEntry && detail?.token_type === "ENTRY" && String(detail?.status || "").toUpperCase() === "CREATED";
 
   const loadToken = async () => {
     if (!tokenCode) {
@@ -170,6 +187,49 @@ export const GateTokenDetail: React.FC = () => {
     loadMovements();
   }, [tokenCode, language, canViewMovements]);
 
+  const handleScanEntry = async () => {
+    if (!detail) return;
+    if (!canMarkEntry) return;
+    const username = currentUsername();
+    if (!username) {
+      enqueueSnackbar("Not authorized.", { variant: "error" });
+      return;
+    }
+    if (!detail.org_id || detail.mandi_id === null || detail.mandi_id === undefined || !detail.gate_code) {
+      enqueueSnackbar("Missing token context (org/mandi/gate).", { variant: "warning" });
+      return;
+    }
+    if (!resolvedDeviceCode) {
+      enqueueSnackbar("Device code missing; scan cannot proceed.", { variant: "warning" });
+      return;
+    }
+    setScanLoading(true);
+    try {
+      const resp = await scanGateToken({
+        username,
+        language,
+        org_id: detail.org_id,
+        mandi_id: detail.mandi_id,
+        gate_code: detail.gate_code,
+        device_code: resolvedDeviceCode,
+        token_code: detail.token_code,
+        requested_step: "ENTRY",
+      });
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "Failed to mark ENTRY.";
+      if (code !== "0") {
+        enqueueSnackbar(desc, { variant: "error" });
+        return;
+      }
+      enqueueSnackbar("Token marked ENTRY.", { variant: "success" });
+      await Promise.all([loadToken(), loadMovements()]);
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Unable to mark ENTRY.", { variant: "error" });
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
   if (!canViewEntry && !canViewPass) {
     return (
       <PageContainer>
@@ -181,7 +241,18 @@ export const GateTokenDetail: React.FC = () => {
   return (
     <PageContainer>
       <Stack spacing={2} mb={2}>
-        <Typography variant="h5">Gate Token Details</Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
+          <Typography variant="h5">Gate Token Details</Typography>
+          {canMarkEntry && (
+            <Button
+              variant="contained"
+              onClick={handleScanEntry}
+              disabled={scanLoading}
+            >
+              {scanLoading ? "Marking ENTRY..." : "Mark ENTRY / Scan"}
+            </Button>
+          )}
+        </Stack>
         {tokenCode && (
           <Typography variant="body2" color="text.secondary">
             Loaded token_code: {tokenCode}

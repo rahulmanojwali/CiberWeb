@@ -385,7 +385,7 @@ export const GateTokens: React.FC = () => {
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.gateTokens", { defaultValue: "Gate Tokens" })}</Typography>
+          <Typography variant="h5">{t("menu.gateTokens", { defaultValue: "Gate Entry Tokens" })}</Typography>
           <Typography variant="body2" color="text.secondary">
             Combined view of gate pass and entry tokens (read-only).
           </Typography>

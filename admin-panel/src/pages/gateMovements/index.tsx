@@ -242,7 +242,7 @@ export const GateMovements: React.FC = () => {
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.gateMovements", { defaultValue: "Gate Movements" })}</Typography>
+          <Typography variant="h5">{t("menu.gateMovements", { defaultValue: "Gate Entry Movements" })}</Typography>
           <Typography variant="body2" color="text.secondary">
             Live movement log from gates and devices (read-only).
           </Typography>

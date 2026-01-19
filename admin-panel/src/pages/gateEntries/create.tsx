@@ -289,7 +289,7 @@ export const GateEntryCreate: React.FC = () => {
     <PageContainer>
       <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} mb={2}>
         <Stack spacing={0.5}>
-          <Typography variant="h5">Create Gate Entry Token</Typography>
+          <Typography variant="h5">Gate Entry (Create Token)</Typography>
           {isDebug && (
             <Typography variant="caption" color="text.secondary">
               canCreate: {String(canCreate)} | permKeys: {Object.keys(permissionsMap || {}).length}

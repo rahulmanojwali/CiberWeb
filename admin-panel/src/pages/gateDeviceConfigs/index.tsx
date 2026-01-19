@@ -314,18 +314,24 @@ export const GateDeviceConfigs: React.FC = () => {
       },
     });
     const configs = resp?.data?.configs || resp?.response?.data?.configs || [];
+    if (debug) {
+      console.log("[gateDeviceConfigs] first config id raw", configs?.[0]?._id);
+    }
     const meta = resp?.data?.meta || resp?.response?.data?.meta || resp?.response?.pagination || resp?.data?.pagination;
     setTotal(meta?.totalCount || meta?.total || configs.length);
     setRows(
-      configs.map((c: any) => ({
-        ...c,
-        id: c._id || c.id,
-        org_id: oidToString(c.org_id || c.owner_org_id),
-        org_scope: c.org_scope,
-        owner_type: c.owner_type,
-        owner_org_id: oidToString(c.owner_org_id),
-        is_protected: c.is_protected,
-      })),
+      configs.map((c: any) => {
+        const rid = oidToString(c._id) || oidToString(c.id);
+        return {
+          ...c,
+          id: rid || `${c.device_code}-${c.gate_code}-${c.mandi_id}`,
+          org_id: oidToString(c.org_id || c.owner_org_id),
+          org_scope: c.org_scope,
+          owner_type: c.owner_type,
+          owner_org_id: oidToString(c.owner_org_id),
+          is_protected: c.is_protected,
+        };
+      }),
     );
     } catch (err) {
       console.warn("[gateDeviceConfigs] fetchData failed", err);

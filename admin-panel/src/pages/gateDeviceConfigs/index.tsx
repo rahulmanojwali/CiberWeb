@@ -83,6 +83,7 @@ type ConfigRow = {
 const defaultForm = {
   org_id: "",
   mandi_id: "",
+  gate_id: "",
   gate_code: "",
   device_code: "",
   qr_format: "JSON",
@@ -125,7 +126,7 @@ export const GateDeviceConfigs: React.FC = () => {
   );
   const [filters, setFilters] = useState({
     mandi_id: stored("mandi_id", ""),
-    gate_code: stored("gate_code", ""),
+    gate_id: stored("gate_id", ""),
     device_code: stored("device_code", ""),
   });
   const [orgOptions, setOrgOptions] = useState<any[]>([]);
@@ -148,7 +149,7 @@ export const GateDeviceConfigs: React.FC = () => {
     Object.entries({
       org_id: selectedOrgId,
       mandi_id: filters.mandi_id,
-      gate_code: filters.gate_code,
+      gate_id: filters.gate_id,
       device_code: filters.device_code,
       status,
       page: String(page),
@@ -170,7 +171,7 @@ export const GateDeviceConfigs: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedOrgId, filters.mandi_id, filters.gate_code, filters.device_code, status]);
+  }, [selectedOrgId, filters.mandi_id, filters.gate_id, filters.device_code, status]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -241,6 +242,12 @@ export const GateDeviceConfigs: React.FC = () => {
     }
   };
 
+  const resolveGateCode = (gateId?: string, fallback?: string) => {
+    if (!gateId) return fallback || "";
+    const gate = gateOptions.find((g: any) => String(g._id || g.id || g.gate_id) === String(gateId));
+    return gate?.gate_code || fallback || "";
+  };
+
   const loadDevices = async (mandiId?: string | number, gateCode?: string) => {
     const username = currentUsername();
     if (!username || !selectedOrgId) return;
@@ -266,13 +273,14 @@ export const GateDeviceConfigs: React.FC = () => {
     if (!username) return;
     setLoading(true);
     try {
+    const gate_code = resolveGateCode(filters.gate_id);
     const resp = await fetchGateDeviceConfigs({
       username,
       language,
       filters: {
         org_id: selectedOrgId || undefined,
         mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
-        gate_code: filters.gate_code || undefined,
+        gate_code: gate_code || undefined,
         device_code: filters.device_code || undefined,
         is_active: status === "ALL" ? undefined : status,
         page,
@@ -331,17 +339,19 @@ export const GateDeviceConfigs: React.FC = () => {
     const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id));
     setGateOptions(selected?.gates || []);
     if (filters.mandi_id) {
-      loadDevices(filters.mandi_id, filters.gate_code);
+      const gate_code = resolveGateCode(filters.gate_id);
+      loadDevices(filters.mandi_id, gate_code);
     }
-  }, [filters.mandi_id, filters.gate_code, selectedOrgId, mandiOptions]);
+  }, [filters.mandi_id, filters.gate_id, selectedOrgId, mandiOptions]);
 
   useEffect(() => {
     const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id));
     setGateOptions(selected?.gates || []);
     if (dialogOpen && form.mandi_id) {
-      loadDevices(form.mandi_id, form.gate_code);
+      const gate_code = resolveGateCode(form.gate_id, form.gate_code);
+      loadDevices(form.mandi_id, gate_code);
     }
-  }, [dialogOpen, form.mandi_id, form.gate_code, selectedOrgId, mandiOptions]);
+  }, [dialogOpen, form.mandi_id, form.gate_id, selectedOrgId, mandiOptions]);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -352,10 +362,14 @@ export const GateDeviceConfigs: React.FC = () => {
 
   useEffect(() => {
     if (!dialogOpen) return;
-    if (!form.gate_code && gateOptions.length === 1) {
-      setForm((f) => ({ ...f, gate_code: gateOptions[0].gate_code }));
+    if (!form.gate_id && gateOptions.length === 1) {
+      setForm((f) => ({
+        ...f,
+        gate_id: String(gateOptions[0]._id || gateOptions[0].id || gateOptions[0].gate_id || ""),
+        gate_code: gateOptions[0].gate_code,
+      }));
     }
-  }, [dialogOpen, form.gate_code, gateOptions]);
+  }, [dialogOpen, form.gate_id, gateOptions]);
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -375,7 +389,7 @@ export const GateDeviceConfigs: React.FC = () => {
       ...defaultForm,
       org_id: selectedOrgId || "",
       mandi_id: filters.mandi_id || "",
-      gate_code: filters.gate_code || "",
+      gate_id: filters.gate_id || "",
       device_code: "",
       is_active: "Y",
     });
@@ -385,9 +399,11 @@ export const GateDeviceConfigs: React.FC = () => {
   const openEdit = (row: ConfigRow) => {
     setIsEdit(true);
     setEditId(row.id);
+    const matchedGate = gateOptions.find((g: any) => g.gate_code === row.gate_code);
     setForm({
       org_id: row.org_id || "",
       mandi_id: String(row.mandi_id || ""),
+      gate_id: matchedGate?._id || matchedGate?.id || matchedGate?.gate_id || "",
       gate_code: row.gate_code || "",
       device_code: row.device_code || "",
       qr_format: row.qr_format || "",
@@ -402,10 +418,12 @@ export const GateDeviceConfigs: React.FC = () => {
   const handleSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
+    const gate_code = resolveGateCode(form.gate_id, form.gate_code);
     const payload = {
       ...form,
       org_id: form.org_id || selectedOrgId,
       mandi_id: Number(form.mandi_id) || undefined,
+      gate_code: gate_code || undefined,
       device_code: form.device_code,
     };
     if (isEdit && editId) {
@@ -540,7 +558,7 @@ export const GateDeviceConfigs: React.FC = () => {
                   setFilters((f) => ({
                     ...f,
                     mandi_id: "",
-                    gate_code: "",
+                    gate_id: "",
                     device_code: "",
                   }));
                   const org = orgOptions.find((o) => oidToString(o._id) === oidToString(val));
@@ -599,7 +617,7 @@ export const GateDeviceConfigs: React.FC = () => {
                 setFilters((f) => ({
                   ...f,
                   mandi_id: nextId,
-                  gate_code: "",
+                  gate_id: "",
                   device_code: "",
                 }));
                 if (val) {
@@ -627,16 +645,18 @@ export const GateDeviceConfigs: React.FC = () => {
             <TextField
               select
               label="Gate"
-              value={filters.gate_code}
-              onChange={(e) => setFilters((f) => ({ ...f, gate_code: e.target.value }))}
+              value={filters.gate_id}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, gate_id: e.target.value, device_code: "" }))
+              }
               size="small"
               sx={{ minWidth: 140 }}
               disabled={!filters.mandi_id}
             >
               <MenuItem value="">All</MenuItem>
               {gateOptions.map((g: any) => (
-                <MenuItem key={g.mandi_id + g.gate_code} value={g.gate_code}>
-                  {g.gate_code}
+                <MenuItem key={String(g._id || g.id || g.gate_id || g.gate_code)} value={String(g._id || g.id || g.gate_id || g.gate_code)}>
+                  {g.name_i18n?.en || g.gate_code}
                 </MenuItem>
               ))}
             </TextField>
@@ -646,7 +666,7 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
               size="small"
               sx={{ minWidth: 160 }}
-              disabled={!filters.gate_code}
+              disabled={!filters.gate_id}
             />
           </Stack>
         </CardContent>
@@ -730,7 +750,7 @@ export const GateDeviceConfigs: React.FC = () => {
                 setForm((f) => ({
                   ...f,
                   mandi_id: nextId,
-                  gate_code: "",
+                  gate_id: "",
                   device_code: "",
                 }));
                 if (val) {
@@ -752,10 +772,13 @@ export const GateDeviceConfigs: React.FC = () => {
             <TextField
               select
               label="Gate"
-              value={form.gate_code}
+              value={form.gate_id}
               onChange={(e) => {
-                setForm((f) => ({ ...f, gate_code: e.target.value }));
-                if (form.mandi_id) loadDevices(form.mandi_id, e.target.value);
+                setForm((f) => ({ ...f, gate_id: e.target.value, device_code: "" }));
+                if (form.mandi_id) {
+                  const gate_code = resolveGateCode(e.target.value as string);
+                  loadDevices(form.mandi_id, gate_code);
+                }
               }}
               fullWidth
               size="small"
@@ -763,8 +786,8 @@ export const GateDeviceConfigs: React.FC = () => {
             >
               <MenuItem value="">Select</MenuItem>
               {gateOptions.map((g: any) => (
-                <MenuItem key={g.mandi_id + g.gate_code} value={g.gate_code}>
-                  {g.gate_code}
+                <MenuItem key={String(g._id || g.id || g.gate_id || g.gate_code)} value={String(g._id || g.id || g.gate_id || g.gate_code)}>
+                  {g.name_i18n?.en || g.gate_code}
                 </MenuItem>
               ))}
             </TextField>
@@ -775,7 +798,7 @@ export const GateDeviceConfigs: React.FC = () => {
               select
               fullWidth
               size="small"
-              disabled={!form.gate_code}
+              disabled={!form.gate_id}
             >
               <MenuItem value="">Select</MenuItem>
               {deviceOptions.map((d: any) => (

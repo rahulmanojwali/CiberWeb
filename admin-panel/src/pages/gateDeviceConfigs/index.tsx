@@ -256,6 +256,15 @@ export const GateDeviceConfigs: React.FC = () => {
     return String(gate?._id || gate?.id || gate?.gate_id || "");
   };
 
+  const capsForDeviceType = (deviceType?: string) => {
+    const normalized = String(deviceType || "").trim().toUpperCase();
+    if (normalized === "GPS_PHONE") return ["GPS"];
+    if (normalized === "QR_SCANNER") return ["QR"];
+    if (normalized === "RFID_READER") return ["RFID"];
+    if (normalized === "WEIGHBRIDGE_CONSOLE") return ["WEIGHBRIDGE"];
+    return [];
+  };
+
   const loadDevices = async (mandiId?: string | number, gateId?: string) => {
     const username = currentUsername();
     if (!username || !selectedOrgId) return;
@@ -405,6 +414,26 @@ export const GateDeviceConfigs: React.FC = () => {
       setForm((f) => ({ ...f, device_code: deviceOptions[0].device_code }));
     }
   }, [dialogOpen, form.device_code, deviceOptions]);
+
+  useEffect(() => {
+    if (!dialogOpen || !form.device_code) return;
+    const selectedDevice = filteredDeviceOptionsForm.find(
+      (d: any) => d.device_code === form.device_code,
+    );
+    if (!selectedDevice) return;
+    const caps = capsForDeviceType(selectedDevice.device_type);
+    setForm((prev) => {
+      const next = { ...prev };
+      if (!caps.includes("QR")) {
+        next.qr_format = "";
+        next.qr_payload_template = "";
+      }
+      if (!caps.includes("RFID")) {
+        next.rfid_protocol = "NONE";
+      }
+      return next;
+    });
+  }, [dialogOpen, form.device_code, filteredDeviceOptionsForm]);
 
   useEffect(() => {
     fetchData();

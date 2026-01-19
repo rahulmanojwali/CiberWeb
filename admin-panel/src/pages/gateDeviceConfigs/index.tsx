@@ -256,7 +256,7 @@ export const GateDeviceConfigs: React.FC = () => {
     return String(gate?._id || gate?.id || gate?.gate_id || "");
   };
 
-  const loadDevices = async (mandiId?: string | number, gateCode?: string) => {
+  const loadDevices = async (mandiId?: string | number, gateId?: string) => {
     const username = currentUsername();
     if (!username || !selectedOrgId) return;
     try {
@@ -266,14 +266,23 @@ export const GateDeviceConfigs: React.FC = () => {
         filters: {
           org_id: selectedOrgId,
           mandi_id: mandiId ? Number(mandiId) : undefined,
-          gate_code: gateCode || undefined,
-          is_active: "Y",
+          gate_id: gateId || undefined,
+          status: "ACTIVE",
         },
       });
       setDeviceOptions(resp?.data?.devices || resp?.response?.data?.devices || []);
     } catch (err) {
       console.warn("[gateDeviceConfigs] loadDevices failed", err);
     }
+  };
+
+  const filterDevices = (options: any[], mandiId?: string | number, gateId?: string) => {
+    if (!options.length) return [];
+    return options.filter((d: any) => {
+      if (mandiId && String(d.mandi_id) !== String(mandiId)) return false;
+      if (gateId && String(d.gate_id) !== String(gateId)) return false;
+      return true;
+    });
   };
 
   const fetchData = async () => {
@@ -346,20 +355,31 @@ export const GateDeviceConfigs: React.FC = () => {
   useEffect(() => {
     const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(filters.mandi_id));
     setGateOptionsFilter(selected?.gates || []);
-    if (filters.mandi_id) {
-      const gate_code = resolveGateCode(selected?.gates || [], filters.gate_id);
-      loadDevices(filters.mandi_id, gate_code);
+    setDeviceOptions([]);
+    if (filters.mandi_id && filters.gate_id) {
+      loadDevices(filters.mandi_id, filters.gate_id);
     }
   }, [filters.mandi_id, filters.gate_id, selectedOrgId, mandiOptions]);
 
   useEffect(() => {
     const selected = mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id));
     setGateOptionsForm(selected?.gates || []);
-    if (dialogOpen && form.mandi_id) {
-      const gate_code = resolveGateCode(selected?.gates || [], form.gate_id, form.gate_code);
-      loadDevices(form.mandi_id, gate_code);
+    if (dialogOpen && form.mandi_id && form.gate_id) {
+      loadDevices(form.mandi_id, form.gate_id);
+    } else if (dialogOpen) {
+      setDeviceOptions([]);
     }
   }, [dialogOpen, form.mandi_id, form.gate_id, selectedOrgId, mandiOptions]);
+
+  const filteredDeviceOptionsFilter = useMemo(
+    () => filterDevices(deviceOptions, filters.mandi_id, filters.gate_id),
+    [deviceOptions, filters.mandi_id, filters.gate_id],
+  );
+
+  const filteredDeviceOptionsForm = useMemo(
+    () => filterDevices(deviceOptions, form.mandi_id, form.gate_id),
+    [deviceOptions, form.mandi_id, form.gate_id],
+  );
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -629,9 +649,7 @@ export const GateDeviceConfigs: React.FC = () => {
                   gate_id: "",
                   device_code: "",
                 }));
-                if (val) {
-                  loadDevices(val.mandi_id);
-                } else {
+                if (!val) {
                   setGateOptionsFilter([]);
                   setGateOptionsForm([]);
                   setDeviceOptions([]);
@@ -664,7 +682,6 @@ export const GateDeviceConfigs: React.FC = () => {
               disabled={!filters.mandi_id}
             >
               <MenuItem value="">All</MenuItem>
-              {gateOptions.map((g: any) => (
               {gateOptionsFilter.map((g: any) => (
                 <MenuItem
                   key={String(g._id || g.id || g.gate_id || g.gate_code)}
@@ -678,10 +695,19 @@ export const GateDeviceConfigs: React.FC = () => {
               label="Device Code"
               value={filters.device_code}
               onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
+              select
               size="small"
-              sx={{ minWidth: 160 }}
+              sx={{ minWidth: 180 }}
               disabled={!filters.gate_id}
-            />
+            >
+              <MenuItem value="">Select</MenuItem>
+              {filteredDeviceOptionsFilter.map((d: any) => (
+                <MenuItem key={d.device_code} value={d.device_code}>
+                  {d.device_code} • {d.device_type || "UNKNOWN"}
+                  {d.device_label ? ` • ${d.device_label}` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
           </Stack>
         </CardContent>
       </Card>
@@ -767,10 +793,8 @@ export const GateDeviceConfigs: React.FC = () => {
                   gate_id: "",
                   device_code: "",
                 }));
-                if (val) {
-                  loadDevices(val.mandi_id);
-                } else {
-                  setGateOptions([]);
+                if (!val) {
+                  setGateOptionsForm([]);
                   setDeviceOptions([]);
                 }
               }}
@@ -790,8 +814,7 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(e) => {
                 setForm((f) => ({ ...f, gate_id: e.target.value, device_code: "" }));
                 if (form.mandi_id) {
-                  const gate_code = resolveGateCode(e.target.value as string);
-                  loadDevices(form.mandi_id, gate_code);
+                  loadDevices(form.mandi_id, e.target.value as string);
                 }
               }}
               fullWidth
@@ -818,12 +841,23 @@ export const GateDeviceConfigs: React.FC = () => {
               disabled={!form.gate_id}
             >
               <MenuItem value="">Select</MenuItem>
-              {deviceOptions.map((d: any) => (
+              {filteredDeviceOptionsForm.map((d: any) => (
                 <MenuItem key={d.device_code} value={d.device_code}>
-                  {d.device_code}
+                  {d.device_code} • {d.device_type || "UNKNOWN"}
+                  {d.device_label ? ` • ${d.device_label}` : ""}
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              label="Device Type"
+              value={
+                filteredDeviceOptionsForm.find((d: any) => d.device_code === form.device_code)
+                  ?.device_type || ""
+              }
+              fullWidth
+              size="small"
+              InputProps={{ readOnly: true }}
+            />
             <TextField
               select
               label="QR Format"

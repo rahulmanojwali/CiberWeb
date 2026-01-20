@@ -999,6 +999,8 @@ export function filterMenuByResources(
         "role_policies.menu",
         "user_roles.menu",
         "resource_registry.menu",
+        "commodity_products_masters.menu",
+        "mandi_commodity_products_masters.menu",
       ]);
       if (item.resourceKey && watchKeys.has(item.resourceKey)) {
         const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));

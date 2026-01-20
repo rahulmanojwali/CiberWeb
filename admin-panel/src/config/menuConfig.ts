@@ -1005,19 +1005,20 @@ export function filterMenuByResources(
       if (item.resourceKey && watchKeys.has(item.resourceKey)) {
         const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
         const set = permissionsMap![normalizeKey(item.resourceKey)];
-        const canViewPerm = !!set && set.size > 0;
+        const canViewPerm = !!set && set.has("VIEW");
         const result = hasResourceKey && canViewPerm;
         console.log("[menu debug watch]", {
           key: item.resourceKey,
           hasResourceKey,
           canView: canViewPerm,
+          actions: set ? Array.from(set) : [],
           finalIncluded: result,
         });
       }
       if (!item.resourceKey) return hasChildren;
       const normalizedKey = normalizeKey(item.resourceKey);
       const set = permissionsMap![normalizedKey];
-      if (!set || set.size === 0) return false;
+      if (!set || !set.has("VIEW")) return false;
       // Require that the menu key exists in ui_resources (keeps unseen keys out),
       // except for known keys that currently have no ui_resource but are permissioned (e.g., gate_entry_tokens.menu).
       const hasUiResource = menuResourceKeys.has(normalizedKey);

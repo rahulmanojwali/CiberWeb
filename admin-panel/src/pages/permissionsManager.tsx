@@ -304,9 +304,7 @@ export const PermissionsManager: React.FC = () => {
     });
 
     const groupList = Object.entries(groups).map(([prefix, data]) => {
-      const rows = data.entries.filter(
-        (entry) => !entry.resource_key.endsWith(".menu") && !entry.resource_key.startsWith("menu."),
-      );
+      const rows = data.entries;
 
       const total = rows.length;
 

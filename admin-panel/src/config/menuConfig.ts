@@ -999,6 +999,7 @@ export function filterMenuByResources(
         "role_policies.menu",
         "user_roles.menu",
         "resource_registry.menu",
+        "commodities_masters.menu",
         "commodity_products_masters.menu",
         "mandi_commodity_products_masters.menu",
       ]);
@@ -1006,12 +1007,17 @@ export function filterMenuByResources(
         const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
         const set = permissionsMap![normalizeKey(item.resourceKey)];
         const canViewPerm = !!set && set.has("VIEW");
+        const roleAllowed =
+          !item.roles || !Array.isArray(item.roles) || item.roles.length === 0
+            ? true
+            : Boolean(fallbackRole && item.roles.includes(fallbackRole));
         const result = hasResourceKey && canViewPerm;
         console.log("[menu debug watch]", {
           key: item.resourceKey,
           hasResourceKey,
           canView: canViewPerm,
           actions: set ? Array.from(set) : [],
+          roleAllowed,
           finalIncluded: result,
         });
       }

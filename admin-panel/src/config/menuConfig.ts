@@ -466,6 +466,15 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
     },
     {
+      key: "mandiAssociations",
+      labelKey: "menu.mandiAssociations",
+      path: "/mandi-associations",
+      icon: React.createElement(TimelineOutlinedIcon),
+      resourceKey: "mandi_associations.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+    },
+    {
       key: "gateMovements",
       labelKey: "menu.gateMovements",
       path: "/gate-movements",

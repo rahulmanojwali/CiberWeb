@@ -63,6 +63,7 @@ import { GateEntryCreate } from "./pages/gateEntries/create";
 import { WeighmentTickets } from "./pages/weighmentTickets";
 import { GateMovements } from "./pages/gateMovements";
 import GateTokenDetail from "./pages/gateTokens/detail";
+import { MandiAssociations } from "./pages/mandiAssociations";
 import RolesPermissionsPage from "./pages/rolesPermissions";
 import { PermissionsManager } from "./pages/permissionsManager";
 import UserRoleManagerPage from "./pages/userRoleManager";
@@ -208,6 +209,7 @@ function App() {
                   <Route path="/gate-tokens/:tokenCode" element={<GateTokenDetail />} />
                   <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                   <Route path="/gate-movements" element={<GateMovements />} />
+                  <Route path="/mandi-associations" element={<MandiAssociations />} />
                   <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
                   <Route path="/system/role-policy-manager" element={<PermissionsManager />} />
                   <Route path="/system/permissions-manager" element={<PermissionsManager />} />

@@ -218,6 +218,10 @@ export const API_TAGS = {
   GATE_ENTRY_TOKENS: {
     list: "getGateEntryTokens",
   },
+  MANDI_ASSOCIATIONS: {
+    list: "getMandiAssociationRequests",
+    update: "updateMandiAssociationRequest",
+  },
   GATE_OPERATOR_CONTEXT: {
     context: "getGateOperatorContext",
   },
@@ -444,6 +448,8 @@ export const API_ROUTES = {
     getGatePassTokens: "/admin/getGatePassTokens",
     getGateEntryTokens: "/admin/getGateEntryTokens",
     getGateMovements: "/admin/getGateMovements",
+    getMandiAssociationRequests: "/admin/getMandiAssociationRequests",
+    updateMandiAssociationRequest: "/admin/updateMandiAssociationRequest",
     getGateOperatorContext: "/admin/getGateOperatorContext",
     issueGateToken: "/admin/issueGateToken",
     scanGateToken: "/admin/scanGateToken",

@@ -106,83 +106,6 @@ export const MandiAssociations: React.FC = () => {
     { value: "EXPIRED", label: "Expired" },
   ];
 
-  const columns = useMemo<GridColDef<AssociationRow>[]>(
-    () => [
-      {
-        field: "status",
-        headerName: "Status",
-        width: 150,
-        renderCell: (params) => (
-          <Chip size="small" label={params.value || "-"} color={chipColor(params.value)} />
-        ),
-      },
-      { field: "party_type", headerName: "Party Type", width: 140 },
-      {
-        field: "party_ref",
-        headerName: "Username / Ref",
-        width: 200,
-        valueGetter: (value, row) => value || row.walkin_name || "-",
-      },
-      {
-        field: "walkin_mobile",
-        headerName: "Walk-in Mobile",
-        width: 160,
-        valueGetter: (value) => value || "-",
-      },
-      {
-        field: "requested_on",
-        headerName: "Requested On",
-        width: 190,
-        valueFormatter: (value, row) => formatDate(value || row?.created_on),
-      },
-      {
-        field: "actions",
-        headerName: "Actions",
-        sortable: false,
-        filterable: false,
-        width: 260,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setTempHours("8");
-                  setTempDialogOpen(true);
-                }}
-              >
-                TEMP APPROVE
-              </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                onClick={() => handleUpdate(params.row, { status: "APPROVED" })}
-              >
-                APPROVE
-              </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                color="error"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setRejectReason("");
-                  setRejectDialogOpen(true);
-                }}
-              >
-                REJECT
-              </Button>
-            </ActionGate>
-          </Stack>
-        ),
-      },
-    ],
-    [handleUpdate],
-  );
-
   const loadOrganisations = async () => {
     if (uiConfig.role !== "SUPER_ADMIN") return;
     const username = currentUsername();
@@ -282,6 +205,83 @@ export const MandiAssociations: React.FC = () => {
     }
   }, [canUpdate, enqueueSnackbar, language]);
 
+  const columns = useMemo<GridColDef<AssociationRow>[]>(
+    () => [
+      {
+        field: "status",
+        headerName: "Status",
+        width: 150,
+        renderCell: (params) => (
+          <Chip size="small" label={params.value || "-"} color={chipColor(params.value)} />
+        ),
+      },
+      { field: "party_type", headerName: "Party Type", width: 140 },
+      {
+        field: "party_ref",
+        headerName: "Username / Ref",
+        width: 200,
+        valueGetter: (value, row) => value || row.walkin_name || "-",
+      },
+      {
+        field: "walkin_mobile",
+        headerName: "Walk-in Mobile",
+        width: 160,
+        valueGetter: (value) => value || "-",
+      },
+      {
+        field: "requested_on",
+        headerName: "Requested On",
+        width: 190,
+        valueFormatter: (value, row) => formatDate(value || row?.created_on),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        sortable: false,
+        filterable: false,
+        width: 260,
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1}>
+            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
+              <Button
+                size="small"
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setTempHours("8");
+                  setTempDialogOpen(true);
+                }}
+              >
+                TEMP APPROVE
+              </Button>
+            </ActionGate>
+            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
+              <Button
+                size="small"
+                onClick={() => handleUpdate(params.row, { status: "APPROVED" })}
+              >
+                APPROVE
+              </Button>
+            </ActionGate>
+            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setRejectReason("");
+                  setRejectDialogOpen(true);
+                }}
+              >
+                REJECT
+              </Button>
+            </ActionGate>
+          </Stack>
+        ),
+      },
+    ],
+    [handleUpdate],
+  );
+
   useEffect(() => {
     loadOrganisations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,7 +374,16 @@ export const MandiAssociations: React.FC = () => {
         </Stack>
 
         <Box>
-          <ResponsiveDataGrid rows={rows} columns={columns} loading={loading} autoHeight pageSize={20} />
+          <ResponsiveDataGrid
+            rows={rows}
+            columns={columns}
+            loading={loading}
+            autoHeight
+            getRowId={(r) => r.id}
+            pageSizeOptions={[20, 50, 100]}
+            initialState={{ pagination: { paginationModel: { pageSize: 20, page: 0 } } }}
+            minWidth={960}
+          />
         </Box>
       </ActionGate>
 

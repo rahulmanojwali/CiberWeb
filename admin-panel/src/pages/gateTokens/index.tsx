@@ -149,7 +149,15 @@ export const GateTokens: React.FC = () => {
           <Chip
             size="small"
             label={params.value || "-"}
-            color={params.value === "SCANNED" ? "success" : params.value === "CREATED" ? "info" : "default"}
+            color={
+              params.value === "IN_YARD"
+                ? "success"
+                : params.value === "ISSUED"
+                  ? "info"
+                  : params.value === "EXITED"
+                    ? "default"
+                    : "default"
+            }
           />
         ),
       },
@@ -498,8 +506,7 @@ export const GateTokens: React.FC = () => {
           onChange={(e) => updateFilter("status", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="CREATED">Created</MenuItem>
-          <MenuItem value="SCANNED">Scanned</MenuItem>
+          <MenuItem value="ISSUED">Issued</MenuItem>
           <MenuItem value="IN_YARD">In Yard</MenuItem>
           <MenuItem value="EXITED">Exited</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>
@@ -541,7 +548,15 @@ export const GateTokens: React.FC = () => {
                     <Chip
                       size="small"
                       label={row.status || "-"}
-                      color={row.status === "SCANNED" ? "success" : row.status === "CREATED" ? "info" : "default"}
+                      color={
+                        row.status === "IN_YARD"
+                          ? "success"
+                          : row.status === "ISSUED"
+                            ? "info"
+                            : row.status === "EXITED"
+                              ? "default"
+                              : "default"
+                      }
                     />
                   </Stack>
                   <Typography variant="body2" color="text.secondary">

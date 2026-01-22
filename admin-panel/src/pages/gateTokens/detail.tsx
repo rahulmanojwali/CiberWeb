@@ -97,7 +97,7 @@ export const GateTokenDetail: React.FC = () => {
   }, [detail?.device_code, movements]);
 
   const canMarkEntry =
-    canUpdateEntry && detail?.token_type === "ENTRY" && String(detail?.status || "").toUpperCase() === "CREATED";
+    canUpdateEntry && detail?.token_type === "ENTRY" && String(detail?.status || "").toUpperCase() === "ISSUED";
 
   const loadToken = async () => {
     if (!tokenCode) {

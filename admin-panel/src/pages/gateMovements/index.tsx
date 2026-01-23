@@ -45,6 +45,8 @@ export const GateMovements: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const isSuperAdmin = uiConfig.role === "SUPER_ADMIN";
+  const scopedOrgId = uiConfig.scope?.org_id || "";
 
   const [rows, setRows] = useState<MovementRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,7 @@ export const GateMovements: React.FC = () => {
   );
 
   const loadOrganisations = async () => {
-    if (uiConfig.role !== "SUPER_ADMIN") return;
+    if (!isSuperAdmin) return;
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
@@ -198,7 +200,19 @@ export const GateMovements: React.FC = () => {
 
   useEffect(() => {
     loadOrganisations();
-  }, [language, uiConfig.role]);
+  }, [language, isSuperAdmin]);
+
+  useEffect(() => {
+    if (isSuperAdmin) return;
+    if (!scopedOrgId) return;
+    if (filters.org_id === scopedOrgId) return;
+    setFilters((prev) => ({
+      ...prev,
+      org_id: scopedOrgId,
+      mandi_id: "",
+      gate_code: "",
+    }));
+  }, [isSuperAdmin, scopedOrgId, filters.org_id]);
 
   useEffect(() => {
     if (!filters.org_id) {
@@ -211,6 +225,14 @@ export const GateMovements: React.FC = () => {
   useEffect(() => {
     loadGates(filters.mandi_id);
   }, [filters.mandi_id, language]);
+
+  useEffect(() => {
+    if (!mandiOptions.length) return;
+    if (filters.mandi_id) return;
+    if (mandiOptions.length === 1) {
+      setFilters((prev) => ({ ...prev, mandi_id: mandiOptions[0].value }));
+    }
+  }, [mandiOptions, filters.mandi_id]);
 
   useEffect(() => {
     loadData();

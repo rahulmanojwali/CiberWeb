@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -20,6 +31,7 @@ type MovementRow = {
   movement_type: string | null;
   actor: string | null;
   event_time?: string | null;
+  raw?: any;
 };
 
 type Option = { value: string; label: string };
@@ -52,8 +64,10 @@ export const GateMovements: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
+  const [mandiNameMap, setMandiNameMap] = useState<Map<number, string>>(new Map());
   const [gateOptions, setGateOptions] = useState<Option[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedRow, setSelectedRow] = useState<MovementRow | null>(null);
 
   const [filters, setFilters] = useState({
     org_id: "",
@@ -73,15 +87,26 @@ export const GateMovements: React.FC = () => {
   const columns = useMemo<GridColDef<MovementRow>[]>(
     () => [
       { field: "token_code", headerName: "Token Code", width: 180 },
-      { field: "mandi", headerName: "Mandi", width: 140 },
+      { field: "mandi", headerName: "Mandi", width: 160 },
       { field: "gate", headerName: "Gate", width: 140 },
-      { field: "movement_type", headerName: "Movement", width: 180 },
+      { field: "movement_type", headerName: "Movement", width: 160 },
       { field: "actor", headerName: "Actor / Source", width: 180 },
       {
         field: "event_time",
         headerName: "Timestamp",
         width: 200,
         valueFormatter: (value) => formatDate(value),
+      },
+      {
+        field: "details",
+        headerName: "Details",
+        width: 120,
+        sortable: false,
+        renderCell: (params) => (
+          <Button size="small" onClick={() => setSelectedRow(params.row)}>
+            View
+          </Button>
+        ),
       },
     ],
     [],
@@ -107,6 +132,7 @@ export const GateMovements: React.FC = () => {
     const orgId = filters.org_id;
     if (!orgId) {
       setMandiOptions([]);
+      setMandiNameMap(new Map());
       return;
     }
     try {
@@ -119,15 +145,25 @@ export const GateMovements: React.FC = () => {
           pageSize: 200,
         },
       });
+      const nextMap = new Map<number, string>();
+      list.forEach((m: any) => {
+        const id = Number(m.mandi_id);
+        if (!Number.isNaN(id)) {
+          const label = m?.name_i18n?.[language] || m?.name_i18n?.en || m?.label || m?.mandi_slug || String(id);
+          nextMap.set(id, label);
+        }
+      });
       setMandiOptions(
         list.map((m: any) => ({
           value: String(m.mandi_id || m.slug || m.mandi_slug || ""),
-          label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+          label: m?.name_i18n?.[language] || m?.name_i18n?.en || m?.label || m.mandi_slug || String(m.mandi_id),
         })),
       );
+      setMandiNameMap(nextMap);
     } catch (err) {
       console.error("[GateMovements] loadMandis error", err);
       setMandiOptions([]);
+      setMandiNameMap(new Map());
     }
   };
 
@@ -176,13 +212,19 @@ export const GateMovements: React.FC = () => {
       const total = resp?.data?.total_records ?? resp?.response?.data?.total_records;
 
       const mapped: MovementRow[] = list.map((item: any, idx: number) => ({
-        id: item._id || `${item.token_code || "movement"}-${idx}`,
-        token_code: item.token_code || item.token_id || `token-${idx}`,
-        mandi: item.mandi || item.mandi_slug || item.mandi_id || null,
+        id: item._id || `${item.details?.token_code || item.token_code || "movement"}-${idx}`,
+        token_code: item.details?.token_code || item.token_code || item.token_id || `token-${idx}`,
+        mandi:
+          mandiNameMap.get(Number(item.mandi_id)) ||
+          item.mandi ||
+          item.mandi_slug ||
+          item.mandi_id ||
+          null,
         gate: item.gate_code || item.gate || null,
-        movement_type: item.movement_type || item.event || item.event_type || item.action || null,
+        movement_type: item.step || item.movement_type || item.event || item.event_type || item.action || "-",
         actor: item.actor || item.source || item.performed_by || item.username || null,
-        event_time: item.event_time || item.created_on || item.createdAt || null,
+        event_time: item.ts || item.event_time || item.created_on || item.createdAt || null,
+        raw: item,
       }));
 
       mapped.sort((a, b) => {
@@ -380,6 +422,28 @@ export const GateMovements: React.FC = () => {
           minWidth={960}
         />
       </Box>
+      <Dialog open={!!selectedRow} onClose={() => setSelectedRow(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Movement Details</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1}>
+            <Typography variant="body2">Token Code: {selectedRow?.raw?.details?.token_code || "-"}</Typography>
+            <Typography variant="body2">Step: {selectedRow?.raw?.step || "-"}</Typography>
+            <Typography variant="body2">Gate: {selectedRow?.raw?.gate_code || "-"}</Typography>
+            <Typography variant="body2">Actor: {selectedRow?.raw?.actor || "-"}</Typography>
+            <Typography variant="body2">Timestamp: {formatDate(selectedRow?.raw?.ts)}</Typography>
+            <Typography variant="body2">Device: {selectedRow?.raw?.details?.device_code || "-"}</Typography>
+            <Typography variant="body2">Vehicle No: {selectedRow?.raw?.details?.vehicle_no || "-"}</Typography>
+            <Typography variant="body2">Vehicle Type: {selectedRow?.raw?.details?.vehicle_type_code || "-"}</Typography>
+            <Typography variant="body2">Reason: {selectedRow?.raw?.details?.reason_code || "-"}</Typography>
+            <Typography variant="body2">Party Type: {selectedRow?.raw?.details?.party_type || "-"}</Typography>
+            <Typography variant="body2">Party Ref: {selectedRow?.raw?.details?.party_ref || "-"}</Typography>
+            <Typography variant="body2">Remarks: {selectedRow?.raw?.details?.remarks || "-"}</Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedRow(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 };

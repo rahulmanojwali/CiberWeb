@@ -31,6 +31,8 @@ type TokenDetail = {
   gate_code?: string | null;
   device_code?: string | null;
   status?: string | null;
+  last_step?: string | null;
+  mandi_name?: string | null;
   org_id?: string | null;
   mandi_id?: number | string | null;
   created_on?: string | null;
@@ -89,6 +91,22 @@ export const GateTokenDetail: React.FC = () => {
     () => can(uiConfig.resources, "gate_entry_tokens.update", "UPDATE"),
     [uiConfig.resources],
   );
+
+  const lastMovementStep = useMemo(() => {
+    const direct = detail?.last_step || (detail as any)?.last_movement_step || (detail as any)?.movement_step;
+    if (direct) return direct;
+    if (!movements.length) return "";
+    let latest = movements[0];
+    let latestTs = new Date(movements[0]?.ts || movements[0]?.created_on || 0).getTime();
+    movements.forEach((mv) => {
+      const ts = new Date(mv?.ts || mv?.created_on || 0).getTime();
+      if (!Number.isNaN(ts) && ts > latestTs) {
+        latest = mv;
+        latestTs = ts;
+      }
+    });
+    return latest?.step || latest?.details?.step || "";
+  }, [detail, movements]);
 
   const resolvedDeviceCode = useMemo(() => {
     if (detail?.device_code) return detail.device_code;
@@ -275,6 +293,9 @@ export const GateTokenDetail: React.FC = () => {
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField label="Status" value={detail.status || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
+              <TextField label="Last Step" value={lastMovementStep || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
+            </Stack>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField label="Reason" value={detail.reason_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -283,7 +304,13 @@ export const GateTokenDetail: React.FC = () => {
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField label="Device" value={detail.device_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Mandi" value={detail.mandi_id ? String(detail.mandi_id) : ""} size="small" InputProps={{ readOnly: true }} fullWidth />
+              <TextField
+                label="Mandi"
+                value={detail.mandi_name || (detail.mandi_id ? String(detail.mandi_id) : "")}
+                size="small"
+                InputProps={{ readOnly: true }}
+                fullWidth
+              />
             </Stack>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField label="Created On" value={formatDate(detail.created_on)} size="small" InputProps={{ readOnly: true }} fullWidth />
@@ -351,6 +378,25 @@ export const GateTokenDetail: React.FC = () => {
                 ))}
               </List>
             )}
+          </Box>
+          <Box>
+            <Typography variant="h6" mb={1}>
+              Raw Payload
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                p: 2,
+                bgcolor: "background.default",
+                borderRadius: 1,
+                border: "1px solid",
+                borderColor: "divider",
+                overflow: "auto",
+                fontSize: 12,
+              }}
+            >
+              {JSON.stringify(detail, null, 2)}
+            </Box>
           </Box>
         </Stack>
       )}

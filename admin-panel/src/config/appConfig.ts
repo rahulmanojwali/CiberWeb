@@ -147,6 +147,10 @@ export const API_TAGS = {
       list: "getAuctionResults",
     },
   },
+  LOTS: {
+    list: "getLots",
+    detail: "getLotDetail",
+  },
   TRADER_APPROVALS: {
     list: "getTraderApprovals",
     detail: "getTraderApprovalDetail",
@@ -462,6 +466,8 @@ export const API_ROUTES = {
     getAuctionSessions: "/admin/getAuctionSessions",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
+    getLots: "/admin/getLots",
+    getLotDetail: "/admin/getLotDetail",
     getSystemMandisByState: "/admin/getSystemMandisByState",
     importSystemMandisToOrg: "/admin/importSystemMandisToOrg",
     getOrgMandis: "/admin/getOrgMandis",

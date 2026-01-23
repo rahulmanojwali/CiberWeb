@@ -215,13 +215,21 @@ export const GateMovements: React.FC = () => {
         id: item._id || `${item.details?.token_code || item.token_code || "movement"}-${idx}`,
         token_code: item.details?.token_code || item.token_code || item.token_id || `token-${idx}`,
         mandi:
+          item.mandi_name ||
           mandiNameMap.get(Number(item.mandi_id)) ||
           item.mandi ||
           item.mandi_slug ||
           item.mandi_id ||
           null,
         gate: item.gate_code || item.gate || null,
-        movement_type: item.step || item.movement_type || item.event || item.event_type || item.action || "-",
+        movement_type:
+          item.step ||
+          item.details?.step ||
+          item.movement_type ||
+          item.event ||
+          item.event_type ||
+          item.action ||
+          "-",
         actor: item.actor || item.source || item.performed_by || item.username || null,
         event_time: item.ts || item.event_time || item.created_on || item.createdAt || null,
         raw: item,
@@ -427,7 +435,7 @@ export const GateMovements: React.FC = () => {
         <DialogContent dividers>
           <Stack spacing={1}>
             <Typography variant="body2">Token Code: {selectedRow?.raw?.details?.token_code || "-"}</Typography>
-            <Typography variant="body2">Step: {selectedRow?.raw?.step || "-"}</Typography>
+            <Typography variant="body2">Step: {selectedRow?.raw?.step || selectedRow?.raw?.details?.step || "-"}</Typography>
             <Typography variant="body2">Gate: {selectedRow?.raw?.gate_code || "-"}</Typography>
             <Typography variant="body2">Actor: {selectedRow?.raw?.actor || "-"}</Typography>
             <Typography variant="body2">Timestamp: {formatDate(selectedRow?.raw?.ts)}</Typography>

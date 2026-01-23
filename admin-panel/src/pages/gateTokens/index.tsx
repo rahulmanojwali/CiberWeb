@@ -37,6 +37,7 @@ type TokenRow = {
   vehicle_no?: string | null;
   reason_code?: string | null;
   status: string | null;
+  last_step?: string | null;
   created_on?: string | null;
   updated_on?: string | null;
   updated_by?: string | null;
@@ -141,6 +142,7 @@ export const GateTokens: React.FC = () => {
       { field: "reason_code", headerName: "Reason", width: 150 },
       { field: "gate_code", headerName: "Gate", width: 120 },
       { field: "device_code", headerName: "Device", width: 140 },
+      { field: "last_step", headerName: "Last Step", width: 130 },
       {
         field: "status",
         headerName: "Status",
@@ -326,6 +328,7 @@ export const GateTokens: React.FC = () => {
             vehicle_no: item.vehicle_no || null,
             reason_code: item.reason_code || item.reason || null,
             status: item.status || null,
+            last_step: item.last_step || item.last_movement_step || item.movement_step || null,
             created_on: item.created_on || item.createdAt || null,
             updated_on: item.updated_on || item.updatedAt || null,
             updated_by: item.updated_by || item.updatedBy || null,
@@ -570,6 +573,9 @@ export const GateTokens: React.FC = () => {
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Gate: {row.gate_code || "-"} | Device: {row.device_code || "-"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Last Step: {row.last_step || "-"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Updated: {formatDate(row.updated_on) || "-"}

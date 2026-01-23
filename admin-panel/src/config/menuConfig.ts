@@ -610,6 +610,15 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "AUCTIONEER", "AUDITOR"],
     },
     {
+      key: "lots",
+      labelKey: "menu.lots",
+      path: "/lots",
+      icon: React.createElement(Inventory2OutlinedIcon),
+      resourceKey: "lots.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUCTIONEER", "AUDITOR"],
+    },
+    {
       key: "auctionResults",
       labelKey: "menu.auctionResults",
       path: "/auction-results",

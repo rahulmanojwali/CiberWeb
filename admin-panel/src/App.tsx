@@ -70,6 +70,7 @@ import UserRoleManagerPage from "./pages/userRoleManager";
 import { AuctionSessions } from "./pages/auctionSessions";
 import { AuctionLots } from "./pages/auctionLots";
 import { AuctionResults } from "./pages/auctionResults";
+import { Lots } from "./pages/lots";
 import { PaymentsLanding } from "./pages/paymentsLanding";
 import { PaymentModels } from "./pages/paymentModels";
 import { OrgPaymentSettings } from "./pages/orgPaymentSettings";
@@ -220,6 +221,7 @@ function App() {
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />
                   <Route path="/auction-sessions" element={<AuctionSessions />} />
                   <Route path="/auction-lots" element={<AuctionLots />} />
+                  <Route path="/lots" element={<Lots />} />
                   <Route path="/auction-results" element={<AuctionResults />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports" element={<Reports />} />

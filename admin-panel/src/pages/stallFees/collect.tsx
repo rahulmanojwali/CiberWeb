@@ -177,9 +177,6 @@ export const StallFeeCollect: React.FC = () => {
     if (canCollect) {
       loadMandis();
     }
-    if (!form.mandi_id && uiConfig.scope?.mandi_id) {
-      setForm((prev) => ({ ...prev, mandi_id: String(uiConfig.scope?.mandi_id || "") }));
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canCollect]);
 

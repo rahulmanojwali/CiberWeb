@@ -21,6 +21,7 @@ import { fetchGateDevices, fetchGateEntryReasons, fetchGateVehicleTypesMaster } 
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { fetchGateOperatorContext, issueGateToken } from "../../services/gateOpsApi";
+import { searchPreMarketListingsForGate, markPreMarketArrival } from "../../services/preMarketListingsApi";
 
 type SelectOption = { value: string; label: string };
 
@@ -32,6 +33,24 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
+}
+
+function currentUserCountry(): string | null {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.country || parsed?.country_code || null;
+  } catch {
+    return null;
+  }
+}
+
+function todayLocal(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export const GateEntryCreate: React.FC = () => {
@@ -61,6 +80,11 @@ export const GateEntryCreate: React.FC = () => {
     gate_code: "",
     device_code: "",
   });
+
+  const [quickLinkMobile, setQuickLinkMobile] = useState("");
+  const [quickLinkResults, setQuickLinkResults] = useState<any[]>([]);
+  const [quickLinkLoading, setQuickLinkLoading] = useState(false);
+  const [selectedPreListing, setSelectedPreListing] = useState<any | null>(null);
 
   const [gateOptions, setGateOptions] = useState<SelectOption[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<SelectOption[]>([]);
@@ -201,6 +225,55 @@ export const GateEntryCreate: React.FC = () => {
     }
   };
 
+  const handleSearchPreListings = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const orgId = context.org_id || uiConfig.scope?.org_id || "";
+    const mandiId = context.mandi_id ?? "";
+    const country = currentUserCountry() || "IN";
+    if (!quickLinkMobile.trim()) {
+      enqueueSnackbar("Enter farmer mobile to search.", { variant: "warning" });
+      return;
+    }
+    if (!mandiId) {
+      enqueueSnackbar("Missing mandi context.", { variant: "warning" });
+      return;
+    }
+    setQuickLinkLoading(true);
+    try {
+      const resp = await searchPreMarketListingsForGate({
+        username,
+        language,
+        filters: {
+          country,
+          org_id: orgId || undefined,
+          mandi_id: mandiId,
+          market_date: todayLocal(),
+          farmer_mobile: quickLinkMobile.trim(),
+        },
+      });
+      const items = resp?.data?.items || resp?.response?.data?.items || [];
+      setQuickLinkResults(items || []);
+      if (!items || items.length === 0) {
+        enqueueSnackbar("No pre-market listings found.", { variant: "info" });
+      }
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Search failed.", { variant: "error" });
+    } finally {
+      setQuickLinkLoading(false);
+    }
+  };
+
+  const selectPreListing = (listing: any) => {
+    setSelectedPreListing(listing);
+    const mobile = listing?.farmer?.mobile || "";
+    if (mobile) setQuickLinkMobile(mobile);
+  };
+
+  const clearPreListing = () => {
+    setSelectedPreListing(null);
+  };
+
   useEffect(() => {
     loadOperatorContext();
     loadGates();
@@ -266,7 +339,40 @@ export const GateEntryCreate: React.FC = () => {
         return;
       }
       const tokenCode = resp?.data?.token_code || resp?.response?.data?.token_code || "";
+      const tokenId = resp?.data?.gate_entry_token?._id || resp?.response?.data?.gate_entry_token?._id || "";
       enqueueSnackbar(`Token issued: ${tokenCode || "unknown"}`, { variant: "success" });
+
+      if (selectedPreListing) {
+        try {
+          const arrivalResp = await markPreMarketArrival({
+            username,
+            language,
+            payload: {
+              listing_id: selectedPreListing?._id,
+              token_id: tokenId || undefined,
+              token_code: tokenId ? undefined : tokenCode || undefined,
+              country: currentUserCountry() || "IN",
+              org_id: scopedOrgId,
+              mandi_id: scopedMandiId,
+            },
+          });
+          const arrivalCode = arrivalResp?.response?.responsecode || arrivalResp?.responsecode || "1";
+          if (arrivalCode !== "0") {
+            enqueueSnackbar(
+              "Token created, but pre-listing could not be linked. Please open listing and mark arrived manually.",
+              { variant: "warning" },
+            );
+            console.warn("[preMarketLink] mark arrival failed", arrivalResp);
+          }
+        } catch (err) {
+          enqueueSnackbar(
+            "Token created, but pre-listing could not be linked. Please open listing and mark arrived manually.",
+            { variant: "warning" },
+          );
+          console.warn("[preMarketLink] mark arrival error", err);
+        }
+      }
+
       if (tokenCode) {
         navigate(`/gate-tokens/${encodeURIComponent(tokenCode)}`);
       } else {
@@ -313,6 +419,55 @@ export const GateEntryCreate: React.FC = () => {
           </Button>
         </Stack>
       </Stack>
+
+        <Box mb={2}>
+        <Typography variant="subtitle1">Link pre-market listing (optional)</Typography>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }} mt={1}>
+          <TextField
+            label="Farmer Mobile"
+            value={quickLinkMobile}
+            onChange={(e) => setQuickLinkMobile(e.target.value)}
+            sx={{ minWidth: 220 }}
+          />
+          <Button
+            variant="outlined"
+            onClick={handleSearchPreListings}
+            disabled={quickLinkLoading}
+          >
+            {quickLinkLoading ? "Searching..." : "Search"}
+          </Button>
+        </Stack>
+
+        {selectedPreListing ? (
+          <Box mt={2} p={2} sx={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 1 }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
+              <Box>
+                <Typography variant="body2">Selected Listing: {selectedPreListing?._id || "-"}</Typography>
+                <Typography variant="body2">Farmer: {selectedPreListing?.farmer?.name || "-"} ({selectedPreListing?.farmer?.mobile || "-"})</Typography>
+                <Typography variant="body2">Commodity: {selectedPreListing?.produce?.commodity_name || "-"}</Typography>
+                <Typography variant="body2">Bags: {selectedPreListing?.produce?.quantity?.bags ?? "-"} | Weight/Bag: {selectedPreListing?.produce?.quantity?.weight_per_bag_kg ?? "-"}</Typography>
+              </Box>
+              <Button variant="text" color="error" onClick={clearPreListing}>Clear</Button>
+            </Stack>
+          </Box>
+        ) : (
+          <Stack spacing={1} mt={2}>
+            {quickLinkResults.map((item: any) => (
+              <Box key={String(item._id)} p={2} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 1 }}>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
+                  <Box>
+                    <Typography variant="body2">Listing: {String(item._id)}</Typography>
+                    <Typography variant="body2">Farmer: {item?.farmer?.name || "-"} ({item?.farmer?.mobile || "-"})</Typography>
+                    <Typography variant="body2">Commodity: {item?.produce?.commodity_name || "-"}</Typography>
+                    <Typography variant="body2">Bags: {item?.produce?.quantity?.bags ?? "-"} | Weight/Bag: {item?.produce?.quantity?.weight_per_bag_kg ?? "-"}</Typography>
+                  </Box>
+                  <Button variant="contained" onClick={() => selectPreListing(item)}>Use this listing</Button>
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Box>
 
       <Box component="form" noValidate autoComplete="off">
         <Stack spacing={2} maxWidth={520}>

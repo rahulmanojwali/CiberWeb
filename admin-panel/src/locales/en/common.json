@@ -42,7 +42,7 @@
   "menu": {
     "dashboard": "Dashboard",
     "organisations": "Organisations",
-    "orgMandi": "Org\u2013Mandi Mapping",
+    "orgMandi": "Org–Mandi Mapping",
     "mandis": "Mandis",
     "adminUsers": "Admin Users",
     "traderApprovals": "Trader Approvals",
@@ -75,6 +75,7 @@
     "gateDevices": "Gate Devices",
     "gateDeviceConfigs": "Device Configs",
     "gateEntries": "Gate Entry Tokens",
+    "preMarketListings": "Pre-Market Listings",
     "mandiAssociations": "Mandi Associations",
     "gateTokens": "Gate Entry Tokens",
     "weighmentTickets": "Weighment",
@@ -100,7 +101,10 @@
     "resourceRegistry": "Resource Registry",
     "resourceHealth": "Resource Health",
     "twoFactorSecurity": "2FA Security",
-    "securitySwitches": "Security Switches"
+    "securitySwitches": "Security Switches",
+    "transportIntents": "Transport Intents",
+    "stallFees": "Stall Fees",
+    "marketPrices": "Market Prices"
   },
   "header": {
     "sign_out": "Sign Out",
@@ -251,7 +255,7 @@
       },
       "why": {
         "title": "Why CiberMandi",
-        "body": "CiberMandi is a public digital mandi ecosystem designed to modernize agricultural trading. It digitizes the entire mandi workflow\u2014from farmer arrival to auction, payment, and dispatch. It ensures transparency, fairness, and efficiency for all stakeholders."
+        "body": "CiberMandi is a public digital mandi ecosystem designed to modernize agricultural trading. It digitizes the entire mandi workflow—from farmer arrival to auction, payment, and dispatch. It ensures transparency, fairness, and efficiency for all stakeholders."
       },
       "benefits": {
         "farmers": {

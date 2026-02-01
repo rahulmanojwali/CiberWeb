@@ -202,6 +202,217 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     metadata: { injected: true },
   } as UiResource);
 
+  const preMarketView = ["VIEW"];
+  const preMarketCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+  ensure({
+    resource_key: "pre_market_listings.menu",
+    screen: "Pre-Market Listings",
+    element: "Pre-market listings menu",
+    ui_type: "menu",
+    route: "/pre-market-listings",
+    parent_resource_key: null,
+    allowed_actions: preMarketView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "pre_market_listings.list",
+    screen: "Pre-Market Listings",
+    element: "Pre-market listings list",
+    ui_type: "table",
+    route: "/pre-market-listings",
+    parent_resource_key: "pre_market_listings.menu",
+    allowed_actions: preMarketView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "pre_market_listings.detail",
+    screen: "Pre-Market Listings",
+    element: "Pre-market listing detail",
+    ui_type: "screen",
+    route: "/pre-market-listings",
+    parent_resource_key: "pre_market_listings.menu",
+    allowed_actions: preMarketView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "pre_market_listings.create",
+    screen: "Pre-Market Listings",
+    element: "Create pre-market listing",
+    ui_type: "button",
+    route: "/pre-market-listings",
+    parent_resource_key: "pre_market_listings.menu",
+    allowed_actions: preMarketCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  const transportView = ["VIEW"];
+  const transportCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+  ensure({
+    resource_key: "transport_intents.menu",
+    screen: "Transport Intents",
+    element: "Transport intents menu",
+    ui_type: "menu",
+    route: "/transport-intents",
+    parent_resource_key: null,
+    allowed_actions: transportView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "transport_intents.list",
+    screen: "Transport Intents",
+    element: "Transport intents list",
+    ui_type: "table",
+    route: "/transport-intents",
+    parent_resource_key: "transport_intents.menu",
+    allowed_actions: transportView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "transport_intents.create",
+    screen: "Transport Intents",
+    element: "Create transport intent",
+    ui_type: "button",
+    route: "/transport-intents",
+    parent_resource_key: "transport_intents.menu",
+    allowed_actions: transportCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "transport_intents.match",
+    screen: "Transport Intents",
+    element: "Match transport intents",
+    ui_type: "button",
+    route: "/transport-intents",
+    parent_resource_key: "transport_intents.menu",
+    allowed_actions: transportCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "transport_intents.cancel",
+    screen: "Transport Intents",
+    element: "Cancel transport intent",
+    ui_type: "button",
+    route: "/transport-intents",
+    parent_resource_key: "transport_intents.menu",
+    allowed_actions: transportCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "transport_intents.complete",
+    screen: "Transport Intents",
+    element: "Complete transport intent",
+    ui_type: "button",
+    route: "/transport-intents",
+    parent_resource_key: "transport_intents.menu",
+    allowed_actions: transportCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  const stallView = ["VIEW"];
+  const stallCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
+  ensure({
+    resource_key: "stall_fees.menu",
+    screen: "Stall Fees",
+    element: "Stall fees menu",
+    ui_type: "menu",
+    route: "/stall-fees",
+    parent_resource_key: null,
+    allowed_actions: stallView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "stall_fees.list",
+    screen: "Stall Fees",
+    element: "Stall fees list",
+    ui_type: "table",
+    route: "/stall-fees",
+    parent_resource_key: "stall_fees.menu",
+    allowed_actions: stallView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "stall_fees.collect",
+    screen: "Stall Fees",
+    element: "Collect stall fee",
+    ui_type: "button",
+    route: "/stall-fees/collect",
+    parent_resource_key: "stall_fees.menu",
+    allowed_actions: stallCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "stall_fees.report",
+    screen: "Stall Fees",
+    element: "Stall fee report",
+    ui_type: "screen",
+    route: "/stall-fees/report",
+    parent_resource_key: "stall_fees.menu",
+    allowed_actions: stallView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "stall_fees.refund",
+    screen: "Stall Fees",
+    element: "Refund stall fee",
+    ui_type: "button",
+    route: "/stall-fees",
+    parent_resource_key: "stall_fees.menu",
+    allowed_actions: stallCrud,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+
+  const marketPricesView = ["VIEW"];
+  const marketPricesUpdate = ["VIEW", "UPDATE"];
+  ensure({
+    resource_key: "market_prices.menu",
+    screen: "Market Prices",
+    element: "Market prices menu",
+    ui_type: "menu",
+    route: "/market-prices",
+    parent_resource_key: null,
+    allowed_actions: marketPricesView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "market_prices.view",
+    screen: "Market Prices",
+    element: "Market prices view",
+    ui_type: "table",
+    route: "/market-prices",
+    parent_resource_key: "market_prices.menu",
+    allowed_actions: marketPricesView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "market_prices.generate",
+    screen: "Market Prices",
+    element: "Generate market price snapshots",
+    ui_type: "button",
+    route: "/market-prices",
+    parent_resource_key: "market_prices.menu",
+    allowed_actions: marketPricesUpdate,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+
+
+
+
   return Array.from(deduped.values());
 };
 
@@ -301,6 +512,7 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
         permissions: nextPermissions,
         resources: normalizedUiResources,
       });
+
       syncUserScope(nextScope);
     } catch (e: any) {
       setError(e?.message || "Network error while loading admin UI config.");

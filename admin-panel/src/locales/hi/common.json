@@ -62,6 +62,7 @@
     "roleCustomFees": "Role Custom Fees",
     "gateYard": "गेट संचालन",
     "gateEntries": "गेट एंट्री टोकन",
+    "preMarketListings": "प्री-मार्केट लिस्टिंग्स",
     "gateTokens": "गेट एंट्री टोकन",
     "weighmentTickets": "वज़न",
     "gateMovements": "गेट एंट्री मूवमेंट",
@@ -77,7 +78,10 @@
     "auctionResults": "नीलामी परिणाम",
     "resourceRegistry": "Resource Registry",
     "resourceHealth": "Resource Health",
-    "securitySwitches": "सुरक्षा स्विच"
+    "securitySwitches": "सुरक्षा स्विच",
+    "transportIntents": "ट्रांसपोर्ट इंटेंट्स",
+    "stallFees": "स्टॉल फीस",
+    "marketPrices": "मार्केट प्राइसेस"
   },
   "adminUsers": {
     "title": "एडमिन उपयोगकर्ता",

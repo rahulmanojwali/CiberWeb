@@ -25,6 +25,7 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
 import { getMandisForCurrentScope, fetchCommodityProducts } from "../../services/mandiApi";
 import { fetchPreMarketListings, createPreMarketListing } from "../../services/preMarketListingsApi";
+import { getStoredAdminUser } from "../../utils/session";
 
 type ListingRow = {
   id: string;
@@ -290,7 +291,7 @@ export const PreMarketListings: React.FC = () => {
   const submitCreate = async () => {
     const username = currentUsername();
     const orgId = uiConfig.scope?.org_id || "";
-    const country = uiConfig.scope?.country || "IN";
+    const country = getStoredAdminUser()?.country || "IN";
     if (!username || !orgId) {
       enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
       return;

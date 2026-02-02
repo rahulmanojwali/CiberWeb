@@ -7,8 +7,11 @@ type Action = "VIEW" | "CREATE" | "UPDATE" | "DEACTIVATE" | "UPLOAD" | string;
 const normalizeAction = (action?: string | null) => {
   if (!action) return "";
   const upper = String(action).trim().toUpperCase();
+  if (upper === "ADD" || upper === "INSERT") return "CREATE";
   if (upper === "EDIT") return "UPDATE";
   if (upper === "DELETE" || upper === "DISABLE" || upper === "REMOVE") return "DEACTIVATE";
+  if (upper === "DETAIL") return "VIEW_DETAIL";
+  if (upper === "VIEW_DETAIL" || upper === "VIEW_DETAILS") return "VIEW_DETAIL";
   return upper;
 };
 

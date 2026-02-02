@@ -33,6 +33,8 @@ type UiResource = {
   action_code?: string;
   ui_type?: string;
   route?: string | null;
+  parent_resource_key?: string | null;
+  order?: number;
   label_i18n?: Record<string, string>;
   is_active?: boolean | string;
 };
@@ -243,14 +245,31 @@ export const PermissionsManager: React.FC = () => {
         label?: string;
         element?: string;
         is_active?: boolean | string;
+        parent_resource_key?: string | null;
+        order?: number;
       }
     >();
+
+    const labelByKey = new Map<string, string>();
+    catalog.forEach((entry) => {
+      const key = normalizeKey(entry.resource_key);
+      if (!key) return;
+      const label =
+        entry.label_i18n?.en ||
+        entry.label_i18n?.hi ||
+        entry.element ||
+        friendlyLabel(key, entry.element);
+      if (!labelByKey.has(key)) labelByKey.set(key, label);
+    });
 
     catalog.forEach((entry) => {
       const key = normalizeKey(entry.resource_key);
       if (!key) return;
 
       const screen = entry.screen || prettifyScreenFromKey(key);
+      const parentKey = entry.parent_resource_key || null;
+      const parsedOrder = Number(entry.order);
+      const order = Number.isFinite(parsedOrder) ? parsedOrder : undefined;
 
       if (!map.has(key)) {
         map.set(key, {
@@ -260,7 +279,14 @@ export const PermissionsManager: React.FC = () => {
           label: entry.label_i18n?.en || entry.label_i18n?.hi || undefined,
           element: entry.element,
           is_active: entry.is_active,
+          parent_resource_key: parentKey,
+          order,
         });
+      } else if (order !== undefined) {
+        const existing = map.get(key);
+        if (existing && (existing.order === undefined || order < existing.order)) {
+          existing.order = order;
+        }
       }
 
       const action = normalizeAction(entry.action_code || "");
@@ -290,20 +316,17 @@ export const PermissionsManager: React.FC = () => {
     > = {};
 
     list.forEach((entry) => {
-      const prefix = entry.resource_key.startsWith("menu.")
-        ? entry.resource_key.split(".")[1] || "other"
-        : entry.resource_key.split(".")[0] || "other";
-
-      if (!groups[prefix]) {
-        groups[prefix] = {
+      const groupKey = buildGroupKey(entry);
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
           entries: [],
-          title: prettifyScreenFromKey(prefix),
+          title: buildGroupTitle(entry, labelByKey),
         };
       }
-      groups[prefix].entries.push(entry);
+      groups[groupKey].entries.push(entry);
     });
 
-    const groupList = Object.entries(groups).map(([prefix, data]) => {
+    const groupList = Object.entries(groups).map(([groupKey, data]) => {
       const rows = data.entries;
 
       const total = rows.length;
@@ -352,18 +375,22 @@ export const PermissionsManager: React.FC = () => {
       });
 
       return {
-        key: prefix,
+        key: groupKey,
         title: data.title,
         total,
         granted,
         listWarning: hasCreate && !hasList,
         allEntries: rows,
         entries: filteredRows.sort((a, b) => {
-          const orderA = rowOrderForKey(a.resource_key);
-          const orderB = rowOrderForKey(b.resource_key);
+          const orderA = typeof a.order === "number" ? a.order : rowOrderForKey(a.resource_key);
+          const orderB = typeof b.order === "number" ? b.order : rowOrderForKey(b.resource_key);
           if (orderA !== orderB) return orderA - orderB;
           return a.resource_key.localeCompare(b.resource_key);
         }),
+        order: rows.reduce((min, entry) => {
+          if (typeof entry.order !== "number") return min;
+          return min === null || entry.order < min ? entry.order : min;
+        }, null as number | null),
       };
     });
 
@@ -378,6 +405,11 @@ export const PermissionsManager: React.FC = () => {
         return group.entries.length > 0;
       })
       .sort((a, b) => {
+        if (typeof a.order === "number" || typeof b.order === "number") {
+          const orderA = typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
+          const orderB = typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+          if (orderA !== orderB) return orderA - orderB;
+        }
         const idxA = order.indexOf(a.key);
         const idxB = order.indexOf(b.key);
         if (idxA !== -1 || idxB !== -1) {
@@ -439,16 +471,13 @@ export const PermissionsManager: React.FC = () => {
 
   useEffect(() => {
     if (moduleOrderRef.current.length || !catalog.length) return;
-    const prefixes = new Set<string>();
+    const groups = new Set<string>();
     catalog.forEach((entry) => {
       const key = normalizeKey(entry.resource_key);
       if (!key) return;
-      const prefix = key.startsWith("menu.")
-        ? key.split(".")[1] || "other"
-        : key.split(".")[0] || "other";
-      prefixes.add(prefix);
+      groups.add(buildGroupKey(entry));
     });
-    moduleOrderRef.current = Array.from(prefixes).sort((a, b) => a.localeCompare(b));
+    moduleOrderRef.current = Array.from(groups).sort((a, b) => a.localeCompare(b));
   }, [catalog]);
 
   useEffect(() => {
@@ -945,6 +974,22 @@ function friendlyLabel(resourceKey: string, element?: string): string {
       .join(" ");
   }
   return element || resourceKey;
+}
+
+function buildGroupKey(entry: UiResource): string {
+  const key = normalizeKey(entry.resource_key);
+  const screen = entry.screen || prettifyScreenFromKey(key);
+  const parentKey = normalizeKey(entry.parent_resource_key || "");
+  return parentKey ? `${screen}::${parentKey}` : `${screen}::`;
+}
+
+function buildGroupTitle(entry: UiResource, labelByKey: Map<string, string>): string {
+  const key = normalizeKey(entry.resource_key);
+  const screen = entry.screen || prettifyScreenFromKey(key);
+  const parentKey = normalizeKey(entry.parent_resource_key || "");
+  if (!parentKey) return screen;
+  const parentLabel = labelByKey.get(parentKey) || friendlyLabel(parentKey);
+  return `${screen} / ${parentLabel}`;
 }
 
 

@@ -78,7 +78,7 @@ export const PreMarketListings: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const navigate = useNavigate();
   const uiConfig = useAdminUiConfig();
-  const { can } = usePermissions();
+  const { can, permissionsMap, getPermissionEntry } = usePermissions();
 
   const [rows, setRows] = useState<ListingRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,6 +100,34 @@ export const PreMarketListings: React.FC = () => {
     () => can("pre_market_listings.list", "VIEW"),
     [can],
   );
+  const canCreate = useMemo(
+    () => can("pre_market_listings.create", "CREATE"),
+    [can],
+  );
+
+  useEffect(() => {
+    console.log("RBAC_DEBUG: pre_market_listings.create resource check start");
+    console.log(
+      "RBAC_DEBUG: userPermissions sample",
+      Object.entries(permissionsMap || {}).slice(0, 5),
+    );
+    console.log(
+      "RBAC_DEBUG: pre_market_listings.create permission",
+      getPermissionEntry("pre_market_listings.create"),
+    );
+    console.log(
+      "RBAC_DEBUG: hasPermission CREATE",
+      can("pre_market_listings.create", "CREATE"),
+    );
+    console.log(
+      "RBAC_DEBUG: hasPermission ADD",
+      can("pre_market_listings.create", "ADD"),
+    );
+    console.log(
+      "RBAC_DEBUG: hasPermission VIEW",
+      can("pre_market_listings.create", "VIEW"),
+    );
+  }, [can, getPermissionEntry, permissionsMap]);
 
   const statusOptions = [
     { value: "", label: "All" },
@@ -275,9 +303,16 @@ export const PreMarketListings: React.FC = () => {
             Pre-listed arrivals captured before gate entry.
           </Typography>
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadListings} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {canCreate ? (
+            <Button variant="contained" onClick={() => {}}>
+              Create
+            </Button>
+          ) : null}
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadListings} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Box mb={2}>

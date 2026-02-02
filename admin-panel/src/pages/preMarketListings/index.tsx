@@ -2,10 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   MenuItem,
   Stack,
   TextField,
@@ -17,7 +13,6 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
@@ -26,10 +21,8 @@ import { usePermissions } from "../../authz/usePermissions";
 import {
   getMandisForCurrentScope,
   fetchCommodityProducts,
-  fetchMandiCommodityProducts,
 } from "../../services/mandiApi";
-import { fetchPreMarketListings, createPreMarketListing } from "../../services/preMarketListingsApi";
-import { getStoredAdminUser } from "../../utils/session";
+import { fetchPreMarketListings } from "../../services/preMarketListingsApi";
 
 type ListingRow = {
   id: string;
@@ -89,11 +82,9 @@ export const PreMarketListings: React.FC = () => {
   const navigate = useNavigate();
   const uiConfig = useAdminUiConfig();
   const { can } = usePermissions();
-  const { enqueueSnackbar } = useSnackbar();
 
   const [rows, setRows] = useState<ListingRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [commodityOptions, setCommodityOptions] = useState<Option[]>([]);
@@ -107,24 +98,6 @@ export const PreMarketListings: React.FC = () => {
   });
 
   const [pagination, setPagination] = useState({ page: 0, pageSize: 25 });
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    market_date: todayLocal(),
-    mandi_id: "",
-    farmer_name: "",
-    farmer_mobile: "",
-    commodity_id: "",
-    commodity_product_id: "",
-    bags: "",
-    weight_per_bag_kg: "",
-    expected_price: "",
-  });
-  const [createCommodities, setCreateCommodities] = useState<Option[]>([]);
-  const [createProducts, setCreateProducts] = useState<Option[]>([]);
-  const [loadingCreateCommodities, setLoadingCreateCommodities] = useState(false);
-  const [loadingCreateProducts, setLoadingCreateProducts] = useState(false);
-  const [createCommodityWarning, setCreateCommodityWarning] = useState("");
-  const [createProductWarning, setCreateProductWarning] = useState("");
 
   const canView = useMemo(
     () => can("pre_market_listings.list", "VIEW"),
@@ -279,201 +252,6 @@ export const PreMarketListings: React.FC = () => {
     }
   };
 
-  const onCreateClick = () => {
-    console.log("PRE_MARKET_CREATE_CLICKED");
-    setCreateOpen(true);
-  };
-
-  const resetCreateForm = () => {
-    setCreateForm({
-      market_date: todayLocal(),
-      mandi_id: "",
-      farmer_name: "",
-      farmer_mobile: "",
-      commodity_id: "",
-      commodity_product_id: "",
-      bags: "",
-      weight_per_bag_kg: "",
-      expected_price: "",
-    });
-    setCreateCommodities([]);
-    setCreateProducts([]);
-    setCreateCommodityWarning("");
-    setCreateProductWarning("");
-  };
-
-  const loadCreateCommodities = async (mandiId: string) => {
-    const username = currentUsername();
-    if (!username || !mandiId) {
-      setCreateCommodities([]);
-      setCreateCommodityWarning("");
-      return;
-    }
-    setLoadingCreateCommodities(true);
-    try {
-      const resp = await fetchMandiCommodityProducts({
-        username,
-        language,
-        filters: {
-          mandi_id: Number(mandiId),
-          list_mode: "commodities",
-          is_active: "Y",
-          page: 1,
-          pageSize: 500,
-        },
-      });
-      const data = resp?.data || resp?.response?.data || {};
-      const rows = Array.isArray(data?.rows) ? data.rows : [];
-      const options = rows.map((row: any) => ({
-        value: String(row.commodity_id ?? row.id ?? ""),
-        label: String(
-          row.display_label ||
-            row.label ||
-            row?.label_i18n?.en ||
-            row?.label_i18n?.hi ||
-            row.commodity_id ||
-            "",
-        ),
-      }));
-      setCreateCommodities(options);
-      setCreateCommodityWarning(
-        options.length ? "" : "No commodities configured for this mandi. Configure in Mandi Commodity Products.",
-      );
-    } finally {
-      setLoadingCreateCommodities(false);
-    }
-  };
-
-  const loadCreateProducts = async (mandiId: string, commodityId: string) => {
-    const username = currentUsername();
-    if (!username || !mandiId || !commodityId) {
-      setCreateProducts([]);
-      setCreateProductWarning("");
-      return;
-    }
-    setLoadingCreateProducts(true);
-    try {
-      const mappingsResp = await fetchMandiCommodityProducts({
-        username,
-        language,
-        filters: {
-          mandi_id: Number(mandiId),
-          commodity_id: Number(commodityId),
-          is_active: "Y",
-          page: 1,
-          pageSize: 500,
-        },
-      });
-      const mappingData = mappingsResp?.data || mappingsResp?.response?.data || {};
-      const mappingRows = Array.isArray(mappingData?.rows) ? mappingData.rows : [];
-      const mappedIds = new Set(
-        mappingRows.map((row: any) => Number(row.product_id)).filter((val: any) => Number.isFinite(val)),
-      );
-
-      const productsResp = await fetchCommodityProducts({
-        username,
-        language,
-        filters: {
-          view: "IMPORTED",
-          commodity_id: Number(commodityId),
-          is_active: "Y",
-          page: 1,
-          pageSize: 500,
-        },
-      });
-      const productData = productsResp?.data || productsResp?.response?.data || {};
-      const productRows = Array.isArray(productData?.rows) ? productData.rows : [];
-      const options = productRows
-        .filter((row: any) => mappedIds.has(Number(row.product_id)))
-        .map((row: any) => ({
-          value: String(row.product_id),
-          label: String(row.display_label || row?.label_i18n?.en || row.product_id || ""),
-        }));
-      setCreateProducts(options);
-      setCreateProductWarning(
-        options.length ? "" : "No products configured for this commodity in this mandi.",
-      );
-    } finally {
-      setLoadingCreateProducts(false);
-    }
-  };
-
-  const submitCreate = async () => {
-    const username = currentUsername();
-    const orgId = uiConfig.scope?.org_id || "";
-    const country = getStoredAdminUser()?.country || "IN";
-    if (!username || !orgId) {
-      enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
-      return;
-    }
-
-    const missing: string[] = [];
-    if (!createForm.market_date) missing.push("Market Date");
-    if (!createForm.mandi_id) missing.push("Mandi");
-    if (!createForm.farmer_name) missing.push("Farmer Name");
-    if (!createForm.farmer_mobile) missing.push("Farmer Mobile");
-    if (!createForm.commodity_id) missing.push("Commodity");
-    if (!createForm.commodity_product_id) missing.push("Commodity Product");
-    if (!createForm.bags) missing.push("Bags");
-    if (!createForm.weight_per_bag_kg) missing.push("Weight/Bag");
-
-    if (missing.length) {
-      enqueueSnackbar(`Missing: ${missing.join(", ")}`, { variant: "warning" });
-      return;
-    }
-
-    setCreating(true);
-    try {
-      const selectedCommodity = createCommodities.find(
-        (c) => c.value === createForm.commodity_id,
-      );
-      const selectedProduct = createProducts.find(
-        (p) => p.value === createForm.commodity_product_id,
-      );
-      const payload = {
-        username,
-        language,
-        country,
-        org_id: orgId,
-        mandi_id: createForm.mandi_id,
-        market_day: { date: createForm.market_date },
-        farmer: {
-          name: createForm.farmer_name,
-          mobile: createForm.farmer_mobile,
-        },
-        produce: {
-          commodity_id: Number(createForm.commodity_id),
-          commodity_product_id: Number(createForm.commodity_product_id),
-          commodity_name: selectedCommodity?.label || selectedProduct?.label || "",
-          quantity: {
-            bags: Number(createForm.bags),
-            weight_per_bag_kg: Number(createForm.weight_per_bag_kg),
-          },
-          expected_price: createForm.expected_price
-            ? Number(createForm.expected_price)
-            : undefined,
-        },
-      };
-
-      const resp = await createPreMarketListing(payload);
-      const code = String(resp?.response?.responsecode ?? resp?.data?.responsecode ?? "");
-      if (code !== "0") {
-        const desc =
-          resp?.response?.description ||
-          resp?.data?.description ||
-          "Failed to create listing.";
-        enqueueSnackbar(desc, { variant: "error" });
-        return;
-      }
-      enqueueSnackbar("Pre-market listing created.", { variant: "success" });
-      setCreateOpen(false);
-      resetCreateForm();
-      loadListings();
-    } finally {
-      setCreating(false);
-    }
-  };
-
   useEffect(() => {
     if (canView) {
       loadMandis();
@@ -481,13 +259,6 @@ export const PreMarketListings: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView, uiConfig.scope?.org_id, language]);
-
-  useEffect(() => {
-    if (!createOpen) return;
-    if (createForm.mandi_id) {
-      loadCreateCommodities(createForm.mandi_id);
-    }
-  }, [createOpen, createForm.mandi_id]);
 
   useEffect(() => {
     loadListings();
@@ -513,7 +284,7 @@ export const PreMarketListings: React.FC = () => {
         </Stack>
         <Stack direction="row" spacing={1}>
           {canCreate ? (
-            <Button variant="contained" onClick={onCreateClick}>
+            <Button variant="contained" onClick={() => navigate("/pre-market-listings/create")}>
               Create
             </Button>
           ) : null}
@@ -605,132 +376,6 @@ export const PreMarketListings: React.FC = () => {
           pageSizeOptions={[10, 25, 50, 100]}
         />
       </Box>
-
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create Pre-Market Listing</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Market Date"
-            type="date"
-            value={createForm.market_date}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, market_date: e.target.value }))}
-            required
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            select
-            label="Mandi"
-            value={createForm.mandi_id}
-            onChange={(e) => {
-              const nextMandi = e.target.value;
-              setCreateForm((prev) => ({
-                ...prev,
-                mandi_id: nextMandi,
-                commodity_id: "",
-                commodity_product_id: "",
-              }));
-              setCreateProducts([]);
-              setCreateProductWarning("");
-              loadCreateCommodities(nextMandi);
-            }}
-            required
-          >
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {createCommodityWarning ? (
-            <Typography variant="caption" color="warning.main">
-              {createCommodityWarning}
-            </Typography>
-          ) : null}
-          <TextField
-            select
-            label="Commodity"
-            value={createForm.commodity_id}
-            onChange={(e) => {
-              const nextCommodity = e.target.value;
-              setCreateForm((prev) => ({
-                ...prev,
-                commodity_id: nextCommodity,
-                commodity_product_id: "",
-              }));
-              setCreateProducts([]);
-              setCreateProductWarning("");
-              loadCreateProducts(createForm.mandi_id, nextCommodity);
-            }}
-            required
-            disabled={!createForm.mandi_id || loadingCreateCommodities}
-          >
-            {createCommodities.map((c) => (
-              <MenuItem key={c.value} value={c.value}>
-                {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Farmer Name"
-            value={createForm.farmer_name}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, farmer_name: e.target.value }))}
-            required
-          />
-          <TextField
-            label="Farmer Mobile"
-            value={createForm.farmer_mobile}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, farmer_mobile: e.target.value }))}
-            required
-          />
-          <TextField
-            select
-            label="Commodity Product"
-            value={createForm.commodity_product_id}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, commodity_product_id: e.target.value }))}
-            required
-            disabled={!createForm.commodity_id || loadingCreateProducts}
-          >
-            {createProducts.map((c) => (
-              <MenuItem key={c.value} value={c.value}>
-                {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {createProductWarning ? (
-            <Typography variant="caption" color="warning.main">
-              {createProductWarning}
-            </Typography>
-          ) : null}
-          <TextField
-            label="Bags"
-            type="number"
-            value={createForm.bags}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, bags: e.target.value }))}
-            required
-          />
-          <TextField
-            label="Weight per Bag (kg)"
-            type="number"
-            value={createForm.weight_per_bag_kg}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, weight_per_bag_kg: e.target.value }))}
-            required
-          />
-          <TextField
-            label="Expected Price (optional)"
-            type="number"
-            value={createForm.expected_price}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, expected_price: e.target.value }))}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)} disabled={creating}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={submitCreate} disabled={creating}>
-            {creating ? "Saving..." : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </PageContainer>
   );
 };

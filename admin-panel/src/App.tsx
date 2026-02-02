@@ -75,6 +75,9 @@ import { TransportIntents } from "./pages/transportIntents";
 import { PreMarketListings } from "./pages/preMarketListings";
 import { PreMarketListingCreate } from "./pages/preMarketListings/create";
 import { PreMarketListingDetail } from "./pages/preMarketListings/detail";
+import { MandiPricePolicies } from "./pages/mandiPricePolicies";
+import { MandiPricePolicyCreate } from "./pages/mandiPricePolicies/create";
+import { MandiSettings } from "./pages/mandiSettings";
 import { StallFees } from "./pages/stallFees";
 import { StallFeeCollect } from "./pages/stallFees/collect";
 import { StallFeeReport } from "./pages/stallFees/report";
@@ -234,6 +237,9 @@ function App() {
                   <Route path="/pre-market-listings" element={<PreMarketListings />} />
                   <Route path="/pre-market-listings/create" element={<PreMarketListingCreate />} />
                   <Route path="/pre-market-listings/:id" element={<PreMarketListingDetail />} />
+                  <Route path="/mandi-price-policies" element={<MandiPricePolicies />} />
+                  <Route path="/mandi-price-policies/create" element={<MandiPricePolicyCreate />} />
+                  <Route path="/mandi-settings" element={<MandiSettings />} />
                   <Route path="/stall-fees" element={<StallFees />} />
                   <Route path="/stall-fees/collect" element={<StallFeeCollect />} />
                   <Route path="/stall-fees/report" element={<StallFeeReport />} />

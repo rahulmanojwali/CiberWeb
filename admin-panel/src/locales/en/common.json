@@ -104,7 +104,9 @@
     "securitySwitches": "Security Switches",
     "transportIntents": "Transport Intents",
     "stallFees": "Stall Fees",
-    "marketPrices": "Market Prices"
+    "marketPrices": "Market Prices",
+    "mandiPricePolicies": "Mandi Price Policies",
+    "mandiSettings": "Mandi Settings"
   },
   "header": {
     "sign_out": "Sign Out",

@@ -20,6 +20,7 @@ import {
 } from "../../services/mandiApi";
 import { createPreMarketListing } from "../../services/preMarketListingsApi";
 import { getStoredAdminUser } from "../../utils/session";
+import { getMandiPricePolicies } from "../../services/mandiPricePoliciesApi";
 
 type Option = { value: string; label: string };
 
@@ -55,6 +56,9 @@ export const PreMarketListingCreate: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [commodityWarning, setCommodityWarning] = useState("");
   const [productWarning, setProductWarning] = useState("");
+  const [policyBand, setPolicyBand] = useState<{ min: number; max: number; unit: string } | null>(null);
+  const [policyMode, setPolicyMode] = useState<string | null>(null);
+  const [policyMissing, setPolicyMissing] = useState(false);
 
   const [form, setForm] = useState({
     market_date: todayLocal(),
@@ -216,6 +220,60 @@ export const PreMarketListingCreate: React.FC = () => {
     return opt?.label || "";
   }, [productOptions, form.commodity_product_id]);
 
+  const outOfBand = useMemo(() => {
+    if (!policyBand) return false;
+    const min = policyBand.min;
+    const max = policyBand.max;
+    const minVal = form.min_per_qtl ? Number(form.min_per_qtl) : null;
+    const targetVal = form.target_per_qtl ? Number(form.target_per_qtl) : null;
+    if (minVal !== null && minVal < min) return true;
+    if (targetVal !== null && targetVal > max) return true;
+    return false;
+  }, [form.min_per_qtl, form.target_per_qtl, policyBand]);
+
+  const loadPolicyBand = useCallback(
+    async (mandiId: string, productId: string) => {
+      const username = currentUsername();
+      const orgId = uiConfig.scope?.org_id || "";
+      const country = getStoredAdminUser()?.country || "IN";
+      if (!username || !orgId || !mandiId || !productId) {
+        setPolicyBand(null);
+        setPolicyMode(null);
+        setPolicyMissing(false);
+        return;
+      }
+      const resp = await getMandiPricePolicies({
+        username,
+        language,
+        filters: {
+          country,
+          org_id: orgId,
+          mandi_id: mandiId,
+          commodity_product_id: productId,
+          active_only: "Y",
+        },
+      });
+      const data = resp?.data || resp?.response?.data || {};
+      const rows = Array.isArray(data?.rows) ? data.rows : [];
+      if (!rows.length) {
+        setPolicyBand(null);
+        setPolicyMode(null);
+        setPolicyMissing(true);
+        return;
+      }
+      const latest = rows[0];
+      const band = latest?.price_band || {};
+      setPolicyBand({
+        min: Number(band.min),
+        max: Number(band.max),
+        unit: String(band.unit || "QTL"),
+      });
+      setPolicyMode(String(latest?.enforcement?.mode || "WARN_ONLY"));
+      setPolicyMissing(false);
+    },
+    [language, uiConfig.scope?.org_id],
+  );
+
   const onSubmit = async () => {
     const username = currentUsername();
     const orgId = uiConfig.scope?.org_id || "";
@@ -235,6 +293,11 @@ export const PreMarketListingCreate: React.FC = () => {
 
     if (missing.length) {
       enqueueSnackbar(`Missing: ${missing.join(", ")}`, { variant: "warning" });
+      return;
+    }
+
+    if (policyMode && policyMode.toUpperCase() === "STRICT_BLOCK" && outOfBand) {
+      enqueueSnackbar("Price out of allowed band for this mandi.", { variant: "error" });
       return;
     }
 
@@ -326,6 +389,9 @@ export const PreMarketListingCreate: React.FC = () => {
               }));
               setProductOptions([]);
               setProductWarning("");
+              setPolicyBand(null);
+              setPolicyMode(null);
+              setPolicyMissing(false);
               loadCommodities(nextMandi);
             }}
             required
@@ -354,6 +420,9 @@ export const PreMarketListingCreate: React.FC = () => {
               }));
               setProductOptions([]);
               setProductWarning("");
+              setPolicyBand(null);
+              setPolicyMode(null);
+              setPolicyMissing(false);
               loadProducts(form.mandi_id, nextCommodity);
             }}
             required
@@ -369,7 +438,11 @@ export const PreMarketListingCreate: React.FC = () => {
             select
             label="Commodity Product"
             value={form.commodity_product_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, commodity_product_id: e.target.value }))}
+            onChange={(e) => {
+              const nextProduct = e.target.value;
+              setForm((prev) => ({ ...prev, commodity_product_id: nextProduct }));
+              loadPolicyBand(form.mandi_id, nextProduct);
+            }}
             required
             disabled={!form.commodity_id || loadingProducts}
           >
@@ -379,6 +452,26 @@ export const PreMarketListingCreate: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+          {policyBand ? (
+            <Typography variant="caption" color="text.secondary">
+              Allowed band: {policyBand.min}–{policyBand.max} per {policyBand.unit}
+            </Typography>
+          ) : null}
+          {policyMissing ? (
+            <Typography variant="caption" color="warning.main">
+              No price policy configured for this mandi/product.
+            </Typography>
+          ) : null}
+          {outOfBand && policyMode?.toUpperCase() === "WARN_ONLY" ? (
+            <Typography variant="caption" color="warning.main">
+              Entered price is outside allowed band (WARN_ONLY).
+            </Typography>
+          ) : null}
+          {outOfBand && policyMode?.toUpperCase() === "STRICT_BLOCK" ? (
+            <Typography variant="caption" color="error.main">
+              Entered price is outside allowed band (STRICT_BLOCK).
+            </Typography>
+          ) : null}
           {productWarning ? (
             <Typography variant="caption" color="warning.main">
               {productWarning}
@@ -490,7 +583,11 @@ export const PreMarketListingCreate: React.FC = () => {
             <Button variant="outlined" onClick={() => navigate("/pre-market-listings")}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={onSubmit}>
+            <Button
+              variant="contained"
+              onClick={onSubmit}
+              disabled={policyMode?.toUpperCase() === "STRICT_BLOCK" && outOfBand}
+            >
               Create Listing
             </Button>
           </Stack>

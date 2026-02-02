@@ -170,6 +170,15 @@ export const API_TAGS = {
     list: "get_Market_Prices01",
     generate: "generate_Market_Price_Snapshots02",
   },
+  MANDI_PRICE_POLICIES: {
+    list: "get_Mandi_Price_Policies01",
+    upsert: "upsert_Mandi_Price_Policy02",
+    deactivate: "deactivate_Mandi_Price_Policy03",
+  },
+  MANDI_SETTINGS: {
+    get: "get_Mandi_Settings01",
+    upsert: "upsert_Mandi_Settings02",
+  },
   TRANSPORT_INTENTS: {
     create: "create_Transport_Intent01",
     list: "list_Transport_Intents02",
@@ -402,6 +411,11 @@ export const API_ROUTES = {
     createMandiCommodityProduct: "/admin/createMandiCommodityProduct",
     updateMandiCommodityProduct: "/admin/updateMandiCommodityProduct",
     deactivateMandiCommodityProduct: "/admin/deactivateMandiCommodityProduct",
+    getMandiPricePolicies: "/admin/getMandiPricePolicies",
+    upsertMandiPricePolicy: "/admin/upsertMandiPricePolicy",
+    deactivateMandiPricePolicy: "/admin/deactivateMandiPricePolicy",
+    getMandiSettings: "/admin/getMandiSettings",
+    upsertMandiSettings: "/admin/upsertMandiSettings",
     getMandiFacilitiesMasters: "/admin/getMandiFacilitiesMasters",
     createMandiFacilityMaster: "/admin/createMandiFacilityMaster",
     updateMandiFacilityMaster: "/admin/updateMandiFacilityMaster",

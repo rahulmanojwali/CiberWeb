@@ -117,13 +117,13 @@ export const computeAllowedSidebar = (
     return keyA.localeCompare(keyB);
   });
 
-  const root: ResourceNode = {
+  const root = {
     resource_key: "menus",
     ui_type: "menu_root",
     element: "Menus",
     allowed_actions: ["VIEW"],
     children: sortedMenus.map((res) => ({ ...res })),
-  };
+  } as ResourceNode;
 
   return [root];
 };

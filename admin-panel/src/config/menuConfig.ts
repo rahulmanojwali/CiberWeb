@@ -18,10 +18,11 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import { type UiResource } from "../utils/adminUiConfig";
+import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
 import { computeAllowedSidebar } from "../utils/rbacHelper";
-import { MENU_CATEGORIES } from "./menuCategories";
+import { MENU_FREEZE } from "./menuFreeze";
 import { getResourceLabel } from "../utils/uiLabel";
+import { resolveMenuIcon } from "./iconRegistry";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
 
@@ -48,6 +49,7 @@ export type AppMenuItem = {
   roles?: RoleSlug[];
   children?: AppMenuItem[];
   order?: number;
+  disabled?: boolean;
 };
 
 const ALL_ROLES: RoleSlug[] = [
@@ -935,42 +937,78 @@ export function filterMenuByResources(
       return [];
     }
     const allowedMenus = computeAllowedSidebar(resources, permissionsMap!);
+    const byKey = new Map<string, UiResource>();
+    allowedMenus.forEach((res) => {
+      if (res.resource_key) byKey.set(canonicalizeResourceKey(res.resource_key), res);
+    });
 
-    const items = allowedMenus
-      .map((res) => {
-        const label = getResourceLabel(res);
-        const path = res.route || undefined;
-        if (!path) return null;
+    const lang =
+      (typeof navigator !== "undefined" && navigator.language
+        ? navigator.language.split("-")[0]
+        : "en") || "en";
+
+    const freezeItems = MENU_FREEZE.filter((item) => item && item.resource_key);
+
+    const items: Array<AppMenuItem & { order: number; category: string }> = [];
+    freezeItems.forEach((freeze) => {
+      const key = canonicalizeResourceKey(freeze.resource_key);
+      const resource = byKey.get(key);
+      if (!resource) return;
+      if (freeze.is_active === false) return; // keep active only
+      const labelOverride = freeze.menu_name || getResourceLabel(resource, lang);
+      const labelKey = freeze.i18n_key || resource.i18n_label_key || resource.resource_key || freeze.resource_key;
+      const path = freeze.route || "";
+      const disabled = !path;
+      items.push({
+        key: String(freeze.resource_key),
+        labelKey: String(labelKey),
+        labelOverride: String(labelOverride),
+        path: disabled ? undefined : String(path),
+        icon: resolveMenuIcon(freeze.icon_key || (resource as any).icon_key),
+        resourceKey: String(freeze.resource_key),
+        requiredAction: "VIEW",
+        order: typeof freeze.order === "number" ? freeze.order : 9999,
+        category: String(freeze.category || ""),
+        disabled,
+      });
+    });
+
+    const categories = new Map<string, { label: string; order: number; items: AppMenuItem[] }>();
+    const categoryOrder = new Map<string, number>();
+    freezeItems.forEach((f, idx) => {
+      const name = String(f.category || "");
+      if (!name) return;
+      if (!categoryOrder.has(name)) categoryOrder.set(name, idx);
+    });
+
+    items.forEach((item) => {
+      const categoryName = item.category || "System";
+      if (!categories.has(categoryName)) {
+        categories.set(categoryName, {
+          label: categoryName,
+          order: categoryOrder.get(categoryName) ?? 9999,
+          items: [],
+        });
+      }
+      categories.get(categoryName)!.items.push(item);
+    });
+
+    const grouped = Array.from(categories.entries())
+      .map(([key, value]) => {
+        const children = value.items
+          .sort((a, b) => {
+            if ((a as any).order !== (b as any).order) return (a as any).order - (b as any).order;
+            return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
+          })
+          .map(({ order, category, ...rest }) => rest);
         return {
-          key: String(res.resource_key || res.route),
-          labelKey: String(res.i18n_label_key || res.resource_key || res.route),
-          labelOverride: label,
-          path,
-          icon: undefined,
-          resourceKey: res.resource_key,
-          requiredAction: "VIEW",
-          order: typeof res.order === "number" ? res.order : 9999,
-          resource: res,
-        } as AppMenuItem & { order: number; resource: UiResource };
+          key: `category-${key}`,
+          labelKey: `menu.category.${key}`,
+          labelOverride: value.label,
+          children,
+          order: value.order,
+        };
       })
-      .filter(Boolean) as Array<AppMenuItem & { order: number; resource: UiResource }>;
-
-    const grouped = MENU_CATEGORIES.map((category) => {
-      const children = items
-        .filter((item) => category.match(item.resourceKey || ""))
-        .sort((a, b) => {
-          if (a.order !== b.order) return a.order - b.order;
-          return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
-        })
-        .map(({ order, resource, ...rest }) => rest);
-      return {
-        key: `category-${category.key}`,
-        labelKey: `menu.category.${category.key}`,
-        labelOverride: category.label,
-        children,
-        order: category.order,
-      };
-    })
       .filter((group) => group.children.length > 0)
       .sort((a, b) => a.order - b.order)
       .map(({ order, ...rest }) => rest);

@@ -5,15 +5,12 @@ export function toTitleCaseFromKey(key: string) {
     .replace(/\\b\\w/g, (m) => m.toUpperCase());
 }
 
-export function getResourceLabel(r: any): string {
+export function getResourceLabel(r: any, lang: string = "en"): string {
+  const labelI18n = r?.label_i18n;
   return (
+    (labelI18n && labelI18n[lang]) ||
     r.label ||
-    r.title ||
-    r.display_name ||
     r.screen ||
-    r.name ||
-    r.resource_name ||
-    r.menu_name ||
     toTitleCaseFromKey(r.resource_key || "")
   );
 }

@@ -16,9 +16,12 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
+import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
 
 import CloseIcon from "@mui/icons-material/Close";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 
 import { useLocation } from "react-router-dom";
 
@@ -49,9 +52,14 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const resourcesCount = menuResources?.length || 0;
   const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
+
+  const toggleGroup = useCallback((key: string) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   useEffect(() => {
     try {
@@ -124,6 +132,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
           >
             <ListItemButton
               selected={active}
+              disabled={(item as any).disabled === true}
               onClick={() => item.path && menuNavigate(item.path, item.resourceKey)}
               sx={{
                 minHeight: 48,
@@ -163,70 +172,91 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         );
       }
 
+      const groupKey = labelKey || "category";
+      const isExpanded = !!expanded[groupKey];
       return (
         <Box key={labelKey} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
           {!collapsed && (
-            <Typography
-              variant="caption"
-              sx={{ px: 1.5, py: 1, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.6 }}
-            >
-              {translateMenuLabel(item)}
-            </Typography>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => toggleGroup(groupKey)}
+                sx={{
+                  minHeight: 40,
+                  py: 0.5,
+                  px: 1.5,
+                  justifyContent: "flex-start",
+                }}
+              >
+                <ListItemText
+                  primary={translateMenuLabel(item)}
+                  primaryTypographyProps={{
+                    variant: "caption",
+                    sx: { color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.6 },
+                  }}
+                />
+                {isExpanded ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
+              </ListItemButton>
+            </ListItem>
           )}
-          <List component="div" disablePadding>
-            {item.children!.map((child) => {
-              const childKey = child.key || child.labelKey || child.path;
-              const active = !!child.path && location.pathname.startsWith(child.path);
-              return (
-                <ListItem
-                  key={childKey}
-                  disablePadding
-                  sx={{ display: "block" }}
-                >
-                  <ListItemButton
-                    selected={active}
-                    onClick={() => child.path && menuNavigate(child.path, child.resourceKey)}
-                    sx={{
-                      minHeight: 48,
-                      py: 0.75,
-                      justifyContent: "flex-start",
-                      px: 2.5,
-                      "&.Mui-selected": {
-                        backgroundColor: "#e0f2f1",
-                        borderRadius: 1,
-                      },
-                    }}
-                  >
-                    {child.icon && (
-                      <ListItemIcon
+          {!collapsed && (
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {item.children!.map((child) => {
+                  const childKey = child.key || child.labelKey || child.path;
+                  const active = !!child.path && location.pathname.startsWith(child.path);
+                  return (
+                    <ListItem
+                      key={childKey}
+                      disablePadding
+                      sx={{ display: "block" }}
+                    >
+                      <ListItemButton
+                        selected={active}
+                        disabled={(child as any).disabled === true}
+                        onClick={() => child.path && menuNavigate(child.path, child.resourceKey)}
                         sx={{
-                          minWidth: 0,
-                          mr: 1.1,
-                          justifyContent: "center",
-                          "& svg": { fontSize: 20 },
+                          minHeight: 48,
+                          py: 0.75,
+                          justifyContent: "flex-start",
+                          px: 2.5,
+                          "&.Mui-selected": {
+                            backgroundColor: "#e0f2f1",
+                            borderRadius: 1,
+                          },
                         }}
                       >
-                        {child.icon}
-                      </ListItemIcon>
-                    )}
-                    <ListItemText
-                      primary={translateMenuLabel(child)}
-                      primaryTypographyProps={{
-                        variant: "body2",
-                        fontWeight: active ? 600 : 500,
-                        fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
+                        {child.icon && (
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 0,
+                              mr: 1.1,
+                              justifyContent: "center",
+                              "& svg": { fontSize: 20 },
+                            }}
+                          >
+                            {child.icon}
+                          </ListItemIcon>
+                        )}
+                        <ListItemText
+                          primary={translateMenuLabel(child)}
+                          primaryTypographyProps={{
+                            variant: "body2",
+                            fontWeight: active ? 600 : 500,
+                            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Collapse>
+          )}
           <Divider sx={{ my: 1, opacity: 0.3 }} />
         </Box>
       );
     },
-    [collapsed, location.pathname, menuNavigate],
+    [collapsed, expanded, location.pathname, menuNavigate, toggleGroup],
   );
 
 

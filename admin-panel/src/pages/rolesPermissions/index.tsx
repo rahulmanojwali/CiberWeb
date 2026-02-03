@@ -161,13 +161,21 @@ const RolesPermissionsPage: React.FC = () => {
   });
   const [debugExpanded, setDebugExpanded] = useState<boolean>(false);
 
+  const unwrapDashboardPayload = (resp: any) => {
+    if (resp?.data?.roles || resp?.data?.registry || resp?.data?.policiesByRole) return resp.data;
+    if (resp?.data?.data?.roles || resp?.data?.data?.registry || resp?.data?.data?.policiesByRole) return resp.data.data;
+    if (resp?.data?.items?.roles || resp?.data?.items?.registry || resp?.data?.items?.policiesByRole) return resp.data.items;
+    if (resp?.roles || resp?.registry || resp?.policiesByRole) return resp;
+    return {};
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         setError(null);
         const resp = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-        const payload = resp?.data || resp || {};
+        const payload = unwrapDashboardPayload(resp);
         const rolesList: RoleEntry[] = payload.roles || [];
         const registryList: RegistryEntry[] = (payload.registry || []).map((r: any) => ({
           ...r,
@@ -209,6 +217,9 @@ const RolesPermissionsPage: React.FC = () => {
         setPoliciesByRole(pMap);
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(pMap)));
         setDiagnostics(payload.diagnostics || {});
+        if (!rolesList.length) {
+          setError("No roles returned by API. Check response shape / endpoint mapping.");
+        }
         if (rolesList.length > 0) {
           setSelectedRole(rolesList[0].role_slug);
         }
@@ -544,7 +555,7 @@ const RolesPermissionsPage: React.FC = () => {
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Role policy updated.", { variant: "success" });
         const refreshed = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-        const payloadRef = refreshed?.data || refreshed || {};
+        const payloadRef = unwrapDashboardPayload(refreshed);
         setPoliciesByRole(payloadRef.policiesByRole || {});
         setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));
         setDiagnostics(payloadRef.diagnostics || {});

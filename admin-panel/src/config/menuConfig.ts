@@ -975,7 +975,7 @@ export function filterMenuByResources(
       });
     });
 
-    const categories = new Map<string, { label: string; order: number; items: AppMenuItem[] }>();
+    const categories = new Map<string, { label: string; order: number; items: MenuItemRow[] }>();
     const categoryOrder = new Map<string, number>();
     freezeItems.forEach((f, idx) => {
       const name = String(f.category || "");
@@ -1002,7 +1002,10 @@ export function filterMenuByResources(
           if ((a as any).order !== (b as any).order) return (a as any).order - (b as any).order;
           return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
         })
-        .map(({ order, category, resource, ...rest }) => rest);
+        .map((item) => {
+          const { order, category, resource, ...rest } = item;
+          return rest;
+        });
         return {
           key: `category-${key}`,
           labelKey: `menu.category.${key}`,

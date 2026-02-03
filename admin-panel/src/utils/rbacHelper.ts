@@ -121,6 +121,7 @@ export const computeAllowedSidebar = (
     resource_key: "menus",
     ui_type: "menu_root",
     element: "Menus",
+    allowed_actions: ["VIEW"],
     children: sortedMenus.map((res) => ({ ...res })),
   };
 

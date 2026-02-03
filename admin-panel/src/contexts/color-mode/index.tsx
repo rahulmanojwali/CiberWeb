@@ -52,12 +52,21 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       },
       secondary: {
         ...(RefineThemes.Blue.palette?.secondary || {}),
-        main: BRAND_COLORS.primaryDark,
+        main: BRAND_COLORS.secondary,
       },
       background: {
         ...(RefineThemes.Blue.palette?.background || {}),
-        default: "#f4fbf6",
-        paper: "#ffffff",
+        default: BRAND_COLORS.bg,
+        paper: BRAND_COLORS.surface,
+      },
+      text: {
+        ...(RefineThemes.Blue.palette?.text || {}),
+        primary: BRAND_COLORS.text,
+        secondary: BRAND_COLORS.textMuted,
+      },
+      error: {
+        ...(RefineThemes.Blue.palette?.error || {}),
+        main: BRAND_COLORS.error,
       },
     },
     components: {
@@ -67,6 +76,43 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           root: {
             borderRadius: 999,
             textTransform: "none",
+          },
+          containedPrimary: {
+            backgroundColor: BRAND_COLORS.primary,
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.primaryDark,
+            },
+          },
+          outlinedPrimary: {
+            borderColor: BRAND_COLORS.primary,
+            color: BRAND_COLORS.primaryDark,
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.bg,
+              borderColor: BRAND_COLORS.primaryDark,
+            },
+          },
+          textPrimary: {
+            color: BRAND_COLORS.primaryDark,
+          },
+          containedSecondary: {
+            backgroundColor: BRAND_COLORS.secondary,
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.secondary,
+              opacity: 0.9,
+            },
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            color: BRAND_COLORS.textMuted,
+            "&:hover": {
+              backgroundColor: alpha(BRAND_COLORS.bg, 0.6),
+              color: BRAND_COLORS.secondary,
+            },
           },
         },
       },
@@ -103,19 +149,23 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       },
       secondary: {
         ...(RefineThemes.BlueDark.palette?.secondary || {}),
-        main: "#58d08b",
+        main: BRAND_COLORS.secondary,
       },
       background: {
         ...(RefineThemes.BlueDark.palette?.background || {}),
-        default: "#0f1a13",
-        paper: "#17261d",
+        default: BRAND_COLORS.bg,
+        paper: BRAND_COLORS.surface,
       },
       text: {
         ...(RefineThemes.BlueDark.palette?.text || {}),
-        primary: "#effff3",
-        secondary: alpha("#effff3", 0.72),
+        primary: BRAND_COLORS.text,
+        secondary: BRAND_COLORS.textMuted,
       },
-      divider: alpha("#ffffff", 0.12),
+      divider: alpha(BRAND_COLORS.textMuted, 0.2),
+      error: {
+        ...(RefineThemes.BlueDark.palette?.error || {}),
+        main: BRAND_COLORS.error,
+      },
     },
     components: {
       ...RefineThemes.BlueDark.components,
@@ -124,6 +174,43 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           root: {
             borderRadius: 999,
             textTransform: "none",
+          },
+          containedPrimary: {
+            backgroundColor: BRAND_COLORS.primary,
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.primaryDark,
+            },
+          },
+          outlinedPrimary: {
+            borderColor: BRAND_COLORS.primary,
+            color: BRAND_COLORS.primaryDark,
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.bg,
+              borderColor: BRAND_COLORS.primaryDark,
+            },
+          },
+          textPrimary: {
+            color: BRAND_COLORS.primaryDark,
+          },
+          containedSecondary: {
+            backgroundColor: BRAND_COLORS.secondary,
+            color: "#ffffff",
+            "&:hover": {
+              backgroundColor: BRAND_COLORS.secondary,
+              opacity: 0.9,
+            },
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            color: BRAND_COLORS.textMuted,
+            "&:hover": {
+              backgroundColor: alpha(BRAND_COLORS.bg, 0.6),
+              color: BRAND_COLORS.secondary,
+            },
           },
         },
       },

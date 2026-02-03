@@ -544,8 +544,14 @@ export const API_ROUTES = {
 } as const;
 
 export const BRAND_COLORS = {
-  primary: "#2FA652",
-  primaryDark: "#1B6B3D",
+  primary: "#6E7C3A",
+  primaryDark: "#55632C",
+  secondary: "#C57A35",
+  surface: "#FFFFFF",
+  bg: "#F6F1E8",
+  text: "#3B3B3B",
+  textMuted: "#6B6B6B",
+  error: "#B00020",
 };
 
 // export const BRAND_ASSETS = {

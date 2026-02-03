@@ -96,6 +96,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     primaryDark: "#55632C",
     secondary: "#C57A35",
     bg: "#F6F1E8",
+    surface: "#FFFFFF",
     text: "#3B3B3B",
     textMuted: "#6B6B6B",
   };
@@ -281,12 +282,12 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     <>
       <AppBar
         position={sticky ? "sticky" : "relative"}
-        color="primary"
+        color="transparent"
         elevation={0}
         sx={{
-          boxShadow: "0 8px 24px rgba(47, 166, 82, 0.35)",
-          backgroundImage:
-            "linear-gradient(135deg, rgba(47,166,82,0.95), rgba(25,107,61,0.95))",
+          boxShadow: "0 6px 16px rgba(110, 124, 58, 0.25)",
+          bgcolor: CM.primary,
+          color: CM.surface,
         }}
       >
         <Toolbar sx={{ py: 1.25, px: { xs: 1.5, md: 3 } }}>

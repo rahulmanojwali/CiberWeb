@@ -108,22 +108,5 @@ export const computeAllowedSidebar = (
     .filter((res) => isMenu(res) && isActiveResource(res))
     .filter((res) => hasAccess(permIndex, res.resource_key, "VIEW"));
 
-  const sortedMenus = [...allowedMenus].sort((a, b) => {
-    const orderA = typeof a.order === "number" ? a.order : 9999;
-    const orderB = typeof b.order === "number" ? b.order : 9999;
-    if (orderA !== orderB) return orderA - orderB;
-    const keyA = String(a.resource_key || a.element || "");
-    const keyB = String(b.resource_key || b.element || "");
-    return keyA.localeCompare(keyB);
-  });
-
-  const root = {
-    resource_key: "menus",
-    ui_type: "menu_root",
-    element: "Menus",
-    allowed_actions: ["VIEW"],
-    children: sortedMenus.map((res) => ({ ...res })),
-  } as ResourceNode;
-
-  return [root];
+  return [...allowedMenus];
 };

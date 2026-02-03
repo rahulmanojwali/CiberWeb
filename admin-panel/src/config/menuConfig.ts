@@ -19,7 +19,9 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { type UiResource } from "../utils/adminUiConfig";
-import { computeAllowedSidebar, type ResourceNode } from "../utils/rbacHelper";
+import { computeAllowedSidebar } from "../utils/rbacHelper";
+import { MENU_CATEGORIES } from "./menuCategories";
+import { getResourceLabel } from "../utils/uiLabel";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
 
@@ -45,6 +47,7 @@ export type AppMenuItem = {
   requiredAction?: string;
   roles?: RoleSlug[];
   children?: AppMenuItem[];
+  order?: number;
 };
 
 const ALL_ROLES: RoleSlug[] = [
@@ -912,6 +915,8 @@ export function filterMenuByRole(role: RoleSlug | null) {
   });
 }
 
+let sidebarDebugLogged = false;
+
 export function filterMenuByResources(
   resources: UiResource[] | undefined,
   _fallbackRole: RoleSlug | null,
@@ -929,47 +934,61 @@ export function filterMenuByResources(
     if (!hasPermissions) {
       return [];
     }
-    const tree = computeAllowedSidebar(resources, permissionsMap!);
-    const lang =
-      (typeof navigator !== "undefined" && navigator.language
-        ? navigator.language.split("-")[0]
-        : "en") || "en";
-    const resolveLabelOverride = (node: UiResource) => {
-      const labelI18n = (node as any)?.label_i18n;
-      const label =
-        (labelI18n && (labelI18n as any)[lang]) ||
-        node.element ||
-        node.i18n_label_key ||
-        node.resource_key ||
-        node.route;
-      return label && String(label).trim() ? String(label).trim() : undefined;
-    };
-    const resolveLabelKey = (node: UiResource) =>
-      String(node.i18n_label_key || node.resource_key || node.element || node.route || "menu.unknown");
+    const allowedMenus = computeAllowedSidebar(resources, permissionsMap!);
 
-    const mapNode = (node: ResourceNode): AppMenuItem | null => {
-      const children = (node.children || [])
-        .map((child) => mapNode(child))
-        .filter(Boolean) as AppMenuItem[];
-      const path = node.route || undefined;
-      const type = String(node.ui_type || "").toUpperCase();
-      const isMenu = type === "MENU" || type === "MENU_ROOT";
-      if (!path && children.length === 0) return null;
+    const items = allowedMenus
+      .map((res) => {
+        const label = getResourceLabel(res);
+        const path = res.route || undefined;
+        if (!path) return null;
+        return {
+          key: String(res.resource_key || res.route),
+          labelKey: String(res.i18n_label_key || res.resource_key || res.route),
+          labelOverride: label,
+          path,
+          icon: undefined,
+          resourceKey: res.resource_key,
+          requiredAction: "VIEW",
+          order: typeof res.order === "number" ? res.order : 9999,
+          resource: res,
+        } as AppMenuItem & { order: number; resource: UiResource };
+      })
+      .filter(Boolean) as Array<AppMenuItem & { order: number; resource: UiResource }>;
+
+    const grouped = MENU_CATEGORIES.map((category) => {
+      const children = items
+        .filter((item) => category.match(item.resourceKey || "", (item as any).resource as UiResource))
+        .sort((a, b) => {
+          if (a.order !== b.order) return a.order - b.order;
+          return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
+        })
+        .map(({ order, resource, ...rest }) => rest);
       return {
-        key: String(node.resource_key || node.route || resolveLabelKey(node)),
-        labelKey: resolveLabelKey(node),
-        labelOverride: node.resource_key === "menus" ? "Menus" : resolveLabelOverride(node),
-        path,
-        icon: isMenu ? React.createElement(SecurityOutlinedIcon) : undefined,
-        resourceKey: node.resource_key,
-        requiredAction: "VIEW",
-        children: children.length ? children : undefined,
+        key: `category-${category.key}`,
+        labelKey: `menu.category.${category.key}`,
+        labelOverride: category.label,
+        children,
+        order: category.order,
       };
-    };
+    })
+      .filter((group) => group.children.length > 0)
+      .sort((a, b) => a.order - b.order)
+      .map(({ order, ...rest }) => rest);
 
-    return tree
-      .map((node) => mapNode(node))
-      .filter(Boolean) as AppMenuItem[];
+    if (!sidebarDebugLogged && typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+      sidebarDebugLogged = true;
+      // eslint-disable-next-line no-console
+      console.log("[sidebar] allowed menus", {
+        count: items.length,
+        sample: items.slice(0, 10).map((it) => ({
+          resource_key: it.resourceKey,
+          label: it.labelOverride || it.labelKey,
+          route: it.path,
+        })),
+      });
+    }
+
+    return grouped as AppMenuItem[];
   } catch (e) {
     console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });
     return [];

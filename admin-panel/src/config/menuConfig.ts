@@ -935,8 +935,9 @@ export function filterMenuByResources(
         ? navigator.language.split("-")[0]
         : "en") || "en";
     const resolveLabelOverride = (node: UiResource) => {
+      const labelI18n = (node as any)?.label_i18n;
       const label =
-        (node.label_i18n && (node.label_i18n as any)[lang]) ||
+        (labelI18n && (labelI18n as any)[lang]) ||
         node.element ||
         node.i18n_label_key ||
         node.resource_key ||

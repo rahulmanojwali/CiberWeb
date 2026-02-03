@@ -44,8 +44,10 @@ export const requiredActionForUiResource = (
   return "VIEW";
 };
 
-const isActive = (resource: UiResource) =>
-  resource?.is_active === true || resource?.is_active === "Y";
+const isActive = (resource: UiResource) => {
+  const active = (resource as any)?.is_active;
+  return active === true || active === "Y";
+};
 
 export const filterResourcesByAccess = (
   resources: UiResource[] = [],

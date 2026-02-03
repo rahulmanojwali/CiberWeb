@@ -8,7 +8,7 @@ export type FrozenMenuItem = {
   icon_key: string;
   order: number | null;
   metadata_group: string;
-  is_active: boolean | null;
+  is_active: boolean | string | null;
 };
 
 export const MENU_FREEZE: FrozenMenuItem[] = [

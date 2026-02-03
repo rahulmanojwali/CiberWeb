@@ -949,7 +949,8 @@ export function filterMenuByResources(
 
     const freezeItems = MENU_FREEZE.filter((item) => item && item.resource_key);
 
-    const items: Array<AppMenuItem & { order: number; category: string }> = [];
+    type MenuItemRow = AppMenuItem & { order: number; category: string; resource: UiResource };
+    const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
       const resource = byKey.get(key);
@@ -970,6 +971,7 @@ export function filterMenuByResources(
         order: typeof freeze.order === "number" ? freeze.order : 9999,
         category: String(freeze.category || ""),
         disabled,
+        resource,
       });
     });
 
@@ -995,12 +997,12 @@ export function filterMenuByResources(
 
     const grouped = Array.from(categories.entries())
       .map(([key, value]) => {
-        const children = value.items
-          .sort((a, b) => {
-            if ((a as any).order !== (b as any).order) return (a as any).order - (b as any).order;
-            return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
-          })
-          .map(({ order, category, ...rest }) => rest);
+      const children = value.items
+        .sort((a, b) => {
+          if ((a as any).order !== (b as any).order) return (a as any).order - (b as any).order;
+          return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));
+        })
+        .map(({ order, category, resource, ...rest }) => rest);
         return {
           key: `category-${key}`,
           labelKey: `menu.category.${key}`,

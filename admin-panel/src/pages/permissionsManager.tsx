@@ -187,8 +187,8 @@ export const PermissionsManager: React.FC = () => {
   const [catalog, setCatalog] = useState<UiResource[]>([]);
   const [roleSlug, setRoleSlug] = useState<string>("SUPER_ADMIN");
   const [search, setSearch] = useState<string>("");
-  const [filterMode, setFilterMode] = useState<"granted" | "all" | "missing">("granted");
-  const [hideEmptyModules, setHideEmptyModules] = useState(true);
+  const [filterMode, setFilterMode] = useState<"granted" | "all" | "missing">("all");
+  const [hideEmptyModules, setHideEmptyModules] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [loadingPolicy, setLoadingPolicy] = useState(false);
@@ -244,7 +244,8 @@ export const PermissionsManager: React.FC = () => {
       "screen",
       "tab",
     ]);
-    const isActive = (entry: UiResource) => entry.is_active === true || entry.is_active === "Y";
+    const isActive = (entry: UiResource) =>
+      entry.is_active !== false && entry.is_active !== "N";
     const isAllowedUiType = (entry: UiResource) => {
       const type = String(entry.ui_type || "").toLowerCase();
       return allowedUiTypes.has(type);
@@ -398,9 +399,11 @@ export const PermissionsManager: React.FC = () => {
 
     const order = moduleOrderRef.current;
 
+    const hasPerms = permissionsMap.size > 0;
     return groupList
       .filter((group) => {
         if (!group.total) return false;
+        if (!hasPerms) return group.entries.length > 0;
         if (filterMode === "granted") return group.granted > 0 && group.entries.length > 0;
         if (filterMode === "missing") return group.granted < group.total && group.entries.length > 0;
         if (hideEmptyModules && !filter) return group.granted > 0 && group.entries.length > 0;
@@ -429,8 +432,18 @@ export const PermissionsManager: React.FC = () => {
       return;
     }
     const resp = await fetchUiResourcesCatalog({ username });
-    const list = resp?.data?.resources || resp?.response?.data?.resources || [];
-    setCatalog(Array.isArray(list) ? list : []);
+    const unwrapCatalog = (payload: any) => {
+      if (payload?.data?.resources) return payload.data;
+      if (payload?.data?.data?.resources) return payload.data.data;
+      if (payload?.data?.items?.resources) return payload.data.items;
+      if (payload?.resources) return payload;
+      return { resources: [], permissions: [] };
+    };
+    const payload = unwrapCatalog(resp);
+    // eslint-disable-next-line no-console
+    console.log("[ResourcePolicyManager] payload keys:", Object.keys(payload || {}), payload);
+    const resources = payload.resources || [];
+    setCatalog(Array.isArray(resources) ? resources : []);
   };
 
   const loadRolePolicy = async (slug: string) => {
@@ -443,7 +456,13 @@ export const PermissionsManager: React.FC = () => {
     setLoadingPolicy(true);
     try {
       const resp = await fetchRolePolicy({ username, role_slug: slug });
-      const perms = resp?.data?.permissions || resp?.response?.data?.permissions || [];
+      const perms =
+        resp?.data?.permissions ||
+        resp?.data?.data?.permissions ||
+        resp?.data?.items?.permissions ||
+        resp?.response?.data?.permissions ||
+        resp?.permissions ||
+        [];
 
       const map = new Map<string, Set<string>>();
       (perms as RolePolicy[]).forEach((perm) => {
@@ -549,7 +568,6 @@ export const PermissionsManager: React.FC = () => {
   //       saving,
   //     )} loadingPolicy=${String(loadingPolicy)}`,
   //   );
-``
     if (!username || !roleSlug) {
       enqueueSnackbar("Session missing. Please login again.", { variant: "error" });
       return;
@@ -636,11 +654,26 @@ export const PermissionsManager: React.FC = () => {
   return (
     <StepUpGuard
       username={currentUsername() || ""}
-      resourceKey="role_policies.view"
+      resourceKey="role_policies.menu"
       action="VIEW"
     >
       <PageContainer title="Role Permission Manager">
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {catalog.length === 0 && (
+            <Box
+              sx={{
+                p: 2,
+                border: "1px dashed",
+                borderColor: "divider",
+                borderRadius: 2,
+                bgcolor: "background.paper",
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                No UI resources returned. Check API response shape.
+              </Typography>
+            </Box>
+          )}
           {/* Sticky top filters (kept as-is) */}
           <Box
             sx={{
@@ -657,7 +690,6 @@ export const PermissionsManager: React.FC = () => {
               <Box sx={{ flex: 1 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography sx={{ fontWeight: 700 }}>Role Permission Manager</Typography>
-                  <Chip size="small" color="default" label="SUPER_ADMIN only" />
                   <Chip
                     size="small"
                     color={hasUnsavedChanges ? "warning" : "default"}
@@ -665,7 +697,7 @@ export const PermissionsManager: React.FC = () => {
                   />
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                  Manage permissions for each role. SUPER_ADMIN only.
+                  Manage permissions for each role.
                 </Typography>
               </Box>
 

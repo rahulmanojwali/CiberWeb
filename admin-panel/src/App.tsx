@@ -7,6 +7,7 @@ import {
   ThemedLayout,
   useNotificationProvider,
 } from "@refinedev/mui";
+import { SnackbarProvider } from "notistack";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import routerProvider, {
@@ -141,12 +142,9 @@ function App() {
               "#root": { height: "100%" },
             }}
           />
-          <RefineSnackbarProvider
-            snackbarProviderProps={{
-              anchorOrigin: { vertical: "top", horizontal: "center" },
-            }}
-          >
-            <Refine
+          <SnackbarProvider anchorOrigin={{ vertical: "top", horizontal: "center" }}>
+            <RefineSnackbarProvider>
+              <Refine
               dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
               notificationProvider={useNotificationProvider}
               routerProvider={routerProvider}
@@ -263,7 +261,8 @@ function App() {
                 <DocumentTitleHandler handler={() => "CiberMandi – Admin"} />
 
               </Refine>
-          </RefineSnackbarProvider>
+            </RefineSnackbarProvider>
+          </SnackbarProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>
     </BrowserRouter>

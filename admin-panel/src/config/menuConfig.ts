@@ -957,7 +957,7 @@ export function filterMenuByResources(
 
     const grouped = MENU_CATEGORIES.map((category) => {
       const children = items
-        .filter((item) => category.match(item.resourceKey || "", (item as any).resource as UiResource))
+        .filter((item) => category.match(item.resourceKey || ""))
         .sort((a, b) => {
           if (a.order !== b.order) return a.order - b.order;
           return String(a.labelOverride || a.labelKey).localeCompare(String(b.labelOverride || b.labelKey));

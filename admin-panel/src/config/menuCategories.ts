@@ -15,20 +15,20 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "dashboard",
     label: "Dashboard",
     order: 1,
-    match: (key) => startsWith(key, ["dashboard.", "mobile_dashboard."]),
+    match: (key: string) => startsWith(key, ["dashboard.", "mobile_dashboard."]),
   },
   {
     key: "organisation",
     label: "Organisation",
     order: 2,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, ["organisations.", "org_mandi_mappings.", "admin_users."]),
   },
   {
     key: "mandi_masters",
     label: "Mandi & Masters",
     order: 3,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "mandis.",
         "commodities_masters.",
@@ -42,7 +42,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "gate_ops",
     label: "Gate Operations",
     order: 4,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "gate_entries.",
         "gate_entry_tokens.",
@@ -56,14 +56,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "auctions",
     label: "Auctions",
     order: 5,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, ["auctions.", "auction_", "lots.", "bids."]),
   },
   {
     key: "market_ops",
     label: "Market Operations",
     order: 6,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "pre_market_listings.",
         "transport_intents.",
@@ -77,7 +77,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "participants",
     label: "Participants",
     order: 7,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "farmers.",
         "traders.",
@@ -89,7 +89,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "payments",
     label: "Payments",
     order: 8,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "payment_",
         "payments.",
@@ -104,13 +104,13 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "reports",
     label: "Reports",
     order: 9,
-    match: (key) => startsWith(key, ["reports.", "system_reports."]),
+    match: (key: string) => startsWith(key, ["reports.", "system_reports."]),
   },
   {
     key: "system",
     label: "System",
     order: 10,
-    match: (key) =>
+    match: (key: string) =>
       startsWith(key, [
         "system_",
         "role_policies.",
@@ -124,10 +124,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     key: "other",
     label: "Other",
     order: 99,
-    match: () => true,
+    match: (_key: string) => true,
   },
 ].map((cat) => ({
   ...cat,
-  match: (resourceKey: string, resource: UiResource) =>
-    cat.match(canonicalizeResourceKey(resourceKey), resource),
+  match: (resourceKey: string) =>
+    cat.match(canonicalizeResourceKey(resourceKey)),
 }));

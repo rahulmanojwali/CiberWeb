@@ -4,7 +4,7 @@ export type MenuCategory = {
   key: string;
   label: string;
   order: number;
-  match: (resourceKey: string, resource: UiResource) => boolean;
+  match: (resourceKey: string) => boolean;
 };
 
 const startsWith = (key: string, prefixes: string[]) =>

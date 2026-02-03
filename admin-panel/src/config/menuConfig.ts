@@ -18,7 +18,8 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
+import { type UiResource } from "../utils/adminUiConfig";
+import { computeAllowedSidebar, type ResourceNode } from "../utils/rbacHelper";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
 
@@ -911,13 +912,9 @@ export function filterMenuByRole(role: RoleSlug | null) {
   });
 }
 
-const normalizeKey = (key?: string | null) => {
-  return canonicalizeResourceKey(key);
-};
-
 export function filterMenuByResources(
   resources: UiResource[] | undefined,
-  fallbackRole: RoleSlug | null,
+  _fallbackRole: RoleSlug | null,
   permissionsMap?: Record<string, Set<string>>,
 ) {
   try {
@@ -932,206 +929,48 @@ export function filterMenuByResources(
     if (!hasPermissions) {
       return [];
     }
-
-    let excludedNoRoute = 0;
-    let excludedNoGroup = 0;
-    let excludedNotMenu = 0;
-    let excludedUiType = 0;
-    const total = resources.length;
-
-    // Collect menu resources; visibility is governed by permissions (not routes).
-    const isActive = (r: any) => r?.is_active === true || r?.is_active === "Y";
-    const menuResources = resources.filter((r) => r.ui_type === "menu" && isActive(r));
-    const menuResourceKeys = new Set(
-      menuResources
-        .filter((r) => typeof r.resource_key === "string")
-        .map((r) => normalizeKey(r.resource_key)),
-    );
-    // Deduplicate by resource_key for stable can() resolution
-    const dedupedByKey = new Map<string, UiResource>();
-    menuResources.forEach((r) => {
-      const key = r.resource_key ? canonicalizeResourceKey(r.resource_key) : r.route || "";
-      if (!key) return;
-      if (!dedupedByKey.has(key)) dedupedByKey.set(key, r);
-    });
-    const safeResources = Array.from(dedupedByKey.values());
-
-    console.log("[menuConfig] filterMenuByResources diagnostic", {
-      total,
-      kept: safeResources.length,
-      excludedNoRoute,
-      excludedNoGroup,
-      excludedNotMenu,
-      excludedUiType,
-    });
-
-    // Debug: system menu config visibility (only when debugAuth=1)
-    try {
-      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      if (params?.get("debugAuth") === "1") {
-        const systemConfig = APP_MENU.find((g) => g.key === "system");
-        console.log("[menuConfig debug system config]", {
-          hasSystemConfig: !!systemConfig,
-          children: systemConfig?.children?.map((c) => ({
-            key: c.key,
-            path: c.path,
-            resourceKey: c.resourceKey,
-            requiredAction: c.requiredAction,
-          })),
-        });
-      }
-    } catch (_) {
-      // ignore debug errors
-    }
-
-    // Prepare label overrides from resources (ui_resources)
-    const resourceMap = new Map<string, UiResource>();
-    menuResources.forEach((r) => {
-      if (r.resource_key) resourceMap.set(canonicalizeResourceKey(r.resource_key), r);
-    });
+    const tree = computeAllowedSidebar(resources, permissionsMap!);
     const lang =
       (typeof navigator !== "undefined" && navigator.language
         ? navigator.language.split("-")[0]
         : "en") || "en";
-    const applyResourceLabels = (items: AppMenuItem[]): AppMenuItem[] =>
-      items.map((it) => {
-        const resKey = it.resourceKey ? canonicalizeResourceKey(it.resourceKey) : undefined;
-        const res = resKey ? resourceMap.get(resKey) : undefined;
-        const resourceLabel =
-          (res as any)?.label_i18n?.[lang] ||
-          (res as any)?.element;
-        const resolvedOverride =
-          resourceLabel && String(resourceLabel).trim()
-            ? String(resourceLabel)
-            : it.labelOverride;
-        const children = it.children ? applyResourceLabels(it.children) : undefined;
-        return cloneMenuItem(it, {
-          labelOverride: resolvedOverride,
-          children,
-        });
-      });
-    const labeledMenu = applyResourceLabels(APP_MENU);
-    const existingKeys = new Set<string>();
-    const collectKeys = (items: AppMenuItem[]) => {
-      for (const it of items) {
-        if (it.resourceKey) existingKeys.add(normalizeKey(it.resourceKey));
-        if (it.children) collectKeys(it.children);
-      }
+    const resolveLabelOverride = (node: UiResource) => {
+      const label =
+        (node.label_i18n && (node.label_i18n as any)[lang]) ||
+        node.element ||
+        node.i18n_label_key ||
+        node.resource_key ||
+        node.route;
+      return label && String(label).trim() ? String(label).trim() : undefined;
     };
-    collectKeys(labeledMenu);
-    const dynamicByGroup: Record<string, AppMenuItem[]> = {};
-    menuResources.forEach((r) => {
-      const normalizedKey = normalizeKey(r.resource_key);
-      if (!normalizedKey) return;
-      if (existingKeys.has(normalizedKey)) return;
-      if (!r.route) return;
-      const activeFlag = (r as any).is_active;
-      if (activeFlag !== true && activeFlag !== "Y") return;
-      const groupName = String((r.metadata?.group || "system")).toLowerCase();
-      const targetGroup = groupName === "system" ? "system" : "system";
-      const lang =
-        (typeof navigator !== "undefined" && navigator.language
-          ? navigator.language.split("-")[0]
-          : "en") || "en";
-      const rawLabel =
-        ((r as any).label_i18n?.[lang]) ||
-        r.element ||
-        r.route ||
-        normalizedKey;
-      const labelOverride =
-        rawLabel && String(rawLabel).trim() ? String(rawLabel).trim() : undefined;
-      const translationKey = String(r.i18n_label_key || normalizedKey);
-      const item: AppMenuItem = {
-        key: `${normalizedKey}-db`,
-        labelKey: translationKey,
-        labelOverride,
-        path: r.route,
-        icon: React.createElement(SecurityOutlinedIcon),
-        resourceKey: normalizedKey,
+    const resolveLabelKey = (node: UiResource) =>
+      String(node.i18n_label_key || node.resource_key || node.element || node.route || "menu.unknown");
+
+    const mapNode = (node: ResourceNode): AppMenuItem | null => {
+      const children = (node.children || [])
+        .map((child) => mapNode(child))
+        .filter(Boolean) as AppMenuItem[];
+      const path = node.route || undefined;
+      const isMenu = String(node.ui_type || "").toUpperCase() === "MENU";
+      if (!path && children.length === 0 && !isMenu) return null;
+      return {
+        key: String(node.resource_key || node.route || resolveLabelKey(node)),
+        labelKey: resolveLabelKey(node),
+        labelOverride: resolveLabelOverride(node),
+        path,
+        icon: isMenu ? React.createElement(SecurityOutlinedIcon) : undefined,
+        resourceKey: node.resource_key,
         requiredAction: "VIEW",
-        roles: ["SUPER_ADMIN"],
+        children: children.length ? children : undefined,
       };
-      if (!dynamicByGroup[targetGroup]) dynamicByGroup[targetGroup] = [];
-      dynamicByGroup[targetGroup].push(item);
-    });
-    const augmentedMenu = labeledMenu.map((group) => {
-      const groupKey = (group.key || group.labelKey || "").toLowerCase();
-      const additions = dynamicByGroup[groupKey] || [];
-      return additions.length
-        ? cloneMenuItem(group, { children: [...(group.children || []), ...additions] })
-        : group;
-    });
-    if (Object.values(dynamicByGroup).flat().length > 0 && typeof window !== "undefined") {
-      const addedKeys = Object.values(dynamicByGroup).flat().map((item) => item.resourceKey);
-      console.info("[menu] injected db menus", addedKeys);
-    }
+    };
 
-    const filtered = filterHierarchy(augmentedMenu, (item, hasChildren) => {
-      const watchKeys = new Set([
-        "role_policies.menu",
-        "user_roles.menu",
-        "resource_registry.menu",
-        "commodities_masters.menu",
-        "commodity_products_masters.menu",
-        "mandi_commodity_products_masters.menu",
-      ]);
-      if (item.resourceKey && watchKeys.has(item.resourceKey)) {
-        const hasResourceKey = menuResourceKeys.has(normalizeKey(item.resourceKey));
-        const set = permissionsMap![normalizeKey(item.resourceKey)];
-        const canViewPerm = !!set && set.has("VIEW");
-        const roleAllowed =
-          !item.roles || !Array.isArray(item.roles) || item.roles.length === 0
-            ? true
-            : Boolean(fallbackRole && item.roles.includes(fallbackRole));
-        const result = hasResourceKey && canViewPerm;
-        console.log("[menu debug watch]", {
-          key: item.resourceKey,
-          hasResourceKey,
-          canView: canViewPerm,
-          actions: set ? Array.from(set) : [],
-          roleAllowed,
-          finalIncluded: result,
-        });
-      }
-      if (!item.resourceKey) return hasChildren;
-      const normalizedKey = normalizeKey(item.resourceKey);
-      const set = permissionsMap![normalizedKey];
-      if (!set || !set.has("VIEW")) return false;
-      // Require that the menu key exists in ui_resources (keeps unseen keys out),
-      // except for known keys that currently have no ui_resource but are permissioned (e.g., gate_entry_tokens.menu).
-      const hasUiResource = menuResourceKeys.has(normalizedKey);
-      if (!hasUiResource) {
-        const allowMissingUiResource = normalizedKey === "gate_entry_tokens.menu";
-        if (!allowMissingUiResource) return false;
-      }
-      return true;
-    });
-
-    // Debug summary of visible menu groups
-    try {
-      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-      if (params?.get("debugAuth") === "1") {
-        const visibleKeys: string[] = [];
-        const groupSummaries: { key?: string; childCount: number }[] = [];
-        filtered.forEach((item) => {
-          if (item.children?.length) {
-            groupSummaries.push({ key: item.key || item.labelKey, childCount: item.children.length });
-            item.children.forEach((c) => c.resourceKey && visibleKeys.push(c.resourceKey));
-          } else if (item.resourceKey) {
-            visibleKeys.push(item.resourceKey);
-          }
-        });
-        console.log("[menu debug] visible groups and keys", { groupSummaries, visibleKeys });
-      }
-    } catch (_) {
-      // ignore debug errors
-    }
-
-    return filtered;
+    return tree
+      .map((node) => mapNode(node))
+      .filter(Boolean) as AppMenuItem[];
   } catch (e) {
     console.error("[sidebar] build failed", e, { sample: (resources || []).slice(0, 5) });
-    // fallback: keep last-known menu by role rather than blanking
-    return filterMenuByRole(fallbackRole);
+    return [];
   }
 }
 

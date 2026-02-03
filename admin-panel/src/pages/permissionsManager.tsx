@@ -63,7 +63,6 @@ const ROLE_SLUGS = [
 
 const ACTION_ORDER = [
   "VIEW",
-  "VIEW_DETAIL",
   "CREATE",
   "UPDATE",
   "DEACTIVATE",
@@ -80,7 +79,6 @@ const ROW_ORDER = ["menu", "list", "detail", "view", "create", "edit", "update",
 
 const ACTION_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
   VIEW: "primary",
-  VIEW_DETAIL: "primary",
   CREATE: "success",
   UPDATE: "warning",
   DEACTIVATE: "error",
@@ -148,13 +146,7 @@ function computeDiffCount(
 }
 
 /**
- * ✅ CRITICAL FIX:
- * Previous code blocked save on "invalid actions".
- * In practice, the catalog sometimes uses VIEW_DETAIL vs VIEW (detail),
- * and UPDATE_STATUS vs UPDATE (status edit), etc.
- *
- * This function:
- * - auto-maps VIEW -> VIEW_DETAIL for `.detail` when needed
+ * Normalize selected actions against allowed actions.
  * - auto-maps UPDATE <-> UPDATE_STATUS when needed
  * - drops anything not allowed by catalog
  * - NEVER blocks save
@@ -164,8 +156,6 @@ function normalizeActionsForSave(
   selected: string[],
   allowed: Set<string>,
 ): { actions: string[]; dropped: string[]; mapped: Array<{ from: string; to: string }> } {
-  const key = normalizeKey(resourceKey);
-
   const picked = new Set<string>(selected.map(normalizeAction).filter(Boolean));
   const mapped: Array<{ from: string; to: string }> = [];
   const dropped: string[] = [];
@@ -177,11 +167,6 @@ function normalizeActionsForSave(
       mapped.push({ from, to });
     }
   };
-
-  // detail rows often are VIEW_DETAIL in master
-  if (key.endsWith(".detail")) {
-    swapIfNeeded("VIEW", "VIEW_DETAIL");
-  }
 
   // status-change actions vary by master
   swapIfNeeded("UPDATE", "UPDATE_STATUS");
@@ -249,9 +234,25 @@ export const PermissionsManager: React.FC = () => {
         order?: number;
       }
     >();
+    const allowedUiTypes = new Set([
+      "menu",
+      "table",
+      "dialog",
+      "button",
+      "widget",
+      "page",
+      "screen",
+      "tab",
+    ]);
+    const isActive = (entry: UiResource) => entry.is_active === true || entry.is_active === "Y";
+    const isAllowedUiType = (entry: UiResource) => {
+      const type = String(entry.ui_type || "").toLowerCase();
+      return allowedUiTypes.has(type);
+    };
 
     const labelByKey = new Map<string, string>();
     catalog.forEach((entry) => {
+      if (!isActive(entry) || !isAllowedUiType(entry)) return;
       const key = normalizeKey(entry.resource_key);
       if (!key) return;
       const label =
@@ -263,6 +264,7 @@ export const PermissionsManager: React.FC = () => {
     });
 
     catalog.forEach((entry) => {
+      if (!isActive(entry) || !isAllowedUiType(entry)) return;
       const key = normalizeKey(entry.resource_key);
       if (!key) return;
 
@@ -793,7 +795,7 @@ export const PermissionsManager: React.FC = () => {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setModuleAction(group.allEntries, ["VIEW", "VIEW_DETAIL"], true);
+                        setModuleAction(group.allEntries, ["VIEW"], true);
                       }}
                     >
                       Grant VIEW all
@@ -1032,72 +1034,6 @@ function buildGroupTitle(entry: UiResource, labelByKey: Map<string, string>): st
 //   label_i18n?: Record<string, string>;
 //   is_active?: boolean | string;
 // };
-
-// type RolePolicy = {
-//   resource_key: string;
-//   actions: string[];
-// };
-
-// type CatalogEntry = UiResource & {
-//   actions: string[];
-// };
-
-// const ROLE_SLUGS = [
-//   "SUPER_ADMIN",
-//   "ORG_ADMIN",
-//   "ORG_VIEWER",
-//   "MANDI_ADMIN",
-//   "MANDI_MANAGER",
-//   "AUCTIONEER",
-//   "GATE_OPERATOR",
-//   "WEIGHBRIDGE_OPERATOR",
-//   "AUDITOR",
-//   "VIEWER",
-// ];
-
-// const ACTION_ORDER = [
-//   "VIEW",
-//   "VIEW_DETAIL",
-//   "CREATE",
-//   "UPDATE",
-//   "DEACTIVATE",
-//   "DELETE",
-//   "RESET_PASSWORD",
-//   "UPDATE_STATUS",
-//   "BULK_UPLOAD",
-//   "APPROVE",
-//   "REJECT",
-//   "REQUEST_MORE_INFO",
-// ];
-// const ROW_ORDER = ["menu", "list", "detail", "view", "create", "edit", "update", "deactivate"];
-
-// const ACTION_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
-//   VIEW: "primary",
-//   VIEW_DETAIL: "primary",
-//   CREATE: "success",
-//   UPDATE: "warning",
-//   DEACTIVATE: "error",
-//   DELETE: "error",
-//   RESET_PASSWORD: "warning",
-//   UPDATE_STATUS: "warning",
-//   BULK_UPLOAD: "success",
-//   APPROVE: "success",
-//   REJECT: "error",
-//   REQUEST_MORE_INFO: "warning",
-// };
-
-// function currentUsername(): string | null {
-//   try {
-//     const raw = localStorage.getItem("cd_user");
-//     const parsed = raw ? JSON.parse(raw) : null;
-//     return parsed?.username || null;
-//   } catch {
-//     return null;
-//   }
-// }
-
-// export const PermissionsManager: React.FC = () => {
-//   const { enqueueSnackbar } = useSnackbar();
 //   const [catalog, setCatalog] = useState<UiResource[]>([]);
 //   const [roleSlug, setRoleSlug] = useState<string>("SUPER_ADMIN");
 //   const [search, setSearch] = useState<string>("");
@@ -1566,7 +1502,7 @@ function buildGroupTitle(entry: UiResource, labelByKey: Map<string, string>): st
 //                       sx={{ color: "text.secondary" }}
 //                       onClick={(event) => {
 //                         event.stopPropagation();
-//                         setModuleAction(group.allEntries, ["VIEW", "VIEW_DETAIL"], true);
+//                         setModuleAction(group.allEntries, ["VIEW"], true);
 //                       }}
 //                     >
 //                       Grant VIEW all

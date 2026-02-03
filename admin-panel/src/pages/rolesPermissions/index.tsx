@@ -364,7 +364,6 @@ const RolesPermissionsPage: React.FC = () => {
           (p.actions || []).map((a) => {
             const upper = String(a || "").toUpperCase();
             if (upper === "EDIT") return "UPDATE";
-            if (upper === "VIEW_DETAIL") return "VIEW";
             const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];
             if (specials.includes(upper)) return allowedSet.has("UPDATE") ? "UPDATE" : upper;
             return upper;
@@ -684,7 +683,7 @@ const RolesPermissionsPage: React.FC = () => {
               {filteredResources.map((r) => {
                 const allowedActions = Array.from(new Set((r.allowed_actions || []).map((a: string) => {
                     const up = String(a || "").toUpperCase();
-                    return up === "VIEW_DETAIL" ? "VIEW" : up;
+                    return up;
                   })));
                 const granted = rolePermsLookup[r.resource_key] || new Set<string>();
                 return (
@@ -1149,10 +1148,6 @@ export default GuardedRolesPermissionsPage;
 //   const normalizeActionForAllowed = (action: string, allowedSet: Set<string>) => {
 //     const upper = action.toUpperCase();
 //     if (upper === "EDIT") return "UPDATE";
-//     if (upper === "VIEW_DETAIL") {
-//       if (allowedSet.has("VIEW_DETAIL")) return "VIEW_DETAIL";
-//       if (allowedSet.has("VIEW")) return "VIEW";
-//     }
 //     // Special cases that should map to UPDATE when registry allows UPDATE
 //     const specialUpdate = [
 //       "APPROVE",
@@ -1210,7 +1205,6 @@ export default GuardedRolesPermissionsPage;
 //           (p.actions || []).map((a) => {
 //             const upper = String(a || "").toUpperCase();
 //             if (upper === "EDIT") return "UPDATE";
-//             if (upper === "VIEW_DETAIL") return allowedSet.has("VIEW_DETAIL") ? "VIEW_DETAIL" : "VIEW";
 //             const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];
 //             if (specials.includes(upper)) return allowedSet.has("UPDATE") ? "UPDATE" : upper;
 //             return upper;

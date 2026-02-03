@@ -56,13 +56,12 @@ export function can(
   if (!Array.isArray(resources) || !resources.length) return false;
   const res = getResource(resources, canonicalizeResourceKey(key));
   if (!res) return false;
-  const normalizeAction = (val: string) => {
-    const upper = (val || "").toUpperCase();
-    if (upper === "EDIT") return "UPDATE";
-    if (upper === "DELETE" || upper === "DISABLE" || upper === "TOGGLE") return "DEACTIVATE";
-    if (upper === "VIEW_DETAIL") return "VIEW";
-    return upper;
-  };
+    const normalizeAction = (val: string) => {
+      const upper = (val || "").toUpperCase();
+      if (upper === "EDIT") return "UPDATE";
+      if (upper === "DELETE" || upper === "DISABLE" || upper === "TOGGLE") return "DEACTIVATE";
+      return upper;
+    };
   const actionsSrc: any[] =
     Array.isArray((res as any).allowed_actions) && (res as any).allowed_actions.length
       ? (res as any).allowed_actions

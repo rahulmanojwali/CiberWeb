@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { canonicalizeResourceKey } from "../utils/adminUiConfig";
+import { indexPermissions, hasAccess, normalizeAction as normalizeActionBase } from "../utils/rbacHelper";
 
 type Action = "VIEW" | "CREATE" | "UPDATE" | "DEACTIVATE" | "UPLOAD" | string;
 
@@ -10,8 +11,7 @@ const normalizeAction = (action?: string | null) => {
   if (upper === "ADD" || upper === "INSERT") return "CREATE";
   if (upper === "EDIT") return "UPDATE";
   if (upper === "DELETE" || upper === "DISABLE" || upper === "REMOVE") return "DEACTIVATE";
-  if (upper === "DETAIL") return "VIEW_DETAIL";
-  if (upper === "VIEW_DETAIL" || upper === "VIEW_DETAILS") return "VIEW_DETAIL";
+  if (upper === "DETAIL") return "VIEW";
   return upper;
 };
 
@@ -39,26 +39,18 @@ export function usePermissions() {
   const roleSlug = (uiConfig.role || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
 
   const permissionsMap = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
     const permSource = uiConfig.permissions || [];
     const fallback = (uiConfig as any).resources || [];
-    // const merged = permSource.length ? permSource : fallback;
-const merged = [...fallback, ...permSource];
-
-    merged.forEach((res: any) => {
-      // const key = canonicalizeResourceKey(res.resource_key || res.resource || "");
-
-const key = canonicalizeResourceKey(
-  res.resource_key || res.resource || res.key || res.resourceKey || ""
-);
-
-      if (!key) return;
-      const actionsRaw = res.allowed_actions ?? res.actions ?? res.permissions ?? [];
-      const actions = normalizeActionsArray(actionsRaw);
-      const set = new Set<string>();
-      actions.forEach((val: string) => set.add(val));
-      map[key] = set;
-    });
+    const merged = [...fallback, ...permSource];
+    const normalized = merged.map((res: any) => ({
+      resource_key: canonicalizeResourceKey(
+        res.resource_key || res.resource || res.key || res.resourceKey || "",
+      ),
+      actions: normalizeActionsArray(res.allowed_actions ?? res.actions ?? res.permissions ?? []),
+    }));
+    const map = indexPermissions(
+      normalized.filter((entry: any) => entry.resource_key),
+    );
     if (roleSlug === "MANDI_ADMIN") {
       const ensure = (resourceKey: string, actions: string[]) => {
         const key = canonicalizeResourceKey(resourceKey);
@@ -90,9 +82,7 @@ const key = canonicalizeResourceKey(
     const normKey = canonicalizeResourceKey(resourceKey);
     const normAction = normalizeAction(String(action));
     if (!normKey || !normAction) return false;
-    const set = permissionsMap[normKey];
-    if (!set) return false;
-    return set.has(normAction);
+    return hasAccess(permissionsMap, normKey, normalizeActionBase(normAction));
   };
 
   const authContext = {

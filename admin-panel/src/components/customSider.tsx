@@ -115,8 +115,21 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     setCollapsed((prev) => !prev);
   };
 
-  const translateMenuLabel = (menuItem: NavMenuItem) =>
-    t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
+  const translateMenuLabel = (menuItem: NavMenuItem) => {
+    if (menuItem.labelOverride && String(menuItem.labelOverride).trim()) {
+      return menuItem.labelOverride;
+    }
+    return t(menuItem.labelKey, { defaultValue: menuItem.labelKey });
+  };
+
+  const CM = {
+    primary: "#6E7C3A",
+    primaryDark: "#55632C",
+    secondary: "#C57A35",
+    bg: "#F6F1E8",
+    text: "#3B3B3B",
+    textMuted: "#6B6B6B",
+  };
 
   const renderMenuItem = useCallback(
     (item: NavMenuItem) => {
@@ -140,8 +153,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                 justifyContent: collapsed ? "center" : "flex-start",
                 px: collapsed ? 1.25 : 2,
                 "&.Mui-selected": {
-                  backgroundColor: "#e0f2f1",
+                  backgroundColor: CM.bg,
                   borderRadius: 1,
+                  color: CM.primaryDark,
+                  "& .MuiListItemIcon-root": { color: CM.secondary },
+                  "& .MuiListItemText-primary": { color: CM.primaryDark },
                 },
               }}
             >
@@ -151,6 +167,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                     minWidth: 0,
                     mr: collapsed ? 0 : 1.25,
                     justifyContent: "center",
+                    color: active ? CM.secondary : CM.textMuted,
                     "& svg": { fontSize: 20 },
                   }}
                 >
@@ -210,7 +227,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                       disablePadding
                       sx={{ display: "block" }}
                     >
-                      <ListItemButton
+                    <ListItemButton
                         selected={active}
                         disabled={(child as any).disabled === true}
                         onClick={() => child.path && menuNavigate(child.path, child.resourceKey)}
@@ -220,8 +237,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                           justifyContent: "flex-start",
                           px: 2.5,
                           "&.Mui-selected": {
-                            backgroundColor: "#e0f2f1",
+                            backgroundColor: CM.bg,
                             borderRadius: 1,
+                            color: CM.primaryDark,
+                            "& .MuiListItemIcon-root": { color: CM.secondary },
+                            "& .MuiListItemText-primary": { color: CM.primaryDark },
                           },
                         }}
                       >
@@ -231,6 +251,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                               minWidth: 0,
                               mr: 1.1,
                               justifyContent: "center",
+                              color: active ? CM.secondary : CM.textMuted,
                               "& svg": { fontSize: 20 },
                             }}
                           >

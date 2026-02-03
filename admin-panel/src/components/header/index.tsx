@@ -90,6 +90,15 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const isSmall = useMediaQuery((themeParam: any) =>
     themeParam.breakpoints.down("md"),
   );
+
+  const CM = {
+    primary: "#6E7C3A",
+    primaryDark: "#55632C",
+    secondary: "#C57A35",
+    bg: "#F6F1E8",
+    text: "#3B3B3B",
+    textMuted: "#6B6B6B",
+  };
   
    // 👇 Override browser tab title when header is mounted
   useEffect(() => {
@@ -182,7 +191,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                   </ListItemIcon>
                 )}
                 <ListItemText
-                  primary={t(item.labelKey)}
+                  primary={item.labelOverride && String(item.labelOverride).trim() ? item.labelOverride : t(item.labelKey)}
                   primaryTypographyProps={{
                     fontWeight: 600,
                     variant: "subtitle2",
@@ -215,6 +224,12 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               py: 0.75,
               justifyContent: "flex-start",
               px: 3 + depth * 1.5,
+              "&.Mui-selected": {
+                backgroundColor: CM.bg,
+                color: CM.primaryDark,
+                "& .MuiListItemIcon-root": { color: CM.secondary },
+                "& .MuiListItemText-primary": { color: CM.primaryDark },
+              },
             }}
           >
             {item.icon && (
@@ -223,6 +238,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
                   minWidth: 0,
                   mr: 1.25,
                   justifyContent: "center",
+                  color: active ? CM.secondary : CM.textMuted,
                   "& svg": { fontSize: 20 },
                 }}
               >
@@ -230,7 +246,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
               </ListItemIcon>
             )}
             <ListItemText
-              primary={t(item.labelKey)}
+              primary={item.labelOverride && String(item.labelOverride).trim() ? item.labelOverride : t(item.labelKey)}
               primaryTypographyProps={{
                 fontWeight: active ? 600 : 500,
                 variant: "body2",

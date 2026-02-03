@@ -965,7 +965,7 @@ export function filterMenuByResources(
         labelKey: String(labelKey),
         labelOverride: String(labelOverride),
         path: disabled ? undefined : String(path),
-        icon: resolveMenuIcon(freeze.icon_key || (resource as any).icon_key),
+        icon: resolveMenuIcon(freeze.icon_key || (resource as any).icon_key, freeze.resource_key),
         resourceKey: String(freeze.resource_key),
         requiredAction: "VIEW",
         order: typeof freeze.order === "number" ? freeze.order : 9999,

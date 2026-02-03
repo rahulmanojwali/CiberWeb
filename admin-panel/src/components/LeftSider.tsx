@@ -53,8 +53,20 @@ export const LeftSider: React.FC = () => {
   };
 
   const navigableItems = useMemo(() => flattenMenu(items), [items]);
-  const translateMenuLabel = (menuItem: MenuItem) =>
-    t(menuItem.labelKey, { defaultValue: menuItem.labelOverride || menuItem.labelKey });
+  const translateMenuLabel = (menuItem: MenuItem) => {
+    if (menuItem.labelOverride && String(menuItem.labelOverride).trim()) {
+      return menuItem.labelOverride;
+    }
+    return t(menuItem.labelKey, { defaultValue: menuItem.labelKey });
+  };
+  const CM = {
+    primary: "#6E7C3A",
+    primaryDark: "#55632C",
+    secondary: "#C57A35",
+    bg: "#F6F1E8",
+    text: "#3B3B3B",
+    textMuted: "#6B6B6B",
+  };
 
   return (
     <Box
@@ -91,26 +103,22 @@ export const LeftSider: React.FC = () => {
               component={NavLink}
               to={item.path!}
               sx={{
-                borderLeft: active ? `4px solid ${BRAND_COLORS.primary}` : "4px solid transparent",
+                borderLeft: active ? `4px solid ${CM.secondary}` : "4px solid transparent",
                 borderRadius: 2,
                 mx: 0.5,
                 mb: 0.5,
                 backgroundColor: active
-                  ? alpha(BRAND_COLORS.primary, isDark ? 0.35 : 0.1)
+                  ? CM.bg
                   : "transparent",
                 "&:hover": {
-                  backgroundColor: alpha(BRAND_COLORS.primary, isDark ? 0.4 : 0.18),
+                  backgroundColor: CM.bg,
                 },
               }}
             >
               <ListItemIcon
                 sx={{
                   minWidth: 36,
-                  color: active
-                    ? BRAND_COLORS.primaryDark
-                    : isDark
-                      ? alpha("#ffffff", 0.85)
-                      : "inherit",
+                  color: active ? CM.secondary : CM.textMuted,
                 }}
               >
                 {item.icon}
@@ -119,6 +127,7 @@ export const LeftSider: React.FC = () => {
                 primary={translateMenuLabel(item)}
                 primaryTypographyProps={{
                   fontWeight: active ? 600 : 500,
+                  color: active ? CM.primaryDark : CM.text,
                 }}
                 sx={{ display: isCompact ? "none" : "block" }}
               />

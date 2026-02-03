@@ -361,7 +361,65 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               />
             </ListItem>
           )}
-          {navItems.map((item) => renderMenuItem(item))}
+          {(() => {
+            const root = navItems[0];
+            const rootKey = "menus-root";
+            const rootLabel = root?.labelOverride || root?.labelKey || "Menus";
+            const rootChildren = root?.children || [];
+            if (!root || rootChildren.length === 0) {
+              return (
+                <ListItem disablePadding>
+                  <ListItemText
+                    primary="No menu access assigned"
+                    primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
+                    sx={{ px: 1.5, py: 0.5 }}
+                  />
+                </ListItem>
+              );
+            }
+            const isExpanded = !!expanded[rootKey];
+            return (
+              <Box key={rootKey} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => toggleGroup(rootKey)}
+                    sx={{
+                      minHeight: 48,
+                      justifyContent: collapsed ? "center" : "flex-start",
+                      px: collapsed ? 1.25 : 2,
+                      py: 0.75,
+                    }}
+                  >
+                    {!collapsed && (
+                      <ListItemText
+                        primary={rootLabel}
+                        primaryTypographyProps={{
+                          variant: "subtitle2",
+                          fontWeight: 700,
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                    )}
+                    {!collapsed && (
+                      isExpanded ? (
+                        <ExpandLess sx={{ fontSize: 18 }} />
+                      ) : (
+                        <ExpandMore sx={{ fontSize: 18 }} />
+                      )
+                    )}
+                  </ListItemButton>
+                </ListItem>
+                {!collapsed && (
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                    <List component="div" disablePadding>
+                      {rootChildren.map((item) => renderMenuItem(item))}
+                    </List>
+                  </Collapse>
+                )}
+                <Divider sx={{ my: 1, opacity: 0.3 }} />
+              </Box>
+            );
+          })()}
         </List>
       </Box>
 

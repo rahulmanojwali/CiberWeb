@@ -99,25 +99,30 @@ export const computeAllowedSidebar = (
   resources: UiResource[] = [],
   permIndex: Record<string, Set<string>>,
 ): ResourceNode[] => {
-  const visibleResources = filterResourcesByAccess(resources, permIndex);
-  const tree = buildResourceTree(visibleResources);
-  const isMenu = (node: ResourceNode) => String(node.ui_type || "").toUpperCase() === "MENU";
-  const isPageLike = (node: ResourceNode) =>
-    ["TABLE", "PAGE", "SCREEN", "TAB"].includes(String(node.ui_type || "").toUpperCase());
+  const isMenu = (res: UiResource) => String(res.ui_type || "").toUpperCase() === "MENU";
+  const isActiveResource = (res: UiResource) => {
+    const active = (res as any)?.is_active;
+    return active === true || active === "Y";
+  };
+  const allowedMenus = resources
+    .filter((res) => isMenu(res) && isActiveResource(res))
+    .filter((res) => hasAccess(permIndex, res.resource_key, "VIEW"));
 
-  const prune = (node: ResourceNode): ResourceNode | null => {
-    const children = (node.children || [])
-      .map((child) => prune(child))
-      .filter(Boolean) as ResourceNode[];
-    const next = { ...node, children: children.length ? children : undefined };
-    if (isMenu(node)) {
-      return children.length ? next : null;
-    }
-    if (isPageLike(node)) return next;
-    return null;
+  const sortedMenus = [...allowedMenus].sort((a, b) => {
+    const orderA = typeof a.order === "number" ? a.order : 9999;
+    const orderB = typeof b.order === "number" ? b.order : 9999;
+    if (orderA !== orderB) return orderA - orderB;
+    const keyA = String(a.resource_key || a.element || "");
+    const keyB = String(b.resource_key || b.element || "");
+    return keyA.localeCompare(keyB);
+  });
+
+  const root: ResourceNode = {
+    resource_key: "menus",
+    ui_type: "menu_root",
+    element: "Menus",
+    children: sortedMenus.map((res) => ({ ...res })),
   };
 
-  return tree
-    .map((node) => prune(node))
-    .filter(Boolean) as ResourceNode[];
+  return [root];
 };

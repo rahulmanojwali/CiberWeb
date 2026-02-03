@@ -952,12 +952,13 @@ export function filterMenuByResources(
         .map((child) => mapNode(child))
         .filter(Boolean) as AppMenuItem[];
       const path = node.route || undefined;
-      const isMenu = String(node.ui_type || "").toUpperCase() === "MENU";
-      if (!path && children.length === 0 && !isMenu) return null;
+      const type = String(node.ui_type || "").toUpperCase();
+      const isMenu = type === "MENU" || type === "MENU_ROOT";
+      if (!path && children.length === 0) return null;
       return {
         key: String(node.resource_key || node.route || resolveLabelKey(node)),
         labelKey: resolveLabelKey(node),
-        labelOverride: resolveLabelOverride(node),
+        labelOverride: node.resource_key === "menus" ? "Menus" : resolveLabelOverride(node),
         path,
         icon: isMenu ? React.createElement(SecurityOutlinedIcon) : undefined,
         resourceKey: node.resource_key,

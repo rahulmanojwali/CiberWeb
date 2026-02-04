@@ -136,6 +136,56 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           },
         },
       },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: alpha(BRAND_COLORS.textMuted, 0.45),
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: BRAND_COLORS.secondary,
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: BRAND_COLORS.primary,
+              borderWidth: 1.5,
+            },
+          },
+        },
+      },
+      MuiSelect: {
+        styleOverrides: {
+          icon: {
+            color: BRAND_COLORS.textMuted,
+          },
+        },
+      },
+      MuiFilledInput: {
+        styleOverrides: {
+          root: {
+            backgroundColor: BRAND_COLORS.surface,
+            borderRadius: 8,
+            "&:before": {
+              borderBottomColor: alpha(BRAND_COLORS.textMuted, 0.45),
+            },
+            "&:hover:before": {
+              borderBottomColor: BRAND_COLORS.secondary,
+            },
+            "&.Mui-focused:after": {
+              borderBottomColor: BRAND_COLORS.primary,
+            },
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: BRAND_COLORS.textMuted,
+            "&.Mui-focused": {
+              color: BRAND_COLORS.primaryDark,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -230,6 +280,56 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
             marginRight: 8,
             "& .MuiSvgIcon-root": {
               fontSize: 20,
+            },
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: alpha(BRAND_COLORS.textMuted, 0.45),
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: BRAND_COLORS.secondary,
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: BRAND_COLORS.primary,
+              borderWidth: 1.5,
+            },
+          },
+        },
+      },
+      MuiSelect: {
+        styleOverrides: {
+          icon: {
+            color: BRAND_COLORS.textMuted,
+          },
+        },
+      },
+      MuiFilledInput: {
+        styleOverrides: {
+          root: {
+            backgroundColor: BRAND_COLORS.surface,
+            borderRadius: 8,
+            "&:before": {
+              borderBottomColor: alpha(BRAND_COLORS.textMuted, 0.45),
+            },
+            "&:hover:before": {
+              borderBottomColor: BRAND_COLORS.secondary,
+            },
+            "&.Mui-focused:after": {
+              borderBottomColor: BRAND_COLORS.primary,
+            },
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: BRAND_COLORS.textMuted,
+            "&.Mui-focused": {
+              color: BRAND_COLORS.primaryDark,
             },
           },
         },

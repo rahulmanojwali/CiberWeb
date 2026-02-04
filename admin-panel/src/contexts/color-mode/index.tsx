@@ -149,6 +149,9 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
               borderColor: BRAND_COLORS.primary,
               borderWidth: 1.5,
             },
+            "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+              borderColor: alpha(BRAND_COLORS.textMuted, 0.35),
+            },
           },
         },
       },
@@ -296,6 +299,9 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
               borderColor: BRAND_COLORS.primary,
               borderWidth: 1.5,
+            },
+            "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
+              borderColor: alpha(BRAND_COLORS.textMuted, 0.35),
             },
           },
         },

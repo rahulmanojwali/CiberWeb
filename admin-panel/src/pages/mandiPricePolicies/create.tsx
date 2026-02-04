@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  LinearProgress,
   MenuItem,
   Stack,
   TextField,
@@ -304,6 +305,7 @@ export const MandiPricePolicyCreate: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+          {loadingCommodities ? <LinearProgress /> : null}
           <TextField
             select
             label="Commodity Product"
@@ -318,6 +320,7 @@ export const MandiPricePolicyCreate: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+          {loadingProducts ? <LinearProgress /> : null}
           {productWarning ? (
             <Typography variant="caption" color="warning.main">
               {productWarning}

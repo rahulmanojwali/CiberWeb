@@ -8,7 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -38,8 +38,12 @@ export const MandiPricePolicyCreate: React.FC = () => {
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const navigate = useNavigate();
+  const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
   const uiConfig = useAdminUiConfig();
+
+  const editPolicy = (location.state as any)?.policy || null;
+  const isEditMode = Boolean(editPolicy?._id);
 
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [commodityOptions, setCommodityOptions] = useState<Option[]>([]);
@@ -60,6 +64,13 @@ export const MandiPricePolicyCreate: React.FC = () => {
     effective_to: "",
     enforcement_mode: "WARN_ONLY",
   });
+
+  const toDateInput = (value: any) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  };
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
@@ -192,6 +203,27 @@ export const MandiPricePolicyCreate: React.FC = () => {
     loadMandis();
   }, [loadMandis]);
 
+  useEffect(() => {
+    if (!editPolicy) return;
+    setForm({
+      mandi_id: String(editPolicy.mandi_id ?? ""),
+      commodity_id: String(editPolicy.commodity_id ?? ""),
+      commodity_product_id: String(editPolicy.commodity_product_id ?? ""),
+      min_per_qtl: String(editPolicy?.price_band?.min_per_qtl ?? editPolicy?.price_band?.min ?? ""),
+      max_per_qtl: String(editPolicy?.price_band?.max_per_qtl ?? editPolicy?.price_band?.max ?? ""),
+      unit: editPolicy?.price_band?.unit || "QTL",
+      effective_from: toDateInput(editPolicy?.effective?.from),
+      effective_to: toDateInput(editPolicy?.effective?.to),
+      enforcement_mode: editPolicy?.enforcement?.mode || "WARN_ONLY",
+    });
+    if (editPolicy.mandi_id) {
+      loadCommodities(String(editPolicy.mandi_id));
+    }
+    if (editPolicy.mandi_id && editPolicy.commodity_id) {
+      loadProducts(String(editPolicy.mandi_id), String(editPolicy.commodity_id));
+    }
+  }, [editPolicy, loadCommodities, loadProducts]);
+
   const onSubmit = async () => {
     const username = currentUsername();
     const orgId = uiConfig.scope?.org_id || "";
@@ -248,7 +280,9 @@ export const MandiPricePolicyCreate: React.FC = () => {
   return (
     <PageContainer>
       <Stack spacing={0.5} mb={2}>
-        <Typography variant="h5">Create Mandi Price Policy</Typography>
+        <Typography variant="h5">
+          {isEditMode ? "Edit Mandi Price Policy" : "Create Mandi Price Policy"}
+        </Typography>
       </Stack>
 
       <Box sx={{ maxWidth: 820 }}>
@@ -387,7 +421,7 @@ export const MandiPricePolicyCreate: React.FC = () => {
               Cancel
             </Button>
             <Button variant="contained" onClick={onSubmit}>
-              Save Policy
+              {isEditMode ? "Update Policy" : "Save Policy"}
             </Button>
           </Stack>
         </Stack>

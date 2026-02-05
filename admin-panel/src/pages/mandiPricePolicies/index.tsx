@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
   MenuItem,
   Stack,
   TextField,
@@ -16,7 +17,15 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useTranslation } from "react-i18next";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
-import { getMandiPricePolicies, deactivateMandiPricePolicy } from "../../services/mandiPricePoliciesApi";
+import {
+  deactivateMandiPricePolicy,
+  getMandiPricePolicies,
+  upsertMandiPricePolicy,
+} from "../../services/mandiPricePoliciesApi";
+import { getStoredAdminUser } from "../../utils/session";
+import BlockIcon from "@mui/icons-material/Block";
+import CheckIcon from "@mui/icons-material/Check";
+import EditIcon from "@mui/icons-material/Edit";
 
 type Option = { value: string; label: string };
 
@@ -44,7 +53,7 @@ export const MandiPricePolicies: React.FC = () => {
   const [filters, setFilters] = useState({
     mandi_id: "",
     commodity_product_id: "",
-    active_only: true,
+    active_only: false,
   });
 
   const canView = useMemo(
@@ -53,6 +62,10 @@ export const MandiPricePolicies: React.FC = () => {
   );
   const canCreate = useMemo(
     () => can("mandi_price_policies.create", "CREATE"),
+    [can],
+  );
+  const canEdit = useMemo(
+    () => can("mandi_price_policies.edit", "UPDATE"),
     [can],
   );
   const canDeactivate = useMemo(
@@ -69,18 +82,22 @@ export const MandiPricePolicies: React.FC = () => {
       language,
       org_id: orgId,
     });
+    const mapped = (list || []).map((m: any) => ({
+      value: String(m.mandi_id ?? m.mandiId ?? ""),
+      label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
+    }));
     setMandiOptions(
-      (list || []).map((m: any) => ({
-        value: String(m.mandi_id ?? m.mandiId ?? ""),
-        label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
-      })),
+      [{ value: "", label: "All Mandis" }, ...mapped],
     );
+    if (!filters.mandi_id && mapped.length === 1) {
+      setFilters((prev) => ({ ...prev, mandi_id: mapped[0].value }));
+    }
   }, [language, uiConfig.scope?.org_id]);
 
   const loadPolicies = useCallback(async () => {
     const username = currentUsername();
     const orgId = uiConfig.scope?.org_id || "";
-    if (!username || !orgId || !filters.mandi_id) return;
+    if (!username || !orgId) return;
     setLoading(true);
     try {
       const resp = await getMandiPricePolicies({
@@ -88,7 +105,7 @@ export const MandiPricePolicies: React.FC = () => {
         language,
         filters: {
           org_id: orgId,
-          mandi_id: filters.mandi_id,
+          mandi_id: filters.mandi_id || undefined,
           commodity_product_id: filters.commodity_product_id || undefined,
           active_only: filters.active_only ? "Y" : undefined,
         },
@@ -104,17 +121,80 @@ export const MandiPricePolicies: React.FC = () => {
     if (canView) loadMandis();
   }, [canView, loadMandis]);
 
+  useEffect(() => {
+    if (canView) loadPolicies();
+  }, [canView, loadPolicies]);
+
+  const mandiMap = useMemo(() => {
+    const map = new Map<string, string>();
+    mandiOptions.forEach((m) => {
+      if (m.value) map.set(String(m.value), m.label);
+    });
+    return map;
+  }, [mandiOptions]);
+
+  const handleToggle = useCallback(
+    async (row: any) => {
+      const username = currentUsername();
+      const orgId = uiConfig.scope?.org_id || "";
+      const country = getStoredAdminUser()?.country || "IN";
+      if (!username || !orgId) return;
+      if (row?.is_active === "Y") {
+        if (!canDeactivate) return;
+        await deactivateMandiPricePolicy({
+          username,
+          language,
+          payload: { _id: row?._id, org_id: orgId, mandi_id: row?.mandi_id },
+        });
+      } else if (canEdit || canCreate) {
+        await upsertMandiPricePolicy({
+          username,
+          language,
+          payload: {
+            country,
+            org_id: orgId,
+            mandi_id: row?.mandi_id,
+            commodity_id: row?.commodity_id,
+            commodity_product_id: row?.commodity_product_id,
+            price_band: {
+              min: row?.price_band?.min_per_qtl ?? row?.price_band?.min,
+              max: row?.price_band?.max_per_qtl ?? row?.price_band?.max,
+              unit: row?.price_band?.unit || "QTL",
+            },
+            effective: {
+              from: row?.effective?.from,
+              to: row?.effective?.to || undefined,
+            },
+            enforcement: { mode: row?.enforcement?.mode || "WARN_ONLY" },
+          },
+        });
+      }
+      loadPolicies();
+    },
+    [canCreate, canDeactivate, canEdit, language, loadPolicies, uiConfig.scope?.org_id],
+  );
+
   const columns = useMemo<GridColDef<any>[]>(
     () => [
       { field: "_id", headerName: "Policy ID", width: 220 },
-      { field: "mandi_id", headerName: "Mandi", width: 120 },
+      {
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 180,
+        valueGetter: (value, row) =>
+          mandiMap.get(String(row?.mandi_id)) || row?.mandi_name || row?.mandi_id,
+      },
       { field: "commodity_product_id", headerName: "Product", width: 140 },
       {
         field: "price_band",
         headerName: "Band (min-max)",
         width: 180,
-        valueGetter: (value, row) =>
-          `${row?.price_band?.min ?? "-"} - ${row?.price_band?.max ?? "-"}`,
+        valueGetter: (value, row) => {
+          const min = row?.price_band?.min_per_qtl ?? row?.price_band?.min;
+          const max = row?.price_band?.max_per_qtl ?? row?.price_band?.max;
+          const unit = row?.price_band?.unit || "QTL";
+          return min != null && max != null ? `${min} - ${max} (${unit})` : "-";
+        },
       },
       {
         field: "effective",
@@ -132,34 +212,50 @@ export const MandiPricePolicies: React.FC = () => {
         field: "is_active",
         headerName: "Active",
         width: 90,
-        valueGetter: (value, row) => row?.is_active || "Y",
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            label={params.row?.is_active === "Y" ? "Active" : "Inactive"}
+            color={params.row?.is_active === "Y" ? "success" : "default"}
+            variant={params.row?.is_active === "Y" ? "filled" : "outlined"}
+          />
+        ),
       },
       {
         field: "actions",
         headerName: "Actions",
-        width: 140,
+        width: 220,
         sortable: false,
-        renderCell: (params) =>
-          canDeactivate ? (
-            <Button
-              size="small"
-              onClick={async () => {
-                const username = currentUsername();
-                if (!username) return;
-                await deactivateMandiPricePolicy({
-                  username,
-                  language,
-                  payload: { _id: params.row?._id },
-                });
-                loadPolicies();
-              }}
-            >
-              Deactivate
-            </Button>
-          ) : null,
+        renderCell: (params) => (
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ width: "100%" }}>
+            {(canEdit || canCreate) && (
+              <Button
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() =>
+                  navigate(`/mandi-price-policies/create?id=${params.row?._id}`, {
+                    state: { policy: params.row },
+                  })
+                }
+              >
+                Edit
+              </Button>
+            )}
+            {(params.row?.is_active === "Y" ? canDeactivate : canEdit || canCreate) && (
+              <Button
+                size="small"
+                color={params.row?.is_active === "Y" ? "error" : "success"}
+                startIcon={params.row?.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
+                onClick={() => handleToggle(params.row)}
+              >
+                {params.row?.is_active === "Y" ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+          </Stack>
+        ),
       },
     ],
-    [canDeactivate, language, loadPolicies],
+    [canCreate, canDeactivate, canEdit, handleToggle, mandiMap, navigate],
   );
 
   if (!canView) {
@@ -222,7 +318,7 @@ export const MandiPricePolicies: React.FC = () => {
             <MenuItem value="Y">Yes</MenuItem>
             <MenuItem value="N">No</MenuItem>
           </TextField>
-          <Button variant="contained" onClick={loadPolicies}>
+          <Button variant="contained" onClick={loadPolicies} disabled={loading}>
             Search
           </Button>
         </Stack>

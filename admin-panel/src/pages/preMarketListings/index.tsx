@@ -18,10 +18,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
-import {
-  getMandisForCurrentScope,
-  fetchCommodityProducts,
-} from "../../services/mandiApi";
+import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { fetchPreMarketListings } from "../../services/preMarketListingsApi";
 
 type ListingRow = {
@@ -182,23 +179,6 @@ export const PreMarketListings: React.FC = () => {
     }
   };
 
-  const loadCommodities = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const resp = await fetchCommodityProducts({ username, language, filters: { is_active: "Y" } });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
-      setCommodityOptions(
-        list.map((p: any) => ({
-          value: String(p.commodity_product_id ?? p.product_id ?? p.id ?? ""),
-          label: p.product_name || p.product_name_en || p.name_en || p.commodity_product_name || String(p.commodity_product_id || ""),
-        })),
-      );
-    } catch {
-      setCommodityOptions([]);
-    }
-  };
-
   const loadListings = async () => {
     const username = currentUsername();
     if (!username || !canView) return;
@@ -238,14 +218,31 @@ export const PreMarketListings: React.FC = () => {
           farmer_name: farmer.name || farmer.full_name || farmer.display_name || farmer.farmer_name || null,
           farmer_mobile: farmer.mobile || farmer.phone || farmer.username || null,
           commodity: produce.commodity_product_name || produce.commodity_name || produce.product_name || produce.name || null,
-          bags: produce.bags ?? produce.bags_count ?? item.bags ?? null,
-          weight_per_bag: produce.weight_per_bag ?? item.weight_per_bag ?? null,
+          bags: produce.quantity?.bags ?? produce.bags ?? produce.bags_count ?? item.bags ?? null,
+          weight_per_bag:
+            produce.quantity?.weight_per_bag_kg ?? produce.weight_per_bag ?? item.weight_per_bag ?? null,
           status: item.status || null,
           created_on: item.created_on || null,
           raw: item,
         };
       });
       setRows(mapped);
+      const uniqMap = new Map<string, Option>();
+      items.forEach((item: any) => {
+        const produce = item.produce || {};
+        const pid = String(produce.commodity_product_id || "");
+        if (!pid) return;
+        if (!uniqMap.has(pid)) {
+          const label =
+            produce.commodity_product_name ||
+            produce.commodity_name ||
+            produce.product_name ||
+            produce.name ||
+            pid;
+          uniqMap.set(pid, { value: pid, label });
+        }
+      });
+      setCommodityOptions(Array.from(uniqMap.values()));
       setTotalCount(Number(total) || 0);
     } finally {
       setLoading(false);
@@ -255,7 +252,6 @@ export const PreMarketListings: React.FC = () => {
   useEffect(() => {
     if (canView) {
       loadMandis();
-      loadCommodities();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView, uiConfig.scope?.org_id, language]);
@@ -263,7 +259,7 @@ export const PreMarketListings: React.FC = () => {
   useEffect(() => {
     loadListings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.pageSize]);
+  }, [pagination.page, pagination.pageSize, filters.market_date, filters.mandi_id, filters.status, filters.farmer_mobile, filters.commodity_product_id]);
 
   if (!canView) {
     return (

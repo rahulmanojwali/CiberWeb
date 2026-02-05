@@ -268,6 +268,10 @@ export const PreMarketListingDetail: React.FC = () => {
             <Stack spacing={1}>
               <Typography variant="body2">Name: {farmer.name || farmer.full_name || farmer.display_name || "-"}</Typography>
               <Typography variant="body2">Mobile: {farmer.mobile || farmer.phone || farmer.username || "-"}</Typography>
+              <Typography variant="body2">Farmer ID: {farmer.farmer_id || "-"}</Typography>
+              {farmer.village ? <Typography variant="body2">Village: {farmer.village}</Typography> : null}
+              {farmer.district ? <Typography variant="body2">District: {farmer.district}</Typography> : null}
+              {farmer.state ? <Typography variant="body2">State: {farmer.state}</Typography> : null}
             </Stack>
           </CardContent>
         </Card>
@@ -278,8 +282,36 @@ export const PreMarketListingDetail: React.FC = () => {
             <Divider sx={{ mb: 2 }} />
             <Stack spacing={1}>
               <Typography variant="body2">Commodity: {produce.commodity_product_name || produce.commodity_name || produce.product_name || "-"}</Typography>
-              <Typography variant="body2">Bags: {produce.bags ?? produce.bags_count ?? detail.bags ?? "-"}</Typography>
-              <Typography variant="body2">Weight/Bag: {produce.weight_per_bag ?? detail.weight_per_bag ?? "-"}</Typography>
+              <Typography variant="body2">
+                Bags: {produce.quantity?.bags ?? produce.bags ?? produce.bags_count ?? detail.bags ?? "-"}
+              </Typography>
+              <Typography variant="body2">
+                Weight/Bag: {produce.quantity?.weight_per_bag_kg ?? produce.weight_per_bag ?? detail.weight_per_bag ?? "-"}
+              </Typography>
+              <Typography variant="body2">
+                Expected Price (Target/QTL): {produce.expected_price?.target_per_qtl ?? "-"}{" "}
+                {produce.expected_price?.unit || "QTL"}
+              </Typography>
+              <Typography variant="body2">
+                Minimum Price (Min/QTL): {produce.expected_price?.min_per_qtl ?? "-"}{" "}
+                {produce.expected_price?.unit || "QTL"}
+              </Typography>
+              {produce.offer_scheme?.scheme_type ? (
+                <Typography variant="body2">
+                  Offer Scheme: {produce.offer_scheme.scheme_type}
+                  {produce.offer_scheme.value_type ? ` • ${produce.offer_scheme.value_type}` : ""}
+                  {produce.offer_scheme.value !== undefined ? ` • Value: ${produce.offer_scheme.value}` : ""}
+                  {produce.offer_scheme.cap_amount !== undefined ? ` • Cap: ${produce.offer_scheme.cap_amount}` : ""}
+                </Typography>
+              ) : null}
+              {produce.offer_scheme?.valid_till ? (
+                <Typography variant="body2">
+                  Offer Valid Till: {produce.offer_scheme.valid_till}
+                </Typography>
+              ) : null}
+              {produce.offer_scheme?.notes ? (
+                <Typography variant="body2">Offer Notes: {produce.offer_scheme.notes}</Typography>
+              ) : null}
               <Typography variant="body2">Market Date: {detail?.market_day?.date || detail.market_date || "-"}</Typography>
             </Stack>
           </CardContent>

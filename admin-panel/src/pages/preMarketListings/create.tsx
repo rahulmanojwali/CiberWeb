@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  LinearProgress,
   MenuItem,
   Stack,
   TextField,
@@ -231,6 +232,12 @@ export const PreMarketListingCreate: React.FC = () => {
     return false;
   }, [form.min_per_qtl, form.target_per_qtl, policyBand]);
 
+  const currencyPrefix = useMemo(() => {
+    const country = String(getStoredAdminUser()?.country || "IN").toUpperCase();
+    if (country === "IN") return "₹";
+    return "";
+  }, []);
+
   const loadPolicyBand = useCallback(
     async (mandiId: string, productId: string) => {
       const username = currentUsername();
@@ -263,9 +270,17 @@ export const PreMarketListingCreate: React.FC = () => {
       }
       const latest = rows[0];
       const band = latest?.price_band || {};
+      const minVal = Number(band.min_per_qtl ?? band.min);
+      const maxVal = Number(band.max_per_qtl ?? band.max);
+      if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
+        setPolicyBand(null);
+        setPolicyMissing(true);
+        setPolicyMode(null);
+        return;
+      }
       setPolicyBand({
-        min: Number(band.min),
-        max: Number(band.max),
+        min: minVal,
+        max: maxVal,
         unit: String(band.unit || "QTL"),
       });
       setPolicyMode(String(latest?.enforcement?.mode || "WARN_ONLY"));
@@ -434,6 +449,7 @@ export const PreMarketListingCreate: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+          {loadingCommodities ? <LinearProgress /> : null}
           <TextField
             select
             label="Commodity Product"
@@ -452,9 +468,16 @@ export const PreMarketListingCreate: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+          {loadingProducts ? <LinearProgress /> : null}
           {policyBand ? (
             <Typography variant="caption" color="text.secondary">
-              Allowed band: {policyBand.min}–{policyBand.max} per {policyBand.unit}
+              Allowed band:{" "}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {currencyPrefix}
+                {policyBand.min}–{currencyPrefix}
+                {policyBand.max}
+              </Box>{" "}
+              per {policyBand.unit}
             </Typography>
           ) : null}
           {policyMissing ? (

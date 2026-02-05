@@ -226,8 +226,11 @@ export const MandiPricePolicies: React.FC = () => {
         headerName: "Actions",
         width: 220,
         sortable: false,
+        align: "center",
+        headerAlign: "center",
         renderCell: (params) => (
-          <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ width: "100%" }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
             {(canEdit || canCreate) && (
               <Button
                 size="small"
@@ -251,7 +254,8 @@ export const MandiPricePolicies: React.FC = () => {
                 {params.row?.is_active === "Y" ? "Deactivate" : "Activate"}
               </Button>
             )}
-          </Stack>
+            </Stack>
+          </Box>
         ),
       },
     ],

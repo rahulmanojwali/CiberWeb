@@ -87,6 +87,7 @@ import { MarketPrices } from "./pages/marketPrices";
 import { PaymentsLanding } from "./pages/paymentsLanding";
 import { PaymentModels } from "./pages/paymentModels";
 import { OrgPaymentSettings } from "./pages/orgPaymentSettings";
+import { OrgSettings } from "./pages/orgSettings";
 import { MandiPaymentSettings } from "./pages/mandiPaymentSettings";
 import { CommodityFees } from "./pages/commodityFees";
 import { PaymentModes } from "./pages/paymentModes";
@@ -188,6 +189,7 @@ function App() {
                   <Route path="/payments-settlements" element={<PaymentsLanding />} />
                   <Route path="/payment-models" element={<PaymentModels />} />
                   <Route path="/org-payment-settings" element={<OrgPaymentSettings />} />
+                  <Route path="/org-settings" element={<OrgSettings />} />
                   <Route path="/mandi-payment-settings" element={<MandiPaymentSettings />} />
                   <Route path="/commodity-fees" element={<CommodityFees />} />
                   <Route path="/payment-modes" element={<PaymentModes />} />

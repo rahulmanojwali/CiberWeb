@@ -54,7 +54,7 @@ export const FarmerApprovals: React.FC = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
-  const [filters, setFilters] = useState({ status: "PENDING" });
+  const [filters, setFilters] = useState({ status: "PENDING", mandi_id: "", farmer_username: "" });
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -99,6 +99,8 @@ export const FarmerApprovals: React.FC = () => {
         filters: {
           org_id: orgId,
           approval_status: filters.status,
+          mandi_id: filters.mandi_id || undefined,
+          farmer_username: filters.farmer_username || undefined,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
@@ -119,7 +121,7 @@ export const FarmerApprovals: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status]);
+  }, [filters.status, filters.mandi_id, filters.farmer_username]);
 
   const columns = useMemo<GridColDef<any>[]>(
     () => [
@@ -211,7 +213,7 @@ export const FarmerApprovals: React.FC = () => {
       </Stack>
 
       <Box mb={2}>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {["PENDING", "APPROVED", "REJECTED"].map((s) => (
             <Chip
               key={s}
@@ -221,6 +223,28 @@ export const FarmerApprovals: React.FC = () => {
               variant={filters.status === s ? "filled" : "outlined"}
             />
           ))}
+          <TextField
+            select
+            label="Mandi"
+            value={filters.mandi_id}
+            onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="">
+              <em>All Mandis</em>
+            </MenuItem>
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>
+                {m.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Farmer Mobile/Username"
+            value={filters.farmer_username}
+            onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
+            sx={{ minWidth: 220 }}
+          />
         </Stack>
       </Box>
 

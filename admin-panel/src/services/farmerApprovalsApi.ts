@@ -10,7 +10,7 @@ export const listFarmerApprovalRequests = async ({
   language?: string;
   filters?: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.listFarmerApprovalRequests, {
+  postEncrypted(API_ROUTES.admin.listFarmerApprovals, {
     api: API_TAGS.FARMER_APPROVALS.list,
     username,
     language,
@@ -26,7 +26,7 @@ export const approveFarmerForMandis = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.approveFarmerForMandis, {
+  postEncrypted(API_ROUTES.admin.approveFarmer, {
     api: API_TAGS.FARMER_APPROVALS.approve,
     username,
     language,
@@ -42,7 +42,7 @@ export const rejectFarmerApproval = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.rejectFarmerApproval, {
+  postEncrypted(API_ROUTES.admin.rejectFarmer, {
     api: API_TAGS.FARMER_APPROVALS.reject,
     username,
     language,

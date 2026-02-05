@@ -179,6 +179,10 @@ export const API_TAGS = {
     get: "get_Mandi_Settings01",
     upsert: "upsert_Mandi_Settings02",
   },
+  ORG_SETTINGS: {
+    get: "get_Org_Settings01",
+    upsert: "upsert_Org_Settings02",
+  },
   TRANSPORT_INTENTS: {
     create: "create_Transport_Intent01",
     list: "list_Transport_Intents02",
@@ -194,9 +198,9 @@ export const API_TAGS = {
     requestMoreInfo: "requestMoreInfoTrader",
   },
   FARMER_APPROVALS: {
-    list: "listFarmerApprovalRequests",
-    approve: "approveFarmerForMandis",
-    reject: "rejectFarmerApproval",
+    list: "listFarmerApprovals",
+    approve: "approveFarmer",
+    reject: "rejectFarmer",
   },
   PARTY_MASTERS: {
     traders: {
@@ -421,6 +425,8 @@ export const API_ROUTES = {
     deactivateMandiPricePolicy: "/admin/deactivateMandiPricePolicy",
     getMandiSettings: "/admin/getMandiSettings",
     upsertMandiSettings: "/admin/upsertMandiSettings",
+    getOrgSettings: "/admin/getOrgSettings",
+    upsertOrgSettings: "/admin/upsertOrgSettings",
     getMandiFacilitiesMasters: "/admin/getMandiFacilitiesMasters",
     createMandiFacilityMaster: "/admin/createMandiFacilityMaster",
     updateMandiFacilityMaster: "/admin/updateMandiFacilityMaster",
@@ -466,9 +472,9 @@ export const API_ROUTES = {
     approveTrader: "/admin/approveTrader",
     rejectTrader: "/admin/rejectTrader",
     requestMoreInfoTrader: "/admin/requestMoreInfoTrader",
-    listFarmerApprovalRequests: "/admin/listFarmerApprovalRequests",
-    approveFarmerForMandis: "/admin/approveFarmerForMandis",
-    rejectFarmerApproval: "/admin/rejectFarmerApproval",
+    listFarmerApprovals: "/admin/listFarmerApprovals",
+    approveFarmer: "/admin/approveFarmer",
+    rejectFarmer: "/admin/rejectFarmer",
     getGateEntryReasons: "/admin/getGateEntryReasons",
     createGateEntryReason: "/admin/createGateEntryReason",
     updateGateEntryReason: "/admin/updateGateEntryReason",

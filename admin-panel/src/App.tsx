@@ -35,6 +35,7 @@ import { AdminUsers } from "./pages/adminUsers";
 import { TraderApprovals } from "./pages/traderApprovals";
 import { Traders } from "./pages/traders";
 import { Farmers } from "./pages/farmers";
+import { FarmerApprovals } from "./pages/farmerApprovals";
 import { MandiCoverage } from "./pages/mandiCoverage";
 import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
@@ -179,6 +180,7 @@ function App() {
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />
                   <Route path="/trader-approvals" element={<TraderApprovals />} />
+                  <Route path="/farmer-approvals" element={<FarmerApprovals />} />
                   <Route path="/traders" element={<Traders />} />
                   <Route path="/farmers" element={<Farmers />} />
                   <Route path="/mandi-coverage" element={<MandiCoverage />} />

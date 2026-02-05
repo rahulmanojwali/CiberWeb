@@ -193,6 +193,11 @@ export const API_TAGS = {
     reject: "rejectTrader",
     requestMoreInfo: "requestMoreInfoTrader",
   },
+  FARMER_APPROVALS: {
+    list: "listFarmerApprovalRequests",
+    approve: "approveFarmerForMandis",
+    reject: "rejectFarmerApproval",
+  },
   PARTY_MASTERS: {
     traders: {
       list: "getTraders",
@@ -461,6 +466,9 @@ export const API_ROUTES = {
     approveTrader: "/admin/approveTrader",
     rejectTrader: "/admin/rejectTrader",
     requestMoreInfoTrader: "/admin/requestMoreInfoTrader",
+    listFarmerApprovalRequests: "/admin/listFarmerApprovalRequests",
+    approveFarmerForMandis: "/admin/approveFarmerForMandis",
+    rejectFarmerApproval: "/admin/rejectFarmerApproval",
     getGateEntryReasons: "/admin/getGateEntryReasons",
     createGateEntryReason: "/admin/createGateEntryReason",
     updateGateEntryReason: "/admin/updateGateEntryReason",

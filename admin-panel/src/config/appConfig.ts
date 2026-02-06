@@ -476,6 +476,7 @@ export const API_ROUTES = {
     listFarmerApprovals: "/admin/listFarmerApprovals",
     approveFarmer: "/admin/approveFarmer",
     rejectFarmer: "/admin/rejectFarmer",
+    requestMoreInfoFarmer: "/admin/requestMoreInfoFarmer",
     getGateEntryReasons: "/admin/getGateEntryReasons",
     createGateEntryReason: "/admin/createGateEntryReason",
     updateGateEntryReason: "/admin/updateGateEntryReason",

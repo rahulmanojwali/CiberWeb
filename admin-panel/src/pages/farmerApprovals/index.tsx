@@ -24,6 +24,7 @@ import {
   approveFarmerForMandis,
   listFarmerApprovalRequests,
   rejectFarmerApproval,
+  requestMoreInfoFarmer,
 } from "../../services/farmerApprovalsApi";
 
 type Option = { value: string; label: string };
@@ -61,10 +62,13 @@ export const FarmerApprovals: React.FC = () => {
   const [selectedRow, setSelectedRow] = useState<any>(null);
   const [selectedMandis, setSelectedMandis] = useState<string[]>([]);
   const [rejectReason, setRejectReason] = useState("");
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoReason, setInfoReason] = useState("");
 
   const canList = useMemo(() => can("farmer_approvals.list", "VIEW"), [can]);
   const canApprove = useMemo(() => can("farmer_approvals.approve", "APPROVE"), [can]);
   const canReject = useMemo(() => can("farmer_approvals.reject", "REJECT"), [can]);
+  const canRequestInfo = useMemo(() => can("farmer_approvals.request_more_info", "REQUEST_MORE_INFO"), [can]);
 
   const mandiMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -173,6 +177,19 @@ export const FarmerApprovals: React.FC = () => {
                 Approve
               </Button>
             )}
+            {canRequestInfo && (
+              <Button
+                size="small"
+                color="warning"
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setInfoReason("");
+                  setInfoOpen(true);
+                }}
+              >
+                More Info
+              </Button>
+            )}
             {canReject && (
               <Button
                 size="small"
@@ -190,7 +207,7 @@ export const FarmerApprovals: React.FC = () => {
         ),
       },
     ],
-    [canApprove, canReject, mandiMap],
+    [canApprove, canReject, canRequestInfo, mandiMap],
   );
 
   if (!canList) {
@@ -344,6 +361,53 @@ export const FarmerApprovals: React.FC = () => {
             }}
           >
             Reject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Request More Info</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <Typography variant="body2">
+              Farmer: <strong>{selectedRow?.farmer_username}</strong>
+            </Typography>
+            <TextField
+              label="Reason"
+              fullWidth
+              minRows={3}
+              multiline
+              value={infoReason}
+              onChange={(event) => setInfoReason(event.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInfoOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            disabled={!selectedRow || !infoReason}
+            onClick={async () => {
+              const username = currentUsername();
+              const orgId = uiConfig.scope?.org_id || "";
+              if (!username || !selectedRow || !orgId) return;
+              await requestMoreInfoFarmer({
+                username,
+                language,
+                payload: {
+                  org_id: orgId,
+                  farmer_username: selectedRow.farmer_username,
+                  reason: infoReason,
+                },
+              });
+              setInfoOpen(false);
+              setSelectedRow(null);
+              setInfoReason("");
+              loadData();
+            }}
+          >
+            Send
           </Button>
         </DialogActions>
       </Dialog>

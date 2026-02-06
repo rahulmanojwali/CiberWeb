@@ -201,6 +201,7 @@ export const API_TAGS = {
     list: "listFarmerApprovals",
     approve: "approveFarmer",
     reject: "rejectFarmer",
+    requestMoreInfo: "requestMoreInfoFarmer",
   },
   PARTY_MASTERS: {
     traders: {

@@ -271,6 +271,7 @@ export const Farmers: React.FC = () => {
       language,
       payload: {
         farmer_username: actionRow.farmer_username,
+        org_id: actionRow.org_id || uiConfig?.scope?.org_id || currentOrgId() || undefined,
         reason: reasonText.trim(),
         status: actionMode === "SUSPEND" ? "SUSPENDED" : "REJECTED",
       },
@@ -288,6 +289,7 @@ export const Farmers: React.FC = () => {
       language,
       payload: {
         farmer_username: actionRow.farmer_username,
+        org_id: actionRow.org_id || uiConfig?.scope?.org_id || currentOrgId() || undefined,
         reason: reasonText.trim(),
       },
     });

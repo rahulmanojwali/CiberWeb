@@ -198,9 +198,9 @@ export const API_TAGS = {
     requestMoreInfo: "requestMoreInfoTrader",
   },
   FARMER_APPROVALS: {
-    list: "listFarmerApprovals",
-    approve: "approveFarmer",
-    reject: "rejectFarmer",
+    list: "list_Farmer_Approvals01",
+    approve: "approve_Farmer02",
+    reject: "reject_Farmer03",
     requestMoreInfo: "requestMoreInfoFarmer",
   },
   PARTY_MASTERS: {

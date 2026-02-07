@@ -12,7 +12,7 @@ import { can } from "../../utils/adminUiConfig";
 import { buildMandiNameMap, resolveMandiName } from "../../utils/cmLookupResolvers";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { approveFarmerForMandis, listFarmerApprovalRequests, rejectFarmerApproval, requestMoreInfoFarmer } from "../../services/farmerApprovalsApi";
+import { approveFarmerForMandis, listFarmerApprovalRequests, reactivateFarmer, rejectFarmerApproval, requestMoreInfoFarmer } from "../../services/farmerApprovalsApi";
 
 type FarmerRow = {
   id: string;
@@ -77,6 +77,7 @@ export const Farmers: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [actionRow, setActionRow] = useState<FarmerRow | null>(null);
   const [selectedMandis, setSelectedMandis] = useState<string[]>([]);
@@ -99,7 +100,14 @@ export const Farmers: React.FC = () => {
         width: 220,
         valueFormatter: (value) => {
           const list = Array.isArray(value) ? value : [];
-          const labels = list.map((m: any) => m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id)).filter(Boolean);
+          const labels = list
+            .map((m: any) => {
+              const name = m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id);
+              if (!name) return null;
+              const status = m?.is_active === "N" || m?.is_active === false ? "Inactive" : "Active";
+              return `${name} (${status})`;
+            })
+            .filter(Boolean);
           return labels.join(", ");
         },
       },
@@ -139,6 +147,16 @@ export const Farmers: React.FC = () => {
             {canUpdate && params.row.approval_status === "APPROVED" && (
               <Button size="small" color="warning" onClick={() => openSuspend(params.row)}>
                 Suspend
+              </Button>
+            )}
+            {canUpdate && params.row.approval_status === "APPROVED" && hasInactiveMandis(params.row) && (
+              <Button size="small" color="success" onClick={() => openReactivate(params.row)}>
+                Activate
+              </Button>
+            )}
+            {canUpdate && params.row.approval_status === "SUSPENDED" && (
+              <Button size="small" color="success" onClick={() => openReactivate(params.row)}>
+                Activate
               </Button>
             )}
           </Stack>
@@ -242,7 +260,20 @@ export const Farmers: React.FC = () => {
     setActionRow(row);
     setReasonText("");
     setActionMode("SUSPEND");
+    const activeMandis = Array.isArray(row.mandis)
+      ? row.mandis.filter((m: any) => m?.is_active !== "N" && m?.is_active !== false).map((m: any) => String(m?.mandi_id || "")).filter(Boolean)
+      : [];
+    setSelectedMandis(activeMandis);
     setRejectOpen(true);
+  };
+
+  const openReactivate = (row: FarmerRow) => {
+    setActionRow(row);
+    const inactiveMandis = Array.isArray(row.mandis)
+      ? row.mandis.filter((m: any) => m?.is_active === "N" || m?.is_active === false).map((m: any) => String(m?.mandi_id || "")).filter(Boolean)
+      : [];
+    setSelectedMandis(inactiveMandis);
+    setReactivateOpen(true);
   };
 
   const submitApprove = async () => {
@@ -264,6 +295,7 @@ export const Farmers: React.FC = () => {
 
   const submitReject = async () => {
     if (!actionRow || !reasonText.trim()) return;
+    if (actionMode === "SUSPEND" && !selectedMandis.length) return;
     const username = currentUsername();
     if (!username) return;
     await rejectFarmerApproval({
@@ -274,6 +306,7 @@ export const Farmers: React.FC = () => {
         org_id: actionRow.org_id || uiConfig?.scope?.org_id || currentOrgId() || undefined,
         reason: reasonText.trim(),
         status: actionMode === "SUSPEND" ? "SUSPENDED" : "REJECTED",
+        mandis: actionMode === "SUSPEND" ? selectedMandis : undefined,
       },
     });
     setRejectOpen(false);
@@ -296,6 +329,26 @@ export const Farmers: React.FC = () => {
     setInfoOpen(false);
     await loadData();
   };
+
+  const submitReactivate = async () => {
+    if (!actionRow || !selectedMandis.length) return;
+    const username = currentUsername();
+    if (!username) return;
+    await reactivateFarmer({
+      username,
+      language,
+      payload: {
+        farmer_username: actionRow.farmer_username,
+        org_id: actionRow.org_id || uiConfig?.scope?.org_id || currentOrgId() || undefined,
+        mandis: selectedMandis,
+      },
+    });
+    setReactivateOpen(false);
+    await loadData();
+  };
+
+  const hasInactiveMandis = (row: FarmerRow) =>
+    Array.isArray(row.mandis) && row.mandis.some((m: any) => m?.is_active === "N" || m?.is_active === false);
 
   useEffect(() => {
     loadOrganisations();
@@ -463,9 +516,19 @@ export const Farmers: React.FC = () => {
                   Mandis
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(detail.mandis || []).map((m: any, idx: number) => (
-                    <Chip key={idx} label={m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id)} size="small" />
-                  ))}
+                  {(detail.mandis || []).map((m: any, idx: number) => {
+                    const label = m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id);
+                    const inactive = m?.is_active === "N" || m?.is_active === false;
+                    return (
+                      <Chip
+                        key={idx}
+                        label={`${label || m?.mandi_id}${inactive ? " (Inactive)" : ""}`}
+                        size="small"
+                        color={inactive ? "default" : "success"}
+                        variant={inactive ? "outlined" : "filled"}
+                      />
+                    );
+                  })}
                 </Stack>
               </Stack>
               <Stack direction="row" spacing={1}>
@@ -529,6 +592,25 @@ export const Farmers: React.FC = () => {
       <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{actionMode === "SUSPEND" ? "Suspend Farmer" : "Reject Farmer"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          {actionMode === "SUSPEND" && (
+            <TextField
+              select
+              label="Mandis to suspend"
+              SelectProps={{ multiple: true }}
+              value={selectedMandis}
+              onChange={(e) =>
+                setSelectedMandis(
+                  (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
+                )
+              }
+            >
+              {mandiOptions.map((m) => (
+                <MenuItem key={m.value} value={m.value}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
           <TextField
             label={actionMode === "SUSPEND" ? "Reason for suspension" : "Reason"}
             multiline
@@ -539,8 +621,42 @@ export const Farmers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRejectOpen(false)}>Cancel</Button>
-          <Button onClick={submitReject} disabled={!reasonText.trim()} color={actionMode === "SUSPEND" ? "warning" : "error"}>
+          <Button
+            onClick={submitReject}
+            disabled={!reasonText.trim() || (actionMode === "SUSPEND" && !selectedMandis.length)}
+            color={actionMode === "SUSPEND" ? "warning" : "error"}
+          >
             {actionMode === "SUSPEND" ? "Suspend" : "Reject"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={reactivateOpen} onClose={() => setReactivateOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Activate Mandis</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Typography variant="body2">Select mandis to activate for this farmer.</Typography>
+          <TextField
+            select
+            label="Mandis"
+            SelectProps={{ multiple: true }}
+            value={selectedMandis}
+            onChange={(e) =>
+              setSelectedMandis(
+                (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
+              )
+            }
+          >
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>
+                {m.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReactivateOpen(false)}>Cancel</Button>
+          <Button onClick={submitReactivate} disabled={!selectedMandis.length} color="success">
+            Activate
           </Button>
         </DialogActions>
       </Dialog>

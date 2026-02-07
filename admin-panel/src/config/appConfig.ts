@@ -201,6 +201,7 @@ export const API_TAGS = {
     list: "list_Farmer_Approvals01",
     approve: "approve_Farmer02",
     reject: "reject_Farmer03",
+    reactivate: "reactivate_Farmer04",
     requestMoreInfo: "requestMoreInfoFarmer",
   },
   PARTY_MASTERS: {
@@ -476,6 +477,7 @@ export const API_ROUTES = {
     listFarmerApprovals: "/admin/listFarmerApprovals",
     approveFarmer: "/admin/approveFarmer",
     rejectFarmer: "/admin/rejectFarmer",
+    reactivateFarmer: "/admin/reactivateFarmer",
     requestMoreInfoFarmer: "/admin/requestMoreInfoFarmer",
     getGateEntryReasons: "/admin/getGateEntryReasons",
     createGateEntryReason: "/admin/createGateEntryReason",

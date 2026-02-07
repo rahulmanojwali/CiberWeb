@@ -65,3 +65,19 @@ export const requestMoreInfoFarmer = async ({
     language,
     ...payload,
   });
+
+export const reactivateFarmer = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.reactivateFarmer, {
+    api: API_TAGS.FARMER_APPROVALS.reactivate,
+    username,
+    language,
+    ...payload,
+  });

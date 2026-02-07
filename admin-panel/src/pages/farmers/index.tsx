@@ -81,6 +81,7 @@ export const Farmers: React.FC = () => {
   const [actionRow, setActionRow] = useState<FarmerRow | null>(null);
   const [selectedMandis, setSelectedMandis] = useState<string[]>([]);
   const [reasonText, setReasonText] = useState("");
+  const [actionMode, setActionMode] = useState<"REJECT" | "SUSPEND">("REJECT");
 
   const canMenu = useMemo(() => can(uiConfig.resources, "farmers.menu", "VIEW"), [uiConfig.resources]);
   const canList = useMemo(() => can(uiConfig.resources, "farmers.list", "VIEW"), [uiConfig.resources]);
@@ -120,19 +121,24 @@ export const Farmers: React.FC = () => {
                 View
               </Button>
             )}
-            {canUpdate && (
+            {canUpdate && params.row.approval_status === "PENDING" && (
               <Button size="small" onClick={() => openApprove(params.row)}>
                 Approve
               </Button>
             )}
-            {canUpdate && (
+            {canUpdate && params.row.approval_status === "PENDING" && (
               <Button size="small" color="error" onClick={() => openReject(params.row)}>
                 Reject
               </Button>
             )}
-            {canUpdate && (
+            {canUpdate && params.row.approval_status === "PENDING" && (
               <Button size="small" color="warning" onClick={() => openRequestInfo(params.row)}>
                 More Info
+              </Button>
+            )}
+            {canUpdate && params.row.approval_status === "APPROVED" && (
+              <Button size="small" color="warning" onClick={() => openSuspend(params.row)}>
+                Suspend
               </Button>
             )}
           </Stack>
@@ -197,7 +203,7 @@ export const Farmers: React.FC = () => {
         farmer_name: item.farmer_name || null,
         org_id: item.org_id || null,
         mandis: item.mandis || [],
-        approval_status: (item.approval_status || "").toString(),
+        approval_status: (item.approval_status || "").toString().toUpperCase(),
         updated_on: item.updated_on || item.updatedAt || null,
       }));
       setRows(mapped);
@@ -222,6 +228,7 @@ export const Farmers: React.FC = () => {
   const openReject = (row: FarmerRow) => {
     setActionRow(row);
     setReasonText("");
+    setActionMode("REJECT");
     setRejectOpen(true);
   };
 
@@ -229,6 +236,13 @@ export const Farmers: React.FC = () => {
     setActionRow(row);
     setReasonText("");
     setInfoOpen(true);
+  };
+
+  const openSuspend = (row: FarmerRow) => {
+    setActionRow(row);
+    setReasonText("");
+    setActionMode("SUSPEND");
+    setRejectOpen(true);
   };
 
   const submitApprove = async () => {
@@ -258,6 +272,7 @@ export const Farmers: React.FC = () => {
       payload: {
         farmer_username: actionRow.farmer_username,
         reason: reasonText.trim(),
+        status: actionMode === "SUSPEND" ? "SUSPENDED" : "REJECTED",
       },
     });
     setRejectOpen(false);
@@ -510,10 +525,10 @@ export const Farmers: React.FC = () => {
       </Dialog>
 
       <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Reject Farmer</DialogTitle>
+        <DialogTitle>{actionMode === "SUSPEND" ? "Suspend Farmer" : "Reject Farmer"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <TextField
-            label="Reason"
+            label={actionMode === "SUSPEND" ? "Reason for suspension" : "Reason"}
             multiline
             minRows={2}
             value={reasonText}
@@ -522,8 +537,8 @@ export const Farmers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRejectOpen(false)}>Cancel</Button>
-          <Button onClick={submitReject} disabled={!reasonText.trim()} color="error">
-            Reject
+          <Button onClick={submitReject} disabled={!reasonText.trim()} color={actionMode === "SUSPEND" ? "warning" : "error"}>
+            {actionMode === "SUSPEND" ? "Suspend" : "Reject"}
           </Button>
         </DialogActions>
       </Dialog>

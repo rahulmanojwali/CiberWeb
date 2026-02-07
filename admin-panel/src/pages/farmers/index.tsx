@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
-import CheckCircleIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -13,17 +11,16 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { getFarmers, updateFarmerStatus } from "../../services/partyMastersApi";
+import { listFarmerApprovalRequests } from "../../services/farmerApprovalsApi";
 
 type FarmerRow = {
   id: string;
-  farmer_id: string;
-  name: string;
-  mobile: string;
-  org_code?: string | null;
-  mandi_code?: string | null;
-  status: string;
-  created_on?: string | null;
+  farmer_username: string;
+  farmer_name?: string | null;
+  org_id?: string | null;
+  mandis?: Array<any>;
+  approval_status: string;
+  updated_on?: string | null;
 };
 
 type FarmerDetail = Record<string, any>;
@@ -34,6 +31,16 @@ function currentUsername(): string | null {
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed?.username || null;
+  } catch {
+    return null;
+  }
+}
+
+function currentOrgId(): string | null {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.org_id || null;
   } catch {
     return null;
   }
@@ -52,11 +59,10 @@ export const Farmers: React.FC = () => {
   const uiConfig = useAdminUiConfig();
 
   const [filters, setFilters] = useState({
-    org_code: "",
-    mandi_code: "",
-    status: "",
-    mobile: "",
-    farmer_id: "",
+    org_id: "",
+    mandi_id: "",
+    approval_status: "",
+    farmer_username: "",
     date_from: "",
     date_to: "",
   });
@@ -67,31 +73,37 @@ export const Farmers: React.FC = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<FarmerDetail | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [nextStatus, setNextStatus] = useState<string>("");
 
   const canMenu = useMemo(() => can(uiConfig.resources, "farmers.menu", "VIEW"), [uiConfig.resources]);
   const canList = useMemo(() => can(uiConfig.resources, "farmers.list", "VIEW"), [uiConfig.resources]);
-  const canUpdate = useMemo(() => can(uiConfig.resources, "farmers.update_status", "UPDATE"), [uiConfig.resources]);
   const canDetail = canList;
 
   const columns = useMemo<GridColDef<FarmerRow>[]>(
     () => [
-      { field: "farmer_id", headerName: "Farmer ID", width: 140 },
-      { field: "name", headerName: "Name", width: 180 },
-      { field: "mobile", headerName: "Mobile", width: 150 },
-      { field: "org_code", headerName: "Org", width: 120 },
-      { field: "mandi_code", headerName: "Mandi", width: 140 },
-      { field: "status", headerName: "Status", width: 140 },
+      { field: "farmer_username", headerName: "Farmer", width: 160 },
+      { field: "farmer_name", headerName: "Name", width: 180 },
+      { field: "org_id", headerName: "Org ID", width: 220 },
       {
-        field: "created_on",
-        headerName: "Created On",
+        field: "mandis",
+        headerName: "Mandis",
+        width: 220,
+        valueFormatter: (value) => {
+          const list = Array.isArray(value) ? value : [];
+          const ids = list.map((m: any) => m?.mandi_id).filter(Boolean);
+          return ids.join(", ");
+        },
+      },
+      { field: "approval_status", headerName: "Status", width: 160 },
+      {
+        field: "updated_on",
+        headerName: "Updated On",
         width: 180,
         valueFormatter: (value) => formatDate(value),
       },
       {
         field: "actions",
         headerName: "Actions",
-        width: 280,
+        width: 140,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canDetail && (
@@ -99,31 +111,11 @@ export const Farmers: React.FC = () => {
                 View
               </Button>
             )}
-            {canUpdate && params.row.status !== "BLOCKED" && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<BlockIcon />}
-                onClick={() => openStatusChange(params.row, "BLOCKED")}
-              >
-                Block
-              </Button>
-            )}
-            {canUpdate && params.row.status === "BLOCKED" && (
-              <Button
-                size="small"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => openStatusChange(params.row, "ACTIVE")}
-              >
-                Unblock
-              </Button>
-            )}
           </Stack>
         ),
       },
     ],
-    [canDetail, canUpdate],
+    [canDetail],
   );
 
   const loadOrganisations = async () => {
@@ -147,8 +139,8 @@ export const Farmers: React.FC = () => {
     const list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
     setMandiOptions(
       list.map((m: any) => ({
-        value: m.mandi_slug || m.slug || String(m.mandi_id || ""),
-        label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+        value: String(m.mandi_id || ""),
+        label: m?.name_i18n?.en || String(m.mandi_id || ""),
       })),
     );
   };
@@ -158,30 +150,30 @@ export const Farmers: React.FC = () => {
     if (!username || !canList) return;
     setLoading(true);
     try {
-      const resp = await getFarmers({
+      const scopedOrgId = uiConfig?.scope?.org_id || currentOrgId();
+      const resp = await listFarmerApprovalRequests({
         username,
         language,
         filters: {
-          org_code: filters.org_code || undefined,
-          mandi_code: filters.mandi_code || undefined,
-          status: filters.status || undefined,
-          mobile: filters.mobile || undefined,
-          farmer_id: filters.farmer_id || undefined,
+          org_id: filters.org_id || scopedOrgId || undefined,
+          mandi_id: filters.mandi_id || undefined,
+          approval_status: filters.approval_status || undefined,
+          farmer_username: filters.farmer_username || undefined,
           date_from: filters.date_from || undefined,
           date_to: filters.date_to || undefined,
-          page_size: 100,
+          page: 1,
+          limit: 100,
         },
       });
-      const list = resp?.data?.items || resp?.response?.data?.items || resp?.data?.farmers || resp?.response?.data?.farmers || [];
+      const list = resp?.data?.rows || resp?.response?.data?.rows || [];
       const mapped: FarmerRow[] = list.map((item: any, idx: number) => ({
-        id: item._id || item.farmer_id || `farmer-${idx}`,
-        farmer_id: String(item.farmer_id || item._id || `farmer-${idx}`),
-        name: item.farmer_name || item.name || "",
-        mobile: item.mobile || item.phone || "",
-        org_code: item.org_code || null,
-        mandi_code: item.mandi_code || null,
-        status: (item.status || "").toString(),
-        created_on: item.created_on || item.createdAt || null,
+        id: item._id || item.farmer_username || `farmer-${idx}`,
+        farmer_username: String(item.farmer_username || ""),
+        farmer_name: item.farmer_name || null,
+        org_id: item.org_id || null,
+        mandis: item.mandis || [],
+        approval_status: (item.approval_status || "").toString(),
+        updated_on: item.updated_on || item.updatedAt || null,
       }));
       setRows(mapped);
     } finally {
@@ -190,27 +182,9 @@ export const Farmers: React.FC = () => {
   };
 
   const openDetail = (row: FarmerRow) => {
-    setSelectedId(row.farmer_id);
+    setSelectedId(row.farmer_username);
     setDetail(row);
     setDetailOpen(true);
-  };
-
-  const openStatusChange = (row: FarmerRow, status: string) => {
-    setSelectedId(row.farmer_id);
-    setNextStatus(status);
-    handleStatusChange(row.farmer_id, status);
-  };
-
-  const handleStatusChange = async (farmer_id: string, status: string) => {
-    if (!canUpdate) return;
-    const username = currentUsername();
-    if (!username) return;
-    await updateFarmerStatus({
-      username,
-      language,
-      payload: { farmer_id: farmer_id ? Number(farmer_id) : undefined, status },
-    });
-    await loadData();
   };
 
   useEffect(() => {
@@ -221,11 +195,10 @@ export const Farmers: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [
-    filters.org_code,
-    filters.mandi_code,
-    filters.status,
-    filters.mobile,
-    filters.farmer_id,
+    filters.org_id,
+    filters.mandi_id,
+    filters.approval_status,
+    filters.farmer_username,
     filters.date_from,
     filters.date_to,
     language,
@@ -265,8 +238,8 @@ export const Farmers: React.FC = () => {
             label="Organisation"
             size="small"
             sx={{ minWidth: 200 }}
-            value={filters.org_code}
-            onChange={(e) => updateFilter("org_code", e.target.value)}
+            value={filters.org_id}
+            onChange={(e) => updateFilter("org_id", e.target.value)}
           >
             <MenuItem value="">All</MenuItem>
             {orgOptions.map((o) => (
@@ -282,8 +255,8 @@ export const Farmers: React.FC = () => {
           label="Mandi"
           size="small"
           sx={{ minWidth: 180 }}
-          value={filters.mandi_code}
-          onChange={(e) => updateFilter("mandi_code", e.target.value)}
+          value={filters.mandi_id}
+          onChange={(e) => updateFilter("mandi_id", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
           {mandiOptions.map((m) => (
@@ -298,27 +271,21 @@ export const Farmers: React.FC = () => {
           label="Status"
           size="small"
           sx={{ minWidth: 150 }}
-          value={filters.status}
-          onChange={(e) => updateFilter("status", e.target.value)}
+          value={filters.approval_status}
+          onChange={(e) => updateFilter("approval_status", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="ACTIVE">Active</MenuItem>
-          <MenuItem value="BLOCKED">Blocked</MenuItem>
           <MenuItem value="PENDING">Pending</MenuItem>
+          <MenuItem value="APPROVED">Approved</MenuItem>
+          <MenuItem value="REJECTED">Rejected</MenuItem>
+          <MenuItem value="SUSPENDED">Suspended</MenuItem>
         </TextField>
 
         <TextField
-          label="Mobile"
+          label="Farmer Username"
           size="small"
-          value={filters.mobile}
-          onChange={(e) => updateFilter("mobile", e.target.value)}
-        />
-
-        <TextField
-          label="Farmer ID"
-          size="small"
-          value={filters.farmer_id}
-          onChange={(e) => updateFilter("farmer_id", e.target.value)}
+          value={filters.farmer_username}
+          onChange={(e) => updateFilter("farmer_username", e.target.value)}
         />
 
         <TextField
@@ -374,15 +341,6 @@ export const Farmers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
-          {canUpdate && selectedId && nextStatus && (
-            <Button
-              color={nextStatus === "BLOCKED" ? "error" : "success"}
-              startIcon={nextStatus === "BLOCKED" ? <BlockIcon /> : <CheckCircleIcon />}
-              onClick={() => handleStatusChange(selectedId, nextStatus)}
-            >
-              {nextStatus === "BLOCKED" ? "Block" : "Unblock"}
-            </Button>
-          )}
         </DialogActions>
       </Dialog>
     </PageContainer>

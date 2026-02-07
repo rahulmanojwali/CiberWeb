@@ -488,7 +488,11 @@ export const Farmers: React.FC = () => {
             label="Mandis"
             SelectProps={{ multiple: true }}
             value={selectedMandis}
-            onChange={(e) => setSelectedMandis(e.target.value as string[])}
+            onChange={(e) =>
+              setSelectedMandis(
+                (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
+              )
+            }
           >
             {mandiOptions.map((m) => (
               <MenuItem key={m.value} value={m.value}>

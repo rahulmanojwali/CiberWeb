@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
@@ -9,9 +9,10 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { buildMandiNameMap, resolveMandiName } from "../../utils/cmLookupResolvers";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { listFarmerApprovalRequests } from "../../services/farmerApprovalsApi";
+import { approveFarmerForMandis, listFarmerApprovalRequests, rejectFarmerApproval, requestMoreInfoFarmer } from "../../services/farmerApprovalsApi";
 
 type FarmerRow = {
   id: string;
@@ -69,13 +70,21 @@ export const Farmers: React.FC = () => {
   const [rows, setRows] = useState<FarmerRow[]>([]);
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
+  const [mandiNameMap, setMandiNameMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<FarmerDetail | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [actionRow, setActionRow] = useState<FarmerRow | null>(null);
+  const [selectedMandis, setSelectedMandis] = useState<string[]>([]);
+  const [reasonText, setReasonText] = useState("");
 
   const canMenu = useMemo(() => can(uiConfig.resources, "farmers.menu", "VIEW"), [uiConfig.resources]);
   const canList = useMemo(() => can(uiConfig.resources, "farmers.list", "VIEW"), [uiConfig.resources]);
+  const canUpdate = useMemo(() => can(uiConfig.resources, "farmers.update_status", "UPDATE"), [uiConfig.resources]);
   const canDetail = canList;
 
   const columns = useMemo<GridColDef<FarmerRow>[]>(
@@ -89,8 +98,8 @@ export const Farmers: React.FC = () => {
         width: 220,
         valueFormatter: (value) => {
           const list = Array.isArray(value) ? value : [];
-          const ids = list.map((m: any) => m?.mandi_id).filter(Boolean);
-          return ids.join(", ");
+          const labels = list.map((m: any) => m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id)).filter(Boolean);
+          return labels.join(", ");
         },
       },
       { field: "approval_status", headerName: "Status", width: 160 },
@@ -103,7 +112,7 @@ export const Farmers: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        width: 140,
+        width: 320,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
             {canDetail && (
@@ -111,11 +120,26 @@ export const Farmers: React.FC = () => {
                 View
               </Button>
             )}
+            {canUpdate && (
+              <Button size="small" onClick={() => openApprove(params.row)}>
+                Approve
+              </Button>
+            )}
+            {canUpdate && (
+              <Button size="small" color="error" onClick={() => openReject(params.row)}>
+                Reject
+              </Button>
+            )}
+            {canUpdate && (
+              <Button size="small" color="warning" onClick={() => openRequestInfo(params.row)}>
+                More Info
+              </Button>
+            )}
           </Stack>
         ),
       },
     ],
-    [canDetail],
+    [canDetail, canUpdate, mandiNameMap],
   );
 
   const loadOrganisations = async () => {
@@ -143,6 +167,7 @@ export const Farmers: React.FC = () => {
         label: m?.name_i18n?.en || String(m.mandi_id || ""),
       })),
     );
+    setMandiNameMap(buildMandiNameMap(list, language));
   };
 
   const loadData = async () => {
@@ -185,6 +210,74 @@ export const Farmers: React.FC = () => {
     setSelectedId(row.farmer_username);
     setDetail(row);
     setDetailOpen(true);
+  };
+
+  const openApprove = (row: FarmerRow) => {
+    setActionRow(row);
+    const current = Array.isArray(row.mandis) ? row.mandis.map((m: any) => String(m?.mandi_id || "")).filter(Boolean) : [];
+    setSelectedMandis(current);
+    setApproveOpen(true);
+  };
+
+  const openReject = (row: FarmerRow) => {
+    setActionRow(row);
+    setReasonText("");
+    setRejectOpen(true);
+  };
+
+  const openRequestInfo = (row: FarmerRow) => {
+    setActionRow(row);
+    setReasonText("");
+    setInfoOpen(true);
+  };
+
+  const submitApprove = async () => {
+    if (!actionRow || !selectedMandis.length) return;
+    const username = currentUsername();
+    if (!username) return;
+    await approveFarmerForMandis({
+      username,
+      language,
+      payload: {
+        farmer_username: actionRow.farmer_username,
+        org_id: actionRow.org_id || uiConfig?.scope?.org_id || currentOrgId() || undefined,
+        mandis: selectedMandis,
+      },
+    });
+    setApproveOpen(false);
+    await loadData();
+  };
+
+  const submitReject = async () => {
+    if (!actionRow || !reasonText.trim()) return;
+    const username = currentUsername();
+    if (!username) return;
+    await rejectFarmerApproval({
+      username,
+      language,
+      payload: {
+        farmer_username: actionRow.farmer_username,
+        reason: reasonText.trim(),
+      },
+    });
+    setRejectOpen(false);
+    await loadData();
+  };
+
+  const submitRequestInfo = async () => {
+    if (!actionRow || !reasonText.trim()) return;
+    const username = currentUsername();
+    if (!username) return;
+    await requestMoreInfoFarmer({
+      username,
+      language,
+      payload: {
+        farmer_username: actionRow.farmer_username,
+        reason: reasonText.trim(),
+      },
+    });
+    setInfoOpen(false);
+    await loadData();
   };
 
   useEffect(() => {
@@ -323,16 +416,58 @@ export const Farmers: React.FC = () => {
         <DialogTitle>Farmer Detail</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.25, mt: 1 }}>
           {detail ? (
-            Object.entries(detail).map(([key, value]) => (
-              <Stack key={key} direction="row" spacing={1}>
+            <>
+              <Stack direction="row" spacing={1}>
                 <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
-                  {key}
+                  Farmer
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}
+                  {detail.farmer_username}
                 </Typography>
               </Stack>
-            ))
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Name
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.farmer_name || "-"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Org ID
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.org_id || "-"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Mandis
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {(detail.mandis || []).map((m: any, idx: number) => (
+                    <Chip key={idx} label={m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id)} size="small" />
+                  ))}
+                </Stack>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Status
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.approval_status || "-"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Updated On
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatDate(detail.updated_on)}
+                </Typography>
+              </Stack>
+            </>
           ) : (
             <Typography variant="body2" color="text.secondary">
               No detail available.
@@ -341,6 +476,70 @@ export const Farmers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Approve Farmer</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Typography variant="body2">Select mandis to enable for approval.</Typography>
+          <TextField
+            select
+            label="Mandis"
+            SelectProps={{ multiple: true }}
+            value={selectedMandis}
+            onChange={(e) => setSelectedMandis(e.target.value as string[])}
+          >
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>
+                {m.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveOpen(false)}>Cancel</Button>
+          <Button onClick={submitApprove} disabled={!selectedMandis.length}>
+            Approve
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Reject Farmer</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Reason"
+            multiline
+            minRows={2}
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectOpen(false)}>Cancel</Button>
+          <Button onClick={submitReject} disabled={!reasonText.trim()} color="error">
+            Reject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Request More Info</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Reason / Info Needed"
+            multiline
+            minRows={2}
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInfoOpen(false)}>Cancel</Button>
+          <Button onClick={submitRequestInfo} disabled={!reasonText.trim()} color="warning">
+            Send
+          </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

@@ -195,6 +195,7 @@ export const API_TAGS = {
     detail: "getTraderApprovalDetail",
     approve: "approveTrader",
     reject: "rejectTrader",
+    reactivate: "reactivateTrader",
     requestMoreInfo: "requestMoreInfoTrader",
   },
   FARMER_APPROVALS: {
@@ -473,6 +474,7 @@ export const API_ROUTES = {
     getTraderApprovalDetail: "/admin/getTraderApprovalDetail",
     approveTrader: "/admin/approveTrader",
     rejectTrader: "/admin/rejectTrader",
+    reactivateTrader: "/admin/reactivateTrader",
     requestMoreInfoTrader: "/admin/requestMoreInfoTrader",
     listFarmerApprovals: "/admin/listFarmerApprovals",
     approveFarmer: "/admin/approveFarmer",

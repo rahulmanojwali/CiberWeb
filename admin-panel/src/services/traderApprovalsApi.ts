@@ -21,11 +21,13 @@ export const approveTrader = async ({
   username,
   language = DEFAULT_LANGUAGE,
   trader_username,
+  org_id,
   mandis,
 }: {
   username: string;
   language?: string;
   trader_username: string;
+  org_id?: string;
   mandis: Array<string | number>;
 }) =>
   postEncrypted(API_ROUTES.admin.approveTrader, {
@@ -33,6 +35,7 @@ export const approveTrader = async ({
     username,
     language,
     trader_username,
+    org_id,
     mandis,
   });
 
@@ -41,11 +44,17 @@ export const rejectTrader = async ({
   language = DEFAULT_LANGUAGE,
   trader_username,
   reason,
+  status,
+  mandis,
+  org_id,
 }: {
   username: string;
   language?: string;
   trader_username: string;
   reason: string;
+  status?: string;
+  mandis?: Array<string | number>;
+  org_id?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.rejectTrader, {
     api: API_TAGS.TRADER_APPROVALS.reject,
@@ -53,6 +62,31 @@ export const rejectTrader = async ({
     language,
     trader_username,
     reason,
+    status,
+    mandis,
+    org_id,
+  });
+
+export const reactivateTrader = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  trader_username,
+  mandis,
+  org_id,
+}: {
+  username: string;
+  language?: string;
+  trader_username: string;
+  mandis: Array<string | number>;
+  org_id?: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.reactivateTrader, {
+    api: API_TAGS.TRADER_APPROVALS.reactivate,
+    username,
+    language,
+    trader_username,
+    mandis,
+    org_id,
   });
 
 
@@ -61,11 +95,13 @@ export const requestMoreInfoForTrader = async ({
   language = DEFAULT_LANGUAGE,
   trader_username,
   reason,
+  org_id,
 }: {
   username: string;
   language?: string;
   trader_username: string;
   reason: string;
+  org_id?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.requestMoreInfoTrader, {
     api: API_TAGS.TRADER_APPROVALS.requestMoreInfo,
@@ -73,4 +109,5 @@ export const requestMoreInfoForTrader = async ({
     language,
     trader_username,
     reason,
+    org_id,
   });

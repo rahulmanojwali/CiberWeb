@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -61,6 +62,14 @@ export const TraderApprovals: React.FC = () => {
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoReason, setInfoReason] = useState("");
   const [actionMode, setActionMode] = useState<"REJECT" | "SUSPEND">("REJECT");
+
+  const requestedMandisOptions = useMemo(() => {
+    const list = Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : [];
+    return list.map((m: any) => ({
+      value: String(m.mandi_id),
+      label: mandiMap.get(String(m.mandi_id)) || m.mandi_name || String(m.mandi_id),
+    }));
+  }, [selectedRow, mandiMap]);
 
 
   const canList = useMemo(() => can("trader_approvals.list", "VIEW"), [can]);
@@ -342,22 +351,15 @@ export const TraderApprovals: React.FC = () => {
             <Typography variant="body2">
               Trader: <strong>{selectedRow?.trader_username}</strong>
             </Typography>
-            <TextField
-              label="Mandis"
-              select
-              SelectProps={{ multiple: true }}
-              value={selectedMandis}
-              onChange={(event) =>
-                setSelectedMandis(typeof event.target.value === "string" ? event.target.value.split(",") : event.target.value)
-              }
-              fullWidth
-            >
-              {mandiOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Autocomplete
+              multiple
+              options={requestedMandisOptions}
+              disableCloseOnSelect={false}
+              getOptionLabel={(option) => option.label}
+              value={requestedMandisOptions.filter((o) => selectedMandis.includes(o.value))}
+              onChange={(_, newValue) => setSelectedMandis(newValue.map((v) => v.value))}
+              renderInput={(params) => <TextField {...params} label="Mandis" fullWidth />}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>

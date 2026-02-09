@@ -51,7 +51,7 @@ export const TraderApprovals: React.FC = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
-  const [filters, setFilters] = useState({ status: "", mandi_id: "", trader_username: "" });
+  const [filters, setFilters] = useState({ status: "ALL", mandi_id: "", trader_username: "" });
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -108,7 +108,7 @@ export const TraderApprovals: React.FC = () => {
         language,
         filters: {
           org_id: orgId,
-          approval_status: filters.status || undefined,
+          approval_status: filters.status === "ALL" ? undefined : filters.status || undefined,
           mandi_id: filters.mandi_id || undefined,
           trader_username: filters.trader_username || undefined,
         },
@@ -176,12 +176,10 @@ export const TraderApprovals: React.FC = () => {
                 color="success"
                 onClick={() => {
                   setSelectedRow(params.row);
-                  const active = Array.isArray(params.row?.mandis)
-                    ? params.row.mandis
-                        .filter((m: any) => String(m.is_active).toUpperCase() === "Y")
-                        .map((m: any) => String(m.mandi_id))
+                  const requested = Array.isArray(params.row?.mandis)
+                    ? params.row.mandis.map((m: any) => String(m.mandi_id))
                     : [];
-                  setSelectedMandis(active);
+                  setSelectedMandis(requested);
                   setApproveOpen(true);
                 }}
               >
@@ -272,6 +270,22 @@ export const TraderApprovals: React.FC = () => {
                 Activate
               </Button>
             )}
+            {canApprove && params.row.approval_status === "REJECTED" && (
+              <Button
+                size="small"
+                color="success"
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  const requested = Array.isArray(params.row?.mandis)
+                    ? params.row.mandis.map((m: any) => String(m.mandi_id))
+                    : [];
+                  setSelectedMandis(requested);
+                  setApproveOpen(true);
+                }}
+              >
+                Re-Approve
+              </Button>
+            )}
           </Stack>
         ),
       },
@@ -300,10 +314,10 @@ export const TraderApprovals: React.FC = () => {
 
       <Box mb={2}>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {["", "PENDING", "APPROVED", "REJECTED", "SUSPENDED"].map((s) => (
+          {["ALL", "PENDING", "APPROVED", "REJECTED", "SUSPENDED"].map((s) => (
             <Chip
-              key={s || "ALL"}
-              label={s || "ALL"}
+              key={s}
+              label={s}
               color={filters.status === s ? "primary" : "default"}
               onClick={() => setFilters((prev) => ({ ...prev, status: s }))}
               size="small"
@@ -408,7 +422,7 @@ export const TraderApprovals: React.FC = () => {
                 }
                 fullWidth
               >
-                {mandiOptions.map((option) => (
+                {requestedMandisOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
                   </MenuItem>
@@ -515,7 +529,7 @@ export const TraderApprovals: React.FC = () => {
               }
               fullWidth
             >
-              {mandiOptions.map((option) => (
+              {requestedMandisOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>

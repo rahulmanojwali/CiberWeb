@@ -422,7 +422,7 @@ export const TraderApprovals: React.FC = () => {
                 }
                 fullWidth
               >
-                {requestedMandisOptions.map((option) => (
+                {requestedMandisOptions.map((option: Option) => (
                   <MenuItem key={option.value} value={option.value}>
                     {option.label}
                   </MenuItem>
@@ -529,7 +529,7 @@ export const TraderApprovals: React.FC = () => {
               }
               fullWidth
             >
-              {requestedMandisOptions.map((option) => (
+              {requestedMandisOptions.map((option: Option) => (
                 <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>

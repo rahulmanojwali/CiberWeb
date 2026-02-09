@@ -63,15 +63,6 @@ export const TraderApprovals: React.FC = () => {
   const [infoReason, setInfoReason] = useState("");
   const [actionMode, setActionMode] = useState<"REJECT" | "SUSPEND">("REJECT");
 
-  const requestedMandisOptions = useMemo(() => {
-    const list = Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : [];
-    return list.map((m: any) => ({
-      value: String(m.mandi_id),
-      label: mandiMap.get(String(m.mandi_id)) || m.mandi_name || String(m.mandi_id),
-    }));
-  }, [selectedRow, mandiMap]);
-
-
   const canList = useMemo(() => can("trader_approvals.list", "VIEW"), [can]);
   const canApprove = useMemo(() => can("trader_approvals.approve", "APPROVE"), [can]);
   const canReject = useMemo(() => can("trader_approvals.reject", "REJECT"), [can]);
@@ -84,6 +75,14 @@ export const TraderApprovals: React.FC = () => {
     });
     return map;
   }, [mandiOptions]);
+
+  const requestedMandisOptions = useMemo(() => {
+    const list = Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : [];
+    return list.map((m: any) => ({
+      value: String(m.mandi_id),
+      label: mandiMap.get(String(m.mandi_id)) || m.mandi_name || String(m.mandi_id),
+    }));
+  }, [selectedRow, mandiMap]);
 
   const loadMandis = async () => {
     const username = currentUsername();
@@ -356,7 +355,7 @@ export const TraderApprovals: React.FC = () => {
               options={requestedMandisOptions}
               disableCloseOnSelect={false}
               getOptionLabel={(option) => option.label}
-              value={requestedMandisOptions.filter((o) => selectedMandis.includes(o.value))}
+              value={requestedMandisOptions.filter((o: Option) => selectedMandis.includes(o.value))}
               onChange={(_, newValue) => setSelectedMandis(newValue.map((v) => v.value))}
               renderInput={(params) => <TextField {...params} label="Mandis" fullWidth />}
             />

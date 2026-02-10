@@ -315,7 +315,7 @@ export const TraderApprovals: React.FC = () => {
         rows={rows}
         columns={columns}
         loading={loading}
-        getRowId={(row) => row._id || row.trader_username || `${row.trader_username || Math.random()}`}
+        getRowId={(row) => `${row._id || row.org_id || "row"}_${row.mandi_id || "mandi"}`}
         pageSizeOptions={[10, 25, 50]}
       />
 

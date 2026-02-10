@@ -318,7 +318,7 @@ export const FarmerApprovals: React.FC = () => {
           rows={rows}
           columns={columns}
           loading={loading}
-          getRowId={(r) => r._id || `${r.org_id}-${r.farmer_username}`}
+          getRowId={(r) => `${r._id || r.org_id || "row"}_${r.mandi_id || "mandi"}`}
           disableRowSelectionOnClick
           pageSizeOptions={[10, 25, 50, 100]}
         />

@@ -20,10 +20,10 @@ import { usePermissions } from "../../authz/usePermissions";
 import { useTranslation } from "react-i18next";
 import { normalizeLanguageCode } from "../../config/languages";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 import { approveTrader, getTraderApprovals, rejectTrader, requestMoreInfoForTrader } from "../../services/traderApprovalsApi";
 
 type Option = { value: string; label: string };
-type MandiOption = { value: string; label: string; status?: string };
 
 function currentUsername(): string | null {
   try {
@@ -50,8 +50,16 @@ export const TraderApprovals: React.FC = () => {
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
-  const [filters, setFilters] = useState({ status: "ALL", mandi_id: "", trader_username: "" });
+  const [filters, setFilters] = useState({
+    status: "ALL",
+    org_id: "",
+    mandi_id: "",
+    trader_username: "",
+    requested_from: "",
+    requested_to: "",
+  });
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -75,15 +83,6 @@ export const TraderApprovals: React.FC = () => {
     return map;
   }, [mandiOptions]);
 
-  const requestedMandisOptions = useMemo<MandiOption[]>(() => {
-    const list = Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : [];
-    return list.map((m: any) => ({
-      value: String(m.mandi_id),
-      label: mandiMap.get(String(m.mandi_id)) || m.mandi_name || String(m.mandi_id),
-      status: String(m.mandi_approval_status || "").toUpperCase(),
-    }));
-  }, [selectedRow, mandiMap]);
-
   const getMandiStatusLabel = (mandi: any, rowStatus?: string) => {
     const orgStatus = String(rowStatus || "").toUpperCase();
     if (orgStatus === "SUSPENDED") return "SUSPENDED";
@@ -98,9 +97,25 @@ export const TraderApprovals: React.FC = () => {
     return mandiStatus || "PENDING";
   };
 
+  const loadOrgs = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchOrganisations({ username, language });
+    const data = resp?.data || resp?.response?.data || {};
+    const rows = Array.isArray(data?.items) ? data.items : data?.rows || [];
+    const options = (rows || []).map((o: any) => ({
+      value: String(o.org_id || o._id || ""),
+      label: o.org_name || o.name || String(o.org_id || ""),
+    }));
+    setOrgOptions(options);
+    if (!filters.org_id && uiConfig.scope?.org_id) {
+      setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+    }
+  };
+
   const loadMandis = async () => {
     const username = currentUsername();
-    const orgId = uiConfig.scope?.org_id || "";
+    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
     if (!username || !orgId) return;
     const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
     setMandiOptions(
@@ -113,7 +128,7 @@ export const TraderApprovals: React.FC = () => {
 
   const loadData = async () => {
     const username = currentUsername();
-    const orgId = uiConfig.scope?.org_id || "";
+    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
     if (!username || !orgId || !canList) return;
     setLoading(true);
     try {
@@ -125,6 +140,8 @@ export const TraderApprovals: React.FC = () => {
           approval_status: filters.status === "ALL" ? undefined : filters.status || undefined,
           mandi_id: filters.mandi_id || undefined,
           trader_username: filters.trader_username || undefined,
+          requested_from: filters.requested_from || undefined,
+          requested_to: filters.requested_to || undefined,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
@@ -136,6 +153,7 @@ export const TraderApprovals: React.FC = () => {
 
   useEffect(() => {
     if (canList) {
+      loadOrgs();
       loadMandis();
       loadData();
     }
@@ -145,7 +163,12 @@ export const TraderApprovals: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.mandi_id, filters.trader_username]);
+  }, [filters.status, filters.mandi_id, filters.trader_username, filters.org_id, filters.requested_from, filters.requested_to]);
+
+  useEffect(() => {
+    loadMandis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.org_id]);
 
   const columns = useMemo<GridColDef<any>[]>(
     () => [
@@ -153,21 +176,22 @@ export const TraderApprovals: React.FC = () => {
       { field: "trader_name", headerName: "Name", width: 200 },
       {
         field: "mandis",
-        headerName: "Mandis",
-        flex: 1,
-        valueGetter: (value, row) => {
-          const list = Array.isArray(row?.mandis) ? row.mandis : [];
-          if (!list.length) return "-";
-          return list
-            .map((m: any) => {
-              const name = mandiMap.get(String(m.mandi_id)) || m.mandi_name || String(m.mandi_id);
-              const status = getMandiStatusLabel(m, row?.approval_status);
-              return `${name} (${status})`;
-            })
-            .join(", ");
-        },
+        headerName: "Mandi",
+        width: 220,
+        valueGetter: (value, row) => row?.mandi_name || mandiMap.get(String(row?.mandi_id)) || row?.mandi_id || "-",
       },
-      { field: "approval_status", headerName: "Status", width: 140 },
+      {
+        field: "mandi_approval_status",
+        headerName: "Status",
+        width: 140,
+        valueGetter: (value, row) => getMandiStatusLabel(row, row?.approval_status),
+      },
+      {
+        field: "requested_on",
+        headerName: "Requested On",
+        width: 180,
+        valueFormatter: (value) => formatDate(value),
+      },
       {
         field: "updated_on",
         headerName: "Updated On",
@@ -185,6 +209,7 @@ export const TraderApprovals: React.FC = () => {
               size="small"
               onClick={() => {
                 setSelectedRow(params.row);
+                setSelectedMandiId(String(params.row?.mandi_id || ""));
                 setViewOpen(true);
               }}
             >
@@ -228,6 +253,21 @@ export const TraderApprovals: React.FC = () => {
             />
           ))}
           <TextField
+            label="Org"
+            select
+            size="small"
+            value={filters.org_id}
+            onChange={(event) => setFilters((prev) => ({ ...prev, org_id: String(event.target.value || "") }))}
+            sx={{ minWidth: 220 }}
+          >
+            <MenuItem value="">All Orgs</MenuItem>
+            {orgOptions.map((option: Option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
             label="Mandi"
             select
             size="small"
@@ -248,6 +288,24 @@ export const TraderApprovals: React.FC = () => {
             value={filters.trader_username}
             onChange={(event) => setFilters((prev) => ({ ...prev, trader_username: event.target.value }))}
             sx={{ minWidth: 200 }}
+          />
+          <TextField
+            label="From"
+            type="date"
+            size="small"
+            value={filters.requested_from}
+            onChange={(event) => setFilters((prev) => ({ ...prev, requested_from: event.target.value }))}
+            sx={{ minWidth: 170 }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label="To"
+            type="date"
+            size="small"
+            value={filters.requested_to}
+            onChange={(event) => setFilters((prev) => ({ ...prev, requested_to: event.target.value }))}
+            sx={{ minWidth: 170 }}
+            InputLabelProps={{ shrink: true }}
           />
         </Stack>
       </Box>
@@ -400,84 +458,70 @@ export const TraderApprovals: React.FC = () => {
       </Dialog>
 
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Trader Mandis</DialogTitle>
+        <DialogTitle>Trader Request Details</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
             <Typography variant="body2">
               Trader: <strong>{selectedRow?.trader_username}</strong>
             </Typography>
-            <Stack spacing={1}>
-              {(Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : []).map((m: any) => {
-                const mandiId = String(m?.mandi_id ?? "");
-                const status = getMandiStatusLabel(m, selectedRow?.approval_status);
-                const canAct = ["PENDING", "MORE_INFO"].includes(String(m?.mandi_approval_status || "").toUpperCase());
-                return (
-                  <Box
-                    key={mandiId}
-                    sx={{ border: "1px solid #e0e0e0", borderRadius: 1, p: 1.5, display: "flex", flexDirection: "column", gap: 0.5 }}
-                  >
-                    <Typography variant="subtitle2">
-                      {mandiMap.get(mandiId) || mandiId} <Chip size="small" label={status} sx={{ ml: 1 }} />
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Requested: {formatDate(m.requested_on)} {m.requested_by ? `by ${m.requested_by}` : ""}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Approved: {formatDate(m.approved_on)} {m.approved_by ? `by ${m.approved_by}` : ""}
-                    </Typography>
-                    {m.request_more_info_reason && (
-                      <Typography variant="body2" color="text.secondary">
-                        More Info: {m.request_more_info_reason} {m.request_more_info_by ? `by ${m.request_more_info_by}` : ""}
-                      </Typography>
-                    )}
-                    {m.rejection_reason && (
-                      <Typography variant="body2" color="text.secondary">
-                        Rejected: {m.rejection_reason} {m.rejected_by ? `by ${m.rejected_by}` : ""}
-                      </Typography>
-                    )}
-                    <Stack direction="row" spacing={1} mt={0.5}>
-                      {canApprove && canAct && (
-                        <Button
-                          size="small"
-                          color="success"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setApproveOpen(true);
-                          }}
-                        >
-                          Approve
-                        </Button>
-                      )}
-                      {canReject && canAct && (
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setRejectReason("");
-                            setRejectOpen(true);
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      )}
-                      {canRequestInfo && canAct && (
-                        <Button
-                          size="small"
-                          color="warning"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setInfoReason("");
-                            setInfoOpen(true);
-                          }}
-                        >
-                          More Info
-                        </Button>
-                      )}
-                    </Stack>
-                  </Box>
-                );
-              })}
+            <Typography variant="body2">
+              Mandi: <strong>{selectedRow?.mandi_name || selectedRow?.mandi_id}</strong>
+            </Typography>
+            <Typography variant="body2">
+              Status: <strong>{getMandiStatusLabel(selectedRow, selectedRow?.approval_status)}</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Requested: {formatDate(selectedRow?.requested_on)} {selectedRow?.requested_by ? `by ${selectedRow.requested_by}` : ""}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Approved: {formatDate(selectedRow?.approved_on)} {selectedRow?.approved_by ? `by ${selectedRow.approved_by}` : ""}
+            </Typography>
+            {selectedRow?.request_more_info_reason && (
+              <Typography variant="body2" color="text.secondary">
+                More Info: {selectedRow.request_more_info_reason} {selectedRow.request_more_info_by ? `by ${selectedRow.request_more_info_by}` : ""}
+              </Typography>
+            )}
+            {selectedRow?.rejection_reason && (
+              <Typography variant="body2" color="text.secondary">
+                Rejected: {selectedRow.rejection_reason} {selectedRow.rejected_by ? `by ${selectedRow.rejected_by}` : ""}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1}>
+              {canApprove && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="success"
+                  onClick={() => {
+                    setApproveOpen(true);
+                  }}
+                >
+                  Approve
+                </Button>
+              )}
+              {canReject && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    setRejectReason("");
+                    setRejectOpen(true);
+                  }}
+                >
+                  Reject
+                </Button>
+              )}
+              {canRequestInfo && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="warning"
+                  onClick={() => {
+                    setInfoReason("");
+                    setInfoOpen(true);
+                  }}
+                >
+                  More Info
+                </Button>
+              )}
             </Stack>
           </Stack>
         </DialogContent>

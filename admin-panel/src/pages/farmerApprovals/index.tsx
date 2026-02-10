@@ -20,6 +20,7 @@ import { usePermissions } from "../../authz/usePermissions";
 import { useTranslation } from "react-i18next";
 import { normalizeLanguageCode } from "../../config/languages";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
   approveFarmerForMandis,
   listFarmerApprovalRequests,
@@ -54,8 +55,16 @@ export const FarmerApprovals: React.FC = () => {
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
-  const [filters, setFilters] = useState({ status: "ALL", mandi_id: "", farmer_username: "" });
+  const [filters, setFilters] = useState({
+    status: "ALL",
+    org_id: "",
+    mandi_id: "",
+    farmer_username: "",
+    requested_from: "",
+    requested_to: "",
+  });
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -79,23 +88,12 @@ export const FarmerApprovals: React.FC = () => {
     return map;
   }, [mandiOptions]);
 
-  const requestedMandisOptions = useMemo<Option[]>(() => {
-    if (!selectedRow || !Array.isArray(selectedRow.mandis)) return [];
-    return selectedRow.mandis.map((m: any) => {
-      const value = String(m?.mandi_id ?? "");
-      const label = mandiMap.get(value) || value;
-      return { value, label };
-    });
-  }, [selectedRow, mandiMap]);
-
-  const mandiStatusLabel = (mandi: any, rowStatus?: string) => {
-    const orgStatus = String(rowStatus || "").toUpperCase();
+  const mandiStatusLabel = (row: any) => {
+    const orgStatus = String(row?.approval_status || "").toUpperCase();
     if (orgStatus === "SUSPENDED") return "SUSPENDED";
-    if (orgStatus === "REJECTED") return "REJECTED";
-    if (orgStatus === "PENDING") return "PENDING";
-    const mandiStatus = String(mandi?.mandi_approval_status || "").toUpperCase();
+    const mandiStatus = String(row?.mandi_approval_status || "").toUpperCase();
     if (mandiStatus === "APPROVED") {
-      return String(mandi?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
+      return String(row?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
     }
     if (mandiStatus === "MORE_INFO") return "MORE INFO";
     if (mandiStatus === "REJECTED") return "REJECTED";
@@ -103,9 +101,25 @@ export const FarmerApprovals: React.FC = () => {
     return mandiStatus || "PENDING";
   };
 
+  const loadOrgs = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const resp = await fetchOrganisations({ username, language });
+    const data = resp?.data || resp?.response?.data || {};
+    const rows = Array.isArray(data?.items) ? data.items : data?.rows || [];
+    const options = (rows || []).map((o: any) => ({
+      value: String(o.org_id || o._id || ""),
+      label: o.org_name || o.name || String(o.org_id || ""),
+    }));
+    setOrgOptions(options);
+    if (!filters.org_id && uiConfig.scope?.org_id) {
+      setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+    }
+  };
+
   const loadMandis = async () => {
     const username = currentUsername();
-    const orgId = uiConfig.scope?.org_id || "";
+    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
     if (!username || !orgId) return;
     const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
     setMandiOptions(
@@ -118,7 +132,7 @@ export const FarmerApprovals: React.FC = () => {
 
   const loadData = async () => {
     const username = currentUsername();
-    const orgId = uiConfig.scope?.org_id || "";
+    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
     if (!username || !orgId || !canList) return;
     setLoading(true);
     try {
@@ -130,6 +144,8 @@ export const FarmerApprovals: React.FC = () => {
           approval_status: filters.status === "ALL" ? undefined : filters.status,
           mandi_id: filters.mandi_id || undefined,
           farmer_username: filters.farmer_username || undefined,
+          requested_from: filters.requested_from || undefined,
+          requested_to: filters.requested_to || undefined,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
@@ -141,6 +157,7 @@ export const FarmerApprovals: React.FC = () => {
 
   useEffect(() => {
     if (canList) {
+      loadOrgs();
       loadMandis();
       loadData();
     }
@@ -150,7 +167,12 @@ export const FarmerApprovals: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.mandi_id, filters.farmer_username]);
+  }, [filters.status, filters.mandi_id, filters.farmer_username, filters.org_id, filters.requested_from, filters.requested_to]);
+
+  useEffect(() => {
+    loadMandis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.org_id]);
 
   const columns = useMemo<GridColDef<any>[]>(
     () => [
@@ -158,21 +180,22 @@ export const FarmerApprovals: React.FC = () => {
       { field: "farmer_name", headerName: "Name", width: 200 },
       {
         field: "mandis",
-        headerName: "Mandis",
-        flex: 1,
-        valueGetter: (value, row) => {
-          const list = Array.isArray(row?.mandis) ? row.mandis : [];
-          if (!list.length) return "-";
-          return list
-            .map((m: any) => {
-              const name = mandiMap.get(String(m.mandi_id)) || String(m.mandi_id);
-              const status = mandiStatusLabel(m, row?.approval_status);
-              return `${name} (${status})`;
-            })
-            .join(", ");
-        },
+        headerName: "Mandi",
+        width: 220,
+        valueGetter: (value, row) => row?.mandi_name || mandiMap.get(String(row?.mandi_id)) || row?.mandi_id || "-",
       },
-      { field: "approval_status", headerName: "Status", width: 140 },
+      {
+        field: "mandi_approval_status",
+        headerName: "Status",
+        width: 140,
+        valueGetter: (value, row) => mandiStatusLabel(row),
+      },
+      {
+        field: "requested_on",
+        headerName: "Requested On",
+        width: 180,
+        valueFormatter: (value) => formatDate(value),
+      },
       {
         field: "updated_on",
         headerName: "Updated On",
@@ -190,6 +213,7 @@ export const FarmerApprovals: React.FC = () => {
               size="small"
               onClick={() => {
                 setSelectedRow(params.row);
+                setSelectedMandiId(String(params.row?.mandi_id || ""));
                 setViewOpen(true);
               }}
             >
@@ -222,8 +246,8 @@ export const FarmerApprovals: React.FC = () => {
       </Stack>
 
       <Box mb={2}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED", "SUSPENDED"].map((s) => (
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED", "SUSPENDED"].map((s) => (
             <Chip
               key={s}
               label={s}
@@ -231,13 +255,29 @@ export const FarmerApprovals: React.FC = () => {
               onClick={() => setFilters((prev) => ({ ...prev, status: s }))}
               variant={filters.status === s ? "filled" : "outlined"}
             />
-          ))}
-          <TextField
-            select
-            label="Mandi"
-            value={filters.mandi_id}
-            onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
-            sx={{ minWidth: 200 }}
+            ))}
+            <TextField
+              select
+              label="Org"
+              value={filters.org_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="">
+                <em>All Orgs</em>
+              </MenuItem>
+              {orgOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Mandi"
+              value={filters.mandi_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
+              sx={{ minWidth: 200 }}
           >
             <MenuItem value="">
               <em>All Mandis</em>
@@ -248,14 +288,30 @@ export const FarmerApprovals: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            label="Farmer Mobile/Username"
-            value={filters.farmer_username}
-            onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
-            sx={{ minWidth: 220 }}
-          />
-        </Stack>
-      </Box>
+            <TextField
+              label="Farmer Mobile/Username"
+              value={filters.farmer_username}
+              onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
+              sx={{ minWidth: 220 }}
+            />
+            <TextField
+              label="From"
+              type="date"
+              value={filters.requested_from}
+              onChange={(e) => setFilters((prev) => ({ ...prev, requested_from: e.target.value }))}
+              sx={{ minWidth: 170 }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="To"
+              type="date"
+              value={filters.requested_to}
+              onChange={(e) => setFilters((prev) => ({ ...prev, requested_to: e.target.value }))}
+              sx={{ minWidth: 170 }}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </Box>
 
       <Box sx={{ width: "100%" }}>
         <ResponsiveDataGrid
@@ -291,7 +347,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
-                  mandi_id: selectedMandiId,
+                  mandi_id: selectedRow.mandi_id,
                 },
               });
               setApproveOpen(false);
@@ -334,7 +390,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
-                  mandi_id: selectedMandiId,
+                  mandi_id: selectedRow.mandi_id,
                   reason: rejectReason,
                 },
               });
@@ -383,7 +439,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
-                  mandi_id: selectedMandiId,
+                  mandi_id: selectedRow.mandi_id,
                   reason: infoReason,
                 },
               });
@@ -399,84 +455,70 @@ export const FarmerApprovals: React.FC = () => {
       </Dialog>
 
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Farmer Mandis</DialogTitle>
+        <DialogTitle>Farmer Request Details</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
             <Typography variant="body2">
               Farmer: <strong>{selectedRow?.farmer_username}</strong>
             </Typography>
-            <Stack spacing={1}>
-              {(Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : []).map((m: any) => {
-                const mandiId = String(m?.mandi_id ?? "");
-                const status = mandiStatusLabel(m, selectedRow?.approval_status);
-                const canAct = ["PENDING", "MORE_INFO"].includes(String(m?.mandi_approval_status || "").toUpperCase());
-                return (
-                  <Box
-                    key={mandiId}
-                    sx={{ border: "1px solid #e0e0e0", borderRadius: 1, p: 1.5, display: "flex", flexDirection: "column", gap: 0.5 }}
-                  >
-                    <Typography variant="subtitle2">
-                      {mandiMap.get(mandiId) || mandiId} <Chip size="small" label={status} sx={{ ml: 1 }} />
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Requested: {formatDate(m.requested_on)} {m.requested_by ? `by ${m.requested_by}` : ""}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Approved: {formatDate(m.approved_on)} {m.approved_by ? `by ${m.approved_by}` : ""}
-                    </Typography>
-                    {m.request_more_info_reason && (
-                      <Typography variant="body2" color="text.secondary">
-                        More Info: {m.request_more_info_reason} {m.request_more_info_by ? `by ${m.request_more_info_by}` : ""}
-                      </Typography>
-                    )}
-                    {m.rejection_reason && (
-                      <Typography variant="body2" color="text.secondary">
-                        Rejected: {m.rejection_reason} {m.rejected_by ? `by ${m.rejected_by}` : ""}
-                      </Typography>
-                    )}
-                    <Stack direction="row" spacing={1} mt={0.5}>
-                      {canApprove && canAct && (
-                        <Button
-                          size="small"
-                          color="success"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setApproveOpen(true);
-                          }}
-                        >
-                          Approve
-                        </Button>
-                      )}
-                      {canReject && canAct && (
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setRejectReason("");
-                            setRejectOpen(true);
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      )}
-                      {canRequestInfo && canAct && (
-                        <Button
-                          size="small"
-                          color="warning"
-                          onClick={() => {
-                            setSelectedMandiId(mandiId);
-                            setInfoReason("");
-                            setInfoOpen(true);
-                          }}
-                        >
-                          More Info
-                        </Button>
-                      )}
-                    </Stack>
-                  </Box>
-                );
-              })}
+            <Typography variant="body2">
+              Mandi: <strong>{selectedRow?.mandi_name || selectedRow?.mandi_id}</strong>
+            </Typography>
+            <Typography variant="body2">
+              Status: <strong>{mandiStatusLabel(selectedRow)}</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Requested: {formatDate(selectedRow?.requested_on)} {selectedRow?.requested_by ? `by ${selectedRow.requested_by}` : ""}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Approved: {formatDate(selectedRow?.approved_on)} {selectedRow?.approved_by ? `by ${selectedRow.approved_by}` : ""}
+            </Typography>
+            {selectedRow?.request_more_info_reason && (
+              <Typography variant="body2" color="text.secondary">
+                More Info: {selectedRow.request_more_info_reason} {selectedRow.request_more_info_by ? `by ${selectedRow.request_more_info_by}` : ""}
+              </Typography>
+            )}
+            {selectedRow?.rejection_reason && (
+              <Typography variant="body2" color="text.secondary">
+                Rejected: {selectedRow.rejection_reason} {selectedRow.rejected_by ? `by ${selectedRow.rejected_by}` : ""}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1}>
+              {canApprove && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="success"
+                  onClick={() => {
+                    setApproveOpen(true);
+                  }}
+                >
+                  Approve
+                </Button>
+              )}
+              {canReject && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    setRejectReason("");
+                    setRejectOpen(true);
+                  }}
+                >
+                  Reject
+                </Button>
+              )}
+              {canRequestInfo && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+                <Button
+                  size="small"
+                  color="warning"
+                  onClick={() => {
+                    setInfoReason("");
+                    setInfoOpen(true);
+                  }}
+                >
+                  More Info
+                </Button>
+              )}
             </Stack>
           </Stack>
         </DialogContent>

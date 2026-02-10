@@ -89,8 +89,6 @@ export const FarmerApprovals: React.FC = () => {
   }, [mandiOptions]);
 
   const mandiStatusLabel = (row: any) => {
-    const orgStatus = String(row?.approval_status || "").toUpperCase();
-    if (orgStatus === "SUSPENDED") return "SUSPENDED";
     const mandiStatus = String(row?.mandi_approval_status || "").toUpperCase();
     if (mandiStatus === "APPROVED") {
       return String(row?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
@@ -324,7 +322,7 @@ export const FarmerApprovals: React.FC = () => {
           rows={rows}
           columns={columns}
           loading={loading}
-          getRowId={(r) => `${r._id || r.org_id || "row"}_${r.mandi_id || "mandi"}`}
+          getRowId={(r) => `${r?._id || "row"}_${r?.mandi_id || "mandi"}`}
           disableRowSelectionOnClick
           pageSizeOptions={[10, 25, 50, 100]}
         />

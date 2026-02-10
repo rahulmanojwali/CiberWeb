@@ -83,9 +83,7 @@ export const TraderApprovals: React.FC = () => {
     return map;
   }, [mandiOptions]);
 
-  const getMandiStatusLabel = (mandi: any, orgStatus?: string) => {
-    const status = String(orgStatus || "").toUpperCase();
-    if (status === "SUSPENDED") return "SUSPENDED";
+  const getMandiStatusLabel = (mandi: any) => {
     const mandiStatus = String(mandi?.mandi_approval_status || "").toUpperCase();
     if (mandiStatus === "APPROVED") {
       return String(mandi?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
@@ -188,7 +186,7 @@ export const TraderApprovals: React.FC = () => {
         field: "mandi_approval_status",
         headerName: "Status",
         width: 140,
-        valueGetter: (value, row) => getMandiStatusLabel(row, row?.approval_status),
+        valueGetter: (value, row) => getMandiStatusLabel(row),
       },
       {
         field: "requested_on",
@@ -319,7 +317,7 @@ export const TraderApprovals: React.FC = () => {
         rows={rows}
         columns={columns}
         loading={loading}
-        getRowId={(row) => `${row._id || row.org_id || "row"}_${row.mandi_id || "mandi"}`}
+        getRowId={(row) => `${row?._id || "row"}_${row?.mandi_id || "mandi"}`}
         pageSizeOptions={[10, 25, 50]}
       />
 
@@ -472,7 +470,7 @@ export const TraderApprovals: React.FC = () => {
               Mandi: <strong>{selectedRow?.mandi_name || selectedRow?.mandi_id}</strong>
             </Typography>
             <Typography variant="body2">
-              Status: <strong>{getMandiStatusLabel(selectedRow, selectedRow?.approval_status)}</strong>
+              Status: <strong>{getMandiStatusLabel(selectedRow)}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Requested: {formatDate(selectedRow?.requested_on)} {selectedRow?.requested_by ? `by ${selectedRow.requested_by}` : ""}

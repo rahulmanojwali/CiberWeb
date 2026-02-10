@@ -144,10 +144,18 @@ export const FarmerApprovals: React.FC = () => {
           farmer_username: filters.farmer_username || undefined,
           requested_from: filters.requested_from || undefined,
           requested_to: filters.requested_to || undefined,
+          page: 1,
+          limit: 100,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      setRows(Array.isArray(data?.rows) ? data.rows : []);
+      if (Array.isArray(data?.rows)) {
+        setRows(data.rows);
+      } else if (Array.isArray(data?.items)) {
+        setRows(data.items);
+      } else {
+        setRows([]);
+      }
     } finally {
       setLoading(false);
     }

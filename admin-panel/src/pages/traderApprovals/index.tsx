@@ -83,11 +83,9 @@ export const TraderApprovals: React.FC = () => {
     return map;
   }, [mandiOptions]);
 
-  const getMandiStatusLabel = (mandi: any, rowStatus?: string) => {
-    const orgStatus = String(rowStatus || "").toUpperCase();
-    if (orgStatus === "SUSPENDED") return "SUSPENDED";
-    if (orgStatus === "REJECTED") return "REJECTED";
-    if (orgStatus === "PENDING") return "PENDING";
+  const getMandiStatusLabel = (mandi: any, orgStatus?: string) => {
+    const status = String(orgStatus || "").toUpperCase();
+    if (status === "SUSPENDED") return "SUSPENDED";
     const mandiStatus = String(mandi?.mandi_approval_status || "").toUpperCase();
     if (mandiStatus === "APPROVED") {
       return String(mandi?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
@@ -175,6 +173,12 @@ export const TraderApprovals: React.FC = () => {
       { field: "trader_username", headerName: "Trader", width: 200 },
       { field: "trader_name", headerName: "Name", width: 200 },
       {
+        field: "org_name",
+        headerName: "Org",
+        width: 220,
+        valueGetter: (value, row) => row?.org_name || row?.org_id || "-",
+      },
+      {
         field: "mandis",
         headerName: "Mandi",
         width: 220,
@@ -242,8 +246,8 @@ export const TraderApprovals: React.FC = () => {
       </Stack>
 
       <Box mb={2}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED", "SUSPENDED"].map((s) => (
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          {["ALL", "LINKED", "UNLINKED", "PENDING", "MORE_INFO", "REJECTED", "SUSPENDED"].map((s) => (
             <Chip
               key={s}
               label={s}
@@ -487,7 +491,9 @@ export const TraderApprovals: React.FC = () => {
               </Typography>
             )}
             <Stack direction="row" spacing={1}>
-              {canApprove && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+              {canApprove &&
+                String(selectedRow?.approval_status || "").toUpperCase() !== "SUSPENDED" &&
+                ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
                 <Button
                   size="small"
                   color="success"
@@ -498,7 +504,9 @@ export const TraderApprovals: React.FC = () => {
                   Approve
                 </Button>
               )}
-              {canReject && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+              {canReject &&
+                String(selectedRow?.approval_status || "").toUpperCase() !== "SUSPENDED" &&
+                ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
                 <Button
                   size="small"
                   color="error"
@@ -510,7 +518,9 @@ export const TraderApprovals: React.FC = () => {
                   Reject
                 </Button>
               )}
-              {canRequestInfo && ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
+              {canRequestInfo &&
+                String(selectedRow?.approval_status || "").toUpperCase() !== "SUSPENDED" &&
+                ["PENDING", "MORE_INFO"].includes(String(selectedRow?.mandi_approval_status || "").toUpperCase()) && (
                 <Button
                   size="small"
                   color="warning"

@@ -356,7 +356,7 @@ export const Farmers: React.FC = () => {
                   Farmer
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {detail.farmer_username}
+                  {detail.farmer_id || "-"}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1}>
@@ -364,43 +364,39 @@ export const Farmers: React.FC = () => {
                   Name
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {detail.farmer_name || "-"}
+                  {detail.name || "-"}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1}>
                 <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
-                  Org ID
+                  Mobile
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {detail.org_id || "-"}
+                  {detail.mobile || "-"}
                 </Typography>
               </Stack>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1}>
                 <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
-                  Mandis
+                  Org Code
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {(detail.mandis || []).map((m: any, idx: number) => {
-                    const label = m?.mandi_name || resolveMandiName(mandiNameMap, m?.mandi_id);
-                    const inactive = m?.is_active === "N" || m?.is_active === false;
-                    return (
-                      <Chip
-                        key={idx}
-                        label={`${label || m?.mandi_id}${inactive ? " (Inactive)" : ""}`}
-                        size="small"
-                        color={inactive ? "default" : "success"}
-                        variant={inactive ? "outlined" : "filled"}
-                      />
-                    );
-                  })}
-                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.org_code || "-"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Mandi Code
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.mandi_code || "-"}
+                </Typography>
               </Stack>
               <Stack direction="row" spacing={1}>
                 <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
                   Status
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {detail.approval_status || "-"}
+                  {detail.status || "-"}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1}>
@@ -420,127 +416,6 @@ export const Farmers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Approve Farmer</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <Typography variant="body2">Select mandis to enable for approval.</Typography>
-          <TextField
-            select
-            label="Mandis"
-            SelectProps={{ multiple: true }}
-            value={selectedMandis}
-            onChange={(e) =>
-              setSelectedMandis(
-                (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
-              )
-            }
-          >
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApproveOpen(false)}>Cancel</Button>
-          <Button onClick={submitApprove} disabled={!selectedMandis.length}>
-            Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{actionMode === "SUSPEND" ? "Suspend Farmer" : "Reject Farmer"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          {actionMode === "SUSPEND" && (
-            <TextField
-              select
-              label="Mandis to suspend"
-              SelectProps={{ multiple: true }}
-              value={selectedMandis}
-              onChange={(e) =>
-                setSelectedMandis(
-                  (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
-                )
-              }
-            >
-              {mandiOptions.map((m) => (
-                <MenuItem key={m.value} value={m.value}>
-                  {m.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
-          <TextField
-            label={actionMode === "SUSPEND" ? "Reason for suspension" : "Reason"}
-            multiline
-            minRows={2}
-            value={reasonText}
-            onChange={(e) => setReasonText(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectOpen(false)}>Cancel</Button>
-          <Button
-            onClick={submitReject}
-            disabled={!reasonText.trim() || (actionMode === "SUSPEND" && !selectedMandis.length)}
-            color={actionMode === "SUSPEND" ? "warning" : "error"}
-          >
-            {actionMode === "SUSPEND" ? "Suspend" : "Reject"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={reactivateOpen} onClose={() => setReactivateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Activate Mandis</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <Typography variant="body2">Select mandis to activate for this farmer.</Typography>
-          <TextField
-            select
-            label="Mandis"
-            SelectProps={{ multiple: true }}
-            value={selectedMandis}
-            onChange={(e) =>
-              setSelectedMandis(
-                (Array.isArray(e.target.value) ? e.target.value : [e.target.value]).map((v) => String(v)),
-              )
-            }
-          >
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReactivateOpen(false)}>Cancel</Button>
-          <Button onClick={submitReactivate} disabled={!selectedMandis.length} color="success">
-            Activate
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={infoOpen} onClose={() => setInfoOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Request More Info</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Reason / Info Needed"
-            multiline
-            minRows={2}
-            value={reasonText}
-            onChange={(e) => setReasonText(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setInfoOpen(false)}>Cancel</Button>
-          <Button onClick={submitRequestInfo} disabled={!reasonText.trim()} color="warning">
-            Send
-          </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

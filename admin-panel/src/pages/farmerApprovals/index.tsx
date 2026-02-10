@@ -141,7 +141,7 @@ export const FarmerApprovals: React.FC = () => {
         language,
         filters: {
           org_id: orgId,
-          approval_status: filters.status === "ALL" ? undefined : filters.status,
+          mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
           mandi_id: filters.mandi_id || undefined,
           farmer_username: filters.farmer_username || undefined,
           requested_from: filters.requested_from || undefined,

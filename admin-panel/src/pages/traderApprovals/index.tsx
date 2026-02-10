@@ -137,7 +137,7 @@ export const TraderApprovals: React.FC = () => {
         language,
         filters: {
           org_id: orgId,
-          approval_status: filters.status === "ALL" ? undefined : filters.status || undefined,
+          mandi_approval_status: filters.status === "ALL" ? undefined : filters.status || undefined,
           mandi_id: filters.mandi_id || undefined,
           trader_username: filters.trader_username || undefined,
           requested_from: filters.requested_from || undefined,

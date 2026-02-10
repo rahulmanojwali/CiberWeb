@@ -171,6 +171,10 @@ export const FarmerApprovals: React.FC = () => {
   }, [canList, uiConfig.scope?.org_id, language]);
 
   useEffect(() => {
+    console.log("Farmer Approvals page loaded");
+  }, []);
+
+  useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.mandi_id, filters.farmer_username, filters.org_id, filters.requested_from, filters.requested_to]);

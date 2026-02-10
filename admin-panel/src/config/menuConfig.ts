@@ -709,6 +709,15 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
     },
     {
+      key: "farmerApprovals",
+      labelKey: "menu.farmerApprovals",
+      path: "/farmer-approvals",
+      icon: React.createElement(TaskAltOutlinedIcon),
+      resourceKey: "farmer_approvals.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    },
+    {
       key: "traders",
       labelKey: "menu.traders",
       path: "/traders",
@@ -719,7 +728,7 @@ export const APP_MENU: AppMenuItem[] = [
     },
     {
       key: "farmers",
-      labelKey: "menu.farmers",
+      labelKey: "menu.farmersDirectory",
       path: "/farmers",
       icon: React.createElement(BadgeOutlinedIcon),
       resourceKey: "farmers.menu",

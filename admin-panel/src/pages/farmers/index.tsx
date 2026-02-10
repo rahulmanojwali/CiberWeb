@@ -227,6 +227,10 @@ export const Farmers: React.FC = () => {
     canList,
   ]);
 
+  useEffect(() => {
+    console.log("Farmers Directory page loaded");
+  }, []);
+
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -243,7 +247,7 @@ export const Farmers: React.FC = () => {
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.farmers", { defaultValue: "Farmers" })}</Typography>
+          <Typography variant="h5">{t("menu.farmersDirectory", { defaultValue: "Farmers Directory" })}</Typography>
           <Typography variant="body2" color="text.secondary">
             Registry of farmer accounts with status management.
           </Typography>

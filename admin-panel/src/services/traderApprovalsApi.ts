@@ -22,13 +22,13 @@ export const approveTrader = async ({
   language = DEFAULT_LANGUAGE,
   trader_username,
   org_id,
-  mandis,
+  mandi_id,
 }: {
   username: string;
   language?: string;
   trader_username: string;
   org_id?: string;
-  mandis: Array<string | number>;
+  mandi_id: string | number;
 }) =>
   postEncrypted(API_ROUTES.admin.approveTrader, {
     api: API_TAGS.TRADER_APPROVALS.approve,
@@ -36,7 +36,7 @@ export const approveTrader = async ({
     language,
     trader_username,
     org_id,
-    mandis,
+    mandi_id,
   });
 
 export const rejectTrader = async ({
@@ -45,7 +45,7 @@ export const rejectTrader = async ({
   trader_username,
   reason,
   status,
-  mandis,
+  mandi_id,
   org_id,
 }: {
   username: string;
@@ -53,7 +53,7 @@ export const rejectTrader = async ({
   trader_username: string;
   reason: string;
   status?: string;
-  mandis?: Array<string | number>;
+  mandi_id?: string | number;
   org_id?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.rejectTrader, {
@@ -63,29 +63,7 @@ export const rejectTrader = async ({
     trader_username,
     reason,
     status,
-    mandis,
-    org_id,
-  });
-
-export const reactivateTrader = async ({
-  username,
-  language = DEFAULT_LANGUAGE,
-  trader_username,
-  mandis,
-  org_id,
-}: {
-  username: string;
-  language?: string;
-  trader_username: string;
-  mandis: Array<string | number>;
-  org_id?: string;
-}) =>
-  postEncrypted(API_ROUTES.admin.reactivateTrader, {
-    api: API_TAGS.TRADER_APPROVALS.reactivate,
-    username,
-    language,
-    trader_username,
-    mandis,
+    mandi_id,
     org_id,
   });
 
@@ -95,12 +73,14 @@ export const requestMoreInfoForTrader = async ({
   language = DEFAULT_LANGUAGE,
   trader_username,
   reason,
+  mandi_id,
   org_id,
 }: {
   username: string;
   language?: string;
   trader_username: string;
   reason: string;
+  mandi_id: string | number;
   org_id?: string;
 }) =>
   postEncrypted(API_ROUTES.admin.requestMoreInfoTrader, {
@@ -109,5 +89,6 @@ export const requestMoreInfoForTrader = async ({
     language,
     trader_username,
     reason,
+    mandi_id,
     org_id,
   });

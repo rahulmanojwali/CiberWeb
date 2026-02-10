@@ -60,7 +60,7 @@ export const FarmerApprovals: React.FC = () => {
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
-  const [selectedMandis, setSelectedMandis] = useState<string[]>([]);
+  const [selectedMandiId, setSelectedMandiId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoReason, setInfoReason] = useState("");
@@ -77,6 +77,15 @@ export const FarmerApprovals: React.FC = () => {
     });
     return map;
   }, [mandiOptions]);
+
+  const requestedMandisOptions = useMemo<Option[]>(() => {
+    if (!selectedRow || !Array.isArray(selectedRow.mandis)) return [];
+    return selectedRow.mandis.map((m: any) => {
+      const value = String(m?.mandi_id ?? "");
+      const label = mandiMap.get(value) || value;
+      return { value, label };
+    });
+  }, [selectedRow, mandiMap]);
 
   const loadMandis = async () => {
     const username = currentUsername();
@@ -165,12 +174,10 @@ export const FarmerApprovals: React.FC = () => {
                 color="success"
                 onClick={() => {
                   setSelectedRow(params.row);
-                  const active = Array.isArray(params.row?.mandis)
-                    ? params.row.mandis
-                        .filter((m: any) => String(m.is_active).toUpperCase() === "Y")
-                        .map((m: any) => String(m.mandi_id))
-                    : [];
-                  setSelectedMandis(active);
+                  const first = Array.isArray(params.row?.mandis) && params.row.mandis.length
+                    ? String(params.row.mandis[0].mandi_id ?? "")
+                    : "";
+                  setSelectedMandiId(first);
                   setApproveOpen(true);
                 }}
               >
@@ -184,6 +191,10 @@ export const FarmerApprovals: React.FC = () => {
                 onClick={() => {
                   setSelectedRow(params.row);
                   setInfoReason("");
+                  const first = Array.isArray(params.row?.mandis) && params.row.mandis.length
+                    ? String(params.row.mandis[0].mandi_id ?? "")
+                    : "";
+                  setSelectedMandiId(first);
                   setInfoOpen(true);
                 }}
               >
@@ -197,6 +208,10 @@ export const FarmerApprovals: React.FC = () => {
                 onClick={() => {
                   setSelectedRow(params.row);
                   setRejectReason("");
+                  const first = Array.isArray(params.row?.mandis) && params.row.mandis.length
+                    ? String(params.row.mandis[0].mandi_id ?? "")
+                    : "";
+                  setSelectedMandiId(first);
                   setRejectOpen(true);
                 }}
               >
@@ -282,16 +297,11 @@ export const FarmerApprovals: React.FC = () => {
           <Stack spacing={2} mt={1}>
             <TextField
               select
-              label="Mandis"
-              SelectProps={{ multiple: true }}
-              value={selectedMandis}
-              onChange={(e) =>
-                setSelectedMandis(
-                  typeof e.target.value === "string" ? e.target.value.split(",") : (e.target.value as string[]),
-                )
-              }
+              label="Mandi"
+              value={selectedMandiId}
+              onChange={(e) => setSelectedMandiId(String(e.target.value || ""))}
             >
-              {mandiOptions.map((m) => (
+              {requestedMandisOptions.map((m) => (
                 <MenuItem key={m.value} value={m.value}>
                   {m.label}
                 </MenuItem>
@@ -313,7 +323,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
-                  mandis: selectedMandis.map((id) => ({ mandi_id: id })),
+                  mandi_id: selectedMandiId,
                 },
               });
               setApproveOpen(false);
@@ -329,6 +339,18 @@ export const FarmerApprovals: React.FC = () => {
         <DialogTitle>Reject Farmer</DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={1}>
+            <TextField
+              select
+              label="Mandi"
+              value={selectedMandiId}
+              onChange={(e) => setSelectedMandiId(String(e.target.value || ""))}
+            >
+              {requestedMandisOptions.map((m) => (
+                <MenuItem key={m.value} value={m.value}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="Reason"
               value={rejectReason}
@@ -353,6 +375,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
+                  mandi_id: selectedMandiId,
                   reason: rejectReason,
                 },
               });
@@ -372,6 +395,18 @@ export const FarmerApprovals: React.FC = () => {
             <Typography variant="body2">
               Farmer: <strong>{selectedRow?.farmer_username}</strong>
             </Typography>
+            <TextField
+              select
+              label="Mandi"
+              value={selectedMandiId}
+              onChange={(e) => setSelectedMandiId(String(e.target.value || ""))}
+            >
+              {requestedMandisOptions.map((m) => (
+                <MenuItem key={m.value} value={m.value}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="Reason"
               fullWidth
@@ -398,6 +433,7 @@ export const FarmerApprovals: React.FC = () => {
                 payload: {
                   org_id: orgId,
                   farmer_username: selectedRow.farmer_username,
+                  mandi_id: selectedMandiId,
                   reason: infoReason,
                 },
               });

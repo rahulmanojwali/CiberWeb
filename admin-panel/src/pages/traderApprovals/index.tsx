@@ -55,6 +55,7 @@ export const TraderApprovals: React.FC = () => {
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
   const [selectedMandiId, setSelectedMandiId] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -89,9 +90,11 @@ export const TraderApprovals: React.FC = () => {
     if (orgStatus === "REJECTED") return "REJECTED";
     if (orgStatus === "PENDING") return "PENDING";
     const mandiStatus = String(mandi?.mandi_approval_status || "").toUpperCase();
+    if (mandiStatus === "APPROVED") {
+      return String(mandi?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
+    }
     if (mandiStatus === "MORE_INFO") return "MORE INFO";
     if (mandiStatus === "REJECTED") return "REJECTED";
-    if (mandiStatus === "APPROVED") return "APPROVED";
     return mandiStatus || "PENDING";
   };
 
@@ -178,53 +181,15 @@ export const TraderApprovals: React.FC = () => {
         sortable: false,
         renderCell: (params) => (
           <Stack direction="row" spacing={1} alignItems="center">
-            {canApprove && (
-              <Button
-                size="small"
-                color="success"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  const list = Array.isArray(params.row?.mandis) ? params.row.mandis : [];
-                  const pending = list.find((m: any) => String(m.mandi_approval_status).toUpperCase() === "PENDING");
-                  setSelectedMandiId(pending ? String(pending.mandi_id) : "");
-                  setApproveOpen(true);
-                }}
-              >
-                Approve
-              </Button>
-            )}
-            {canRequestInfo && (
-              <Button
-                size="small"
-                color="warning"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  const list = Array.isArray(params.row?.mandis) ? params.row.mandis : [];
-                  const pending = list.find((m: any) => String(m.mandi_approval_status).toUpperCase() === "PENDING");
-                  setSelectedMandiId(pending ? String(pending.mandi_id) : "");
-                  setInfoReason("");
-                  setInfoOpen(true);
-                }}
-              >
-                More Info
-              </Button>
-            )}
-            {canReject && (
-              <Button
-                size="small"
-                color="error"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  const list = Array.isArray(params.row?.mandis) ? params.row.mandis : [];
-                  const pending = list.find((m: any) => String(m.mandi_approval_status).toUpperCase() === "PENDING");
-                  setSelectedMandiId(pending ? String(pending.mandi_id) : "");
-                  setRejectReason("");
-                  setRejectOpen(true);
-                }}
-              >
-                Reject
-              </Button>
-            )}
+            <Button
+              size="small"
+              onClick={() => {
+                setSelectedRow(params.row);
+                setViewOpen(true);
+              }}
+            >
+              View
+            </Button>
           </Stack>
         ),
       },
@@ -271,7 +236,7 @@ export const TraderApprovals: React.FC = () => {
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="">All</MenuItem>
-            {mandiOptions.map((option) => (
+            {mandiOptions.map((option: Option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
               </MenuItem>
@@ -303,21 +268,9 @@ export const TraderApprovals: React.FC = () => {
             <Typography variant="body2">
               Trader: <strong>{selectedRow?.trader_username}</strong>
             </Typography>
-            <TextField
-              label="Mandi"
-              select
-              value={selectedMandiId}
-              onChange={(event) => setSelectedMandiId(String(event.target.value || ""))}
-              fullWidth
-            >
-              {requestedMandisOptions
-                .filter((option) => (option.status || "PENDING") === "PENDING")
-                .map((option: MandiOption) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-            </TextField>
+            <Typography variant="body2">
+              Mandi: <strong>{mandiMap.get(String(selectedMandiId)) || selectedMandiId}</strong>
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -354,21 +307,9 @@ export const TraderApprovals: React.FC = () => {
             <Typography variant="body2">
               Trader: <strong>{selectedRow?.trader_username}</strong>
             </Typography>
-            <TextField
-              label="Mandi"
-              select
-              value={selectedMandiId}
-              onChange={(event) => setSelectedMandiId(String(event.target.value || ""))}
-              fullWidth
-            >
-              {requestedMandisOptions
-                .filter((option) => (option.status || "PENDING") !== "APPROVED")
-                .map((option: MandiOption) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-            </TextField>
+            <Typography variant="body2">
+              Mandi: <strong>{mandiMap.get(String(selectedMandiId)) || selectedMandiId}</strong>
+            </Typography>
             <TextField
               label="Reason"
               fullWidth
@@ -416,21 +357,9 @@ export const TraderApprovals: React.FC = () => {
             <Typography variant="body2">
               Trader: <strong>{selectedRow?.trader_username}</strong>
             </Typography>
-            <TextField
-              label="Mandi"
-              select
-              value={selectedMandiId}
-              onChange={(event) => setSelectedMandiId(String(event.target.value || ""))}
-              fullWidth
-            >
-              {requestedMandisOptions
-                .filter((option) => (option.status || "PENDING") !== "APPROVED")
-                .map((option: MandiOption) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-            </TextField>
+            <Typography variant="body2">
+              Mandi: <strong>{mandiMap.get(String(selectedMandiId)) || selectedMandiId}</strong>
+            </Typography>
             <TextField
               label="Reason"
               fullWidth
@@ -467,6 +396,93 @@ export const TraderApprovals: React.FC = () => {
           >
             Send
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Trader Mandis</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <Typography variant="body2">
+              Trader: <strong>{selectedRow?.trader_username}</strong>
+            </Typography>
+            <Stack spacing={1}>
+              {(Array.isArray(selectedRow?.mandis) ? selectedRow.mandis : []).map((m: any) => {
+                const mandiId = String(m?.mandi_id ?? "");
+                const status = getMandiStatusLabel(m, selectedRow?.approval_status);
+                const canAct = ["PENDING", "MORE_INFO"].includes(String(m?.mandi_approval_status || "").toUpperCase());
+                return (
+                  <Box
+                    key={mandiId}
+                    sx={{ border: "1px solid #e0e0e0", borderRadius: 1, p: 1.5, display: "flex", flexDirection: "column", gap: 0.5 }}
+                  >
+                    <Typography variant="subtitle2">
+                      {mandiMap.get(mandiId) || mandiId} <Chip size="small" label={status} sx={{ ml: 1 }} />
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Requested: {formatDate(m.requested_on)} {m.requested_by ? `by ${m.requested_by}` : ""}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Approved: {formatDate(m.approved_on)} {m.approved_by ? `by ${m.approved_by}` : ""}
+                    </Typography>
+                    {m.request_more_info_reason && (
+                      <Typography variant="body2" color="text.secondary">
+                        More Info: {m.request_more_info_reason} {m.request_more_info_by ? `by ${m.request_more_info_by}` : ""}
+                      </Typography>
+                    )}
+                    {m.rejection_reason && (
+                      <Typography variant="body2" color="text.secondary">
+                        Rejected: {m.rejection_reason} {m.rejected_by ? `by ${m.rejected_by}` : ""}
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={1} mt={0.5}>
+                      {canApprove && canAct && (
+                        <Button
+                          size="small"
+                          color="success"
+                          onClick={() => {
+                            setSelectedMandiId(mandiId);
+                            setApproveOpen(true);
+                          }}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                      {canReject && canAct && (
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            setSelectedMandiId(mandiId);
+                            setRejectReason("");
+                            setRejectOpen(true);
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      )}
+                      {canRequestInfo && canAct && (
+                        <Button
+                          size="small"
+                          color="warning"
+                          onClick={() => {
+                            setSelectedMandiId(mandiId);
+                            setInfoReason("");
+                            setInfoOpen(true);
+                          }}
+                        >
+                          More Info
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

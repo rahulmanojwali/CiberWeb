@@ -84,8 +84,17 @@ export const FarmerApprovals: React.FC = () => {
   const selectedOrgLabel = useMemo(() => {
     if (isSuperAdmin && filters.org_id === "ALL") return "All";
     const match = orgOptions.find((o) => o.value === String(filters.org_id || ""));
-    return match?.label || String(filters.org_id || uiConfig.scope?.org_id || "");
-  }, [filters.org_id, isSuperAdmin, orgOptions, uiConfig.scope?.org_id]);
+    if (match?.label) return match.label;
+    const rowMatch = rows.find((r) => String(r?.org_id || "") === String(filters.org_id || ""));
+    return rowMatch?.org_name || String(filters.org_id || uiConfig.scope?.org_id || "");
+  }, [filters.org_id, isSuperAdmin, orgOptions, rows, uiConfig.scope?.org_id]);
+
+  const displayOrgLabel = useMemo(() => {
+    const rawId = String(filters.org_id || uiConfig.scope?.org_id || "");
+    if (!selectedOrgLabel) return "—";
+    if (selectedOrgLabel === rawId && rawId.length >= 12) return "—";
+    return selectedOrgLabel;
+  }, [filters.org_id, selectedOrgLabel, uiConfig.scope?.org_id]);
 
   const mandiMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -181,7 +190,14 @@ export const FarmerApprovals: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      const rows = Array.isArray(data?.items) ? data.items : [];
+    const rows = Array.isArray(data?.items) ? data.items : [];
+    if (!orgOptions.length && rows.length && !isSuperAdmin) {
+      const orgId = String(rows[0]?.org_id || "");
+      const orgName = rows[0]?.org_name || orgId;
+      if (orgId) {
+        setOrgOptions([{ value: orgId, label: orgName }]);
+      }
+    }
       console.log("UI_STEP3_FARMER_APPROVALS_LEN", {
         items: Array.isArray(data?.items) ? data.items.length : 0,
         used: rows.length,
@@ -299,7 +315,7 @@ export const FarmerApprovals: React.FC = () => {
             Approve or reject farmer requests for mandis.
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Organization: {selectedOrgLabel || "—"}
+            Organization: {displayOrgLabel}
           </Typography>
         </Stack>
       </Stack>

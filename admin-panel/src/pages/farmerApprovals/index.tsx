@@ -166,13 +166,8 @@ export const FarmerApprovals: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      const rows = Array.isArray(data?.rows) && data.rows.length
-        ? data.rows
-        : Array.isArray(data?.items)
-          ? data.items
-          : [];
+      const rows = Array.isArray(data?.items) ? data.items : [];
       console.log("UI_STEP3_FARMER_APPROVALS_LEN", {
-        rows: Array.isArray(data?.rows) ? data.rows.length : 0,
         items: Array.isArray(data?.items) ? data.items.length : 0,
         used: rows.length,
       });

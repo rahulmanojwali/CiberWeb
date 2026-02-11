@@ -19,6 +19,7 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
 import { useTranslation } from "react-i18next";
 import { normalizeLanguageCode } from "../../config/languages";
+import { API_ROUTES } from "../../config/appConfig";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
@@ -131,6 +132,18 @@ export const FarmerApprovals: React.FC = () => {
     if (!username || !orgId || !canList) return;
     setLoading(true);
     try {
+      console.log("STEP_UI_FARMER_APPROVALS endpoint=", API_ROUTES.admin.listFarmerApprovals, "payload=", {
+        username,
+        language,
+        org_id: orgId,
+        mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
+        mandi_id: filters.mandi_id || undefined,
+        farmer_username: filters.farmer_username || undefined,
+        requested_from: filters.requested_from || undefined,
+        requested_to: filters.requested_to || undefined,
+        page: 1,
+        limit: 100,
+      });
       const resp = await listFarmerApprovalRequests({
         username,
         language,

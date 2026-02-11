@@ -58,7 +58,7 @@ export const FarmerApprovals: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [filters, setFilters] = useState({
-    status: "ALL",
+    status: "PENDING",
     org_id: "",
     mandi_id: "",
     farmer_username: "",
@@ -89,14 +89,11 @@ export const FarmerApprovals: React.FC = () => {
   }, [mandiOptions]);
 
   const mandiStatusLabel = (row: any) => {
-    const mandiStatus = String(row?.mandi_approval_status || "").toUpperCase();
-    if (mandiStatus === "APPROVED") {
-      return String(row?.is_active || "").toUpperCase() === "Y" ? "LINKED" : "UNLINKED";
-    }
+    const mandiStatus = String(row?.mandi_approval_status || "PENDING").toUpperCase();
     if (mandiStatus === "MORE_INFO") return "MORE INFO";
     if (mandiStatus === "REJECTED") return "REJECTED";
-    if (mandiStatus === "PENDING") return "PENDING";
-    return mandiStatus || "PENDING";
+    if (mandiStatus === "APPROVED") return "APPROVED";
+    return "PENDING";
   };
 
   const loadOrgs = async () => {
@@ -263,7 +260,7 @@ export const FarmerApprovals: React.FC = () => {
 
       <Box mb={2}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {["ALL", "LINKED", "UNLINKED", "PENDING", "MORE_INFO", "REJECTED", "SUSPENDED"].map((s) => (
+            {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
             <Chip
               key={s}
               label={s}

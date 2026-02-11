@@ -594,7 +594,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "menu_name": "Farmers Registry",
     "name_source": "screen",
     "i18n_key": "menu.farmers",
-    "route": "/farmers",
+    "route": "/farmer-approvals",
     "icon_key": "farmers",
     "order": 122,
     "metadata_group": "main_sidebar",

@@ -156,6 +156,14 @@ export const FarmerApprovals: React.FC = () => {
     if (!username || (!orgId && !(isSuperAdmin && orgIdRaw === "ALL")) || !canList) return;
     setLoading(true);
     try {
+      const requestedFrom =
+        filters.requested_from && filters.requested_from.trim()
+          ? `${filters.requested_from}T00:00:00.000Z`
+          : undefined;
+      const requestedTo =
+        filters.requested_to && filters.requested_to.trim()
+          ? `${filters.requested_to}T23:59:59.999Z`
+          : undefined;
       console.log("UI_STEP1_FARMER_APPROVALS_CALL", {
         endpoint: API_ROUTES.admin.listFarmerApprovals,
         apiName: API_TAGS.FARMER_APPROVALS.list,
@@ -170,8 +178,8 @@ export const FarmerApprovals: React.FC = () => {
         mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
         mandi_id: filters.mandi_id || undefined,
         farmer_username: filters.farmer_username || undefined,
-        requested_from: filters.requested_from || undefined,
-        requested_to: filters.requested_to || undefined,
+        requested_from: requestedFrom,
+        requested_to: requestedTo,
         page: 1,
         limit: 100,
       });
@@ -183,8 +191,8 @@ export const FarmerApprovals: React.FC = () => {
           mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
           mandi_id: filters.mandi_id || undefined,
           farmer_username: filters.farmer_username || undefined,
-          requested_from: filters.requested_from || undefined,
-          requested_to: filters.requested_to || undefined,
+          requested_from: requestedFrom,
+          requested_to: requestedTo,
           page: 1,
           limit: 100,
         },
@@ -398,6 +406,13 @@ export const FarmerApprovals: React.FC = () => {
               sx={{ minWidth: 170 }}
               InputLabelProps={{ shrink: true }}
             />
+            <Button
+              variant="outlined"
+              onClick={loadData}
+              sx={{ minWidth: 120 }}
+            >
+              Refresh
+            </Button>
           </Stack>
         </Box>
 

@@ -132,8 +132,14 @@ export const FarmerApprovals: React.FC = () => {
     if (!username || !orgId || !canList) return;
     setLoading(true);
     try {
-      console.log("FARMER_APPROVALS_UI endpoint=", API_ROUTES.admin.listFarmerApprovals, "apiName=", API_TAGS.FARMER_APPROVALS.list);
-      console.log("FARMER_APPROVALS_UI payload=", {
+      console.log("UI_STEP1_FARMER_APPROVALS_CALL", {
+        endpoint: API_ROUTES.admin.listFarmerApprovals,
+        apiName: API_TAGS.FARMER_APPROVALS.list,
+        org_id: orgId,
+        page: 1,
+        limit: 100,
+      });
+      console.log("UI_STEP1_FARMER_APPROVALS_PAYLOAD", {
         username,
         language,
         org_id: orgId,
@@ -160,13 +166,17 @@ export const FarmerApprovals: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      if (Array.isArray(data?.rows)) {
-        setRows(data.rows);
-      } else if (Array.isArray(data?.items)) {
-        setRows(data.items);
-      } else {
-        setRows([]);
-      }
+      const rows = Array.isArray(data?.rows) && data.rows.length
+        ? data.rows
+        : Array.isArray(data?.items)
+          ? data.items
+          : [];
+      console.log("UI_STEP3_FARMER_APPROVALS_LEN", {
+        rows: Array.isArray(data?.rows) ? data.rows.length : 0,
+        items: Array.isArray(data?.items) ? data.items.length : 0,
+        used: rows.length,
+      });
+      setRows(rows);
     } finally {
       setLoading(false);
     }
@@ -182,8 +192,12 @@ export const FarmerApprovals: React.FC = () => {
   }, [canList, uiConfig.scope?.org_id, language]);
 
   useEffect(() => {
-    console.log("[FarmerApprovals] canList =", canList);
-    console.log("[FarmerApprovals] org_id =", filters.org_id, "scope org_id =", uiConfig.scope?.org_id);
+    console.log("UI_STEP4_CANLIST", {
+      canList,
+      permKey: "farmer_approvals.list",
+      org_id: filters.org_id,
+      scope_org_id: uiConfig.scope?.org_id,
+    });
   }, [canList, filters.org_id, uiConfig.scope?.org_id]);
 
   useEffect(() => {

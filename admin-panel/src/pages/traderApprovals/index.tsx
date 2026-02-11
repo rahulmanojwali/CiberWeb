@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -47,6 +46,7 @@ export const TraderApprovals: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const { can } = usePermissions();
+  const isSuperAdmin = uiConfig.role === "SUPER_ADMIN";
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +75,21 @@ export const TraderApprovals: React.FC = () => {
   const canReject = useMemo(() => can("trader_approvals.reject", "REJECT"), [can]);
   const canRequestInfo = useMemo(() => can("trader_approvals.request_more_info", "REQUEST_MORE_INFO"), [can]);
 
+  const selectedOrgLabel = useMemo(() => {
+    if (isSuperAdmin && filters.org_id === "ALL") return "All";
+    const match = orgOptions.find((o) => o.value === String(filters.org_id || ""));
+    if (match?.label) return match.label;
+    const rowMatch = rows.find((r) => String(r?.org_id || "") === String(filters.org_id || ""));
+    return rowMatch?.org_name || String(filters.org_id || uiConfig.scope?.org_id || "");
+  }, [filters.org_id, isSuperAdmin, orgOptions, rows, uiConfig.scope?.org_id]);
+
+  const displayOrgLabel = useMemo(() => {
+    const rawId = String(filters.org_id || uiConfig.scope?.org_id || "");
+    if (!selectedOrgLabel) return "—";
+    if (selectedOrgLabel === rawId && rawId.length >= 12) return "—";
+    return selectedOrgLabel;
+  }, [filters.org_id, selectedOrgLabel, uiConfig.scope?.org_id]);
+
   const mandiMap = useMemo(() => {
     const map = new Map<string, string>();
     mandiOptions.forEach((m) => {
@@ -102,15 +117,23 @@ export const TraderApprovals: React.FC = () => {
       label: o.org_name || o.name || String(o.org_id || ""),
     }));
     setOrgOptions(options);
-    if (!filters.org_id && uiConfig.scope?.org_id) {
-      setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+    if (!filters.org_id) {
+      if (isSuperAdmin) {
+        setFilters((prev) => ({ ...prev, org_id: "ALL" }));
+      } else if (uiConfig.scope?.org_id) {
+        setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+      }
     }
   };
 
   const loadMandis = async () => {
     const username = currentUsername();
-    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
-    if (!username || !orgId) return;
+    const orgIdRaw = filters.org_id || uiConfig.scope?.org_id || "";
+    const orgId = isSuperAdmin && orgIdRaw === "ALL" ? "" : orgIdRaw;
+    if (!username || !orgId) {
+      setMandiOptions([]);
+      return;
+    }
     const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
     setMandiOptions(
       (list || []).map((m: any) => ({
@@ -122,32 +145,43 @@ export const TraderApprovals: React.FC = () => {
 
   const loadData = async () => {
     const username = currentUsername();
-    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
-    if (!username || !orgId || !canList) return;
+    const orgIdRaw = filters.org_id || uiConfig.scope?.org_id || "";
+    const orgId = isSuperAdmin && orgIdRaw === "ALL" ? "" : orgIdRaw;
+    if (!username || (!orgId && !(isSuperAdmin && orgIdRaw === "ALL")) || !canList) return;
     setLoading(true);
     try {
+      const requestedFrom =
+        filters.requested_from && filters.requested_from.trim()
+          ? `${filters.requested_from}T00:00:00.000Z`
+          : undefined;
+      const requestedTo =
+        filters.requested_to && filters.requested_to.trim()
+          ? `${filters.requested_to}T23:59:59.999Z`
+          : undefined;
       const resp = await getTraderApprovals({
         username,
         language,
         filters: {
-          org_id: orgId,
+          org_id: orgId || undefined,
           mandi_approval_status: filters.status === "ALL" ? undefined : filters.status || undefined,
           mandi_id: filters.mandi_id || undefined,
           trader_username: filters.trader_username || undefined,
-          requested_from: filters.requested_from || undefined,
-          requested_to: filters.requested_to || undefined,
+          requested_from: requestedFrom,
+          requested_to: requestedTo,
           page: 1,
           limit: 100,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      if (Array.isArray(data?.rows)) {
-        setRows(data.rows);
-      } else if (Array.isArray(data?.items)) {
-        setRows(data.items);
-      } else {
-        setRows([]);
+      const nextRows = Array.isArray(data?.items) ? data.items : [];
+      if (!orgOptions.length && nextRows.length && !isSuperAdmin) {
+        const orgId = String(nextRows[0]?.org_id || "");
+        const orgName = nextRows[0]?.org_name || orgId;
+        if (orgId) {
+          setOrgOptions([{ value: orgId, label: orgName }]);
+        }
       }
+      setRows(nextRows);
     } finally {
       setLoading(false);
     }
@@ -251,29 +285,30 @@ export const TraderApprovals: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Approve or reject trader requests for mandis.
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Organization: {displayOrgLabel}
+          </Typography>
         </Stack>
       </Stack>
 
       <Box mb={2}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              color={filters.status === s ? "primary" : "default"}
-              onClick={() => setFilters((prev) => ({ ...prev, status: s }))}
-              size="small"
-            />
-          ))}
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center" flexWrap="wrap">
           <TextField
             label="Org"
             select
             size="small"
             value={filters.org_id}
-            onChange={(event) => setFilters((prev) => ({ ...prev, org_id: String(event.target.value || "") }))}
+            onChange={(event) =>
+              setFilters((prev) => ({
+                ...prev,
+                org_id: String(event.target.value || ""),
+                mandi_id: "",
+              }))
+            }
             sx={{ minWidth: 220 }}
+            disabled={!isSuperAdmin}
           >
-            <MenuItem value="">All Orgs</MenuItem>
+            {isSuperAdmin && <MenuItem value="ALL">All Orgs</MenuItem>}
             {orgOptions.map((option: Option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
@@ -292,6 +327,22 @@ export const TraderApprovals: React.FC = () => {
             {mandiOptions.map((option: Option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Approval Status"
+            select
+            size="small"
+            value={filters.status}
+            onChange={(event) =>
+              setFilters((prev) => ({ ...prev, status: String(event.target.value || "ALL") }))
+            }
+            sx={{ minWidth: 190 }}
+          >
+            {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
+              <MenuItem key={s} value={s}>
+                {s === "ALL" ? "All" : s}
               </MenuItem>
             ))}
           </TextField>
@@ -320,6 +371,9 @@ export const TraderApprovals: React.FC = () => {
             sx={{ minWidth: 170 }}
             InputLabelProps={{ shrink: true }}
           />
+          <Button variant="outlined" onClick={loadData} sx={{ minWidth: 120 }}>
+            Refresh
+          </Button>
         </Stack>
       </Box>
 
@@ -357,7 +411,7 @@ export const TraderApprovals: React.FC = () => {
                 username,
                 language,
                 trader_username: selectedRow.trader_username,
-                org_id: uiConfig.scope?.org_id || undefined,
+                org_id: selectedRow?.org_id || uiConfig.scope?.org_id || undefined,
                 mandi_id: selectedMandiId,
               });
               setApproveOpen(false);
@@ -407,7 +461,7 @@ export const TraderApprovals: React.FC = () => {
                 reason: rejectReason,
                 status: "REJECTED",
                 mandi_id: selectedMandiId,
-                org_id: uiConfig.scope?.org_id || undefined,
+                org_id: selectedRow?.org_id || uiConfig.scope?.org_id || undefined,
               });
               setRejectOpen(false);
               setSelectedRow(null);
@@ -456,7 +510,7 @@ export const TraderApprovals: React.FC = () => {
                 trader_username: selectedRow.trader_username,
                 reason: infoReason,
                 mandi_id: selectedMandiId,
-                org_id: uiConfig.scope?.org_id || undefined,
+                org_id: selectedRow?.org_id || uiConfig.scope?.org_id || undefined,
               });
               setInfoOpen(false);
               setSelectedRow(null);

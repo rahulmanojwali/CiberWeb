@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -53,6 +52,7 @@ export const FarmerApprovals: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
   const { can } = usePermissions();
+  const isSuperAdmin = uiConfig.role === "SUPER_ADMIN";
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,6 +81,12 @@ export const FarmerApprovals: React.FC = () => {
   const canReject = useMemo(() => can("farmer_approvals.reject", "REJECT"), [can]);
   const canRequestInfo = useMemo(() => can("farmer_approvals.request_more_info", "REQUEST_MORE_INFO"), [can]);
 
+  const selectedOrgLabel = useMemo(() => {
+    if (isSuperAdmin && filters.org_id === "ALL") return "All";
+    const match = orgOptions.find((o) => o.value === String(filters.org_id || ""));
+    return match?.label || String(filters.org_id || uiConfig.scope?.org_id || "");
+  }, [filters.org_id, isSuperAdmin, orgOptions, uiConfig.scope?.org_id]);
+
   const mandiMap = useMemo(() => {
     const map = new Map<string, string>();
     mandiOptions.forEach((m) => {
@@ -108,15 +114,23 @@ export const FarmerApprovals: React.FC = () => {
       label: o.org_name || o.name || String(o.org_id || ""),
     }));
     setOrgOptions(options);
-    if (!filters.org_id && uiConfig.scope?.org_id) {
-      setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+    if (!filters.org_id) {
+      if (isSuperAdmin) {
+        setFilters((prev) => ({ ...prev, org_id: "ALL" }));
+      } else if (uiConfig.scope?.org_id) {
+        setFilters((prev) => ({ ...prev, org_id: String(uiConfig.scope?.org_id) }));
+      }
     }
   };
 
   const loadMandis = async () => {
     const username = currentUsername();
-    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
-    if (!username || !orgId) return;
+    const orgIdRaw = filters.org_id || uiConfig.scope?.org_id || "";
+    const orgId = isSuperAdmin && orgIdRaw === "ALL" ? "" : orgIdRaw;
+    if (!username || !orgId) {
+      setMandiOptions([]);
+      return;
+    }
     const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
     setMandiOptions(
       (list || []).map((m: any) => ({
@@ -128,21 +142,22 @@ export const FarmerApprovals: React.FC = () => {
 
   const loadData = async () => {
     const username = currentUsername();
-    const orgId = filters.org_id || uiConfig.scope?.org_id || "";
-    if (!username || !orgId || !canList) return;
+    const orgIdRaw = filters.org_id || uiConfig.scope?.org_id || "";
+    const orgId = isSuperAdmin && orgIdRaw === "ALL" ? "" : orgIdRaw;
+    if (!username || (!orgId && !(isSuperAdmin && orgIdRaw === "ALL")) || !canList) return;
     setLoading(true);
     try {
       console.log("UI_STEP1_FARMER_APPROVALS_CALL", {
         endpoint: API_ROUTES.admin.listFarmerApprovals,
         apiName: API_TAGS.FARMER_APPROVALS.list,
-        org_id: orgId,
+        org_id: orgId || undefined,
         page: 1,
         limit: 100,
       });
       console.log("UI_STEP1_FARMER_APPROVALS_PAYLOAD", {
         username,
         language,
-        org_id: orgId,
+        org_id: orgId || undefined,
         mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
         mandi_id: filters.mandi_id || undefined,
         farmer_username: filters.farmer_username || undefined,
@@ -155,7 +170,7 @@ export const FarmerApprovals: React.FC = () => {
         username,
         language,
         filters: {
-          org_id: orgId,
+          org_id: orgId || undefined,
           mandi_approval_status: filters.status === "ALL" ? undefined : filters.status,
           mandi_id: filters.mandi_id || undefined,
           farmer_username: filters.farmer_username || undefined,
@@ -283,30 +298,33 @@ export const FarmerApprovals: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Approve or reject farmer requests for mandis.
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Organization: {selectedOrgLabel || "—"}
+          </Typography>
         </Stack>
       </Stack>
 
       <Box mb={2}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              color={filters.status === s ? "primary" : "default"}
-              onClick={() => setFilters((prev) => ({ ...prev, status: s }))}
-              variant={filters.status === s ? "filled" : "outlined"}
-            />
-            ))}
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="center" flexWrap="wrap">
             <TextField
               select
               label="Org"
               value={filters.org_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  org_id: String(e.target.value || ""),
+                  mandi_id: "",
+                }))
+              }
               sx={{ minWidth: 220 }}
+              disabled={!isSuperAdmin}
             >
-              <MenuItem value="">
-                <em>All Orgs</em>
-              </MenuItem>
+              {isSuperAdmin && (
+                <MenuItem value="ALL">
+                  <em>All Orgs</em>
+                </MenuItem>
+              )}
               {orgOptions.map((o) => (
                 <MenuItem key={o.value} value={o.value}>
                   {o.label}
@@ -329,6 +347,19 @@ export const FarmerApprovals: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+            <TextField
+              select
+              label="Approval Status"
+              value={filters.status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "ALL") }))}
+              sx={{ minWidth: 190 }}
+            >
+              {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s === "ALL" ? "All" : s}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="Farmer Mobile/Username"
               value={filters.farmer_username}

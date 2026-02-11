@@ -168,6 +168,11 @@ export const FarmerApprovals: React.FC = () => {
   }, [canList, uiConfig.scope?.org_id, language]);
 
   useEffect(() => {
+    console.log("[FarmerApprovals] canList =", canList);
+    console.log("[FarmerApprovals] org_id =", filters.org_id, "scope org_id =", uiConfig.scope?.org_id);
+  }, [canList, filters.org_id, uiConfig.scope?.org_id]);
+
+  useEffect(() => {
     console.log("Farmer Approvals page loaded");
   }, []);
 

@@ -163,6 +163,11 @@ export const TraderApprovals: React.FC = () => {
   }, [canList, uiConfig.scope?.org_id, language]);
 
   useEffect(() => {
+    console.log("[TraderApprovals] canList =", canList);
+    console.log("[TraderApprovals] org_id =", filters.org_id, "scope org_id =", uiConfig.scope?.org_id);
+  }, [canList, filters.org_id, uiConfig.scope?.org_id]);
+
+  useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.mandi_id, filters.trader_username, filters.org_id, filters.requested_from, filters.requested_to]);

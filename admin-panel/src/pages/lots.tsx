@@ -29,6 +29,7 @@ type LotRow = {
   token_code: string;
   mandi_name: string | number | null;
   gate_code: string | null;
+  party_username?: string | null;
   commodity_product_id: string | null;
   bags: number | null;
   weight_kg: number | null;
@@ -138,6 +139,7 @@ export const Lots: React.FC = () => {
           item.mandi_id ||
           null,
         gate_code: item.gate_code || item.gate || null,
+        party_username: item.party?.username || item.party_username || item.party_ref || null,
         commodity_product_id:
           item.commodity_product_id ||
           item.commodity_product_code ||
@@ -192,6 +194,7 @@ export const Lots: React.FC = () => {
       { field: "token_code", headerName: "Token Code", width: 180 },
       { field: "mandi_name", headerName: "Mandi", width: 160 },
       { field: "gate_code", headerName: "Gate", width: 120 },
+      { field: "party_username", headerName: "Party", width: 180 },
       { field: "commodity_product_id", headerName: "Commodity Product", width: 180 },
       { field: "bags", headerName: "Bags", width: 120 },
       { field: "weight_kg", headerName: "Weight (kg)", width: 140 },
@@ -202,23 +205,8 @@ export const Lots: React.FC = () => {
         width: 190,
         valueFormatter: (value) => formatDate(value),
       },
-      {
-        field: "details",
-        headerName: "Details",
-        width: 120,
-        sortable: false,
-        renderCell: (params) => (
-          <Button
-            size="small"
-            onClick={() => handleOpenDetail(params.row)}
-            disabled={!canViewDetail}
-          >
-            View
-          </Button>
-        ),
-      },
     ],
-    [canViewDetail, handleOpenDetail],
+    [],
   );
 
   const refreshDetail = async () => {
@@ -342,6 +330,7 @@ export const Lots: React.FC = () => {
           loading={loading}
           getRowId={(r) => r.id || r.token_code}
           disableRowSelectionOnClick
+          onRowClick={(params) => handleOpenDetail(params.row as LotRow)}
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           minWidth={960}

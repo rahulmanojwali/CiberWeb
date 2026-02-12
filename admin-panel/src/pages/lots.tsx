@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -6,7 +6,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -17,7 +22,7 @@ import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
-import { fetchLotDetail, fetchLots } from "../services/lotsApi";
+import { fetchLotDetail, fetchLots, mapLotToAuction, updateLotStatus } from "../services/lotsApi";
 
 type LotRow = {
   id: string;
@@ -49,6 +54,37 @@ function formatDate(value?: string | Date | null) {
   return d.toLocaleString();
 }
 
+function normalizeStatus(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+const STATUS_OPTIONS = [
+  "CREATED",
+  "WEIGHMENT_LOCKED",
+  "VERIFIED",
+  "MAPPED_TO_AUCTION",
+  "IN_AUCTION",
+  "SOLD",
+  "UNSOLD",
+  "DISPATCHED",
+  "CLOSED",
+  "CANCELLED",
+  "SETTLEMENT_PENDING",
+  "SETTLED",
+];
+
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  CREATED: ["WEIGHMENT_LOCKED", "CANCELLED"],
+  WEIGHMENT_LOCKED: ["VERIFIED", "CANCELLED"],
+  VERIFIED: ["MAPPED_TO_AUCTION", "CANCELLED"],
+  MAPPED_TO_AUCTION: ["IN_AUCTION", "CANCELLED"],
+  IN_AUCTION: ["SOLD", "UNSOLD"],
+  SOLD: ["DISPATCHED", "SETTLEMENT_PENDING"],
+  UNSOLD: ["CLOSED"],
+  DISPATCHED: ["CLOSED"],
+  SETTLEMENT_PENDING: ["SETTLED"],
+};
+
 export const Lots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -58,42 +94,35 @@ export const Lots: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [detail, setDetail] = useState<any>(null);
+  const [events, setEvents] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
+  const [auctionId, setAuctionId] = useState("");
+  const [auctionCode, setAuctionCode] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [mandiFilter, setMandiFilter] = useState("");
+  const [tokenFilter, setTokenFilter] = useState("");
 
   const canView = useMemo(
     () => can(uiConfig.resources, "lots.list", "VIEW"),
     [uiConfig.resources],
   );
-
-  const columns = useMemo<GridColDef<LotRow>[]>(
-    () => [
-      { field: "token_code", headerName: "Token Code", width: 180 },
-      { field: "mandi_name", headerName: "Mandi", width: 160 },
-      { field: "gate_code", headerName: "Gate", width: 120 },
-      { field: "commodity_product_id", headerName: "Commodity Product", width: 180 },
-      { field: "bags", headerName: "Bags", width: 120 },
-      { field: "weight_kg", headerName: "Weight (kg)", width: 140 },
-      { field: "status", headerName: "Status", width: 140 },
-      {
-        field: "created_on",
-        headerName: "Created On",
-        width: 190,
-        valueFormatter: (value) => formatDate(value),
-      },
-      {
-        field: "details",
-        headerName: "Details",
-        width: 120,
-        sortable: false,
-        renderCell: (params) => (
-          <Button size="small" onClick={() => handleOpenDetail(params.row)}>
-            View
-          </Button>
-        ),
-      },
-    ],
-    [],
+  const canViewDetail = useMemo(
+    () => can(uiConfig.resources, "lots.detail", "VIEW"),
+    [uiConfig.resources],
+  );
+  const canUpdateStatus = useMemo(
+    () => can(uiConfig.resources, "lots.update_status", "UPDATE"),
+    [uiConfig.resources],
+  );
+  const canMapToAuction = useMemo(
+    () => can(uiConfig.resources, "lots.map_to_auction", "UPDATE"),
+    [uiConfig.resources],
   );
 
   const loadData = async () => {
@@ -104,7 +133,12 @@ export const Lots: React.FC = () => {
       const resp = await fetchLots({
         username,
         language,
-        filters: { page_size: 100 },
+        filters: {
+          page_size: 100,
+          status: statusFilter || undefined,
+          mandi_id: mandiFilter || undefined,
+          token_code: tokenFilter || undefined,
+        },
       });
       const list = resp?.data?.items || resp?.response?.data?.items || [];
       const mapped: LotRow[] = list.map((item: any, idx: number) => ({
@@ -134,12 +168,14 @@ export const Lots: React.FC = () => {
     }
   };
 
-  const handleOpenDetail = async (row: LotRow) => {
+  const handleOpenDetail = useCallback(async (row: LotRow) => {
     const username = currentUsername();
-    if (!username) return;
+    if (!username || !canViewDetail) return;
     setSelectedRow(row);
     setDetail(null);
     setDetailError(null);
+    setActionError(null);
+    setEvents([]);
     setDetailLoading(true);
     try {
       const resp = await fetchLotDetail({
@@ -154,8 +190,9 @@ export const Lots: React.FC = () => {
         setDetailError(desc || "Unable to load lot detail.");
         setDetail(null);
       } else {
-        const payload = resp?.data?.item || resp?.response?.data?.item || resp?.data || resp?.response?.data;
-        setDetail(payload || row.raw || null);
+        const payload = resp?.data || resp?.response?.data || {};
+        setDetail(payload?.lot || payload?.item || payload || row.raw || null);
+        setEvents(payload?.events || []);
       }
     } catch (err: any) {
       setDetailError(err?.message || "Unable to load lot detail.");
@@ -163,11 +200,110 @@ export const Lots: React.FC = () => {
     } finally {
       setDetailLoading(false);
     }
+  }, [canViewDetail, language]);
+
+  const columns = useMemo<GridColDef<LotRow>[]>(
+    () => [
+      { field: "token_code", headerName: "Token Code", width: 180 },
+      { field: "mandi_name", headerName: "Mandi", width: 160 },
+      { field: "gate_code", headerName: "Gate", width: 120 },
+      { field: "commodity_product_id", headerName: "Commodity Product", width: 180 },
+      { field: "bags", headerName: "Bags", width: 120 },
+      { field: "weight_kg", headerName: "Weight (kg)", width: 140 },
+      { field: "status", headerName: "Status", width: 140 },
+      {
+        field: "created_on",
+        headerName: "Created On",
+        width: 190,
+        valueFormatter: (value) => formatDate(value),
+      },
+      {
+        field: "details",
+        headerName: "Details",
+        width: 120,
+        sortable: false,
+        renderCell: (params) => (
+          <Button
+            size="small"
+            onClick={() => handleOpenDetail(params.row)}
+            disabled={!canViewDetail}
+          >
+            View
+          </Button>
+        ),
+      },
+    ],
+    [canViewDetail, handleOpenDetail],
+  );
+
+  const isTransitionAllowed = (from: string, to: string) => {
+    const current = normalizeStatus(from);
+    const allowed = ALLOWED_TRANSITIONS[current] || [];
+    return allowed.includes(to);
+  };
+
+  const refreshDetail = async () => {
+    if (!selectedRow) return;
+    await handleOpenDetail(selectedRow);
+    await loadData();
+  };
+
+  const runStatusUpdate = async (toStatus: string, reason?: string) => {
+    const username = currentUsername();
+    if (!username || !selectedRow) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp = await updateLotStatus({
+        username,
+        language,
+        lot_id: selectedRow.id,
+        to_status: toStatus,
+        reason,
+      });
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "";
+      if (code !== "0") {
+        setActionError(desc || "Unable to update lot status.");
+        return;
+      }
+      await refreshDetail();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const runMapToAuction = async () => {
+    const username = currentUsername();
+    if (!username || !selectedRow) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp = await mapLotToAuction({
+        username,
+        language,
+        lot_id: selectedRow.id,
+        auction_id: auctionId || undefined,
+        auction_code: auctionCode || undefined,
+      });
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "";
+      if (code !== "0") {
+        setActionError(desc || "Unable to map lot to auction.");
+        return;
+      }
+      setMapDialogOpen(false);
+      setAuctionId("");
+      setAuctionCode("");
+      await refreshDetail();
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [language, canView]);
+  }, [language, canView, statusFilter, mandiFilter, tokenFilter]);
 
   if (!canView) {
     return (
@@ -186,9 +322,38 @@ export const Lots: React.FC = () => {
             Live lots linked to gate tokens (read-only).
           </Typography>
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              {STATUS_OPTIONS.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Mandi ID"
+            size="small"
+            value={mandiFilter}
+            onChange={(e) => setMandiFilter(e.target.value)}
+          />
+          <TextField
+            label="Token Code"
+            size="small"
+            value={tokenFilter}
+            onChange={(e) => setTokenFilter(e.target.value)}
+          />
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Box sx={{ width: "100%" }}>
@@ -210,24 +375,180 @@ export const Lots: React.FC = () => {
           {detailLoading && <Typography>Loading...</Typography>}
           {detailError && <Typography color="error">{detailError}</Typography>}
           {!detailLoading && !detailError && (
-            <Box
-              component="pre"
-              sx={{
-                p: 2,
-                bgcolor: "background.default",
-                borderRadius: 1,
-                border: "1px solid",
-                borderColor: "divider",
-                overflow: "auto",
-                fontSize: 12,
-              }}
-            >
-              {JSON.stringify(detail || selectedRow?.raw || {}, null, 2)}
-            </Box>
+            <Stack spacing={2}>
+              {actionError && <Typography color="error">{actionError}</Typography>}
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "WEIGHMENT_LOCKED") && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => runStatusUpdate("WEIGHMENT_LOCKED")}
+                    disabled={actionLoading}
+                  >
+                    Lock Weighment
+                  </Button>
+                )}
+                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "VERIFIED") && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => runStatusUpdate("VERIFIED")}
+                    disabled={actionLoading}
+                  >
+                    Verify
+                  </Button>
+                )}
+                {detail && canMapToAuction && isTransitionAllowed(detail.status, "MAPPED_TO_AUCTION") && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => setMapDialogOpen(true)}
+                    disabled={actionLoading}
+                  >
+                    Map to Auction
+                  </Button>
+                )}
+                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "DISPATCHED") && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => runStatusUpdate("DISPATCHED")}
+                    disabled={actionLoading}
+                  >
+                    Mark Dispatched
+                  </Button>
+                )}
+                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "CLOSED") && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => runStatusUpdate("CLOSED")}
+                    disabled={actionLoading}
+                  >
+                    Close
+                  </Button>
+                )}
+                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "CANCELLED") && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={() => setCancelDialogOpen(true)}
+                    disabled={actionLoading}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </Stack>
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Timeline
+                </Typography>
+                {events.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No events yet.
+                  </Typography>
+                )}
+                {events.length > 0 && (
+                  <Stack spacing={1}>
+                    {events.map((event, idx) => (
+                      <Box key={event._id || idx} sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+                        <Typography variant="body2">
+                          {event.event_type || "EVENT"}: {event.from_status || ""} → {event.to_status || ""}
+                        </Typography>
+                        {event.reason && (
+                          <Typography variant="body2" color="text.secondary">
+                            Reason: {event.reason}
+                          </Typography>
+                        )}
+                        {event.created_on && (
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(event.created_on)}
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+              <Box
+                component="pre"
+                sx={{
+                  p: 2,
+                  bgcolor: "background.default",
+                  borderRadius: 1,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  overflow: "auto",
+                  fontSize: 12,
+                }}
+              >
+                {JSON.stringify(detail || selectedRow?.raw || {}, null, 2)}
+              </Box>
+            </Stack>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedRow(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Cancel Lot</DialogTitle>
+        <DialogContent dividers>
+          <TextField
+            label="Reason"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            fullWidth
+            multiline
+            minRows={3}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)}>Back</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!cancelReason.trim() || actionLoading}
+            onClick={async () => {
+              setCancelDialogOpen(false);
+              await runStatusUpdate("CANCELLED", cancelReason.trim());
+              setCancelReason("");
+            }}
+          >
+            Confirm Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={mapDialogOpen} onClose={() => setMapDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Map Lot to Auction</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <TextField
+              label="Auction ID"
+              value={auctionId}
+              onChange={(e) => setAuctionId(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Auction Code"
+              value={auctionCode}
+              onChange={(e) => setAuctionCode(e.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMapDialogOpen(false)}>Back</Button>
+          <Button
+            variant="contained"
+            disabled={actionLoading || (!auctionId.trim() && !auctionCode.trim())}
+            onClick={runMapToAuction}
+          >
+            Map
+          </Button>
         </DialogActions>
       </Dialog>
     </PageContainer>

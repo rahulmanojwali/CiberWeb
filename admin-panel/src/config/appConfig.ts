@@ -148,8 +148,10 @@ export const API_TAGS = {
     },
   },
   LOTS: {
-    list: "getLots",
+    list: "getLotList",
     detail: "getLotDetail",
+    update_status: "updateLotStatus",
+    map_to_auction: "mapLotToAuction",
   },
   PRE_MARKET_LISTINGS: {
     create: "create_Pre_Market_Listing01",
@@ -526,8 +528,10 @@ export const API_ROUTES = {
     getAuctionSessions: "/admin/getAuctionSessions",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
-    getLots: "/admin/getLots",
+    getLotList: "/admin/getLotList",
     getLotDetail: "/admin/getLotDetail",
+    updateLotStatus: "/admin/updateLotStatus",
+    mapLotToAuction: "/admin/mapLotToAuction",
     createPreMarketListing: "/admin/createPreMarketListing",
     listPreMarketListings: "/admin/listPreMarketListings",
     getPreMarketListingDetail: "/admin/getPreMarketListingDetail",

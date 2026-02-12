@@ -10,7 +10,7 @@ export const fetchLots = async ({
   language?: string;
   filters?: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.getLots, {
+  postEncrypted(API_ROUTES.admin.getLotList, {
     api: API_TAGS.LOTS.list,
     username,
     language,
@@ -34,4 +34,54 @@ export const fetchLotDetail = async ({
     language,
     lot_id,
     token_code,
+  });
+
+export const updateLotStatus = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  lot_id,
+  to_status,
+  reason,
+  meta,
+}: {
+  username: string;
+  language?: string;
+  lot_id: string;
+  to_status: string;
+  reason?: string;
+  meta?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.updateLotStatus, {
+    api: API_TAGS.LOTS.update_status,
+    username,
+    language,
+    lot_id,
+    to_status,
+    reason,
+    meta,
+  });
+
+export const mapLotToAuction = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  lot_id,
+  auction_id,
+  auction_code,
+  meta,
+}: {
+  username: string;
+  language?: string;
+  lot_id: string;
+  auction_id?: string;
+  auction_code?: string;
+  meta?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.mapLotToAuction, {
+    api: API_TAGS.LOTS.map_to_auction,
+    username,
+    language,
+    lot_id,
+    auction_id,
+    auction_code,
+    meta,
   });

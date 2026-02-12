@@ -66,6 +66,9 @@ export const FarmerApprovals: React.FC = () => {
     requested_from: "",
     requested_to: "",
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -110,6 +113,15 @@ export const FarmerApprovals: React.FC = () => {
     if (mandiStatus === "REJECTED") return "REJECTED";
     if (mandiStatus === "APPROVED") return "APPROVED";
     return "PENDING";
+  };
+
+  const linkStateLabel = (row: any) => {
+    const status = String(row?.mandi_approval_status || "").toUpperCase();
+    if (status !== "APPROVED") return "-";
+    const active = String(row?.is_active || "").toUpperCase();
+    if (active === "Y" || active === "TRUE") return "LINKED";
+    if (active === "N" || active === "FALSE") return "UNLINKED";
+    return "UNLINKED";
   };
 
   const loadOrgs = async () => {
@@ -168,8 +180,8 @@ export const FarmerApprovals: React.FC = () => {
         endpoint: API_ROUTES.admin.listFarmerApprovals,
         apiName: API_TAGS.FARMER_APPROVALS.list,
         org_id: orgId || undefined,
-        page: 1,
-        limit: 100,
+        page,
+        limit: pageSize,
       });
       console.log("UI_STEP1_FARMER_APPROVALS_PAYLOAD", {
         username,
@@ -180,8 +192,8 @@ export const FarmerApprovals: React.FC = () => {
         farmer_username: filters.farmer_username || undefined,
         requested_from: requestedFrom,
         requested_to: requestedTo,
-        page: 1,
-        limit: 100,
+        page,
+        limit: pageSize,
       });
       const resp = await listFarmerApprovalRequests({
         username,
@@ -193,12 +205,13 @@ export const FarmerApprovals: React.FC = () => {
           farmer_username: filters.farmer_username || undefined,
           requested_from: requestedFrom,
           requested_to: requestedTo,
-          page: 1,
-          limit: 100,
+          page,
+          limit: pageSize,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
     const rows = Array.isArray(data?.items) ? data.items : [];
+    const total = Number(data?.total_records || 0);
     if (!orgOptions.length && rows.length && !isSuperAdmin) {
       const orgId = String(rows[0]?.org_id || "");
       const orgName = rows[0]?.org_name || orgId;
@@ -211,6 +224,7 @@ export const FarmerApprovals: React.FC = () => {
         used: rows.length,
       });
       setRows(rows);
+      setTotalRecords(Number.isFinite(total) ? total : 0);
     } finally {
       setLoading(false);
     }
@@ -241,7 +255,7 @@ export const FarmerApprovals: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.mandi_id, filters.farmer_username, filters.org_id, filters.requested_from, filters.requested_to]);
+  }, [filters.status, filters.mandi_id, filters.farmer_username, filters.org_id, filters.requested_from, filters.requested_to, page, pageSize]);
 
   useEffect(() => {
     loadMandis();
@@ -269,6 +283,12 @@ export const FarmerApprovals: React.FC = () => {
         headerName: "Status",
         width: 140,
         valueGetter: (value, row) => mandiStatusLabel(row),
+      },
+      {
+        field: "link_state",
+        headerName: "Link",
+        width: 120,
+        valueGetter: (value, row) => linkStateLabel(row),
       },
       {
         field: "requested_on",
@@ -334,13 +354,14 @@ export const FarmerApprovals: React.FC = () => {
               select
               label="Org"
               value={filters.org_id}
-              onChange={(e) =>
+              onChange={(e) => {
                 setFilters((prev) => ({
                   ...prev,
                   org_id: String(e.target.value || ""),
                   mandi_id: "",
-                }))
-              }
+                }));
+                setPage(1);
+              }}
               sx={{ minWidth: 220 }}
               disabled={!isSuperAdmin}
             >
@@ -359,7 +380,10 @@ export const FarmerApprovals: React.FC = () => {
               select
               label="Mandi"
               value={filters.mandi_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, mandi_id: e.target.value }));
+                setPage(1);
+              }}
               sx={{ minWidth: 200 }}
           >
             <MenuItem value="">
@@ -375,7 +399,10 @@ export const FarmerApprovals: React.FC = () => {
               select
               label="Approval Status"
               value={filters.status}
-              onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "ALL") }))}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, status: String(e.target.value || "ALL") }));
+                setPage(1);
+              }}
               sx={{ minWidth: 190 }}
             >
               {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
@@ -387,14 +414,20 @@ export const FarmerApprovals: React.FC = () => {
             <TextField
               label="Farmer Mobile/Username"
               value={filters.farmer_username}
-              onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, farmer_username: e.target.value }));
+                setPage(1);
+              }}
               sx={{ minWidth: 220 }}
             />
             <TextField
               label="From"
               type="date"
               value={filters.requested_from}
-              onChange={(e) => setFilters((prev) => ({ ...prev, requested_from: e.target.value }))}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, requested_from: e.target.value }));
+                setPage(1);
+              }}
               sx={{ minWidth: 170 }}
               InputLabelProps={{ shrink: true }}
             />
@@ -402,7 +435,10 @@ export const FarmerApprovals: React.FC = () => {
               label="To"
               type="date"
               value={filters.requested_to}
-              onChange={(e) => setFilters((prev) => ({ ...prev, requested_to: e.target.value }))}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, requested_to: e.target.value }));
+                setPage(1);
+              }}
               sx={{ minWidth: 170 }}
               InputLabelProps={{ shrink: true }}
             />
@@ -423,6 +459,14 @@ export const FarmerApprovals: React.FC = () => {
           loading={loading}
           getRowId={(r) => `${r?._id || "row"}_${r?.mandi_id || "mandi"}`}
           disableRowSelectionOnClick
+          paginationMode="server"
+          rowCount={totalRecords}
+          paginationModel={{ page: page - 1, pageSize }}
+          onPaginationModelChange={(model) => {
+            const nextPage = model.page + 1;
+            setPage(nextPage);
+            setPageSize(model.pageSize);
+          }}
           pageSizeOptions={[10, 25, 50, 100]}
         />
       </Box>
@@ -442,7 +486,7 @@ export const FarmerApprovals: React.FC = () => {
             variant="contained"
             onClick={async () => {
               const username = currentUsername();
-              const orgId = uiConfig.scope?.org_id || "";
+              const orgId = String(selectedRow?.org_id || uiConfig.scope?.org_id || "");
               if (!username || !orgId || !selectedRow) return;
               await approveFarmerForMandis({
                 username,
@@ -485,7 +529,7 @@ export const FarmerApprovals: React.FC = () => {
             color="error"
             onClick={async () => {
               const username = currentUsername();
-              const orgId = uiConfig.scope?.org_id || "";
+              const orgId = String(selectedRow?.org_id || uiConfig.scope?.org_id || "");
               if (!username || !orgId || !selectedRow) return;
               await rejectFarmerApproval({
                 username,
@@ -534,7 +578,7 @@ export const FarmerApprovals: React.FC = () => {
             disabled={!selectedRow || !infoReason}
             onClick={async () => {
               const username = currentUsername();
-              const orgId = uiConfig.scope?.org_id || "";
+              const orgId = String(selectedRow?.org_id || uiConfig.scope?.org_id || "");
               if (!username || !selectedRow || !orgId) return;
               await requestMoreInfoFarmer({
                 username,

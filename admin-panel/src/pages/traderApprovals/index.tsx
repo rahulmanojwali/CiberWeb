@@ -60,6 +60,9 @@ export const TraderApprovals: React.FC = () => {
     requested_from: "",
     requested_to: "",
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -104,6 +107,15 @@ export const TraderApprovals: React.FC = () => {
     if (mandiStatus === "REJECTED") return "REJECTED";
     if (mandiStatus === "APPROVED") return "APPROVED";
     return "PENDING";
+  };
+
+  const linkStateLabel = (row: any) => {
+    const status = String(row?.mandi_approval_status || "").toUpperCase();
+    if (status !== "APPROVED") return "-";
+    const active = String(row?.is_active || "").toUpperCase();
+    if (active === "Y" || active === "TRUE") return "LINKED";
+    if (active === "N" || active === "FALSE") return "UNLINKED";
+    return "UNLINKED";
   };
 
   const loadOrgs = async () => {
@@ -168,12 +180,13 @@ export const TraderApprovals: React.FC = () => {
           trader_username: filters.trader_username || undefined,
           requested_from: requestedFrom,
           requested_to: requestedTo,
-          page: 1,
-          limit: 100,
+          page,
+          limit: pageSize,
         },
       });
       const data = resp?.data || resp?.response?.data || {};
       const nextRows = Array.isArray(data?.items) ? data.items : [];
+      const total = Number(data?.total_records || 0);
       if (!orgOptions.length && nextRows.length && !isSuperAdmin) {
         const orgId = String(nextRows[0]?.org_id || "");
         const orgName = nextRows[0]?.org_name || orgId;
@@ -182,6 +195,7 @@ export const TraderApprovals: React.FC = () => {
         }
       }
       setRows(nextRows);
+      setTotalRecords(Number.isFinite(total) ? total : 0);
     } finally {
       setLoading(false);
     }
@@ -204,7 +218,7 @@ export const TraderApprovals: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.mandi_id, filters.trader_username, filters.org_id, filters.requested_from, filters.requested_to]);
+  }, [filters.status, filters.mandi_id, filters.trader_username, filters.org_id, filters.requested_from, filters.requested_to, page, pageSize]);
 
   useEffect(() => {
     loadMandis();
@@ -232,6 +246,12 @@ export const TraderApprovals: React.FC = () => {
         headerName: "Status",
         width: 140,
         valueGetter: (value, row) => getMandiStatusLabel(row),
+      },
+      {
+        field: "link_state",
+        headerName: "Link",
+        width: 120,
+        valueGetter: (value, row) => linkStateLabel(row),
       },
       {
         field: "requested_on",
@@ -298,13 +318,14 @@ export const TraderApprovals: React.FC = () => {
             select
             size="small"
             value={filters.org_id}
-            onChange={(event) =>
+            onChange={(event) => {
               setFilters((prev) => ({
                 ...prev,
                 org_id: String(event.target.value || ""),
                 mandi_id: "",
-              }))
-            }
+              }));
+              setPage(1);
+            }}
             sx={{ minWidth: 220 }}
             disabled={!isSuperAdmin}
           >
@@ -320,7 +341,10 @@ export const TraderApprovals: React.FC = () => {
             select
             size="small"
             value={filters.mandi_id}
-            onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
+            onChange={(event) => {
+              setFilters((prev) => ({ ...prev, mandi_id: event.target.value }));
+              setPage(1);
+            }}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="">All</MenuItem>
@@ -335,9 +359,10 @@ export const TraderApprovals: React.FC = () => {
             select
             size="small"
             value={filters.status}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, status: String(event.target.value || "ALL") }))
-            }
+            onChange={(event) => {
+              setFilters((prev) => ({ ...prev, status: String(event.target.value || "ALL") }));
+              setPage(1);
+            }}
             sx={{ minWidth: 190 }}
           >
             {["ALL", "PENDING", "MORE_INFO", "APPROVED", "REJECTED"].map((s) => (
@@ -350,7 +375,10 @@ export const TraderApprovals: React.FC = () => {
             label="Trader"
             size="small"
             value={filters.trader_username}
-            onChange={(event) => setFilters((prev) => ({ ...prev, trader_username: event.target.value }))}
+            onChange={(event) => {
+              setFilters((prev) => ({ ...prev, trader_username: event.target.value }));
+              setPage(1);
+            }}
             sx={{ minWidth: 200 }}
           />
           <TextField
@@ -358,7 +386,10 @@ export const TraderApprovals: React.FC = () => {
             type="date"
             size="small"
             value={filters.requested_from}
-            onChange={(event) => setFilters((prev) => ({ ...prev, requested_from: event.target.value }))}
+            onChange={(event) => {
+              setFilters((prev) => ({ ...prev, requested_from: event.target.value }));
+              setPage(1);
+            }}
             sx={{ minWidth: 170 }}
             InputLabelProps={{ shrink: true }}
           />
@@ -367,7 +398,10 @@ export const TraderApprovals: React.FC = () => {
             type="date"
             size="small"
             value={filters.requested_to}
-            onChange={(event) => setFilters((prev) => ({ ...prev, requested_to: event.target.value }))}
+            onChange={(event) => {
+              setFilters((prev) => ({ ...prev, requested_to: event.target.value }));
+              setPage(1);
+            }}
             sx={{ minWidth: 170 }}
             InputLabelProps={{ shrink: true }}
           />
@@ -383,7 +417,15 @@ export const TraderApprovals: React.FC = () => {
         columns={columns}
         loading={loading}
         getRowId={(row) => `${row?._id || "row"}_${row?.mandi_id || "mandi"}`}
-        pageSizeOptions={[10, 25, 50]}
+        paginationMode="server"
+        rowCount={totalRecords}
+        paginationModel={{ page: page - 1, pageSize }}
+        onPaginationModelChange={(model) => {
+          const nextPage = model.page + 1;
+          setPage(nextPage);
+          setPageSize(model.pageSize);
+        }}
+        pageSizeOptions={[10, 25, 50, 100]}
       />
 
       <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullWidth maxWidth="sm">

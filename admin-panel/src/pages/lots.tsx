@@ -73,18 +73,6 @@ const STATUS_OPTIONS = [
   "SETTLED",
 ];
 
-const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  CREATED: ["WEIGHMENT_LOCKED", "CANCELLED"],
-  WEIGHMENT_LOCKED: ["VERIFIED", "CANCELLED"],
-  VERIFIED: ["MAPPED_TO_AUCTION", "CANCELLED"],
-  MAPPED_TO_AUCTION: ["IN_AUCTION", "CANCELLED"],
-  IN_AUCTION: ["SOLD", "UNSOLD"],
-  SOLD: ["DISPATCHED", "SETTLEMENT_PENDING"],
-  UNSOLD: ["CLOSED"],
-  DISPATCHED: ["CLOSED"],
-  SETTLEMENT_PENDING: ["SETTLED"],
-};
-
 export const Lots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -94,7 +82,6 @@ export const Lots: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [detail, setDetail] = useState<any>(null);
-  const [events, setEvents] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -175,7 +162,6 @@ export const Lots: React.FC = () => {
     setDetail(null);
     setDetailError(null);
     setActionError(null);
-    setEvents([]);
     setDetailLoading(true);
     try {
       const resp = await fetchLotDetail({
@@ -192,7 +178,6 @@ export const Lots: React.FC = () => {
       } else {
         const payload = resp?.data || resp?.response?.data || {};
         setDetail(payload?.lot || payload?.item || payload || row.raw || null);
-        setEvents(payload?.events || []);
       }
     } catch (err: any) {
       setDetailError(err?.message || "Unable to load lot detail.");
@@ -235,12 +220,6 @@ export const Lots: React.FC = () => {
     ],
     [canViewDetail, handleOpenDetail],
   );
-
-  const isTransitionAllowed = (from: string, to: string) => {
-    const current = normalizeStatus(from);
-    const allowed = ALLOWED_TRANSITIONS[current] || [];
-    return allowed.includes(to);
-  };
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -378,7 +357,7 @@ export const Lots: React.FC = () => {
             <Stack spacing={2}>
               {actionError && <Typography color="error">{actionError}</Typography>}
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "WEIGHMENT_LOCKED") && (
+                {detail && canUpdateStatus && normalizeStatus(detail.status) === "CREATED" && (
                   <Button
                     size="small"
                     variant="contained"
@@ -388,7 +367,7 @@ export const Lots: React.FC = () => {
                     Lock Weighment
                   </Button>
                 )}
-                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "VERIFIED") && (
+                {detail && canUpdateStatus && normalizeStatus(detail.status) === "WEIGHMENT_LOCKED" && (
                   <Button
                     size="small"
                     variant="contained"
@@ -398,7 +377,7 @@ export const Lots: React.FC = () => {
                     Verify
                   </Button>
                 )}
-                {detail && canMapToAuction && isTransitionAllowed(detail.status, "MAPPED_TO_AUCTION") && (
+                {detail && canMapToAuction && normalizeStatus(detail.status) === "VERIFIED" && (
                   <Button
                     size="small"
                     variant="contained"
@@ -408,27 +387,7 @@ export const Lots: React.FC = () => {
                     Map to Auction
                   </Button>
                 )}
-                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "DISPATCHED") && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => runStatusUpdate("DISPATCHED")}
-                    disabled={actionLoading}
-                  >
-                    Mark Dispatched
-                  </Button>
-                )}
-                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "CLOSED") && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => runStatusUpdate("CLOSED")}
-                    disabled={actionLoading}
-                  >
-                    Close
-                  </Button>
-                )}
-                {detail && canUpdateStatus && isTransitionAllowed(detail.status, "CANCELLED") && (
+                {detail && canUpdateStatus && normalizeStatus(detail.status) === "CREATED" && (
                   <Button
                     size="small"
                     variant="outlined"
@@ -440,18 +399,42 @@ export const Lots: React.FC = () => {
                   </Button>
                 )}
               </Stack>
+              {detail && (
+                <Box>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Lot Detail
+                  </Typography>
+                  <Stack spacing={0.5}>
+                    <Typography variant="body2">
+                      Status: {detail.status || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      Token Code: {detail.token_code || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      Commodity: {detail.commodity_id || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      Commodity Product: {detail.commodity_product_id || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      Quantity: {detail?.quantity?.bags ?? "N/A"} bags / {detail?.quantity?.weight_kg ?? "N/A"} kg
+                    </Typography>
+                  </Stack>
+                </Box>
+              )}
               <Box>
                 <Typography variant="subtitle1" gutterBottom>
                   Timeline
                 </Typography>
-                {events.length === 0 && (
+                {(!detail?.events || detail.events.length === 0) && (
                   <Typography variant="body2" color="text.secondary">
                     No events yet.
                   </Typography>
                 )}
-                {events.length > 0 && (
+                {detail?.events && detail.events.length > 0 && (
                   <Stack spacing={1}>
-                    {events.map((event, idx) => (
+                    {detail.events.map((event: any, idx: number) => (
                       <Box key={event._id || idx} sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
                         <Typography variant="body2">
                           {event.event_type || "EVENT"}: {event.from_status || ""} → {event.to_status || ""}
@@ -461,9 +444,9 @@ export const Lots: React.FC = () => {
                             Reason: {event.reason}
                           </Typography>
                         )}
-                        {event.created_on && (
+                        {event.ts && (
                           <Typography variant="caption" color="text.secondary">
-                            {formatDate(event.created_on)}
+                            {formatDate(event.ts)}
                           </Typography>
                         )}
                       </Box>

@@ -95,7 +95,8 @@ type GateState = "ALLOWED" | "CHECKING" | "BLOCKED";
 export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { ui_resources, resources: compatResources } = useAdminUiConfig();
+  const uiConfig = useAdminUiConfig();
+  const { ui_resources, resources: compatResources } = uiConfig;
   const { isLocked, ensureStepUp } = useStepUp();
 
   const resources = React.useMemo<UiResource[]>(() => {
@@ -111,6 +112,32 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({ c
       const baseKey = resolveResourceKeyForPath(pathname, resources);
       const stepupKey = resolveStepupKeyVariant(baseKey, isLocked);
       const locked = Boolean(stepupKey);
+
+      if (normalizePath(pathname) === "/auction-lots") {
+        const allowedKeys = resources
+          .map((r) => canonicalizeResourceKey(r.resource_key))
+          .filter(Boolean);
+        console.info("[RBAC_ROUTE_GUARD]", {
+          path: pathname,
+          role: uiConfig?.role || "unknown",
+          roles: uiConfig?.permissions || [],
+          required_key: baseKey || "unknown",
+          allowed_resource_keys: allowedKeys,
+        });
+      }
+
+      if (normalizePath(pathname) === "/lots") {
+        const allowedKeys = resources
+          .map((r) => canonicalizeResourceKey(r.resource_key))
+          .filter(Boolean);
+        console.info("[RBAC_ROUTE_GUARD]", {
+          path: pathname,
+          role: uiConfig?.role || "unknown",
+          roles: uiConfig?.permissions || [],
+          required_key: baseKey || "unknown",
+          allowed_resource_keys: allowedKeys,
+        });
+      }
 
       console.info("[STEPUP_UI]", {
         path: pathname,

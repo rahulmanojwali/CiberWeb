@@ -95,18 +95,22 @@ const ResourceRegistryPage: React.FC = () => {
     }
     try {
       setLoading(true);
+      const key = String(editing.resource_key || "").toLowerCase();
+      const normalizeForStatusKey =
+        key.endsWith(".update_status") ||
+        key.endsWith(".arrive") ||
+        key.endsWith(".cancel") ||
+        key.endsWith(".complete");
       const normalizedEntry: RegistryEntry = {
         ...editing,
-        allowed_actions:
-          editing.resource_key && editing.resource_key.toLowerCase().endsWith(".update_status")
-            ? Array.from(
-                new Set(
-                  (editing.allowed_actions || []).map((a) =>
-                    String(a || "").toUpperCase() === "UPDATE_STATUS" ? "UPDATE" : String(a || "").toUpperCase(),
-                  ),
-                ),
-              ).filter(Boolean)
-            : (editing.allowed_actions || []).map((a) => String(a || "").toUpperCase()).filter(Boolean),
+        allowed_actions: Array.from(
+          new Set(
+            (editing.allowed_actions || [])
+              .map((a) => String(a || "").toUpperCase())
+              .map((a) => (normalizeForStatusKey && a === "UPDATE_STATUS" ? "UPDATE" : a))
+              .filter(Boolean),
+          ),
+        ),
       };
       console.log("RM_SAVE_PAYLOAD_DEBUG", {
         canonicalKey: normalizedEntry.resource_key,

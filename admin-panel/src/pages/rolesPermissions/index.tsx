@@ -350,6 +350,25 @@ const RolesPermissionsPage: React.FC = () => {
     const mapped: { resource_key: string; actions: string[] }[] = [];
     entries.forEach((p) => {
       const normKey = normalizeKey(p.resource_key);
+      const normalizeActionsForSubmit = (key: string, actions: string[]) => {
+        const lowerKey = String(key || "").toLowerCase();
+        const shouldNormalize =
+          lowerKey.endsWith(".update_status") ||
+          lowerKey.endsWith(".arrive") ||
+          lowerKey.endsWith(".cancel") ||
+          lowerKey.endsWith(".complete");
+        if (!shouldNormalize) {
+          return Array.from(new Set(actions.map((a) => String(a || "").toUpperCase()).filter(Boolean)));
+        }
+        return Array.from(
+          new Set(
+            actions
+              .map((a) => String(a || "").toUpperCase())
+              .map((a) => (a === "UPDATE_STATUS" ? "UPDATE" : a))
+              .filter(Boolean),
+          ),
+        );
+      };
       let key = normKey;
       if (!resourcesByKey[key]) {
         if (key.endsWith(".edit")) {
@@ -372,7 +391,7 @@ const RolesPermissionsPage: React.FC = () => {
       );
       const normActions = Array.from(
         new Set(
-          (p.actions || []).map((a) => {
+          normalizeActionsForSubmit(key, p.actions || []).map((a) => {
             const upper = String(a || "").toUpperCase();
             if (upper === "EDIT") return "UPDATE";
             const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];

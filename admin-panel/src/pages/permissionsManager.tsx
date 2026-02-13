@@ -68,7 +68,6 @@ const ACTION_ORDER = [
   "DEACTIVATE",
   "DELETE",
   "RESET_PASSWORD",
-  "UPDATE_STATUS",
   "BULK_UPLOAD",
   "APPROVE",
   "REJECT",
@@ -84,7 +83,6 @@ const ACTION_COLORS: Record<string, "default" | "primary" | "success" | "warning
   DEACTIVATE: "error",
   DELETE: "error",
   RESET_PASSWORD: "warning",
-  UPDATE_STATUS: "warning",
   BULK_UPLOAD: "success",
   APPROVE: "success",
   REJECT: "error",
@@ -181,6 +179,26 @@ function normalizeActionsForSave(
   return { actions: final, dropped, mapped };
 }
 
+function normalizeActionsForSubmit(resourceKey: string, actions: string[]): string[] {
+  const key = normalizeKey(resourceKey);
+  const shouldNormalize =
+    key.endsWith(".update_status") ||
+    key.endsWith(".arrive") ||
+    key.endsWith(".cancel") ||
+    key.endsWith(".complete");
+  if (!shouldNormalize) {
+    return Array.from(new Set(actions.map((a) => String(a || "").toUpperCase()).filter(Boolean)));
+  }
+  return Array.from(
+    new Set(
+      actions
+        .map((a) => String(a || "").toUpperCase())
+        .map((a) => (a === "UPDATE_STATUS" ? "UPDATE" : a))
+        .filter(Boolean),
+    ),
+  );
+}
+
 export const PermissionsManager: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
 
@@ -207,8 +225,14 @@ export const PermissionsManager: React.FC = () => {
       if (!key) return;
       const action = normalizeAction(entry.action_code || "");
       if (!action) return;
+      const shouldNormalize =
+        key.endsWith(".update_status") ||
+        key.endsWith(".arrive") ||
+        key.endsWith(".cancel") ||
+        key.endsWith(".complete");
+      const normalizedAction = shouldNormalize && action === "UPDATE_STATUS" ? "UPDATE" : action;
       if (!map.has(key)) map.set(key, new Set());
-      map.get(key)!.add(action);
+      map.get(key)!.add(normalizedAction);
     });
     return map;
   }, [catalog]);
@@ -293,7 +317,15 @@ export const PermissionsManager: React.FC = () => {
       }
 
       const action = normalizeAction(entry.action_code || "");
-      if (action) map.get(key)!.actions.add(action);
+      if (action) {
+        const shouldNormalize =
+          key.endsWith(".update_status") ||
+          key.endsWith(".arrive") ||
+          key.endsWith(".cancel") ||
+          key.endsWith(".complete");
+        const normalizedAction = shouldNormalize && action === "UPDATE_STATUS" ? "UPDATE" : action;
+        map.get(key)!.actions.add(normalizedAction);
+      }
     });
 
     const list: CatalogEntry[] = Array.from(map.values()).map((entry) => ({
@@ -595,7 +627,8 @@ export const PermissionsManager: React.FC = () => {
         if (mapped.length) mappedSummary.push({ resource_key, mapped });
         if (dropped.length) droppedSummary.push({ resource_key, dropped });
 
-        if (actions.length) permissions.push({ resource_key, actions });
+        const normalizedActions = normalizeActionsForSubmit(resource_key, actions);
+        if (normalizedActions.length) permissions.push({ resource_key, actions: normalizedActions });
       }
 
       // Debug: log but DO NOT block
@@ -890,7 +923,11 @@ export const PermissionsManager: React.FC = () => {
                             const color = ACTION_COLORS[action] || "default";
                             const isDanger = ["DEACTIVATE", "DELETE", "REJECT"].includes(action);
                             const variant = isDanger ? "filled" : "outlined";
-                            const labelText = action.split("_").join(" ");
+                            const keyLower = String(entry.resource_key || "").toLowerCase();
+                            let labelText = action.split("_").join(" ");
+                            if (action === "UPDATE" && keyLower.endsWith(".update_status")) {
+                              labelText = "Update Status";
+                            }
 
                             return (
                               <Box

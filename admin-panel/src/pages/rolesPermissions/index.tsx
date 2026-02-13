@@ -692,10 +692,25 @@ const RolesPermissionsPage: React.FC = () => {
             </TableHead>
             <TableBody>
               {filteredResources.map((r) => {
-                const allowedActions = Array.from(new Set((r.allowed_actions || []).map((a: string) => {
-                    const up = String(a || "").toUpperCase();
-                    return up;
-                  })));
+                const allowedActionValues = Array.from(
+                  new Set(
+                    (r.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()).filter(Boolean),
+                  ),
+                );
+                const allowedActions = allowedActionValues
+                  .map((action) => {
+                    if (action === "UPDATE_STATUS") {
+                      return { value: "UPDATE", label: "Update Status" };
+                    }
+                    if (action === "UPDATE" && String(r.resource_key || "").toLowerCase().endsWith(".update_status")) {
+                      return { value: "UPDATE", label: "Update Status" };
+                    }
+                    return { value: action, label: action };
+                  })
+                  .reduce((acc: Array<{ value: string; label: string }>, entry) => {
+                    if (!acc.find((e) => e.value === entry.value)) acc.push(entry);
+                    return acc;
+                  }, []);
                 const granted = rolePermsLookup[r.resource_key] || new Set<string>();
                 return (
                   <TableRow key={r.resource_key}>
@@ -719,13 +734,15 @@ const RolesPermissionsPage: React.FC = () => {
                     <TableCell>{r.module || "-"}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {allowedActions.map((action: string) => (
+                        {allowedActions.map((action) => (
                           <Chip
-                            key={`${r.resource_key}-${action}`}
-                            label={action}
-                            color={granted.has(action) ? "primary" : "default"}
-                            variant={granted.has(action) ? "filled" : "outlined"}
-                            onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
+                            key={`${r.resource_key}-${action.value}`}
+                            label={action.label}
+                            color={granted.has(action.value) ? "primary" : "default"}
+                            variant={granted.has(action.value) ? "filled" : "outlined"}
+                            onClick={() =>
+                              toggleAction(r.resource_key, action.value, !granted.has(action.value))
+                            }
                             sx={{ cursor: "pointer" }}
                           />
                         ))}

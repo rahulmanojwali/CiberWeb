@@ -23,7 +23,7 @@ import { fetchResourceRegistry, updateResourceRegistry } from "../../services/re
 import { ActionGate } from "../../authz/ActionGate";
 import { usePermissions } from "../../authz/usePermissions";
 import { useRecordLock } from "../../authz/isRecordLocked";
-import { StepUpGuard } from "../../components/StepUpGuard";
+import { StepUpGuard } from "../../components/StepUpGuard" ;
 
 type RegistryEntry = {
   resource_key: string;
@@ -95,7 +95,20 @@ const ResourceRegistryPage: React.FC = () => {
     }
     try {
       setLoading(true);
-      const resp = await updateResourceRegistry({ username, entries: [editing] });
+      const normalizedEntry: RegistryEntry = {
+        ...editing,
+        allowed_actions:
+          editing.resource_key && editing.resource_key.toLowerCase().endsWith(".update_status")
+            ? Array.from(
+                new Set(
+                  (editing.allowed_actions || []).map((a) =>
+                    String(a || "").toUpperCase() === "UPDATE_STATUS" ? "UPDATE" : String(a || "").toUpperCase(),
+                  ),
+                ),
+              ).filter(Boolean)
+            : (editing.allowed_actions || []).map((a) => String(a || "").toUpperCase()).filter(Boolean),
+      };
+      const resp = await updateResourceRegistry({ username, entries: [normalizedEntry] });
       console.info("[RESOURCE_REGISTRY_SAVE] resp=", resp);
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Registry updated.", { variant: "success" });

@@ -108,6 +108,10 @@ const ResourceRegistryPage: React.FC = () => {
               ).filter(Boolean)
             : (editing.allowed_actions || []).map((a) => String(a || "").toUpperCase()).filter(Boolean),
       };
+      console.log("RM_SAVE_PAYLOAD_DEBUG", {
+        canonicalKey: normalizedEntry.resource_key,
+        actions: normalizedEntry.allowed_actions,
+      });
       const resp = await updateResourceRegistry({ username, entries: [normalizedEntry] });
       console.info("[RESOURCE_REGISTRY_SAVE] resp=", resp);
       if (resp?.response?.responsecode === "0") {

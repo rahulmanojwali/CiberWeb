@@ -119,6 +119,21 @@ export const AuctionLots: React.FC = () => {
     );
   };
 
+  const isObjectId = (v: string) => /^[a-f\d]{24}$/i.test(v);
+  const isIntString = (v: string) => /^\d+$/.test(v);
+  const parseDecimal = (v: any): string | number | null => {
+    if (v == null) return null;
+    if (typeof v === "number") return v;
+    if (typeof v === "string") {
+      const n = Number(v);
+      return Number.isFinite(n) ? v : null;
+    }
+    if (typeof v === "object" && v.$numberDecimal) {
+      return String(v.$numberDecimal);
+    }
+    return null;
+  };
+
   const loadData = async () => {
     const username = currentUsername();
     if (!username || !canView) return;
@@ -128,8 +143,16 @@ export const AuctionLots: React.FC = () => {
         username,
         language,
         filters: {
-          org_code: filters.org_code || undefined,
-          mandi_code: filters.mandi_code || undefined,
+          org_id: filters.org_code && isObjectId(filters.org_code) ? filters.org_code : undefined,
+          org_code: filters.org_code && !isObjectId(filters.org_code) ? filters.org_code : undefined,
+          mandi_id:
+            filters.mandi_code && isIntString(filters.mandi_code)
+              ? Number(filters.mandi_code)
+              : undefined,
+          mandi_code:
+            filters.mandi_code && !isIntString(filters.mandi_code)
+              ? filters.mandi_code
+              : undefined,
           commodity: filters.commodity || undefined,
           product: filters.product || undefined,
           session_id: filters.session_id || undefined,
@@ -141,18 +164,22 @@ export const AuctionLots: React.FC = () => {
       });
       const list = resp?.data?.items || resp?.response?.data?.items || [];
       const mapped: LotRow[] = list.map((item: any, idx: number) => ({
-        id: item._id || item.lot_id || `lot-${idx}`,
-        lot_id: item.lot_id || item._id || `lot-${idx}`,
+        id: item._id || item.lot_code || item.lot_id || `lot-${idx}`,
+        lot_id: item.lot_code || item.lot_id || item._id || `lot-${idx}`,
         session_id: item.session_id || null,
-        org_code: item.org_code || null,
-        mandi_code: item.mandi_code || null,
-        commodity: item.commodity || item.commodity_code || null,
-        product: item.product || item.product_code || null,
-        quantity: item.quantity ?? null,
-        base_price: item.base_price ?? null,
+        org_code: item.org_code || item.org_id || null,
+        mandi_code: item.mandi_code ?? item.mandi_id ?? null,
+        commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
+        product: item.product_name_en || item.product || item.product_code || null,
+        quantity: item.estimated_qty_kg ?? item.quantity ?? null,
+        base_price: parseDecimal(item.start_price_per_qtl) ?? item.base_price ?? null,
         status: item.status || null,
         created_on: item.created_on || item.createdAt || null,
       }));
+      if (import.meta.env.DEV) {
+        console.debug("[AUCTION_LOTS_DEBUG] sample_item", list[0]);
+        console.debug("[AUCTION_LOTS_DEBUG] sample_row", mapped[0]);
+      }
       setRows(mapped);
     } finally {
       setLoading(false);

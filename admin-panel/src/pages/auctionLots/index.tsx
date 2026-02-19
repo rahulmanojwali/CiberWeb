@@ -29,6 +29,7 @@ type LotRow = {
 };
 
 type Option = { value: string; label: string };
+type LotOption = { value: string; label: string; shortCode?: string; lot: any };
 
 function currentUsername(): string | null {
   try {
@@ -47,6 +48,83 @@ function formatDate(value?: string | Date | null) {
   return d.toLocaleString();
 }
 
+const toNumber = (v: any): number | null => {
+  if (v === undefined || v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const buildLotLabel = (lot: any) => {
+  const partyType =
+    lot?.party?.type ||
+    lot?.party?.party_type ||
+    lot?.party_type ||
+    lot?.party_role ||
+    lot?.party?.role ||
+    "Party";
+  const partyRef =
+    lot?.party?.ref ||
+    lot?.party?.username ||
+    lot?.party_username ||
+    lot?.party_ref ||
+    lot?.farmer_username ||
+    lot?.trader_username ||
+    lot?.party?.name ||
+    "-";
+
+  const commodity =
+    lot?.commodity_name_en ||
+    lot?.commodity_name ||
+    lot?.commodity ||
+    lot?.commodity_code ||
+    lot?.commodity_id ||
+    "Commodity";
+  const product =
+    lot?.product_name_en ||
+    lot?.commodity_product_name_en ||
+    lot?.product ||
+    lot?.product_code ||
+    lot?.commodity_product_id ||
+    "Product";
+
+  const bags = toNumber(lot?.quantity?.bags ?? lot?.bags) ?? null;
+  const weightPerBag = toNumber(lot?.quantity?.weight_per_bag_kg ?? lot?.weight_per_bag_kg) ?? null;
+  const totalWeight =
+    toNumber(lot?.quantity?.net_kg) ??
+    toNumber(lot?.quantity?.gross_kg) ??
+    toNumber(lot?.quantity?.total_kg) ??
+    toNumber(lot?.quantity?.estimated_kg) ??
+    toNumber(lot?.quantity?.weight_kg) ??
+    toNumber(lot?.weight_kg) ??
+    (bags !== null && weightPerBag !== null ? bags * weightPerBag : null) ??
+    null;
+
+  const gateCode = lot?.gate_code || lot?.gate?.code || lot?.gate || "-";
+  const lotSeq = lot?.lot_seq || lot?.lot_sequence || lot?.lot_no || lot?.lot_number || "-";
+
+  const qtyPart =
+    bags !== null && weightPerBag !== null
+      ? `${bags}x${weightPerBag}kg (${totalWeight ?? "-"}kg)`
+      : totalWeight !== null
+      ? `${totalWeight}kg`
+      : "-";
+
+  const label = `${partyType} ${partyRef} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}`;
+  const lotCode = lot?.lot_code || lot?.token_code || lot?._id || "";
+  const shortCode = lotCode ? String(lotCode).slice(-6) : "";
+  return { label, shortCode };
+};
+
+const buildSessionCode = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `SESS_${yyyy}${mm}${dd}_${hh}${min}`;
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -54,8 +132,19 @@ export const AuctionLots: React.FC = () => {
   const [openCreate, setOpenCreate] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<Option[]>([]);
-  const [lotOptions, setLotOptions] = useState<Option[]>([]);
+  const [lotOptions, setLotOptions] = useState<LotOption[]>([]);
+  const [selectedLot, setSelectedLot] = useState<any | null>(null);
+  const [openCreateSession, setOpenCreateSession] = useState(false);
+  const [createSessionLoading, setCreateSessionLoading] = useState(false);
+  const [createSessionError, setCreateSessionError] = useState<string | null>(null);
+  const [createSessionForm, setCreateSessionForm] = useState({
+    method_code: "OPEN_OUTCRY",
+    rounds_enabled: ["ROUND1"],
+    status: "PLANNED",
+    session_code: buildSessionCode(),
+  });
   const [createForm, setCreateForm] = useState({
     session_id: "",
     lot_id: "",
@@ -150,6 +239,34 @@ export const AuctionLots: React.FC = () => {
     return null;
   };
 
+  const buildSessionOptionsForLot = (lot: any, sessions: any[]) => {
+    if (!lot) return [];
+    const orgId = lot?.org_id ? String(lot.org_id) : null;
+    const orgCode = lot?.org_code ? String(lot.org_code) : null;
+    const mandiId = lot?.mandi_id !== undefined && lot?.mandi_id !== null ? Number(lot.mandi_id) : null;
+    const mandiCode = lot?.mandi_code ? String(lot.mandi_code) : null;
+    const allowedStatuses = new Set(["PLANNED", "LIVE"]);
+
+    return sessions
+      .filter((s) => {
+        const status = String(s?.status || "").toUpperCase();
+        if (!allowedStatuses.has(status)) return false;
+        const sOrgId = s?.org_id ? String(s.org_id) : null;
+        const sOrgCode = s?.org_code ? String(s.org_code) : null;
+        const sMandiId = s?.mandi_id !== undefined && s?.mandi_id !== null ? Number(s.mandi_id) : null;
+        const sMandiCode = s?.mandi_code ? String(s.mandi_code) : null;
+
+        const orgMatch = orgId ? sOrgId === orgId : orgCode ? sOrgCode === orgCode : true;
+        const mandiMatch = mandiId !== null ? sMandiId === mandiId : mandiCode ? sMandiCode === mandiCode : true;
+        return orgMatch && mandiMatch;
+      })
+      .map((s: any) => ({
+        value: s._id || s.session_id || "",
+        label: s.session_code || s._id || s.session_id || "",
+      }))
+      .filter((s: Option) => s.value);
+  };
+
   const loadData = async () => {
     const username = currentUsername();
     if (!username || !canView) return;
@@ -214,23 +331,27 @@ export const AuctionLots: React.FC = () => {
       const sessions = sessionsResp?.data?.items || sessionsResp?.response?.data?.items || [];
       const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
 
-      setSessionOptions(
-        sessions
-          .map((s: any) => ({
-            value: s._id || s.session_id || "",
-            label: s.session_code || s._id || s.session_id || "",
-          }))
-          .filter((s: Option) => s.value),
-      );
-
-      setLotOptions(
-        lots
-          .map((l: any) => ({
+      setSessionItems(sessions);
+      const lotMapped: LotOption[] = lots
+        .map((l: any) => {
+          const { label, shortCode } = buildLotLabel(l);
+          return {
             value: l._id || l.lot_id || "",
-            label: l.lot_code || l.token_code || l._id || l.lot_id || "",
-          }))
-          .filter((l: Option) => l.value),
-      );
+            label,
+            shortCode,
+            lot: l,
+          };
+        })
+        .filter((l: LotOption) => l.value);
+      setLotOptions(lotMapped);
+
+      if (selectedLot) {
+        setSessionOptions(buildSessionOptionsForLot(selectedLot, sessions));
+      } else if (lotMapped.length > 0) {
+        setSessionOptions(buildSessionOptionsForLot(lotMapped[0].lot, sessions));
+      } else {
+        setSessionOptions([]);
+      }
     } catch (err: any) {
       setCreateError(err?.message || "Failed to load sessions/lots.");
     }
@@ -239,8 +360,26 @@ export const AuctionLots: React.FC = () => {
   const handleCreateSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
-    if (!createForm.session_id || !createForm.lot_id || !createForm.base_price) {
-      setCreateError("Session, lot, and base price are required.");
+    const sessionMatch = sessionItems.find(
+      (s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")
+    );
+    const sessionStatus = String(sessionMatch?.status || "").toUpperCase();
+    if (sessionStatus === "LIVE" || sessionStatus === "CLOSED") {
+      setCreateError("Cannot map lots to a LIVE or CLOSED session.");
+      return;
+    }
+    const basePriceRaw = String(createForm.base_price || "").trim();
+    if (!createForm.session_id || !createForm.lot_id || !basePriceRaw) {
+      setCreateError("Session, lot, and opening price are required.");
+      return;
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(basePriceRaw)) {
+      setCreateError("Opening price must be a number with up to 2 decimals.");
+      return;
+    }
+    const basePriceNum = Number(basePriceRaw);
+    if (!Number.isFinite(basePriceNum) || basePriceNum <= 0) {
+      setCreateError("Opening price must be greater than 0.");
       return;
     }
     setCreateLoading(true);
@@ -252,7 +391,7 @@ export const AuctionLots: React.FC = () => {
         language,
         lot_id: createForm.lot_id,
         session_id: createForm.session_id,
-        start_price_per_qtl: createForm.base_price,
+        start_price_per_qtl: basePriceRaw,
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
@@ -270,6 +409,50 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
+  const handleCreateSession = async () => {
+    const username = currentUsername();
+    if (!username || !selectedLot) return;
+    setCreateSessionLoading(true);
+    setCreateSessionError(null);
+    try {
+      const orgId = selectedLot?.org_id ? String(selectedLot.org_id) : "";
+      const mandiId = selectedLot?.mandi_id !== undefined && selectedLot?.mandi_id !== null ? Number(selectedLot.mandi_id) : null;
+      if (!orgId || mandiId === null) {
+        setCreateSessionError("Lot does not have org/mandi context.");
+        return;
+      }
+      const payload = {
+        api: "createAuctionSession",
+        username,
+        language,
+        org_id: orgId,
+        mandi_id: mandiId,
+        method_code: createSessionForm.method_code || "OPEN_OUTCRY",
+        rounds_enabled: createSessionForm.rounds_enabled?.length ? createSessionForm.rounds_enabled : ["ROUND1"],
+        status: createSessionForm.status || "PLANNED",
+        session_code: createSessionForm.session_code || buildSessionCode(),
+      };
+
+      const resp: any = await postEncrypted("/mobile/createAuctionSession", payload);
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setCreateSessionError(desc || "Failed to create session.");
+        return;
+      }
+      const newSessionId = resp?.data?.session_id || resp?.response?.data?.session_id || "";
+      await loadCreateOptions();
+      if (newSessionId) {
+        setCreateForm((prev) => ({ ...prev, session_id: newSessionId }));
+      }
+      setOpenCreateSession(false);
+    } catch (err: any) {
+      setCreateSessionError(err?.message || "Failed to create session.");
+    } finally {
+      setCreateSessionLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadOrganisations();
     loadMandis();
@@ -281,9 +464,25 @@ export const AuctionLots: React.FC = () => {
 
   useEffect(() => {
     if (openCreate) {
+      setCreateForm({ session_id: "", lot_id: "", base_price: "" });
+      setSelectedLot(null);
+      setSessionOptions([]);
+      setCreateSessionForm({
+        method_code: "OPEN_OUTCRY",
+        rounds_enabled: ["ROUND1"],
+        status: "PLANNED",
+        session_code: buildSessionCode(),
+      });
       loadCreateOptions();
     }
   }, [openCreate, language]);
+
+  useEffect(() => {
+    if (selectedLot) {
+      setSessionOptions(buildSessionOptionsForLot(selectedLot, sessionItems));
+      setCreateForm((prev) => ({ ...prev, session_id: "" }));
+    }
+  }, [selectedLot, sessionItems]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -446,27 +645,111 @@ export const AuctionLots: React.FC = () => {
                 ))}
               </TextField>
 
+              {selectedLot && sessionOptions.length === 0 && (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" mb={1}>
+                    No active sessions for this org/mandi.
+                  </Typography>
+                  <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
+                    Create Session (1 minute)
+                  </Button>
+                </Box>
+              )}
+
               <TextField
                 select
                 label="Available Lot"
                 size="small"
                 value={createForm.lot_id}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, lot_id: e.target.value }))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCreateForm((prev) => ({ ...prev, lot_id: value }));
+                  const next = lotOptions.find((l) => l.value === value);
+                  setSelectedLot(next?.lot || null);
+                }}
               >
                 <MenuItem value="">Select</MenuItem>
                 {lotOptions.map((l) => (
                   <MenuItem key={l.value} value={l.value}>
-                    {l.label}
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {l.label}
+                      </Typography>
+                      {l.shortCode && (
+                        <Typography variant="caption" color="text.secondary">
+                          #{l.shortCode}
+                        </Typography>
+                      )}
+                    </Stack>
                   </MenuItem>
                 ))}
               </TextField>
 
+              {selectedLot && (
+                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="subtitle2" mb={1}>
+                    Lot Details
+                  </Typography>
+                  <Stack spacing={0.5}>
+                    <Typography variant="body2">
+                      <strong>Party:</strong>{" "}
+                      {selectedLot?.party?.type || selectedLot?.party_type || selectedLot?.party_role || "Party"}{" "}
+                      {selectedLot?.party?.ref ||
+                        selectedLot?.party?.username ||
+                        selectedLot?.party_username ||
+                        selectedLot?.party_ref ||
+                        selectedLot?.farmer_username ||
+                        selectedLot?.trader_username ||
+                        "-"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Token:</strong> {selectedLot?.token_code || selectedLot?.token || "-"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Commodity/Product:</strong>{" "}
+                      {selectedLot?.commodity_name_en ||
+                        selectedLot?.commodity_name ||
+                        selectedLot?.commodity ||
+                        selectedLot?.commodity_code ||
+                        selectedLot?.commodity_id ||
+                        "-"}{" "}
+                      /{" "}
+                      {selectedLot?.product_name_en ||
+                        selectedLot?.commodity_product_name_en ||
+                        selectedLot?.product ||
+                        selectedLot?.product_code ||
+                        selectedLot?.commodity_product_id ||
+                        "-"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Bags:</strong>{" "}
+                      {selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-"} | <strong>Weight/Bag:</strong>{" "}
+                      {selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-"} kg |{" "}
+                      <strong>Total:</strong>{" "}
+                      {selectedLot?.quantity?.net_kg ??
+                        selectedLot?.quantity?.gross_kg ??
+                        selectedLot?.quantity?.total_kg ??
+                        selectedLot?.quantity?.estimated_kg ??
+                        selectedLot?.quantity?.weight_kg ??
+                        selectedLot?.weight_kg ??
+                        "-"}{" "}
+                      kg
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Gate:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"}
+                    </Typography>
+                  </Stack>
+                </Box>
+              )}
+
               <TextField
-                label="Base Price"
+                label="Opening Price (₹/qtl)"
                 size="small"
                 type="number"
                 value={createForm.base_price}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
+                helperText="Starting bid price for this lot."
+                inputProps={{ step: "0.01", min: "0" }}
               />
 
               {createError && (
@@ -478,8 +761,106 @@ export const AuctionLots: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenCreate(false)} disabled={createLoading}>Close</Button>
-            <Button variant="contained" onClick={handleCreateSubmit} disabled={createLoading}>
+            <Button
+              variant="contained"
+              onClick={handleCreateSubmit}
+              disabled={
+                createLoading ||
+                (String(
+                  sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || ""))?.status || ""
+                ).toUpperCase() === "LIVE") ||
+                (String(
+                  sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || ""))?.status || ""
+                ).toUpperCase() === "CLOSED")
+              }
+            >
               {createLoading ? "Submitting..." : "Submit"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {openCreateSession && (
+        <Dialog open={openCreateSession} onClose={() => setOpenCreateSession(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Create Session</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} mt={1}>
+              <TextField
+                label="Organisation"
+                size="small"
+                value={selectedLot?.org_code || selectedLot?.org_id || ""}
+                InputProps={{ readOnly: true }}
+              />
+              <TextField
+                label="Mandi"
+                size="small"
+                value={selectedLot?.mandi_code || selectedLot?.mandi_id || ""}
+                InputProps={{ readOnly: true }}
+              />
+              <TextField
+                select
+                label="Method"
+                size="small"
+                value={createSessionForm.method_code}
+                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, method_code: e.target.value }))}
+              >
+                <MenuItem value="OPEN_OUTCRY">OPEN_OUTCRY</MenuItem>
+                <MenuItem value="E_AUCTION">E_AUCTION</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Rounds Enabled"
+                size="small"
+                SelectProps={{
+                  multiple: true,
+                  value: createSessionForm.rounds_enabled,
+                  onChange: (e) => {
+                    const value = e.target.value;
+                    setCreateSessionForm((prev) => ({
+                      ...prev,
+                      rounds_enabled: Array.isArray(value) ? value : String(value).split(","),
+                    }));
+                  },
+                }}
+              >
+                <MenuItem value="PREVIEW">PREVIEW</MenuItem>
+                <MenuItem value="ROUND1">ROUND1</MenuItem>
+                <MenuItem value="ROUND2">ROUND2</MenuItem>
+                <MenuItem value="FINAL">FINAL</MenuItem>
+              </TextField>
+              <TextField
+                select
+                label="Status"
+                size="small"
+                value={createSessionForm.status}
+                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, status: e.target.value }))}
+              >
+                <MenuItem value="PLANNED">PLANNED</MenuItem>
+                <MenuItem value="LIVE">LIVE</MenuItem>
+                <MenuItem value="PAUSED">PAUSED</MenuItem>
+                <MenuItem value="CLOSED">CLOSED</MenuItem>
+                <MenuItem value="CANCELLED">CANCELLED</MenuItem>
+              </TextField>
+              <TextField
+                label="Session Code"
+                size="small"
+                value={createSessionForm.session_code}
+                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_code: e.target.value }))}
+              />
+
+              {createSessionError && (
+                <Typography variant="body2" color="error">
+                  {createSessionError}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateSession(false)} disabled={createSessionLoading}>
+              Close
+            </Button>
+            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading}>
+              {createSessionLoading ? "Creating..." : "Create Session"}
             </Button>
           </DialogActions>
         </Dialog>

@@ -17,6 +17,38 @@ export const getAuctionSessions = async ({
     ...filters,
   });
 
+export const startAuctionSession = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  session_id,
+}: {
+  username: string;
+  language?: string;
+  session_id: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.startAuctionSession, {
+    api: API_TAGS.AUCTION_OPS.SESSIONS.start,
+    username,
+    language,
+    session_id,
+  });
+
+export const closeAuctionSession = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  session_id,
+}: {
+  username: string;
+  language?: string;
+  session_id: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.closeAuctionSession, {
+    api: API_TAGS.AUCTION_OPS.SESSIONS.close,
+    username,
+    language,
+    session_id,
+  });
+
 export const getAuctionLots = async ({
   username,
   language = DEFAULT_LANGUAGE,

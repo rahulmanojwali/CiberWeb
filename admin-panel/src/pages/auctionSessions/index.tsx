@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { getAuctionSessions } from "../../services/auctionOpsApi";
+import { closeAuctionSession, getAuctionSessions, startAuctionSession } from "../../services/auctionOpsApi";
 
 type SessionRow = {
   id: string;
@@ -61,6 +61,10 @@ export const AuctionSessions: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [openDetail, setOpenDetail] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const canMenu = useMemo(
     () => can(uiConfig.resources, "auction_sessions.menu", "VIEW") || can(uiConfig.resources, "auction_sessions.view", "VIEW"),
@@ -151,6 +155,10 @@ export const AuctionSessions: React.FC = () => {
         end_time: item.end_time || item.end || null,
       }));
       setRows(mapped);
+      if (selectedSession) {
+        const updated = mapped.find((r) => r.id === selectedSession.id || r.session_id === selectedSession.session_id);
+        if (updated) setSelectedSession(updated);
+      }
     } finally {
       setLoading(false);
     }
@@ -176,6 +184,63 @@ export const AuctionSessions: React.FC = () => {
       </PageContainer>
     );
   }
+
+  const handleStart = async () => {
+    const username = currentUsername();
+    if (!username || !selectedSession) return;
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const resp: any = await startAuctionSession({
+        username,
+        language,
+        session_id: selectedSession.session_id,
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setDetailError(desc || "Failed to start session.");
+        return;
+      }
+      await loadData();
+    } catch (err: any) {
+      setDetailError(err?.message || "Failed to start session.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleClose = async () => {
+    const username = currentUsername();
+    if (!username || !selectedSession) return;
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const resp: any = await closeAuctionSession({
+        username,
+        language,
+        session_id: selectedSession.session_id,
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setDetailError(desc || "Failed to close session.");
+        return;
+      }
+      await loadData();
+    } catch (err: any) {
+      setDetailError(err?.message || "Failed to close session.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const statusColor = (status?: string | null) => {
+    const s = String(status || "").toUpperCase();
+    if (s === "LIVE") return "success";
+    if (s === "CLOSED") return "default";
+    return "warning";
+  };
 
   return (
     <PageContainer>
@@ -286,11 +351,75 @@ export const AuctionSessions: React.FC = () => {
           loading={loading}
           getRowId={(r) => r.id}
           disableRowSelectionOnClick
+          onRowClick={(params: any) => {
+            setSelectedSession(params.row as SessionRow);
+            setDetailError(null);
+            setOpenDetail(true);
+          }}
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           minWidth={960}
         />
       </Box>
+
+      {openDetail && selectedSession && (
+        <Dialog open={openDetail} onClose={() => setOpenDetail(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Auction Session Detail</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} mt={1}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="subtitle2">Status</Typography>
+                <Chip
+                  size="small"
+                  label={(selectedSession.status || "PLANNED").toUpperCase()}
+                  color={statusColor(selectedSession.status)}
+                />
+              </Stack>
+              <Typography variant="body2">
+                <strong>Session ID:</strong> {selectedSession.session_id}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Org:</strong> {selectedSession.org_code || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Mandi:</strong> {selectedSession.mandi_code || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Method:</strong> {selectedSession.method || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Round:</strong> {selectedSession.round || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Start:</strong> {formatDate(selectedSession.start_time)}
+              </Typography>
+              <Typography variant="body2">
+                <strong>End:</strong> {formatDate(selectedSession.end_time)}
+              </Typography>
+              {detailError && (
+                <Typography variant="body2" color="error">
+                  {detailError}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDetail(false)} disabled={detailLoading}>
+              Close
+            </Button>
+            {String(selectedSession.status || "").toUpperCase() === "PLANNED" && (
+              <Button variant="contained" onClick={handleStart} disabled={detailLoading}>
+                {detailLoading ? "Starting..." : "Start Auction"}
+              </Button>
+            )}
+            {String(selectedSession.status || "").toUpperCase() === "LIVE" && (
+              <Button variant="contained" color="error" onClick={handleClose} disabled={detailLoading}>
+                {detailLoading ? "Closing..." : "Close Auction"}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+      )}
     </PageContainer>
   );
 };

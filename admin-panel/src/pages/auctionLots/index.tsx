@@ -793,13 +793,13 @@ export const AuctionLots: React.FC = () => {
               <TextField
                 label="Organisation"
                 size="small"
-                value={selectedLot?.org_code || selectedLot?.org_id || ""}
+                value={selectedLot?.org_name || selectedLot?.org_name_en || selectedLot?.org_code || selectedLot?.org_id || ""}
                 InputProps={{ readOnly: true }}
               />
               <TextField
                 label="Mandi"
                 size="small"
-                value={selectedLot?.mandi_code || selectedLot?.mandi_id || ""}
+                value={selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || ""}
                 InputProps={{ readOnly: true }}
               />
               <TextField

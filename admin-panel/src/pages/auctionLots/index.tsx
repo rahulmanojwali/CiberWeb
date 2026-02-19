@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,9 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { getAuctionLots } from "../../services/auctionOpsApi";
+import { getAuctionLots, getAuctionSessions } from "../../services/auctionOpsApi";
+import { getLotList } from "../../services/lotsApi";
+import { postEncrypted } from "../../services/sharedEncryptedRequest";
 
 type LotRow = {
   id: string;
@@ -49,6 +51,16 @@ export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const [openCreate, setOpenCreate] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [sessionOptions, setSessionOptions] = useState<Option[]>([]);
+  const [lotOptions, setLotOptions] = useState<Option[]>([]);
+  const [createForm, setCreateForm] = useState({
+    session_id: "",
+    lot_id: "",
+    base_price: "",
+  });
 
   const [filters, setFilters] = useState({
     org_code: "",
@@ -70,6 +82,10 @@ export const AuctionLots: React.FC = () => {
     [uiConfig.resources],
   );
   const canView = useMemo(() => can(uiConfig.resources, "auction_lots.view", "VIEW"), [uiConfig.resources]);
+  const canCreate = useMemo(
+    () => can(uiConfig.resources, "auction_lots.create", "CREATE"),
+    [uiConfig.resources],
+  );
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -186,6 +202,74 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
+  const loadCreateOptions = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    setCreateError(null);
+    try {
+      const [sessionsResp, lotsResp] = await Promise.all([
+        getAuctionSessions({ username, language, filters: { page_size: 100 } }),
+        getLotList({ username, language, filters: { status: "CREATED", page_size: 100 } }),
+      ]);
+      const sessions = sessionsResp?.data?.items || sessionsResp?.response?.data?.items || [];
+      const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
+
+      setSessionOptions(
+        sessions
+          .map((s: any) => ({
+            value: s._id || s.session_id || "",
+            label: s.session_code || s._id || s.session_id || "",
+          }))
+          .filter((s: Option) => s.value),
+      );
+
+      setLotOptions(
+        lots
+          .map((l: any) => ({
+            value: l._id || l.lot_id || "",
+            label: l.lot_code || l.token_code || l._id || l.lot_id || "",
+          }))
+          .filter((l: Option) => l.value),
+      );
+    } catch (err: any) {
+      setCreateError(err?.message || "Failed to load sessions/lots.");
+    }
+  };
+
+  const handleCreateSubmit = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    if (!createForm.session_id || !createForm.lot_id || !createForm.base_price) {
+      setCreateError("Session, lot, and base price are required.");
+      return;
+    }
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      const resp: any = await postEncrypted("/admin/mapLotToAuctionSession", {
+        api: "mapLotToAuctionSession",
+        username,
+        language,
+        lot_id: createForm.lot_id,
+        session_id: createForm.session_id,
+        start_price_per_qtl: createForm.base_price,
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setCreateError(desc || "Failed to create auction lot.");
+        return;
+      }
+      setOpenCreate(false);
+      setCreateForm({ session_id: "", lot_id: "", base_price: "" });
+      await loadData();
+    } catch (err: any) {
+      setCreateError(err?.message || "Failed to create auction lot.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadOrganisations();
     loadMandis();
@@ -194,6 +278,12 @@ export const AuctionLots: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
+
+  useEffect(() => {
+    if (openCreate) {
+      loadCreateOptions();
+    }
+  }, [openCreate, language]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -216,9 +306,16 @@ export const AuctionLots: React.FC = () => {
             Auction lots and linked sessions (read-only).
           </Typography>
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          {canCreate && (
+            <Button variant="contained" size="small" onClick={() => setOpenCreate(true)}>
+              {t("actions.create", { defaultValue: "Create" })}
+            </Button>
+          )}
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Stack
@@ -328,6 +425,65 @@ export const AuctionLots: React.FC = () => {
           minWidth={960}
         />
       </Box>
+
+      {openCreate && (
+        <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Create Auction Lot</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} mt={1}>
+              <TextField
+                select
+                label="Auction Session"
+                size="small"
+                value={createForm.session_id}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
+              >
+                <MenuItem value="">Select</MenuItem>
+                {sessionOptions.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>
+                    {s.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                label="Available Lot"
+                size="small"
+                value={createForm.lot_id}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, lot_id: e.target.value }))}
+              >
+                <MenuItem value="">Select</MenuItem>
+                {lotOptions.map((l) => (
+                  <MenuItem key={l.value} value={l.value}>
+                    {l.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                label="Base Price"
+                size="small"
+                type="number"
+                value={createForm.base_price}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
+              />
+
+              {createError && (
+                <Typography variant="body2" color="error">
+                  {createError}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreate(false)} disabled={createLoading}>Close</Button>
+            <Button variant="contained" onClick={handleCreateSubmit} disabled={createLoading}>
+              {createLoading ? "Submitting..." : "Submit"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </PageContainer>
   );
 };

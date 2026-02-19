@@ -17,6 +17,8 @@ export const fetchLots = async ({
     ...filters,
   });
 
+export const getLotList = fetchLots;
+
 export const fetchLotDetail = async ({
   username,
   language = DEFAULT_LANGUAGE,

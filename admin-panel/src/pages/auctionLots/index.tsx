@@ -426,10 +426,9 @@ export const AuctionLots: React.FC = () => {
         method_code: createSessionForm.method_code || "OPEN_OUTCRY",
         rounds_enabled: createSessionForm.rounds_enabled?.length ? createSessionForm.rounds_enabled : ["ROUND1"],
         status: createSessionForm.status || "PLANNED",
-        session_code: createSessionForm.session_code || buildSessionCode(),
       };
 
-      const resp: any = await postEncrypted("/mobile/createAuctionSession", payload);
+      const resp: any = await postEncrypted("/admin/createAuctionSession", payload);
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {

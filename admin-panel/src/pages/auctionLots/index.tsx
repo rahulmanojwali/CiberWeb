@@ -55,22 +55,10 @@ const toNumber = (v: any): number | null => {
 };
 
 const buildLotLabel = (lot: any) => {
-  const partyType =
-    lot?.party?.type ||
-    lot?.party?.party_type ||
-    lot?.party_type ||
-    lot?.party_role ||
-    lot?.party?.role ||
-    "Party";
-  const partyRef =
-    lot?.party?.ref ||
-    lot?.party?.username ||
-    lot?.party_username ||
-    lot?.party_ref ||
-    lot?.farmer_username ||
-    lot?.trader_username ||
-    lot?.party?.name ||
-    "-";
+  const partyDisplay =
+    lot?.party_display_name ||
+    `${lot?.party_type || ""} ${lot?.party_ref || ""}`.trim() ||
+    "";
 
   const commodity =
     lot?.commodity_name_en ||
@@ -109,7 +97,7 @@ const buildLotLabel = (lot: any) => {
       ? `${totalWeight}kg`
       : "-";
 
-  const label = `${partyType} ${partyRef} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}`;
+  const label = `${partyDisplay} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}`;
   const lotCode = lot?.lot_code || lot?.token_code || lot?._id || "";
   const shortCode = lotCode ? String(lotCode).slice(-6) : "";
   return { label, shortCode };
@@ -267,7 +255,7 @@ export const AuctionLots: React.FC = () => {
       })
       .map((s: any) => ({
         value: s._id || s.session_id || "",
-        label: s.session_code || s._id || s.session_id || "",
+        label: s.mandi_name_en ? `${s.mandi_name_en} (${s.session_code || s._id || s.session_id || ""})` : (s.session_code || s._id || s.session_id || ""),
       }))
       .filter((s: Option) => s.value);
   };

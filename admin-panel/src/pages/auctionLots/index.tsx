@@ -175,6 +175,10 @@ export const AuctionLots: React.FC = () => {
     () => can(uiConfig.resources, "auction_lots.create", "CREATE"),
     [uiConfig.resources],
   );
+  const canSessionsList = useMemo(
+    () => can(uiConfig.resources, "auction_sessions.list", "VIEW"),
+    [uiConfig.resources],
+  );
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -325,7 +329,7 @@ export const AuctionLots: React.FC = () => {
     setCreateError(null);
     try {
       const [sessionsResp, lotsResp] = await Promise.all([
-        getAuctionSessions({ username, language, filters: { page_size: 100 } }),
+        canSessionsList ? getAuctionSessions({ username, language, filters: { page_size: 100 } }) : Promise.resolve(null),
         getLotList({ username, language, filters: { status: "CREATED", page_size: 100 } }),
       ]);
       const sessions = sessionsResp?.data?.items || sessionsResp?.response?.data?.items || [];

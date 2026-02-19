@@ -67,10 +67,10 @@ export const AuctionSessions: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const canMenu = useMemo(
-    () => can(uiConfig.resources, "auction_sessions.menu", "VIEW") || can(uiConfig.resources, "auction_sessions.view", "VIEW"),
+    () => can(uiConfig.resources, "auction_sessions.menu", "VIEW") || can(uiConfig.resources, "auction_sessions.list", "VIEW"),
     [uiConfig.resources],
   );
-  const canView = useMemo(() => can(uiConfig.resources, "auction_sessions.view", "VIEW"), [uiConfig.resources]);
+  const canView = useMemo(() => can(uiConfig.resources, "auction_sessions.list", "VIEW"), [uiConfig.resources]);
 
   const columns = useMemo<GridColDef<SessionRow>[]>(
     () => [

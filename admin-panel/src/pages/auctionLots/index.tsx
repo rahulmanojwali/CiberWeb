@@ -255,7 +255,7 @@ export const AuctionLots: React.FC = () => {
       })
       .map((s: any) => ({
         value: s._id || s.session_id || "",
-        label: s.mandi_name_en ? `${s.mandi_name_en} (${s.session_code || s._id || s.session_id || ""})` : (s.session_code || s._id || s.session_id || ""),
+        label: s.mandi_name ? `${s.mandi_name} (${s.session_code || s._id || s.session_id || ""})` : (s.session_code || s._id || s.session_id || ""),
       }))
       .filter((s: Option) => s.value);
   };
@@ -734,6 +734,14 @@ export const AuctionLots: React.FC = () => {
                     </Typography>
                     <Typography variant="body2">
                       <strong>Gate:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Mandi:</strong>{" "}
+                      {selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || "-"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Org:</strong>{" "}
+                      {selectedLot?.org_name || selectedLot?.org_name_en || selectedLot?.org_code || selectedLot?.org_id || "-"}
                     </Typography>
                   </Stack>
                 </Box>

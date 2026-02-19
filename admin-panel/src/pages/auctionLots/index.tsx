@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -132,6 +132,7 @@ export const AuctionLots: React.FC = () => {
   const [openCreate, setOpenCreate] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createOptionsLoading, setCreateOptionsLoading] = useState(false);
   const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<Option[]>([]);
   const [lotOptions, setLotOptions] = useState<LotOption[]>([]);
@@ -327,6 +328,7 @@ export const AuctionLots: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     setCreateError(null);
+    setCreateOptionsLoading(true);
     try {
       const [sessionsResp, lotsResp] = await Promise.all([
         canSessionsList ? getAuctionSessions({ username, language, filters: { page_size: 100 } }) : Promise.resolve(null),
@@ -358,6 +360,8 @@ export const AuctionLots: React.FC = () => {
       }
     } catch (err: any) {
       setCreateError(err?.message || "Failed to load sessions/lots.");
+    } finally {
+      setCreateOptionsLoading(false);
     }
   };
 
@@ -633,33 +637,8 @@ export const AuctionLots: React.FC = () => {
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
           <DialogTitle>Create Auction Lot</DialogTitle>
           <DialogContent>
+            {createOptionsLoading && <LinearProgress sx={{ mb: 2 }} />}
             <Stack spacing={2} mt={1}>
-              <TextField
-                select
-                label="Auction Session"
-                size="small"
-                value={createForm.session_id}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
-              >
-                <MenuItem value="">Select</MenuItem>
-                {sessionOptions.map((s) => (
-                  <MenuItem key={s.value} value={s.value}>
-                    {s.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              {selectedLot && sessionOptions.length === 0 && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" mb={1}>
-                    No active sessions for this org/mandi.
-                  </Typography>
-                  <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
-                    Create Session (1 minute)
-                  </Button>
-                </Box>
-              )}
-
               <TextField
                 select
                 label="Available Lot"
@@ -688,6 +667,32 @@ export const AuctionLots: React.FC = () => {
                   </MenuItem>
                 ))}
               </TextField>
+
+              <TextField
+                select
+                label="Auction Session"
+                size="small"
+                value={createForm.session_id}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
+              >
+                <MenuItem value="">Select</MenuItem>
+                {sessionOptions.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>
+                    {s.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {selectedLot && sessionOptions.length === 0 && (
+                <Box>
+                  <Typography variant="body2" color="text.secondary" mb={1}>
+                    No active sessions for this org/mandi.
+                  </Typography>
+                  <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
+                    Create Session (1 minute)
+                  </Button>
+                </Box>
+              )}
 
               {selectedLot && (
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1.5 }}>

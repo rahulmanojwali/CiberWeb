@@ -255,7 +255,7 @@ export const AuctionLots: React.FC = () => {
       })
       .map((s: any) => ({
         value: s._id || s.session_id || "",
-        label: s.mandi_name ? `${s.mandi_name} (${s.session_code || s._id || s.session_id || ""})` : (s.session_code || s._id || s.session_id || ""),
+        label: s.session_code || s._id || s.session_id || "",
       }))
       .filter((s: Option) => s.value);
   };
@@ -322,7 +322,7 @@ export const AuctionLots: React.FC = () => {
         canSessionsList ? getAuctionSessions({ username, language, filters: { page_size: 100 } }) : Promise.resolve(null),
         getLotList({ username, language, filters: { status: "CREATED", page_size: 100 } }),
       ]);
-      const sessions = sessionsResp?.data?.items || sessionsResp?.response?.data?.items || [];
+      const sessions = sessionsResp?.data?.items ?? [];
       const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
 
       setSessionItems(sessions);
@@ -355,9 +355,11 @@ export const AuctionLots: React.FC = () => {
 
   const loadSessionsForDropdown = async () => {
     const username = currentUsername();
-    if (!username || !selectedLot) return;
-    if (!canSessionsList) return;
     setCreateOptionsLoading(true);
+    if (!username || !selectedLot || !canSessionsList) {
+      setCreateOptionsLoading(false);
+      return;
+    }
     try {
       const resp = await getAuctionSessions({
         username,
@@ -368,9 +370,13 @@ export const AuctionLots: React.FC = () => {
           page_size: 100,
         },
       });
-      const sessions = resp?.data?.items || resp?.response?.data?.items || [];
+      const sessions = resp?.data?.items ?? [];
       setSessionItems(sessions);
-      setSessionOptions(buildSessionOptionsForLot(selectedLot, sessions));
+      const options = sessions.map((s: any) => ({
+        value: s._id || s.session_id || "",
+        label: s.session_code || s._id || s.session_id || "",
+      }));
+      setSessionOptions(options);
     } catch (err: any) {
       setCreateError(err?.message || "Failed to load sessions.");
     } finally {
@@ -696,6 +702,11 @@ export const AuctionLots: React.FC = () => {
                   </MenuItem>
                 ))}
               </TextField>
+              {!canSessionsList && (
+                <Typography variant="body2" color="error">
+                  Missing permission: auction_sessions.list (VIEW). Session dropdown cannot load.
+                </Typography>
+              )}
 
               {selectedLot && sessionOptions.length === 0 && (
                 <Box>

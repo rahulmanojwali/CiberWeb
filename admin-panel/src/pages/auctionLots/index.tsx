@@ -687,6 +687,7 @@ export const AuctionLots: React.FC = () => {
                 value={createForm.session_id}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
                 SelectProps={{ onOpen: loadSessionsForDropdown }}
+                onClick={loadSessionsForDropdown}
               >
                 <MenuItem value="">Select</MenuItem>
                 {sessionOptions.map((s) => (

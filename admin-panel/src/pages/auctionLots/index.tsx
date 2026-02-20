@@ -353,6 +353,31 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
+  const loadSessionsForDropdown = async () => {
+    const username = currentUsername();
+    if (!username || !selectedLot) return;
+    if (!canSessionsList) return;
+    setCreateOptionsLoading(true);
+    try {
+      const resp = await getAuctionSessions({
+        username,
+        language,
+        filters: {
+          org_id: selectedLot?.org_id || undefined,
+          mandi_id: selectedLot?.mandi_id ?? undefined,
+          page_size: 100,
+        },
+      });
+      const sessions = resp?.data?.items || resp?.response?.data?.items || [];
+      setSessionItems(sessions);
+      setSessionOptions(buildSessionOptionsForLot(selectedLot, sessions));
+    } catch (err: any) {
+      setCreateError(err?.message || "Failed to load sessions.");
+    } finally {
+      setCreateOptionsLoading(false);
+    }
+  };
+
   const handleCreateSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
@@ -661,6 +686,7 @@ export const AuctionLots: React.FC = () => {
                 size="small"
                 value={createForm.session_id}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
+                SelectProps={{ onOpen: loadSessionsForDropdown }}
               >
                 <MenuItem value="">Select</MenuItem>
                 {sessionOptions.map((s) => (

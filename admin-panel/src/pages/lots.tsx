@@ -22,7 +22,7 @@ import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
-import { fetchLotDetail, fetchLots, mapLotToAuction, updateLotStatus } from "../services/lotsApi";
+import { fetchLotDetail, fetchLots, mapLotToAuction, updateLotStatus, verifyLot } from "../services/lotsApi";
 
 type LotRow = {
   id: string;
@@ -110,6 +110,10 @@ export const Lots: React.FC = () => {
   );
   const canMapToAuction = useMemo(
     () => can(uiConfig.resources, "lots.map_to_auction", "UPDATE"),
+    [uiConfig.resources],
+  );
+  const canVerify = useMemo(
+    () => can(uiConfig.resources, "lots.verify", "UPDATE"),
     [uiConfig.resources],
   );
 
@@ -268,6 +272,29 @@ export const Lots: React.FC = () => {
     }
   };
 
+  const runVerifyLot = async () => {
+    const username = currentUsername();
+    if (!username || !selectedRow) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp = await verifyLot({
+        username,
+        language,
+        lot_id: selectedRow.id,
+      });
+      const code = resp?.response?.responsecode || resp?.responsecode || "1";
+      const desc = resp?.response?.description || resp?.description || "";
+      if (code !== "0") {
+        setActionError(desc || "Unable to verify lot.");
+        return;
+      }
+      await refreshDetail();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, [language, canView, statusFilter, mandiFilter, tokenFilter]);
@@ -361,6 +388,16 @@ export const Lots: React.FC = () => {
                     size="small"
                     variant="contained"
                     onClick={() => runStatusUpdate("VERIFIED")}
+                    disabled={actionLoading}
+                  >
+                    Verify
+                  </Button>
+                )}
+                {detail && canVerify && normalizeStatus(detail.status) === "CREATED" && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={runVerifyLot}
                     disabled={actionLoading}
                   >
                     Verify

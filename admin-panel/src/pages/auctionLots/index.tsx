@@ -320,7 +320,7 @@ export const AuctionLots: React.FC = () => {
     try {
       const [sessionsResp, lotsResp] = await Promise.all([
         canSessionsList ? getAuctionSessions({ username, language, filters: { page_size: 100 } }) : Promise.resolve(null),
-        getLotList({ username, language, filters: { status: "CREATED", page_size: 100 } }),
+        getLotList({ username, language, filters: { status: "VERIFIED", page_size: 100 } }),
       ]);
       const sessions = sessionsResp?.data?.items ?? [];
       const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
@@ -387,6 +387,8 @@ export const AuctionLots: React.FC = () => {
   const handleCreateSubmit = async () => {
     const username = currentUsername();
     if (!username) return;
+    console.log("CREATE FORM:", createForm);
+    console.log("SESSION OPTIONS:", sessionOptions);
     const sessionMatch = sessionItems.find(
       (s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")
     );
@@ -504,10 +506,17 @@ export const AuctionLots: React.FC = () => {
   }, [openCreate, language]);
 
   useEffect(() => {
-    if (selectedLot) {
-      setSessionOptions(buildSessionOptionsForLot(selectedLot, sessionItems));
-      setCreateForm((prev) => ({ ...prev, session_id: "" }));
-    }
+    if (!selectedLot) return;
+    const nextOptions = buildSessionOptionsForLot(selectedLot, sessionItems);
+    setSessionOptions(nextOptions);
+    // ✅ keep selected session if still valid; otherwise clear
+    setCreateForm((prev) => {
+      if (!prev.session_id) return prev;
+      const exists = nextOptions.some(
+        (o: any) => String(o.value) === String(prev.session_id)
+      );
+      return exists ? prev : { ...prev, session_id: "" };
+    });
   }, [selectedLot, sessionItems]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
@@ -659,12 +668,13 @@ export const AuctionLots: React.FC = () => {
             <Stack spacing={2} mt={1}>
               <TextField
                 select
-                label="Available Lot"
+                label="Available VERIFIED Lots"
                 size="small"
                 value={createForm.lot_id}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setCreateForm((prev) => ({ ...prev, lot_id: value }));
+                  // ✅ when lot changes, session selection must reset
+                  setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
                   const next = lotOptions.find((l) => l.value === value);
                   setSelectedLot(next?.lot || null);
                 }}
@@ -685,6 +695,11 @@ export const AuctionLots: React.FC = () => {
                   </MenuItem>
                 ))}
               </TextField>
+              {!createOptionsLoading && lotOptions.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No VERIFIED lots available. Please complete lot verification first.
+                </Typography>
+              )}
 
               <TextField
                 select

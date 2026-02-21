@@ -87,3 +87,19 @@ export const mapLotToAuction = async ({
     auction_code,
     meta,
   });
+
+export const verifyLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  lot_id,
+}: {
+  username: string;
+  language?: string;
+  lot_id: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.verifyLot, {
+    api: API_TAGS.LOTS.verify,
+    username,
+    language,
+    lot_id,
+  });

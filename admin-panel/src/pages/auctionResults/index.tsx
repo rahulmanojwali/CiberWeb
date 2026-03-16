@@ -136,7 +136,7 @@ export const AuctionResults: React.FC = () => {
             language,
             payload: {
               org_id: uiConfig.scope?.org_id || undefined,
-              mandi_id: filters.mandi_code || uiConfig.scope?.mandi_id || undefined,
+              mandi_id: filters.mandi_code || undefined,
               session_id: filters.session_id,
               status: filters.result_status || undefined,
               page_size: 100,
@@ -196,7 +196,7 @@ export const AuctionResults: React.FC = () => {
       void loadData();
     };
     subscribeAuctionSession(
-      { sessionId: filters.session_id, mandiId: filters.mandi_code || uiConfig.scope?.mandi_id || undefined },
+      { sessionId: filters.session_id, mandiId: filters.mandi_code || undefined },
       {
         "auction.result.finalized": reload,
         "auction.session.updated": reload,
@@ -210,7 +210,7 @@ export const AuctionResults: React.FC = () => {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [canView, filters.session_id, filters.mandi_code, uiConfig.scope?.mandi_id, language]);
+  }, [canView, filters.session_id, filters.mandi_code, language]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));

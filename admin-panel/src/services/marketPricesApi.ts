@@ -32,3 +32,51 @@ export const generateMarketPriceSnapshots = async ({
     language,
     ...payload,
   });
+
+export const listDailyMarketRates = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.listDailyMarketRates, {
+    api: API_TAGS.MARKET_PRICES.dailyList,
+    username,
+    language,
+    ...payload,
+  });
+
+export const getDailyMarketRates = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getDailyMarketRates, {
+    api: API_TAGS.MARKET_PRICES.dailyGet,
+    username,
+    language,
+    ...payload,
+  });
+
+export const generateDailyMarketRates = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.generateDailyMarketRates, {
+    api: API_TAGS.MARKET_PRICES.dailyGenerate,
+    username,
+    language,
+    ...payload,
+  });

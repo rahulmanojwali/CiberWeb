@@ -65,6 +65,22 @@ export const getAuctionLots = async ({
     ...filters,
   });
 
+export const startAuctionLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.startAuctionLot, {
+    api: API_TAGS.AUCTION_OPS.LOTS.start,
+    username,
+    language,
+    ...payload,
+  });
+
 export const getAuctionResults = async ({
   username,
   language = DEFAULT_LANGUAGE,
@@ -79,4 +95,52 @@ export const getAuctionResults = async ({
     username,
     language,
     ...filters,
+  });
+
+export const listAuctionResultsBySession = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.listAuctionResultsBySession, {
+    api: API_TAGS.AUCTION_OPS.RESULTS.listSession,
+    username,
+    language,
+    ...payload,
+  });
+
+export const getAuctionResultByLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getAuctionResultByLot, {
+    api: API_TAGS.AUCTION_OPS.RESULTS.detail,
+    username,
+    language,
+    ...payload,
+  });
+
+export const finalizeAuctionResult = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.finalizeAuctionResult, {
+    api: API_TAGS.AUCTION_OPS.RESULTS.finalize,
+    username,
+    language,
+    ...payload,
   });

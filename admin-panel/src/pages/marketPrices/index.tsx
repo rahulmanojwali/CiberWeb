@@ -18,7 +18,8 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
 import { getMandisForCurrentScope, fetchCommodityProducts } from "../../services/mandiApi";
-import { fetchMarketPrices, generateMarketPriceSnapshots } from "../../services/marketPricesApi";
+import { listDailyMarketRates, generateDailyMarketRates } from "../../services/marketPricesApi";
+import { subscribeMarketMandi } from "../../services/socketClient";
 
 function currentUsername(): string | null {
   try {
@@ -59,14 +60,16 @@ type Option = { value: string; label: string };
 
 type MarketRow = {
   id: string;
-  snapshot_date?: string | null;
-  commodity_product_id?: string | null;
+  rate_date?: string | null;
+  commodity_id?: number | null;
+  product_id?: number | null;
   commodity_name?: string | null;
-  avg_price?: number | null;
-  min_price?: number | null;
-  max_price?: number | null;
-  trades_count?: number | null;
-  total_qty_qtl?: number | null;
+  product_name?: string | null;
+  avg_price?: string | null;
+  min_price?: string | null;
+  max_price?: string | null;
+  modal_price?: string | null;
+  lots_count?: number | null;
   raw?: any;
 };
 
@@ -97,14 +100,16 @@ export const MarketPrices: React.FC = () => {
 
   const columns = useMemo<GridColDef<MarketRow>[]>(
     () => [
-      { field: "snapshot_date", headerName: "Date", width: 140, valueFormatter: (v) => formatDate(v) },
+      { field: "rate_date", headerName: "Date", width: 140, valueFormatter: (v) => formatDate(v) },
       { field: "commodity_name", headerName: "Commodity", width: 220 },
-      { field: "commodity_product_id", headerName: "Product ID", width: 160 },
+      { field: "product_name", headerName: "Product", width: 220 },
+      { field: "commodity_id", headerName: "Commodity ID", width: 130 },
+      { field: "product_id", headerName: "Product ID", width: 130 },
       { field: "avg_price", headerName: "Avg / Qtl", width: 140 },
       { field: "min_price", headerName: "Min / Qtl", width: 140 },
       { field: "max_price", headerName: "Max / Qtl", width: 140 },
-      { field: "trades_count", headerName: "Trades", width: 120 },
-      { field: "total_qty_qtl", headerName: "Total Qty (qtl)", width: 160 },
+      { field: "modal_price", headerName: "Modal / Qtl", width: 140 },
+      { field: "lots_count", headerName: "Lots", width: 120 },
     ],
     [],
   );
@@ -165,24 +170,28 @@ export const MarketPrices: React.FC = () => {
     try {
       const payload: Record<string, any> = {
         country,
+        org_id: uiConfig.scope?.org_id || "",
         mandi_id: filters.mandi_id,
         from_date: filters.from_date,
         to_date: filters.to_date,
+        page_size: 100,
       };
-      if (filters.commodity_product_id) payload.commodity_product_id = filters.commodity_product_id;
+      if (filters.commodity_product_id) payload.product_id = filters.commodity_product_id;
 
-      const resp = await fetchMarketPrices({ username, language, filters: payload });
+      const resp = await listDailyMarketRates({ username, language, payload });
       const items = resp?.data?.items || resp?.response?.data?.items || [];
       const mapped: MarketRow[] = items.map((item: any, idx: number) => ({
-        id: item._id || `${item.commodity_product_id || "item"}-${idx}`,
-        snapshot_date: item.snapshot_date || null,
-        commodity_product_id: item.commodity_product_id || null,
-        commodity_name: item.commodity_name || "",
-        avg_price: item.metrics?.avg_price_per_qtl ?? null,
-        min_price: item.metrics?.min_price_per_qtl ?? null,
-        max_price: item.metrics?.max_price_per_qtl ?? null,
-        trades_count: item.metrics?.trades_count ?? null,
-        total_qty_qtl: item.metrics?.total_qty_qtl ?? null,
+        id: item._id || `${item.commodity_id || "item"}-${item.product_id || idx}`,
+        rate_date: item.rate_date || null,
+        commodity_id: item.commodity_id ?? null,
+        product_id: item.product_id ?? null,
+        commodity_name: item.commodity_name_en || "",
+        product_name: item.product_name_en || "",
+        avg_price: item.avg_price_per_qtl ?? null,
+        min_price: item.min_price_per_qtl ?? null,
+        max_price: item.max_price_per_qtl ?? null,
+        modal_price: item.modal_price_per_qtl ?? null,
+        lots_count: item.lots_count ?? null,
         raw: item,
       }));
       setRows(mapped);
@@ -205,18 +214,18 @@ export const MarketPrices: React.FC = () => {
         country,
         org_id: uiConfig.scope?.org_id || "",
         mandi_id: filters.mandi_id,
-        snapshot_date: generateDate,
+        rate_date: generateDate,
       };
-      if (filters.commodity_product_id) payload.commodity_product_id = filters.commodity_product_id;
+      if (filters.commodity_product_id) payload.product_id = filters.commodity_product_id;
 
-      const resp = await generateMarketPriceSnapshots({ username, language, payload });
+      const resp = await generateDailyMarketRates({ username, language, payload });
       const code = resp?.response?.responsecode || resp?.responsecode || "1";
       const desc = resp?.response?.description || resp?.description || "Failed to generate snapshots.";
       if (code !== "0") {
         enqueueSnackbar(desc, { variant: "error" });
         return;
       }
-      enqueueSnackbar("Snapshots generated.", { variant: "success" });
+      enqueueSnackbar("Daily market rates generated.", { variant: "success" });
       await loadPrices();
     } catch (err: any) {
       enqueueSnackbar(err?.message || "Failed to generate snapshots.", { variant: "error" });
@@ -232,6 +241,26 @@ export const MarketPrices: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView]);
+
+  useEffect(() => {
+    if (!canView || !filters.mandi_id) return;
+    let unsubscribe: null | (() => void) = null;
+    const handleRatesUpdated = (payload: any) => {
+      if (String(payload?.mandi_id ?? "") !== String(filters.mandi_id)) return;
+      void loadPrices();
+    };
+    subscribeMarketMandi(
+      { mandiId: filters.mandi_id },
+      { "market.rates.updated": handleRatesUpdated }
+    ).then((cleanup) => {
+      unsubscribe = cleanup;
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.debug("[marketPrices] realtime subscribe failed", err);
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [canView, filters.mandi_id, filters.from_date, filters.to_date, filters.commodity_product_id]);
 
   if (!canView) {
     return (

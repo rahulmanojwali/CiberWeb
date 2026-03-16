@@ -144,9 +144,13 @@ export const API_TAGS = {
     },
     LOTS: {
       list: "getAuctionLots",
+      start: "startAuctionLot",
     },
     RESULTS: {
       list: "getAuctionResults",
+      detail: "getAuctionResultByLot",
+      listSession: "listAuctionResultsBySession",
+      finalize: "finalizeAuctionResult",
     },
   },
   LOTS: {
@@ -174,6 +178,9 @@ export const API_TAGS = {
   MARKET_PRICES: {
     list: "get_Market_Prices01",
     generate: "generate_Market_Price_Snapshots02",
+    dailyList: "listDailyMarketRates",
+    dailyGet: "getDailyMarketRates",
+    dailyGenerate: "generateDailyMarketRates",
   },
   MANDI_PRICE_POLICIES: {
     list: "get_Mandi_Price_Policies01",
@@ -533,6 +540,13 @@ export const API_ROUTES = {
     closeAuctionSession: "/admin/closeAuctionSession",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
+    startAuctionLot: "/admin/startAuctionLot",
+    finalizeAuctionResult: "/admin/finalizeAuctionResult",
+    getAuctionResultByLot: "/admin/getAuctionResultByLot",
+    listAuctionResultsBySession: "/admin/listAuctionResultsBySession",
+    generateDailyMarketRates: "/admin/generateDailyMarketRates",
+    listDailyMarketRates: "/admin/listDailyMarketRates",
+    getDailyMarketRates: "/admin/getDailyMarketRates",
     getLotList: "/admin/getLotList",
     getLotDetail: "/admin/getLotDetail",
     updateLotStatus: "/admin/updateLotStatus",

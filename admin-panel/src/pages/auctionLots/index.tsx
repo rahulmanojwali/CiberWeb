@@ -13,6 +13,7 @@ import { fetchMandis } from "../../services/mandiApi";
 import { getAuctionLots, getAuctionSessions } from "../../services/auctionOpsApi";
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
+import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
 
 type LotRow = {
   id: string;
@@ -489,6 +490,52 @@ export const AuctionLots: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
+
+  useEffect(() => {
+    if (!canView || !filters.session_id) return;
+    let unsubSession: null | (() => void) = null;
+    let unsubLot: null | (() => void) = null;
+    const refreshForSession = (payload: any) => {
+      if (!payload?.session_id || String(payload.session_id) !== String(filters.session_id)) return;
+      void loadData();
+    };
+    subscribeAuctionSession(
+      { sessionId: filters.session_id, mandiId: filters.mandi_code || undefined },
+      {
+        "auction.bid.placed": refreshForSession,
+        "auction.leaderboard.updated": refreshForSession,
+        "auction.lot.updated": refreshForSession,
+        "auction.result.finalized": refreshForSession,
+        "auction.session.updated": refreshForSession,
+      }
+    ).then((cleanup) => {
+      unsubSession = cleanup;
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.debug("[auctionLots] session realtime subscribe failed", err);
+    });
+
+    const selectedRealtimeLotId = selectedLot?._id || selectedLot?.lot_id || selectedLot?.lot_code || null;
+    if (selectedRealtimeLotId) {
+      subscribeAuctionLot(
+        { lotId: String(selectedRealtimeLotId), sessionId: filters.session_id },
+        {
+          "auction.bid.placed": refreshForSession,
+          "auction.leaderboard.updated": refreshForSession,
+          "auction.lot.updated": refreshForSession,
+          "auction.result.finalized": refreshForSession,
+        }
+      ).then((cleanup) => {
+        unsubLot = cleanup;
+      }).catch((err) => {
+        if (import.meta.env.DEV) console.debug("[auctionLots] lot realtime subscribe failed", err);
+      });
+    }
+
+    return () => {
+      if (unsubLot) unsubLot();
+      if (unsubSession) unsubSession();
+    };
+  }, [canView, filters.session_id, filters.mandi_code, selectedLot?._id, selectedLot?.lot_id, selectedLot?.lot_code]);
 
   useEffect(() => {
     if (openCreate) {

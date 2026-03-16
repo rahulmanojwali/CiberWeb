@@ -10,7 +10,8 @@ import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { getAuctionResults } from "../../services/auctionOpsApi";
+import { getAuctionResults, listAuctionResultsBySession } from "../../services/auctionOpsApi";
+import { subscribeAuctionSession } from "../../services/socketClient";
 
 type ResultRow = {
   id: string;
@@ -22,7 +23,7 @@ type ResultRow = {
   commodity?: string | null;
   product?: string | null;
   winning_trader?: string | null;
-  price?: number | null;
+  price?: string | null;
   quantity?: number | null;
   status?: string | null;
   result_time?: string | null;
@@ -129,22 +130,33 @@ export const AuctionResults: React.FC = () => {
     if (!username || !canView) return;
     setLoading(true);
     try {
-      const resp = await getAuctionResults({
-        username,
-        language,
-        filters: {
-          org_code: filters.org_code || undefined,
-          mandi_code: filters.mandi_code || undefined,
-          commodity: filters.commodity || undefined,
-          product: filters.product || undefined,
-          session_id: filters.session_id || undefined,
-          lot_id: filters.lot_id || undefined,
-          result_status: filters.result_status || undefined,
-          date_from: filters.date_from || undefined,
-          date_to: filters.date_to || undefined,
-          page_size: 100,
-        },
-      });
+      const resp = filters.session_id
+        ? await listAuctionResultsBySession({
+            username,
+            language,
+            payload: {
+              org_id: uiConfig.scope?.org_id || undefined,
+              mandi_id: filters.mandi_code || uiConfig.scope?.mandi_id || undefined,
+              session_id: filters.session_id,
+              status: filters.result_status || undefined,
+              page_size: 100,
+            },
+          })
+        : await getAuctionResults({
+            username,
+            language,
+            filters: {
+              org_code: filters.org_code || undefined,
+              mandi_code: filters.mandi_code || undefined,
+              commodity: filters.commodity || undefined,
+              product: filters.product || undefined,
+              lot_id: filters.lot_id || undefined,
+              result_status: filters.result_status || undefined,
+              date_from: filters.date_from || undefined,
+              date_to: filters.date_to || undefined,
+              page_size: 100,
+            },
+          });
       const list = resp?.data?.items || resp?.response?.data?.items || [];
       const mapped: ResultRow[] = list.map((item: any, idx: number) => ({
         id: item._id || item.result_id || `result-${idx}`,
@@ -153,13 +165,13 @@ export const AuctionResults: React.FC = () => {
         lot_id: item.lot_id || null,
         org_code: item.org_code || null,
         mandi_code: item.mandi_code || null,
-        commodity: item.commodity || item.commodity_code || null,
-        product: item.product || item.product_code || null,
-        winning_trader: item.winning_trader || item.trader || null,
-        price: item.price ?? item.winning_price ?? null,
-        quantity: item.quantity ?? null,
+        commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
+        product: item.product_name_en || item.product || item.product_code || null,
+        winning_trader: item.winner_code || item.winning_trader || item.trader || null,
+        price: item.final_price_per_qtl ?? item.price ?? item.winning_price ?? null,
+        quantity: item.quantity ?? item.estimated_qty_kg ?? null,
         status: item.status || null,
-        result_time: item.result_time || item.timestamp || null,
+        result_time: item.updated_on || item.created_on || item.result_time || item.timestamp || null,
       }));
       setRows(mapped);
     } finally {
@@ -175,6 +187,30 @@ export const AuctionResults: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lot_id, filters.result_status, filters.date_from, filters.date_to, language, canView]);
+
+  useEffect(() => {
+    if (!canView || !filters.session_id) return;
+    let unsubscribe: null | (() => void) = null;
+    const reload = (payload: any) => {
+      if (!payload?.session_id || String(payload.session_id) !== String(filters.session_id)) return;
+      void loadData();
+    };
+    subscribeAuctionSession(
+      { sessionId: filters.session_id, mandiId: filters.mandi_code || uiConfig.scope?.mandi_id || undefined },
+      {
+        "auction.result.finalized": reload,
+        "auction.session.updated": reload,
+        "auction.lot.updated": reload,
+      }
+    ).then((cleanup) => {
+      unsubscribe = cleanup;
+    }).catch((err) => {
+      if (import.meta.env.DEV) console.debug("[auctionResults] realtime subscribe failed", err);
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [canView, filters.session_id, filters.mandi_code, uiConfig.scope?.mandi_id, language]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -194,7 +230,7 @@ export const AuctionResults: React.FC = () => {
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionResults", { defaultValue: "Auction Results" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Final auction results and winners (read-only).
+            Final auction results and winners. Use session filter for the stable session-scoped result feed.
           </Typography>
         </Stack>
         <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
@@ -280,8 +316,7 @@ export const AuctionResults: React.FC = () => {
           onChange={(e) => updateFilter("result_status", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="PENDING">Pending</MenuItem>
-          <MenuItem value="DECLARED">Declared</MenuItem>
+          <MenuItem value="CONFIRMED">Confirmed</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>
         </TextField>
 

@@ -66,6 +66,14 @@ export const AuctionSessions: React.FC = () => {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
+  const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
+  const defaultMandiCode = useMemo(() => {
+    if (scopedMandiCodes.length > 0) return String(scopedMandiCodes[0]);
+    if (mandiOptions.length === 1) return mandiOptions[0].value;
+    return "";
+  }, [scopedMandiCodes, mandiOptions]);
+
   const canMenu = useMemo(
     () => can(uiConfig.resources, "auction_sessions.menu", "VIEW") || can(uiConfig.resources, "auction_sessions.list", "VIEW"),
     [uiConfig.resources],
@@ -126,6 +134,16 @@ export const AuctionSessions: React.FC = () => {
   const loadData = async () => {
     const username = currentUsername();
     if (!username || !canView) return;
+    if (!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN") {
+      if (import.meta.env.DEV) {
+        console.debug("[AUCTION_SESSIONS_INIT] skipped load, mandi unresolved", {
+          defaultMandiCode,
+          appliedFilters: filters,
+        });
+      }
+      setRows([]);
+      return;
+    }
     setLoading(true);
     try {
       const resp = await getAuctionSessions({
@@ -170,6 +188,36 @@ export const AuctionSessions: React.FC = () => {
   }, [language, uiConfig.role]);
 
   useEffect(() => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      if (!next.org_code && defaultOrgCode) {
+        next.org_code = defaultOrgCode;
+        changed = true;
+      }
+      if (!next.mandi_code && defaultMandiCode) {
+        next.mandi_code = defaultMandiCode;
+        changed = true;
+      }
+      if (changed && import.meta.env.DEV) {
+        console.debug("[AUCTION_SESSIONS_INIT] resolved defaults", {
+          default_mandi_id: defaultMandiCode || null,
+          initial_api_call_fired: true,
+          appliedFilters: next,
+        });
+      }
+      return changed ? next : prev;
+    });
+  }, [defaultOrgCode, defaultMandiCode]);
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.debug("[AUCTION_SESSIONS_INIT] loadData effect", {
+        default_mandi_id: defaultMandiCode || null,
+        initial_api_call_fired: Boolean(filters.mandi_code || uiConfig.role === "SUPER_ADMIN"),
+        appliedFilters: filters,
+      });
+    }
     loadData();
   }, [filters.org_code, filters.mandi_code, filters.status, filters.method, filters.round, filters.date_from, filters.date_to, language, canView]);
 
@@ -250,6 +298,11 @@ export const AuctionSessions: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Live/archived auction sessions overview (read-only).
           </Typography>
+          {!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN" && (
+            <Typography variant="body2" color="warning.main">
+              Please select a mandi to view auction sessions.
+            </Typography>
+          )}
         </Stack>
         <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
           Refresh

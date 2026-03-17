@@ -11,7 +11,7 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { getAuctionLots, getAuctionSessions } from "../../services/auctionOpsApi";
+import { finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot } from "../../services/auctionOpsApi";
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
@@ -19,7 +19,10 @@ import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/soc
 type LotRow = {
   id: string;
   lot_id: string;
+  backend_lot_id?: string | null;
   session_id?: string | null;
+  org_id?: string | null;
+  mandi_id_value?: number | string | null;
   org_code?: string | null;
   mandi_code?: string | null;
   commodity?: string | null;
@@ -157,6 +160,9 @@ export const AuctionLots: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -179,6 +185,7 @@ export const AuctionLots: React.FC = () => {
     () => can(uiConfig.resources, "auction_sessions.list", "VIEW"),
     [uiConfig.resources],
   );
+  const canLotUpdate = useMemo(() => can(uiConfig.resources, "auction_lots.update", "UPDATE"), [uiConfig.resources]);
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -313,7 +320,10 @@ export const AuctionLots: React.FC = () => {
       const mapped: LotRow[] = list.map((item: any, idx: number) => ({
         id: item._id || item.lot_code || item.lot_id || `lot-${idx}`,
         lot_id: item.lot_code || item.lot_id || item._id || `lot-${idx}`,
+        backend_lot_id: item._id || item.lot_id || null,
         session_id: item.session_id || null,
+        org_id: item.org_id || null,
+        mandi_id_value: item.mandi_id ?? null,
         org_code: item.org_code || item.org_id || null,
         mandi_code: item.mandi_code ?? item.mandi_id ?? null,
         commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
@@ -328,6 +338,7 @@ export const AuctionLots: React.FC = () => {
         console.debug("[AUCTION_LOTS_DEBUG] sample_row", mapped[0]);
       }
       setRows(mapped);
+      setSelectedRow((prev) => mapped.find((row) => row.id === prev?.id) || null);
     } finally {
       setLoading(false);
     }
@@ -371,6 +382,66 @@ export const AuctionLots: React.FC = () => {
       setCreateError(err?.message || "Failed to load sessions/lots.");
     } finally {
       setCreateOptionsLoading(false);
+    }
+  };
+
+  const handleStartSelectedLot = async () => {
+    const username = currentUsername();
+    if (!username || !selectedRow || !selectedRow.backend_lot_id || !selectedRow.session_id || !selectedRow.org_id || selectedRow.mandi_id_value == null) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp: any = await startAuctionLot({
+        username,
+        language,
+        payload: {
+          org_id: selectedRow.org_id,
+          mandi_id: Number(selectedRow.mandi_id_value),
+          session_id: selectedRow.session_id,
+          lot_id: selectedRow.backend_lot_id,
+        },
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setActionError(desc || "Failed to start auction lot.");
+        return;
+      }
+      await loadData();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to start auction lot.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFinalizeSelectedLot = async () => {
+    const username = currentUsername();
+    if (!username || !selectedRow || !selectedRow.backend_lot_id || !selectedRow.session_id || !selectedRow.org_id || selectedRow.mandi_id_value == null) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp: any = await finalizeAuctionResult({
+        username,
+        language,
+        payload: {
+          org_id: selectedRow.org_id,
+          mandi_id: Number(selectedRow.mandi_id_value),
+          session_id: selectedRow.session_id,
+          lot_id: selectedRow.backend_lot_id,
+        },
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setActionError(desc || "Failed to finalize auction result.");
+        return;
+      }
+      await loadData();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to finalize auction result.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -650,12 +721,22 @@ export const AuctionLots: React.FC = () => {
           )}
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
+          {selectedRow && canLotUpdate && (
+            <>
+              <Button variant="contained" size="small" onClick={handleStartSelectedLot} disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED"}>
+                Start Selected Lot
+              </Button>
+              <Button variant="outlined" size="small" color="error" onClick={handleFinalizeSelectedLot} disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "LIVE"}>
+                Finalize Selected Lot
+              </Button>
+            </>
+          )}
           {canCreate && (
             <Button variant="contained" size="small" onClick={() => setOpenCreate(true)}>
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
             Refresh
           </Button>
         </Stack>
@@ -756,6 +837,12 @@ export const AuctionLots: React.FC = () => {
         />
       </Stack>
 
+      {actionError && (
+        <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+          {actionError}
+        </Typography>
+      )}
+
       <Box sx={{ width: "100%" }}>
         <ResponsiveDataGrid
           rows={rows}
@@ -766,6 +853,7 @@ export const AuctionLots: React.FC = () => {
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           minWidth={960}
+          onRowClick={(params) => setSelectedRow(params.row as LotRow)}
         />
       </Box>
 

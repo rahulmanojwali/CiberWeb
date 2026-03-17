@@ -136,16 +136,6 @@ export const AuctionSessions: React.FC = () => {
   const loadData = async () => {
     const username = currentUsername();
     if (!username || !canView) return;
-    if (!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN") {
-      if (import.meta.env.DEV) {
-        console.debug("[AUCTION_SESSIONS_INIT] skipped load, mandi unresolved", {
-          defaultMandiCode,
-          appliedFilters: filters,
-        });
-      }
-      setRows([]);
-      return;
-    }
     setLoading(true);
     try {
       const resp = await getAuctionSessions({
@@ -308,8 +298,8 @@ export const AuctionSessions: React.FC = () => {
             Live/archived auction sessions overview (read-only).
           </Typography>
           {!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN" && (
-            <Typography variant="body2" color="warning.main">
-              Please select a mandi to view auction sessions.
+            <Typography variant="body2" color="text.secondary">
+              Showing sessions across your allowed mandis. Use the mandi dropdown to narrow the list.
             </Typography>
           )}
         </Stack>

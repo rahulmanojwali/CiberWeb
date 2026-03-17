@@ -8,6 +8,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
 import { closeAuctionSession, getAuctionSessions, startAuctionSession } from "../../services/auctionOpsApi";
@@ -48,9 +49,10 @@ export const AuctionSessions: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
 
+  const persistedScope = readAuctionScope();
   const [filters, setFilters] = useState({
-    org_code: "",
-    mandi_code: "",
+    org_code: persistedScope.org_code || "",
+    mandi_code: persistedScope.mandi_code || "",
     status: "",
     method: "",
     round: "",
@@ -211,6 +213,10 @@ export const AuctionSessions: React.FC = () => {
   }, [defaultOrgCode, defaultMandiCode]);
 
   useEffect(() => {
+    writeAuctionScope({ org_code: filters.org_code, mandi_code: filters.mandi_code });
+  }, [filters.org_code, filters.mandi_code]);
+
+  useEffect(() => {
     if (import.meta.env.DEV) {
       console.debug("[AUCTION_SESSIONS_INIT] loadData effect", {
         default_mandi_id: defaultMandiCode || null,
@@ -223,6 +229,9 @@ export const AuctionSessions: React.FC = () => {
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    if (import.meta.env.DEV && key === "mandi_code") {
+      console.debug("[AUCTION_SESSIONS_INIT] current selected mandi_id", value || null);
+    }
   };
 
   if (!canMenu || !canView) {

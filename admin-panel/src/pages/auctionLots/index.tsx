@@ -8,6 +8,7 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
+import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
 import { getAuctionLots, getAuctionSessions } from "../../services/auctionOpsApi";
@@ -141,9 +142,10 @@ export const AuctionLots: React.FC = () => {
     base_price: "",
   });
 
+  const persistedScope = readAuctionScope();
   const [filters, setFilters] = useState({
-    org_code: "",
-    mandi_code: "",
+    org_code: persistedScope.org_code || "",
+    mandi_code: persistedScope.mandi_code || "",
     commodity: "",
     product: "",
     session_id: "",
@@ -529,6 +531,10 @@ export const AuctionLots: React.FC = () => {
   }, [defaultOrgCode, defaultMandiCode]);
 
   useEffect(() => {
+    writeAuctionScope({ org_code: filters.org_code, mandi_code: filters.mandi_code });
+  }, [filters.org_code, filters.mandi_code]);
+
+  useEffect(() => {
     if (import.meta.env.DEV) {
       console.debug("[AUCTION_LOTS_INIT] loadData effect", {
         default_mandi_id: defaultMandiCode || null,
@@ -616,6 +622,9 @@ export const AuctionLots: React.FC = () => {
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    if (import.meta.env.DEV && key === "mandi_code") {
+      console.debug("[AUCTION_LOTS_INIT] current selected mandi_id", value || null);
+    }
   };
 
   if (!canMenu || !canView) {

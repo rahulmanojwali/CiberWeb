@@ -47,11 +47,27 @@ export const WorkflowPolicies: React.FC = () => {
   const [effectiveMandiLotCreationMode, setEffectiveMandiLotCreationMode] = useState("STRICT_ADMIN_ONLY");
   const [effectiveMandiSource, setEffectiveMandiSource] = useState("DEFAULT");
 
-  const canView = useMemo(
-    () => can("workflow_policies.menu", "VIEW") || can("workflow_policies.view", "VIEW"),
+  const canViewPage = useMemo(
+    () =>
+      can("workflow_policies.menu", "VIEW") ||
+      can("workflow_policies.view", "VIEW") ||
+      can("org_settings.menu", "VIEW") ||
+      can("mandi_settings.menu", "VIEW"),
     [can],
   );
-  const canEdit = useMemo(() => can("workflow_policies.edit", "UPDATE"), [can]);
+  const canViewOrg = useMemo(
+    () =>
+      can("org_settings.menu", "VIEW") ||
+      can("workflow_policies.menu", "VIEW") ||
+      can("workflow_policies.view", "VIEW"),
+    [can],
+  );
+  const canEditOrg = useMemo(
+    () => can("org_settings.edit", "UPDATE") || can("workflow_policies.edit", "UPDATE"),
+    [can],
+  );
+  const canViewMandi = useMemo(() => can("mandi_settings.menu", "VIEW"), [can]);
+  const canEditMandi = useMemo(() => can("mandi_settings.edit", "UPDATE"), [can]);
 
   const orgId = uiConfig.scope?.org_id || "";
 
@@ -95,15 +111,15 @@ export const WorkflowPolicies: React.FC = () => {
   }, [language, orgId, selectedMandi]);
 
   useEffect(() => {
-    if (!canView) return;
+    if (!canViewPage) return;
     setLoading(true);
     Promise.all([loadMandis(), loadOrgPolicy()]).finally(() => setLoading(false));
-  }, [canView, loadMandis, loadOrgPolicy]);
+  }, [canViewPage, loadMandis, loadOrgPolicy]);
 
   useEffect(() => {
-    if (!canView || !selectedMandi) return;
+    if (!canViewMandi || !selectedMandi) return;
     loadMandiPolicy();
-  }, [canView, selectedMandi, loadMandiPolicy]);
+  }, [canViewMandi, selectedMandi, loadMandiPolicy]);
 
   const saveOrgPolicy = async () => {
     const username = currentUsername();
@@ -154,7 +170,7 @@ export const WorkflowPolicies: React.FC = () => {
     loadMandiPolicy();
   };
 
-  if (!canView) {
+  if (!canViewPage) {
     return (
       <PageContainer>
         <Typography variant="h6">Not authorized to view workflow policies.</Typography>
@@ -172,77 +188,81 @@ export const WorkflowPolicies: React.FC = () => {
       </Stack>
 
       <Stack spacing={2}>
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6">Org Default</Typography>
-              <TextField
-                select
-                label="Lot Creation Mode"
-                value={orgLotCreationMode}
-                onChange={(e) => setOrgLotCreationMode(e.target.value)}
-                disabled={loading}
-              >
-                {ORG_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {canEdit ? (
-                <Box>
-                  <Button variant="contained" onClick={saveOrgPolicy}>
-                    Save Org Default
-                  </Button>
-                </Box>
-              ) : null}
-            </Stack>
-          </CardContent>
-        </Card>
+        {canViewOrg ? (
+          <Card>
+            <CardContent>
+              <Stack spacing={2}>
+                <Typography variant="h6">Org Default</Typography>
+                <TextField
+                  select
+                  label="Lot Creation Mode"
+                  value={orgLotCreationMode}
+                  onChange={(e) => setOrgLotCreationMode(e.target.value)}
+                  disabled={loading || !canEditOrg}
+                >
+                  {ORG_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {canEditOrg ? (
+                  <Box>
+                    <Button variant="contained" onClick={saveOrgPolicy}>
+                      Save Org Default
+                    </Button>
+                  </Box>
+                ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : null}
 
-        <Card>
-          <CardContent>
-            <Stack spacing={2}>
-              <Typography variant="h6">Mandi Override</Typography>
-              <TextField
-                select
-                label="Mandi"
-                value={selectedMandi}
-                onChange={(e) => setSelectedMandi(e.target.value)}
-                disabled={loading}
-              >
-                {mandiOptions.map((m) => (
-                  <MenuItem key={m.value} value={m.value}>
-                    {m.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Lot Creation Mode Override"
-                value={mandiLotCreationMode}
-                onChange={(e) => setMandiLotCreationMode(e.target.value)}
-                disabled={!selectedMandi}
-              >
-                {MANDI_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value || "__inherit__"} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Typography variant="body2" color="text.secondary">
-                Effective value: {effectiveMandiLotCreationMode} ({effectiveMandiSource})
-              </Typography>
-              {canEdit ? (
-                <Box>
-                  <Button variant="contained" onClick={saveMandiPolicy} disabled={!selectedMandi}>
-                    Save Mandi Override
-                  </Button>
-                </Box>
-              ) : null}
-            </Stack>
-          </CardContent>
-        </Card>
+        {canViewMandi ? (
+          <Card>
+            <CardContent>
+              <Stack spacing={2}>
+                <Typography variant="h6">Mandi Override</Typography>
+                <TextField
+                  select
+                  label="Mandi"
+                  value={selectedMandi}
+                  onChange={(e) => setSelectedMandi(e.target.value)}
+                  disabled={loading}
+                >
+                  {mandiOptions.map((m) => (
+                    <MenuItem key={m.value} value={m.value}>
+                      {m.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Lot Creation Mode Override"
+                  value={mandiLotCreationMode}
+                  onChange={(e) => setMandiLotCreationMode(e.target.value)}
+                  disabled={!selectedMandi || !canEditMandi}
+                >
+                  {MANDI_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.value || "__inherit__"} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <Typography variant="body2" color="text.secondary">
+                  Effective value: {effectiveMandiLotCreationMode} ({effectiveMandiSource})
+                </Typography>
+                {canEditMandi ? (
+                  <Box>
+                    <Button variant="contained" onClick={saveMandiPolicy} disabled={!selectedMandi}>
+                      Save Mandi Override
+                    </Button>
+                  </Box>
+                ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : null}
       </Stack>
     </PageContainer>
   );

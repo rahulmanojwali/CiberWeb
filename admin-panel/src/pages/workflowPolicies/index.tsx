@@ -1,5 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Button, Card, CardContent, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  MenuItem,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { useSnackbar } from "notistack";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -11,6 +25,12 @@ import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getMandiSettings, upsertMandiSettings } from "../../services/mandiSettingsApi";
 
 type Option = { value: string; label: string };
+type MandiOverrideSummary = {
+  mandiId: string;
+  mandiName: string;
+  overrideValue: string;
+  effectiveValue: string;
+};
 
 const ORG_OPTIONS = [
   { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
@@ -47,6 +67,8 @@ export const WorkflowPolicies: React.FC = () => {
   const [effectiveMandiLotCreationMode, setEffectiveMandiLotCreationMode] = useState("STRICT_ADMIN_ONLY");
   const [effectiveMandiSource, setEffectiveMandiSource] = useState("DEFAULT");
   const [mandiLoadError, setMandiLoadError] = useState("");
+  const [overridesLoading, setOverridesLoading] = useState(false);
+  const [mandiOverrides, setMandiOverrides] = useState<MandiOverrideSummary[]>([]);
 
   const canViewPage = useMemo(
     () =>
@@ -82,6 +104,14 @@ export const WorkflowPolicies: React.FC = () => {
   );
 
   const orgId = uiConfig.scope?.org_id || "";
+  const selectedMandiLabel = useMemo(
+    () => mandiOptions.find((item) => item.value === selectedMandi)?.label || "",
+    [mandiOptions, selectedMandi],
+  );
+  const effectivePreview = useMemo(
+    () => (mandiLotCreationMode || orgLotCreationMode || "STRICT_ADMIN_ONLY").toUpperCase(),
+    [mandiLotCreationMode, orgLotCreationMode],
+  );
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
@@ -132,6 +162,44 @@ export const WorkflowPolicies: React.FC = () => {
     setEffectiveMandiSource(String(data?.effective_workflow_policies?.source || "DEFAULT").toUpperCase());
   }, [language, orgId, selectedMandi]);
 
+  const loadMandiOverridesSummary = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !orgId || !mandiOptions.length || !canViewMandi) {
+      setMandiOverrides([]);
+      return;
+    }
+    setOverridesLoading(true);
+    try {
+      const rows = await Promise.all(
+        mandiOptions.map(async (mandi) => {
+          const resp = await getMandiSettings({
+            username,
+            language,
+            filters: { org_id: orgId, mandi_id: mandi.value },
+          });
+          const data = resp?.data || resp?.response?.data || {};
+          const overrideValue = String(data?.settings?.workflow_policies?.lot_creation_mode || "").toUpperCase();
+          const effectiveValue = String(
+            data?.effective_workflow_policies?.lot_creation_mode || orgLotCreationMode || "STRICT_ADMIN_ONLY",
+          ).toUpperCase();
+          if (!overrideValue) return null;
+          return {
+            mandiId: mandi.value,
+            mandiName: mandi.label,
+            overrideValue,
+            effectiveValue,
+          } as MandiOverrideSummary;
+        }),
+      );
+      setMandiOverrides(rows.filter(Boolean) as MandiOverrideSummary[]);
+    } catch (error) {
+      console.error("[workflowPolicies] failed to load mandi override summary", error);
+      setMandiOverrides([]);
+    } finally {
+      setOverridesLoading(false);
+    }
+  }, [canViewMandi, language, mandiOptions, orgId, orgLotCreationMode]);
+
   useEffect(() => {
     if (!canViewPage) return;
     setLoading(true);
@@ -142,6 +210,11 @@ export const WorkflowPolicies: React.FC = () => {
     if (!canViewMandi || !selectedMandi) return;
     loadMandiPolicy();
   }, [canViewMandi, selectedMandi, loadMandiPolicy]);
+
+  useEffect(() => {
+    if (!canViewMandi) return;
+    loadMandiOverridesSummary();
+  }, [canViewMandi, loadMandiOverridesSummary]);
 
   const saveOrgPolicy = async () => {
     const username = currentUsername();
@@ -164,6 +237,7 @@ export const WorkflowPolicies: React.FC = () => {
     enqueueSnackbar("Org workflow policy saved.", { variant: "success" });
     loadOrgPolicy();
     if (selectedMandi) loadMandiPolicy();
+    loadMandiOverridesSummary();
   };
 
   const saveMandiPolicy = async () => {
@@ -190,6 +264,7 @@ export const WorkflowPolicies: React.FC = () => {
     }
     enqueueSnackbar("Mandi workflow policy saved.", { variant: "success" });
     loadMandiPolicy();
+    loadMandiOverridesSummary();
   };
 
   if (!canViewPage) {
@@ -281,9 +356,18 @@ export const WorkflowPolicies: React.FC = () => {
                     </MenuItem>
                   ))}
                 </TextField>
-                <Typography variant="body2" color="text.secondary">
-                  Effective value: {effectiveMandiLotCreationMode} ({effectiveMandiSource})
-                </Typography>
+                <Stack spacing={0.5}>
+                  <Typography variant="body2" color="text.secondary">
+                    Org Default: {orgLotCreationMode}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Mandi Override: {mandiLotCreationMode || "Use Org Default"}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Effective Value: {selectedMandi ? effectivePreview : effectiveMandiLotCreationMode} (
+                    {selectedMandi ? (mandiLotCreationMode ? "MANDI_OVERRIDE" : "ORG_DEFAULT") : effectiveMandiSource})
+                  </Typography>
+                </Stack>
                 {canEditMandi ? (
                   <Box>
                     <Button variant="contained" onClick={saveMandiPolicy} disabled={!selectedMandi}>
@@ -291,6 +375,51 @@ export const WorkflowPolicies: React.FC = () => {
                     </Button>
                   </Box>
                 ) : null}
+                <Stack spacing={1}>
+                  <Typography variant="subtitle1">Current Mandi Overrides</Typography>
+                  {overridesLoading ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Loading current mandi overrides...
+                    </Typography>
+                  ) : mandiOverrides.length ? (
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Mandi Name</TableCell>
+                          <TableCell>Override Value</TableCell>
+                          <TableCell>Effective Value</TableCell>
+                          <TableCell align="right">Action</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {mandiOverrides.map((row) => (
+                          <TableRow key={row.mandiId}>
+                            <TableCell>{row.mandiName}</TableCell>
+                            <TableCell>{row.overrideValue}</TableCell>
+                            <TableCell>{row.effectiveValue}</TableCell>
+                            <TableCell align="right">
+                              <Button
+                                size="small"
+                                onClick={() => {
+                                  setSelectedMandi(row.mandiId);
+                                  setMandiLotCreationMode(row.overrideValue);
+                                  setEffectiveMandiLotCreationMode(row.effectiveValue);
+                                  setEffectiveMandiSource("MANDI_OVERRIDE");
+                                }}
+                              >
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No mandi overrides saved yet.
+                    </Typography>
+                  )}
+                </Stack>
               </Stack>
             </CardContent>
           </Card>

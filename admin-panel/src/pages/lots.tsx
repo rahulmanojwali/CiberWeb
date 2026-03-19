@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
+  Chip,
+  Divider,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +19,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -27,12 +33,18 @@ import { fetchLotDetail, fetchLots, mapLotToAuction, updateLotStatus, verifyLot 
 type LotRow = {
   id: string;
   token_code: string;
+  lot_code?: string | null;
   mandi_name: string | number | null;
+  org_name?: string | null;
   gate_code: string | null;
+  gate_label?: string | null;
   party_username?: string | null;
+  commodity_name?: string | null;
   commodity_product_id: string | null;
+  commodity_product_name?: string | null;
   bags: number | null;
   weight_kg: number | null;
+  quality_grade?: string | null;
   status: string | null;
   created_on?: string | null;
   raw?: any;
@@ -57,6 +69,59 @@ function formatDate(value?: string | Date | null) {
 
 function normalizeStatus(value?: string | null) {
   return String(value || "").trim().toUpperCase();
+}
+
+function displayValue(value: any, fallback = "—") {
+  if (value === null || value === undefined) return fallback;
+  const text = String(value).trim();
+  if (!text || text.toLowerCase() === "null" || text.toLowerCase() === "undefined") return fallback;
+  return text;
+}
+
+function formatNumber(value: any) {
+  if (value === null || value === undefined || value === "") return "—";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return displayValue(value);
+  return num.toLocaleString();
+}
+
+function derivePartyLabel(item: any) {
+  return (
+    item?.party_display_name ||
+    item?.party?.username ||
+    item?.party_username ||
+    item?.party_ref ||
+    item?.party_name ||
+    item?.party?.walkin?.name ||
+    null
+  );
+}
+
+function derivePartyMeta(item: any) {
+  return (
+    item?.party_contact ||
+    item?.party_mobile ||
+    item?.party?.walkin?.mobile ||
+    null
+  );
+}
+
+function FieldRow({ label, value }: { label: string; value: any }) {
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", sm: "160px 1fr" },
+        gap: 1,
+        py: 0.75,
+      }}
+    >
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="body2">{displayValue(value)}</Typography>
+    </Box>
+  );
 }
 
 const STATUS_OPTIONS = [
@@ -135,22 +200,36 @@ export const Lots: React.FC = () => {
       const list = resp?.data?.items || resp?.response?.data?.items || [];
       const mapped: LotRow[] = list.map((item: any, idx: number) => ({
         id: item._id || item.lot_id || `${item.token_code || "lot"}-${idx}`,
+        lot_code: item.lot_code || null,
         token_code: item.token_code || item.token || item.code || `token-${idx}`,
         mandi_name:
           item.mandi_name ||
+          item.mandi_name_en ||
           item.mandi ||
           item.mandi_slug ||
           item.mandi_id ||
           null,
+        org_name: item.org_name || item.org_name_en || item.org_code || null,
         gate_code: item.gate_code || item.gate || null,
-        party_username: item.party?.username || item.party_username || item.party_ref || null,
+        gate_label: item.gate_label || item.gate_name || item.gate_code || item.gate || null,
+        party_username: derivePartyLabel(item),
+        commodity_name: item.commodity_name || item.commodity_name_en || item.commodity_id || null,
         commodity_product_id:
           item.commodity_product_id ||
           item.commodity_product_code ||
           item.product_id ||
           null,
+        commodity_product_name:
+          item.commodity_product_name ||
+          item.product_name ||
+          item.product_name_en ||
+          item.commodity_product_name_en ||
+          item.commodity_product_id ||
+          item.product_id ||
+          null,
         bags: item.bags ?? item.bags_count ?? null,
         weight_kg: item.weight_kg ?? item.net_weight ?? null,
+        quality_grade: item.quality_grade ?? null,
         status: item.status ?? null,
         created_on: item.created_on || item.createdAt || null,
         raw: item,
@@ -196,22 +275,50 @@ export const Lots: React.FC = () => {
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
       { field: "token_code", headerName: "Token Code", width: 180 },
-      { field: "mandi_name", headerName: "Mandi", width: 160 },
-      { field: "gate_code", headerName: "Gate", width: 120 },
+      { field: "mandi_name", headerName: "Mandi", width: 180 },
+      { field: "gate_label", headerName: "Gate", width: 180 },
       { field: "party_username", headerName: "Party", width: 180 },
-      { field: "commodity_product_id", headerName: "Commodity Product", width: 180 },
-      { field: "bags", headerName: "Bags", width: 120 },
-      { field: "weight_kg", headerName: "Weight (kg)", width: 140 },
+      { field: "commodity_name", headerName: "Commodity", width: 180 },
+      { field: "commodity_product_name", headerName: "Product", width: 180 },
+      { field: "bags", headerName: "Bags", width: 110, valueFormatter: (value) => formatNumber(value) },
+      { field: "weight_kg", headerName: "Weight (kg)", width: 140, valueFormatter: (value) => formatNumber(value) },
+      { field: "quality_grade", headerName: "Quality Grade", width: 150, valueFormatter: (value) => displayValue(value) },
       { field: "status", headerName: "Status", width: 140 },
       {
         field: "created_on",
         headerName: "Created On",
         width: 190,
-        valueFormatter: (value) => formatDate(value),
+        valueFormatter: (value) => formatDate(value) || "—",
       },
     ],
     [],
   );
+
+  const detailLot = detail || selectedRow?.raw || null;
+  const detailParty = detailLot?.party && typeof detailLot.party === "object" ? detailLot.party : null;
+  const detailWalkin = detailParty?.walkin && typeof detailParty.walkin === "object" ? detailParty.walkin : null;
+  const detailPartyDisplay = derivePartyLabel(detailLot);
+  const detailPartyMeta = derivePartyMeta(detailLot);
+  const detailBags = detailLot?.bags ?? detailLot?.quantity?.bags ?? null;
+  const detailWeightKg = detailLot?.weight_kg ?? detailLot?.quantity?.weight_kg ?? null;
+  const detailWeightPerBagKg = detailLot?.weight_per_bag_kg ?? detailLot?.quantity?.weight_per_bag_kg ?? null;
+  const detailCommodityName =
+    detailLot?.commodity_name ||
+    detailLot?.commodity_name_en ||
+    detailLot?.commodity_id ||
+    null;
+  const detailProductName =
+    detailLot?.commodity_product_name ||
+    detailLot?.product_name ||
+    detailLot?.product_name_en ||
+    detailLot?.commodity_product_name_en ||
+    detailLot?.commodity_product_id ||
+    null;
+  const detailGateLabel =
+    detailLot?.gate_label ||
+    detailLot?.gate_name ||
+    detailLot?.gate_code ||
+    null;
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -426,28 +533,67 @@ export const Lots: React.FC = () => {
                 )}
               </Stack>
               {detail && (
-                <Box>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Lot Detail
-                  </Typography>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2">
-                      Status: {detail.status || "N/A"}
-                    </Typography>
-                    <Typography variant="body2">
-                      Token Code: {detail.token_code || "N/A"}
-                    </Typography>
-                    <Typography variant="body2">
-                      Commodity: {detail.commodity_id || "N/A"}
-                    </Typography>
-                    <Typography variant="body2">
-                      Commodity Product: {detail.commodity_product_id || "N/A"}
-                    </Typography>
-                    <Typography variant="body2">
-                      Quantity: {detail?.quantity?.bags ?? "N/A"} bags / {detail?.quantity?.weight_kg ?? "N/A"} kg
-                    </Typography>
-                  </Stack>
-                </Box>
+                <Stack spacing={2}>
+                  <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
+                      <Box>
+                        <Typography variant="subtitle1">{displayValue(detailLot?.lot_code, "Lot")}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Token {displayValue(detailLot?.token_code)}
+                        </Typography>
+                      </Box>
+                      <Chip label={displayValue(detailLot?.status, "Status not available")} color="primary" variant="outlined" />
+                    </Stack>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Lot Summary</Typography>
+                    <FieldRow label="Lot Code" value={detailLot?.lot_code} />
+                    <FieldRow label="Status" value={detailLot?.status} />
+                    <FieldRow label="Token Code" value={detailLot?.token_code} />
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Context</Typography>
+                    <FieldRow label="Org" value={detailLot?.org_name || detailLot?.org_name_en || detailLot?.org_code} />
+                    <FieldRow label="Mandi" value={detailLot?.mandi_name || detailLot?.mandi_name_en || detailLot?.mandi_id} />
+                    <FieldRow label="Gate" value={detailGateLabel} />
+                    <FieldRow label="Vehicle" value={detailLot?.vehicle_no} />
+                    <FieldRow label="Reason Label" value={detailLot?.reason_label} />
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Party</Typography>
+                    <FieldRow label="Party Kind" value={detailParty?.kind || detailLot?.party_kind} />
+                    <FieldRow label="Party Type" value={detailParty?.party_type || detailLot?.party_type} />
+                    <FieldRow label="Party" value={detailPartyDisplay} />
+                    <FieldRow label="Username / Mobile" value={[detailParty?.username, detailPartyMeta].filter(Boolean).join(" / ")} />
+                    <FieldRow label="Walk-in Name" value={detailWalkin?.name} />
+                    <FieldRow label="Walk-in Mobile" value={detailWalkin?.mobile} />
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Commodity</Typography>
+                    <FieldRow label="Commodity" value={detailCommodityName} />
+                    <FieldRow label="Product" value={detailProductName} />
+                    <FieldRow label="Quality Grade" value={detailLot?.quality_grade} />
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Quantity</Typography>
+                    <FieldRow label="Bags" value={detailBags} />
+                    <FieldRow label="Weight per bag (kg)" value={detailWeightPerBagKg} />
+                    <FieldRow label="Total weight (kg)" value={detailWeightKg} />
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle1" gutterBottom>Audit</Typography>
+                    <FieldRow label="Created By" value={detailLot?.created_by} />
+                    <FieldRow label="Updated By" value={detailLot?.updated_by} />
+                    <FieldRow label="Created On" value={formatDate(detailLot?.created_on) || "—"} />
+                    <FieldRow label="Updated On" value={formatDate(detailLot?.updated_on) || "—"} />
+                  </Box>
+                </Stack>
               )}
               <Box>
                 <Typography variant="subtitle1" gutterBottom>
@@ -480,20 +626,28 @@ export const Lots: React.FC = () => {
                   </Stack>
                 )}
               </Box>
-              <Box
-                component="pre"
-                sx={{
-                  p: 2,
-                  bgcolor: "background.default",
-                  borderRadius: 1,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  overflow: "auto",
-                  fontSize: 12,
-                }}
-              >
-                {JSON.stringify(detail || selectedRow?.raw || {}, null, 2)}
-              </Box>
+              <Accordion disableGutters>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2">Debug Data</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0,
+                      p: 2,
+                      bgcolor: "background.default",
+                      borderRadius: 1,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      overflow: "auto",
+                      fontSize: 12,
+                    }}
+                  >
+                    {JSON.stringify(detail || selectedRow?.raw || {}, null, 2)}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
             </Stack>
           )}
         </DialogContent>

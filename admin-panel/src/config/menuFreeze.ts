@@ -62,13 +62,25 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Auction",
+    "resource_key": "lots.menu",
+    "menu_name": "Lots",
+    "name_source": "screen",
+    "i18n_key": "menu.lots",
+    "route": "/lots",
+    "icon_key": "auction_lots",
+    "order": 81,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Auction",
     "resource_key": "auction_lots.menu",
     "menu_name": "Auction Lots",
     "name_source": "screen",
     "i18n_key": "menu.auctionLots",
     "route": "/auction-lots",
     "icon_key": "auction_lots",
-    "order": 81,
+    "order": 82,
     "metadata_group": "main_sidebar",
     "is_active": true
   },
@@ -80,7 +92,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "i18n_key": "menu.auctionResults",
     "route": "/auction-results",
     "icon_key": "auction_results",
-    "order": 82,
+    "order": 83,
     "metadata_group": "main_sidebar",
     "is_active": true
   },

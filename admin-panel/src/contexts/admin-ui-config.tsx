@@ -202,6 +202,75 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     metadata: { injected: true },
   } as UiResource);
 
+  const lotView = ["VIEW"];
+  const lotUpdate = ["UPDATE"];
+  ensure({
+    resource_key: "lots.menu",
+    screen: "Lots",
+    element: "Lots menu",
+    ui_type: "menu",
+    route: "/lots",
+    parent_resource_key: null,
+    allowed_actions: lotView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "lots.list",
+    screen: "Lots",
+    element: "Lots list",
+    ui_type: "table",
+    route: "/lots",
+    parent_resource_key: "lots.menu",
+    allowed_actions: lotView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "lots.detail",
+    screen: "Lots",
+    element: "Lot detail",
+    ui_type: "screen",
+    route: "/lots",
+    parent_resource_key: "lots.menu",
+    allowed_actions: lotView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "lots.verify",
+    screen: "Lots",
+    element: "Verify lot",
+    ui_type: "button",
+    route: "/lots",
+    parent_resource_key: "lots.menu",
+    allowed_actions: lotUpdate,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "lots.map_to_auction",
+    screen: "Lots",
+    element: "Map lot to auction",
+    ui_type: "button",
+    route: "/lots",
+    parent_resource_key: "lots.menu",
+    allowed_actions: lotUpdate,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "lots.update_status",
+    screen: "Lots",
+    element: "Update lot status",
+    ui_type: "button",
+    route: "/lots",
+    parent_resource_key: "lots.menu",
+    allowed_actions: lotUpdate,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+
   const preMarketView = ["VIEW"];
   const preMarketCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
   ensure({

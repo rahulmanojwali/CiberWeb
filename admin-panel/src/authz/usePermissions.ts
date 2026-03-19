@@ -74,6 +74,12 @@ export function usePermissions() {
       ensure("org_mandi_mappings.create", mandiActions);
       ensure("org_mandi_mappings.edit", mandiActions);
       ensure("org_mandi_mappings.deactivate", mandiActions);
+      ensure("lots.menu", ["VIEW"]);
+      ensure("lots.list", ["VIEW"]);
+      ensure("lots.detail", ["VIEW"]);
+      ensure("lots.verify", ["UPDATE"]);
+      ensure("lots.map_to_auction", ["UPDATE"]);
+      ensure("lots.update_status", ["UPDATE"]);
     }
     return map;
   }, [uiConfig.permissions, (uiConfig as any).resources, roleSlug]);

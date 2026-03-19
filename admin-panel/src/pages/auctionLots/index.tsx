@@ -857,6 +857,12 @@ export const AuctionLots: React.FC = () => {
         />
       </Box>
 
+      {!loading && rows.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          No auction lots found. If you are preparing new auction inventory, open the Lots page first to verify lots and map them into an auction session.
+        </Typography>
+      )}
+
       {openCreate && (
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
           <DialogTitle>Create Auction Lot</DialogTitle>

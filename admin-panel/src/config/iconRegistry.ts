@@ -124,6 +124,7 @@ const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {
   "security_2fa.menu": React.createElement(PhonelinkLockOutlinedIcon),
   "stepup_policy.menu": React.createElement(SecurityUpdateOutlinedIcon),
   "role_policies.menu": React.createElement(RuleFolderOutlinedIcon),
+  "workflow_policies.menu": React.createElement(PolicyOutlinedIcon),
 };
 
 export function resolveMenuIcon(iconKey?: string | null, resourceKey?: string | null): React.ReactNode | undefined {

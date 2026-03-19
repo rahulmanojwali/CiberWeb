@@ -410,6 +410,42 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     metadata: { injected: true },
   } as UiResource);
 
+  const workflowView = ["VIEW"];
+  const workflowEdit = ["VIEW", "UPDATE"];
+  ensure({
+    resource_key: "workflow_policies.menu",
+    screen: "Workflow Policies",
+    element: "Workflow policies menu",
+    ui_type: "menu",
+    route: "/system/workflow-policies",
+    parent_resource_key: null,
+    allowed_actions: workflowView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "workflow_policies.view",
+    screen: "Workflow Policies",
+    element: "Workflow policies view",
+    ui_type: "screen",
+    route: "/system/workflow-policies",
+    parent_resource_key: "workflow_policies.menu",
+    allowed_actions: workflowView,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+  ensure({
+    resource_key: "workflow_policies.edit",
+    screen: "Workflow Policies",
+    element: "Workflow policies edit",
+    ui_type: "button",
+    route: "/system/workflow-policies",
+    parent_resource_key: "workflow_policies.menu",
+    allowed_actions: workflowEdit,
+    is_active: true,
+    metadata: { injected: true },
+  } as UiResource);
+
 
 
 

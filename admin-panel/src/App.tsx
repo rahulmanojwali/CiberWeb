@@ -99,6 +99,7 @@ import { SettlementsPage } from "./pages/settlements";
 import { PaymentsLog } from "./pages/paymentsLog";
 import ResourceRegistryPage from "./pages/resourceRegistry";
 import ResourceHealthPage from "./pages/resourceHealth";
+import { WorkflowPolicies } from "./pages/workflowPolicies";
 
 import { Layout } from "./components/layout";
 
@@ -232,6 +233,7 @@ function App() {
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />
+                  <Route path="/system/workflow-policies" element={<WorkflowPolicies />} />
                   <Route path="/auction-sessions" element={<AuctionSessions />} />
                   <Route path="/auction-lots" element={<AuctionLots />} />
                   <Route path="/lots" element={<Lots />} />

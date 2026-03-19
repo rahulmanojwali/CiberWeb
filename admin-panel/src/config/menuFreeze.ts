@@ -674,6 +674,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "System",
+    "resource_key": "workflow_policies.menu",
+    "menu_name": "Workflow Policies",
+    "name_source": "label_i18n.en",
+    "i18n_key": "",
+    "route": "/system/workflow-policies",
+    "icon_key": "security",
+    "order": 898,
+    "metadata_group": "System",
+    "is_active": true
+  },
+  {
+    "category": "System",
     "resource_key": "mobile_dashboard.menu",
     "menu_name": "Mobile Dashboard",
     "name_source": "label_i18n.en",

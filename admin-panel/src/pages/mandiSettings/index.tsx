@@ -17,6 +17,11 @@ import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getMandiSettings, upsertMandiSettings } from "../../services/mandiSettingsApi";
 
 type Option = { value: string; label: string };
+const LOT_CREATION_OPTIONS = [
+  { value: "", label: "Use Org Default" },
+  { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
+  { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
+];
 
 function currentUsername(): string | null {
   try {
@@ -39,6 +44,9 @@ export const MandiSettings: React.FC = () => {
   const [selectedMandi, setSelectedMandi] = useState("");
   const [approvalMode, setApprovalMode] = useState("AUTO");
   const [trustMinScore, setTrustMinScore] = useState("");
+  const [lotCreationMode, setLotCreationMode] = useState("");
+  const [effectiveLotCreationMode, setEffectiveLotCreationMode] = useState("STRICT_ADMIN_ONLY");
+  const [effectiveLotCreationSource, setEffectiveLotCreationSource] = useState("DEFAULT");
 
   const canView = useMemo(
     () => can("mandi_settings.menu", "VIEW"),
@@ -83,6 +91,9 @@ export const MandiSettings: React.FC = () => {
     const mode = String(settings?.pre_listing?.approval_mode || "AUTO").toUpperCase();
     setApprovalMode(mode);
     setTrustMinScore(settings?.pre_listing?.trust_min_score?.toString?.() || "");
+    setLotCreationMode(String(settings?.workflow_policies?.lot_creation_mode || "").toUpperCase());
+    setEffectiveLotCreationMode(String(data?.effective_workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
+    setEffectiveLotCreationSource(String(data?.effective_workflow_policies?.source || "DEFAULT").toUpperCase());
   }, [language, selectedMandi, uiConfig.scope?.org_id]);
 
   useEffect(() => {
@@ -109,6 +120,9 @@ export const MandiSettings: React.FC = () => {
         pre_listing: {
           approval_mode: approvalMode,
           trust_min_score: approvalMode === "TRUST" && trustMinScore ? Number(trustMinScore) : undefined,
+        },
+        workflow_policies: {
+          lot_creation_mode: lotCreationMode || null,
         },
       },
     });
@@ -171,6 +185,22 @@ export const MandiSettings: React.FC = () => {
               onChange={(e) => setTrustMinScore(e.target.value)}
             />
           ) : null}
+          <TextField
+            select
+            label="Lot Creation Mode"
+            value={lotCreationMode}
+            onChange={(e) => setLotCreationMode(e.target.value)}
+            helperText="Controls whether gate operators can create lots immediately after marking a token IN_YARD."
+          >
+            {LOT_CREATION_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value || "__inherit__"} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Typography variant="body2" color="text.secondary">
+            Effective value: {effectiveLotCreationMode} ({effectiveLotCreationSource})
+          </Typography>
           {canEdit ? (
             <Button variant="contained" onClick={onSave}>
               Save Settings

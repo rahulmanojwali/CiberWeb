@@ -9,6 +9,10 @@ import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getOrgSettings, upsertOrgSettings } from "../../services/orgSettingsApi";
 
 type Option = { value: string; label: string };
+const LOT_CREATION_OPTIONS = [
+  { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
+  { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
+];
 
 function currentUsername(): string | null {
   try {
@@ -32,6 +36,7 @@ export const OrgSettings: React.FC = () => {
   const [defaultMandis, setDefaultMandis] = useState<string[]>([]);
   const [autoApproveFarmers, setAutoApproveFarmers] = useState(false);
   const [autoApproveTraders, setAutoApproveTraders] = useState(false);
+  const [lotCreationMode, setLotCreationMode] = useState("STRICT_ADMIN_ONLY");
 
   const canView = useMemo(() => can("org_settings.menu", "VIEW"), [can]);
   const canEdit = useMemo(() => can("org_settings.edit", "UPDATE"), [can]);
@@ -61,6 +66,7 @@ export const OrgSettings: React.FC = () => {
       setAutoApproveFarmers(String(data?.auto_approve_farmers_on_registration || "N") === "Y");
       setAutoApproveTraders(String(data?.auto_approve_traders_on_registration || "N") === "Y");
       setDefaultMandis(Array.isArray(data?.default_mandi_ids_for_auto_approval) ? data.default_mandi_ids_for_auto_approval.map(String) : []);
+      setLotCreationMode(String(data?.workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
     } finally {
       setLoading(false);
     }
@@ -86,6 +92,9 @@ export const OrgSettings: React.FC = () => {
         auto_approve_farmers_on_registration: autoApproveFarmers ? "Y" : "N",
         auto_approve_traders_on_registration: autoApproveTraders ? "Y" : "N",
         default_mandi_ids_for_auto_approval: defaultMandis,
+        workflow_policies: {
+          lot_creation_mode: lotCreationMode,
+        },
       },
     });
     loadSettings();
@@ -126,6 +135,22 @@ export const OrgSettings: React.FC = () => {
               <Typography>Auto approve traders on registration</Typography>
               <Switch checked={autoApproveTraders} onChange={(e) => setAutoApproveTraders(e.target.checked)} />
             </Stack>
+            <Box>
+              <TextField
+                select
+                label="Lot Creation Mode"
+                value={lotCreationMode}
+                onChange={(e) => setLotCreationMode(e.target.value)}
+                fullWidth
+                helperText="Controls whether gate operators can create lots immediately after marking a token IN_YARD."
+              >
+                {LOT_CREATION_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
             <Box>
               <TextField
                 select

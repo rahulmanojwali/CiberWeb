@@ -85,6 +85,29 @@ function formatNumber(value: any) {
   return num.toLocaleString();
 }
 
+function titleCaseLabel(value: any) {
+  const text = displayValue(value, "");
+  if (!text) return "—";
+  return text
+    .split(/\s+/)
+    .map((part) => {
+      if (!part) return part;
+      const clean = part.replace(/_/g, " ");
+      return clean
+        .split(" ")
+        .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word))
+        .join(" ");
+    })
+    .join(" ");
+}
+
+function humanizePartyKind(value: any) {
+  const key = displayValue(value, "").toUpperCase();
+  if (key === "CM_USER") return "Registered User";
+  if (key === "WALKIN") return "Walk-in";
+  return displayValue(value);
+}
+
 function derivePartyLabel(item: any) {
   return (
     item?.party_display_name ||
@@ -213,20 +236,22 @@ export const Lots: React.FC = () => {
         gate_code: item.gate_code || item.gate || null,
         gate_label: item.gate_label || item.gate_name || item.gate_code || item.gate || null,
         party_username: derivePartyLabel(item),
-        commodity_name: item.commodity_name || item.commodity_name_en || item.commodity_id || null,
+        commodity_name: titleCaseLabel(item.commodity_name || item.commodity_name_en || item.commodity_id || null),
         commodity_product_id:
           item.commodity_product_id ||
           item.commodity_product_code ||
           item.product_id ||
           null,
         commodity_product_name:
-          item.commodity_product_name ||
-          item.product_name ||
-          item.product_name_en ||
-          item.commodity_product_name_en ||
-          item.commodity_product_id ||
-          item.product_id ||
-          null,
+          titleCaseLabel(
+            item.commodity_product_name ||
+            item.product_name ||
+            item.product_name_en ||
+            item.commodity_product_name_en ||
+            item.commodity_product_id ||
+            item.product_id ||
+            null,
+          ),
         bags: item.bags ?? item.bags_count ?? null,
         weight_kg: item.weight_kg ?? item.net_weight ?? null,
         quality_grade: item.quality_grade ?? null,
@@ -302,23 +327,29 @@ export const Lots: React.FC = () => {
   const detailBags = detailLot?.bags ?? detailLot?.quantity?.bags ?? null;
   const detailWeightKg = detailLot?.weight_kg ?? detailLot?.quantity?.weight_kg ?? null;
   const detailWeightPerBagKg = detailLot?.weight_per_bag_kg ?? detailLot?.quantity?.weight_per_bag_kg ?? null;
-  const detailCommodityName =
+  const detailCommodityName = titleCaseLabel(
     detailLot?.commodity_name ||
-    detailLot?.commodity_name_en ||
-    detailLot?.commodity_id ||
-    null;
-  const detailProductName =
+      detailLot?.commodity_name_en ||
+      detailLot?.commodity_id ||
+      null,
+  );
+  const detailProductName = titleCaseLabel(
     detailLot?.commodity_product_name ||
-    detailLot?.product_name ||
-    detailLot?.product_name_en ||
-    detailLot?.commodity_product_name_en ||
-    detailLot?.commodity_product_id ||
-    null;
+      detailLot?.product_name ||
+      detailLot?.product_name_en ||
+      detailLot?.commodity_product_name_en ||
+      detailLot?.commodity_product_id ||
+      null,
+  );
   const detailGateLabel =
     detailLot?.gate_label ||
     detailLot?.gate_name ||
     detailLot?.gate_code ||
     null;
+  const usernameMobileCombined = [detailParty?.username, detailPartyMeta].filter(Boolean).join(" / ");
+  const shouldShowPartyRow =
+    Boolean(detailPartyDisplay) &&
+    String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -564,10 +595,10 @@ export const Lots: React.FC = () => {
                   <Divider />
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>Party</Typography>
-                    <FieldRow label="Party Kind" value={detailParty?.kind || detailLot?.party_kind} />
+                    <FieldRow label="Party Kind" value={humanizePartyKind(detailParty?.kind || detailLot?.party_kind)} />
                     <FieldRow label="Party Type" value={detailParty?.party_type || detailLot?.party_type} />
-                    <FieldRow label="Party" value={detailPartyDisplay} />
-                    <FieldRow label="Username / Mobile" value={[detailParty?.username, detailPartyMeta].filter(Boolean).join(" / ")} />
+                    {shouldShowPartyRow && <FieldRow label="Party" value={detailPartyDisplay} />}
+                    <FieldRow label="Username / Mobile" value={usernameMobileCombined} />
                     <FieldRow label="Walk-in Name" value={detailWalkin?.name} />
                     <FieldRow label="Walk-in Mobile" value={detailWalkin?.mobile} />
                   </Box>
@@ -581,9 +612,9 @@ export const Lots: React.FC = () => {
                   <Divider />
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>Quantity</Typography>
-                    <FieldRow label="Bags" value={detailBags} />
-                    <FieldRow label="Weight per bag (kg)" value={detailWeightPerBagKg} />
-                    <FieldRow label="Total weight (kg)" value={detailWeightKg} />
+                    <FieldRow label="Bags" value={formatNumber(detailBags)} />
+                    <FieldRow label="Weight per bag (kg)" value={formatNumber(detailWeightPerBagKg)} />
+                    <FieldRow label="Total weight (kg)" value={formatNumber(detailWeightKg)} />
                   </Box>
                   <Divider />
                   <Box>

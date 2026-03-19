@@ -267,6 +267,35 @@ export const WorkflowPolicies: React.FC = () => {
     loadMandiOverridesSummary();
   };
 
+  const clearMandiOverride = async (mandiId: string) => {
+    const username = currentUsername();
+    if (!username || !orgId || !mandiId) return;
+    const resp = await upsertMandiSettings({
+      username,
+      language,
+      payload: {
+        org_id: orgId,
+        mandi_id: mandiId,
+        workflow_policies: {
+          lot_creation_mode: null,
+        },
+      },
+    });
+    const code = String(resp?.response?.responsecode ?? "");
+    if (code !== "0") {
+      enqueueSnackbar(resp?.response?.description || "Failed to clear mandi workflow policy.", { variant: "error" });
+      return;
+    }
+    enqueueSnackbar("Mandi override cleared.", { variant: "success" });
+    if (selectedMandi === mandiId) {
+      setMandiLotCreationMode("");
+      setEffectiveMandiLotCreationMode(orgLotCreationMode);
+      setEffectiveMandiSource("ORG_DEFAULT");
+      loadMandiPolicy();
+    }
+    loadMandiOverridesSummary();
+  };
+
   if (!canViewPage) {
     return (
       <PageContainer>
@@ -398,17 +427,28 @@ export const WorkflowPolicies: React.FC = () => {
                             <TableCell>{row.overrideValue}</TableCell>
                             <TableCell>{row.effectiveValue}</TableCell>
                             <TableCell align="right">
-                              <Button
-                                size="small"
-                                onClick={() => {
-                                  setSelectedMandi(row.mandiId);
-                                  setMandiLotCreationMode(row.overrideValue);
-                                  setEffectiveMandiLotCreationMode(row.effectiveValue);
-                                  setEffectiveMandiSource("MANDI_OVERRIDE");
-                                }}
-                              >
-                                Edit
-                              </Button>
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button
+                                  size="small"
+                                  onClick={() => {
+                                    setSelectedMandi(row.mandiId);
+                                    setMandiLotCreationMode(row.overrideValue);
+                                    setEffectiveMandiLotCreationMode(row.effectiveValue);
+                                    setEffectiveMandiSource("MANDI_OVERRIDE");
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                {canEditMandi ? (
+                                  <Button
+                                    size="small"
+                                    color="inherit"
+                                    onClick={() => clearMandiOverride(row.mandiId)}
+                                  >
+                                    Clear Override
+                                  </Button>
+                                ) : null}
+                              </Stack>
                             </TableCell>
                           </TableRow>
                         ))}

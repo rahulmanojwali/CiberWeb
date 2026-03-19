@@ -37,7 +37,7 @@ export const WorkflowPolicies: React.FC = () => {
   const language = normalizeLanguageCode(i18n.language);
   const { enqueueSnackbar } = useSnackbar();
   const uiConfig = useAdminUiConfig();
-  const { can } = usePermissions();
+  const { can, authContext } = usePermissions();
 
   const [loading, setLoading] = useState(false);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
@@ -46,6 +46,7 @@ export const WorkflowPolicies: React.FC = () => {
   const [mandiLotCreationMode, setMandiLotCreationMode] = useState("");
   const [effectiveMandiLotCreationMode, setEffectiveMandiLotCreationMode] = useState("STRICT_ADMIN_ONLY");
   const [effectiveMandiSource, setEffectiveMandiSource] = useState("DEFAULT");
+  const [mandiLoadError, setMandiLoadError] = useState("");
 
   const canViewPage = useMemo(
     () =>
@@ -66,22 +67,43 @@ export const WorkflowPolicies: React.FC = () => {
     () => can("org_settings.edit", "UPDATE") || can("workflow_policies.edit", "UPDATE"),
     [can],
   );
-  const canViewMandi = useMemo(() => can("mandi_settings.menu", "VIEW"), [can]);
-  const canEditMandi = useMemo(() => can("mandi_settings.edit", "UPDATE"), [can]);
+  const isOrgAdmin = useMemo(() => authContext.role === "ORG_ADMIN", [authContext.role]);
+  const canViewMandi = useMemo(
+    () =>
+      can("mandi_settings.menu", "VIEW") ||
+      can("workflow_policies.menu", "VIEW") ||
+      can("workflow_policies.view", "VIEW") ||
+      isOrgAdmin,
+    [can, isOrgAdmin],
+  );
+  const canEditMandi = useMemo(
+    () => can("mandi_settings.edit", "UPDATE") || can("workflow_policies.edit", "UPDATE") || isOrgAdmin,
+    [can, isOrgAdmin],
+  );
 
   const orgId = uiConfig.scope?.org_id || "";
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
     if (!username || !orgId) return;
-    const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
-    const next = (list || []).map((m: any) => ({
-      value: String(m.mandi_id ?? m.mandiId ?? ""),
-      label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
-    }));
-    setMandiOptions(next);
-    if (!selectedMandi && next.length === 1) {
-      setSelectedMandi(next[0].value);
+    setMandiLoadError("");
+    try {
+      const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
+      const next = (list || []).map((m: any) => ({
+        value: String(m.mandi_id ?? m.mandiId ?? ""),
+        label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
+      }));
+      setMandiOptions(next);
+      if (!selectedMandi && next.length === 1) {
+        setSelectedMandi(next[0].value);
+      }
+      if (!next.length) {
+        setMandiLoadError("No mandis are available for this org.");
+      }
+    } catch (error) {
+      console.error("[workflowPolicies] failed to load mandis", error);
+      setMandiOptions([]);
+      setMandiLoadError("Unable to load mandi list right now.");
     }
   }, [language, orgId, selectedMandi]);
 
@@ -228,7 +250,7 @@ export const WorkflowPolicies: React.FC = () => {
                   label="Mandi"
                   value={selectedMandi}
                   onChange={(e) => setSelectedMandi(e.target.value)}
-                  disabled={loading}
+                  disabled={loading || !mandiOptions.length}
                 >
                   {mandiOptions.map((m) => (
                     <MenuItem key={m.value} value={m.value}>
@@ -236,6 +258,16 @@ export const WorkflowPolicies: React.FC = () => {
                     </MenuItem>
                   ))}
                 </TextField>
+                {!selectedMandi ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Select a mandi to configure override.
+                  </Typography>
+                ) : null}
+                {mandiLoadError ? (
+                  <Typography variant="body2" color="error">
+                    {mandiLoadError}
+                  </Typography>
+                ) : null}
                 <TextField
                   select
                   label="Lot Creation Mode Override"

@@ -28,7 +28,7 @@ import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
-import { fetchLotDetail, fetchLots, mapLotToAuction, updateLotStatus, verifyLot } from "../services/lotsApi";
+import { fetchLotDetail, fetchLots, updateLotStatus, verifyLot } from "../services/lotsApi";
 
 type LotRow = {
   id: string;
@@ -108,6 +108,26 @@ function humanizePartyKind(value: any) {
   return displayValue(value);
 }
 
+function humanizePartyType(value: any) {
+  const key = displayValue(value, "").toUpperCase();
+  if (key === "FARMER") return "Farmer";
+  if (key === "TRADER") return "Trader";
+  return displayValue(value);
+}
+
+function humanizeLotStatus(value: any) {
+  const key = displayValue(value, "").toUpperCase();
+  if (key === "CREATED") return "Created";
+  if (key === "WEIGHMENT_LOCKED") return "Weighment Locked";
+  if (key === "VERIFIED") return "Verified";
+  if (key === "CANCELLED") return "Cancelled";
+  if (!key || key === "—") return "Status not available";
+  return key
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function derivePartyLabel(item: any) {
   return (
     item?.party_display_name ||
@@ -177,9 +197,6 @@ export const Lots: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [mapDialogOpen, setMapDialogOpen] = useState(false);
-  const [auctionId, setAuctionId] = useState("");
-  const [auctionCode, setAuctionCode] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [mandiFilter, setMandiFilter] = useState("");
   const [tokenFilter, setTokenFilter] = useState("");
@@ -194,10 +211,6 @@ export const Lots: React.FC = () => {
   );
   const canUpdateStatus = useMemo(
     () => can(uiConfig.resources, "lots.update_status", "UPDATE"),
-    [uiConfig.resources],
-  );
-  const canMapToAuction = useMemo(
-    () => can(uiConfig.resources, "lots.map_to_auction", "UPDATE"),
     [uiConfig.resources],
   );
   const canVerify = useMemo(
@@ -350,6 +363,11 @@ export const Lots: React.FC = () => {
   const shouldShowPartyRow =
     Boolean(detailPartyDisplay) &&
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
+  const detailStatus = normalizeStatus(detailLot?.status);
+  const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
+  const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
+  const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
+  const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction;
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -376,34 +394,6 @@ export const Lots: React.FC = () => {
         setActionError(desc || "Unable to update lot status.");
         return;
       }
-      await refreshDetail();
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const runMapToAuction = async () => {
-    const username = currentUsername();
-    if (!username || !selectedRow) return;
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      const resp = await mapLotToAuction({
-        username,
-        language,
-        lot_id: selectedRow.id,
-        auction_id: auctionId || undefined,
-        auction_code: auctionCode || undefined,
-      });
-      const code = resp?.response?.responsecode || resp?.responsecode || "1";
-      const desc = resp?.response?.description || resp?.description || "";
-      if (code !== "0") {
-        setActionError(desc || "Unable to map lot to auction.");
-        return;
-      }
-      setMapDialogOpen(false);
-      setAuctionId("");
-      setAuctionCode("");
       await refreshDetail();
     } finally {
       setActionLoading(false);
@@ -511,7 +501,7 @@ export const Lots: React.FC = () => {
             <Stack spacing={2}>
               {actionError && <Typography color="error">{actionError}</Typography>}
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {detail && canUpdateStatus && normalizeStatus(detail.status) === "CREATED" && (
+                {canLockWeighmentAction && (
                   <Button
                     size="small"
                     variant="contained"
@@ -521,17 +511,7 @@ export const Lots: React.FC = () => {
                     Lock Weighment
                   </Button>
                 )}
-                {detail && canUpdateStatus && normalizeStatus(detail.status) === "WEIGHMENT_LOCKED" && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => runStatusUpdate("VERIFIED")}
-                    disabled={actionLoading}
-                  >
-                    Verify
-                  </Button>
-                )}
-                {detail && canVerify && normalizeStatus(detail.status) === "CREATED" && (
+                {canVerifyAction && (
                   <Button
                     size="small"
                     variant="contained"
@@ -541,17 +521,7 @@ export const Lots: React.FC = () => {
                     Verify
                   </Button>
                 )}
-                {detail && canMapToAuction && normalizeStatus(detail.status) === "VERIFIED" && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => setMapDialogOpen(true)}
-                    disabled={actionLoading}
-                  >
-                    Map to Auction
-                  </Button>
-                )}
-                {detail && canUpdateStatus && normalizeStatus(detail.status) === "CREATED" && (
+                {canCancelAction && (
                   <Button
                     size="small"
                     variant="outlined"
@@ -563,6 +533,20 @@ export const Lots: React.FC = () => {
                   </Button>
                 )}
               </Stack>
+              {(canLockWeighmentAction || canVerifyAction || canCancelAction) && (
+                <Typography variant="caption" color="text.secondary">
+                  {[
+                    canLockWeighmentAction ? "Lock Weighment: Finalize bags and total weight" : null,
+                    canVerifyAction ? "Verify: Approve this lot for auction workflow" : null,
+                    canCancelAction ? "Cancel: Cancel this lot" : null,
+                  ].filter(Boolean).join(" • ")}
+                </Typography>
+              )}
+              {isWorkflowReadOnly && (
+                <Typography variant="caption" color="text.secondary">
+                  This lot is read-only in its current lifecycle stage.
+                </Typography>
+              )}
               {detail && (
                 <Stack spacing={2}>
                   <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
@@ -573,14 +557,14 @@ export const Lots: React.FC = () => {
                           Token {displayValue(detailLot?.token_code)}
                         </Typography>
                       </Box>
-                      <Chip label={displayValue(detailLot?.status, "Status not available")} color="primary" variant="outlined" />
+                      <Chip label={humanizeLotStatus(detailLot?.status)} color="primary" variant="outlined" />
                     </Stack>
                   </Box>
 
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>Lot Summary</Typography>
                     <FieldRow label="Lot Code" value={detailLot?.lot_code} />
-                    <FieldRow label="Status" value={detailLot?.status} />
+                    <FieldRow label="Status" value={humanizeLotStatus(detailLot?.status)} />
                     <FieldRow label="Token Code" value={detailLot?.token_code} />
                   </Box>
                   <Divider />
@@ -596,7 +580,7 @@ export const Lots: React.FC = () => {
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>Party</Typography>
                     <FieldRow label="Party Kind" value={humanizePartyKind(detailParty?.kind || detailLot?.party_kind)} />
-                    <FieldRow label="Party Type" value={detailParty?.party_type || detailLot?.party_type} />
+                    <FieldRow label="Party Type" value={humanizePartyType(detailParty?.party_type || detailLot?.party_type)} />
                     {shouldShowPartyRow && <FieldRow label="Party" value={detailPartyDisplay} />}
                     <FieldRow label="Username / Mobile" value={usernameMobileCombined} />
                     <FieldRow label="Walk-in Name" value={detailWalkin?.name} />
@@ -712,36 +696,6 @@ export const Lots: React.FC = () => {
             }}
           >
             Confirm Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={mapDialogOpen} onClose={() => setMapDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Map Lot to Auction</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <TextField
-              label="Auction ID"
-              value={auctionId}
-              onChange={(e) => setAuctionId(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Auction Code"
-              value={auctionCode}
-              onChange={(e) => setAuctionCode(e.target.value)}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMapDialogOpen(false)}>Back</Button>
-          <Button
-            variant="contained"
-            disabled={actionLoading || (!auctionId.trim() && !auctionCode.trim())}
-            onClick={runMapToAuction}
-          >
-            Map
           </Button>
         </DialogActions>
       </Dialog>

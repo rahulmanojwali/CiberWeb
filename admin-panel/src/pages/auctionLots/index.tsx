@@ -46,6 +46,16 @@ function currentUsername(): string | null {
   }
 }
 
+function currentCountry(): string {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return String(parsed?.country || parsed?.country_code || "IN").trim().toUpperCase() || "IN";
+  } catch {
+    return "IN";
+  }
+}
+
 function formatDate(value?: string | Date | null) {
   if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
@@ -211,6 +221,7 @@ export const AuctionLots: React.FC = () => {
   const loadOrganisations = async () => {
     if (uiConfig.role !== "SUPER_ADMIN") return;
     const username = currentUsername();
+    const country = currentCountry();
     if (!username) return;
     const resp = await fetchOrganisations({ username, language });
     const list = resp?.data?.organisations || resp?.response?.data?.organisations || [];
@@ -478,6 +489,7 @@ export const AuctionLots: React.FC = () => {
 
   const handleCreateSubmit = async () => {
     const username = currentUsername();
+    const country = currentCountry();
     if (!username) return;
     console.log("CREATE FORM:", createForm);
     console.log("SESSION OPTIONS:", sessionOptions);
@@ -508,7 +520,9 @@ export const AuctionLots: React.FC = () => {
     try {
       const resp: any = await postEncrypted("/admin/mapLotToAuctionSession", {
         api: "mapLotToAuctionSession",
+        api_name: "mapLotToAuctionSession",
         username,
+        country,
         language,
         lot_id: createForm.lot_id,
         session_id: createForm.session_id,

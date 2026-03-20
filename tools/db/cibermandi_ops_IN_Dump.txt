@@ -2334,13 +2334,13 @@ VALIDATOR:
       },
       commodity_id: {
         bsonType: [
-          'int',
+          'objectId',
           'null'
         ]
       },
       product_id: {
         bsonType: [
-          'int',
+          'objectId',
           'null'
         ]
       },
@@ -2349,6 +2349,18 @@ VALIDATOR:
       },
       product_name_en: {
         bsonType: 'string'
+      },
+      commodity_name_hi: {
+        bsonType: [
+          'string',
+          'null'
+        ]
+      },
+      product_name_hi: {
+        bsonType: [
+          'string',
+          'null'
+        ]
       },
       grade_code: {
         bsonType: [

@@ -34,3 +34,35 @@ export const getSettlementDetail = async ({
     language,
     ...payload,
   });
+
+export const verifySettlementPayment = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: Payload;
+}) =>
+  postEncrypted(API_ROUTES.admin.verifySettlementPayment, {
+    api: API_TAGS.SETTLEMENTS.verifySettlementPayment,
+    username,
+    language,
+    ...payload,
+  });
+
+export const rejectSettlementPayment = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: Payload;
+}) =>
+  postEncrypted(API_ROUTES.admin.rejectSettlementPayment, {
+    api: API_TAGS.SETTLEMENTS.rejectSettlementPayment,
+    username,
+    language,
+    ...payload,
+  });

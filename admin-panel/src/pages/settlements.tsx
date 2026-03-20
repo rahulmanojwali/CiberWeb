@@ -20,13 +20,13 @@ import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
 import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
-import { getSettlements, getSettlementDetail } from "../services/settlementsApi";
+import { getSettlements, getSettlementDetail, rejectSettlementPayment, verifySettlementPayment } from "../services/settlementsApi";
 import { getCurrentAdminUsername } from "../utils/session";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
 
 const PARTY_ROLES = ["FARMER", "TRADER", "ORG", "MANDI"];
-const STATUS_OPTIONS = ["PENDING", "PAID", "PARTIAL", "CANCELLED"];
+const STATUS_OPTIONS = ["PENDING", "PAID", "PARTIAL", "CANCELLED", "PENDING_PAYMENT", "PAYMENT_SUBMITTED", "PAYMENT_CONFIRMED", "PAYMENT_REJECTED"];
 
 export const SettlementsPage: React.FC = () => {
   const { i18n } = useTranslation();
@@ -48,6 +48,7 @@ export const SettlementsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<any>(null);
+  const [detailActionLoading, setDetailActionLoading] = useState(false);
 
   const columns = useMemo<GridColDef<any>[]>(
     () => [
@@ -59,7 +60,7 @@ export const SettlementsPage: React.FC = () => {
       { field: "total_amount", headerName: "Total", width: 120 },
       { field: "paid_amount", headerName: "Paid", width: 120 },
       { field: "balance", headerName: "Balance", width: 120 },
-      { field: "status", headerName: "Status", width: 120 },
+      { field: "payment_status", headerName: "Payment Status", width: 160 },
       { field: "settlement_date", headerName: "Date", width: 140 },
     ],
     [],
@@ -80,6 +81,7 @@ export const SettlementsPage: React.FC = () => {
         (resp?.data?.items || []).map((settlement: any) => ({
           ...settlement,
           id: settlement._id,
+          payment_status: settlement.payment_status || settlement.status,
           settlement_date: settlement.settlement_date ? new Date(settlement.settlement_date).toLocaleDateString() : "",
         })),
       );
@@ -107,6 +109,51 @@ export const SettlementsPage: React.FC = () => {
       setDetailOpen(true);
     } catch (error) {
       console.error("Failed to load settlement detail:", error);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    const username = getCurrentAdminUsername();
+    const settlementId = detailData?.header?._id;
+    if (!username || !settlementId) return;
+    setDetailActionLoading(true);
+    try {
+      const resp = await verifySettlementPayment({
+        username,
+        language,
+        payload: { settlement_id: settlementId },
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      if (String(rc) === "0") {
+        await openDetail(settlementId);
+        await loadSettlements();
+      }
+    } finally {
+      setDetailActionLoading(false);
+    }
+  };
+
+  const handleRejectPayment = async () => {
+    const username = getCurrentAdminUsername();
+    const settlementId = detailData?.header?._id;
+    if (!username || !settlementId) return;
+    setDetailActionLoading(true);
+    try {
+      const resp = await rejectSettlementPayment({
+        username,
+        language,
+        payload: {
+          settlement_id: settlementId,
+          rejection_reason: "Proof rejected by admin",
+        },
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      if (String(rc) === "0") {
+        await openDetail(settlementId);
+        await loadSettlements();
+      }
+    } finally {
+      setDetailActionLoading(false);
     }
   };
 
@@ -261,13 +308,34 @@ export const SettlementsPage: React.FC = () => {
                     Org: {detailData.header.org_code} / {detailData.header.mandi_name}
                   </Typography>
                   <Typography variant="body2">Party: {detailData.header.party_role} {detailData.header.party_code}</Typography>
+                  <Typography variant="body2">Lot: {detailData.header.lot_code || "—"}</Typography>
+                  <Typography variant="body2">Trader: {detailData.header.trader_username || detailData.header.winning_bidder_username || "—"}</Typography>
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Typography variant="body2">Total: {detailData.header.total_amount}</Typography>
                   <Typography variant="body2">Paid: {detailData.header.paid_amount}</Typography>
                   <Typography variant="body2">Balance: {detailData.header.balance}</Typography>
+                  <Typography variant="body2">Payment Status: {detailData.header.payment_status || detailData.header.status || "—"}</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2">UPI Txn ID: {detailData.header.upi_txn_id || "—"}</Typography>
+                  <Typography variant="body2">RRN: {detailData.header.upi_rrn || "—"}</Typography>
+                  <Typography variant="body2">Paid On: {detailData.header.upi_paid_on || "—"}</Typography>
+                  <Typography variant="body2">
+                    Screenshot: {detailData.header.upi_screenshot_url ? <a href={detailData.header.upi_screenshot_url} target="_blank" rel="noreferrer">View</a> : "—"}
+                  </Typography>
                 </Grid>
               </Grid>
+              {detailData.header.payment_status === "PAYMENT_SUBMITTED" ? (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <Button variant="contained" onClick={handleVerifyPayment} disabled={detailActionLoading}>
+                    Verify Payment
+                  </Button>
+                  <Button variant="outlined" color="error" onClick={handleRejectPayment} disabled={detailActionLoading}>
+                    Reject Payment
+                  </Button>
+                </Stack>
+              ) : null}
               <Typography variant="subtitle2">Settlement Lines</Typography>
               {detailData.lines?.length ? (
                 detailData.lines.map((line: any) => (

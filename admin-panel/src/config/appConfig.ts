@@ -325,6 +325,8 @@ export const API_TAGS = {
   SETTLEMENTS: {
     getSettlements: "getSettlements",
     getSettlementDetail: "getSettlementDetail",
+    verifySettlementPayment: "verifySettlementPayment",
+    rejectSettlementPayment: "rejectSettlementPayment",
   },
   PAYMENTS_LOG: {
     getPaymentsLog: "getPaymentsLog",
@@ -374,6 +376,8 @@ const SUBSCRIPTION_ROUTES = {
 const SETTLEMENT_ROUTES = {
   getSettlements: "/admin/getSettlements",
   getSettlementDetail: "/admin/getSettlementDetail",
+  verifySettlementPayment: "/admin/verifySettlementPayment",
+  rejectSettlementPayment: "/admin/rejectSettlementPayment",
 } as const;
 
 const PAYMENTS_LOG_ROUTES = {

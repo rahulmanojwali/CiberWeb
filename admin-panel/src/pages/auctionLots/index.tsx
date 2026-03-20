@@ -196,6 +196,14 @@ export const AuctionLots: React.FC = () => {
     [uiConfig.resources],
   );
   const canLotUpdate = useMemo(() => can(uiConfig.resources, "auction_lots.update", "UPDATE"), [uiConfig.resources]);
+  const selectedCreateSession = useMemo(
+    () => sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")) || null,
+    [sessionItems, createForm.session_id],
+  );
+  const createBasePriceRaw = String(createForm.base_price || "").trim();
+  const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
+  const createSubmitValid = Boolean(createForm.lot_id && createForm.session_id && createBasePriceValid);
+  const createSubmitDisabled = createLoading || !createSubmitValid;
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -493,24 +501,30 @@ export const AuctionLots: React.FC = () => {
     if (!username) return;
     console.log("CREATE FORM:", createForm);
     console.log("SESSION OPTIONS:", sessionOptions);
-    const sessionMatch = sessionItems.find(
-      (s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")
-    );
-    const sessionStatus = String(sessionMatch?.status || "").toUpperCase();
-    if (sessionStatus === "LIVE" || sessionStatus === "CLOSED") {
-      setCreateError("Cannot map lots to a LIVE or CLOSED session.");
+    if (import.meta.env.DEV) {
+      console.debug("[AUCTION_LOTS_CREATE] submit_state", {
+        selected_lot_id: createForm.lot_id || null,
+        selected_session_id: createForm.session_id || null,
+        opening_price: createBasePriceRaw || null,
+        session_status: String(selectedCreateSession?.status || "").toUpperCase() || null,
+        validation_result: createSubmitValid,
+        submit_disabled: createSubmitDisabled,
+      });
+    }
+    const sessionStatus = String(selectedCreateSession?.status || "").toUpperCase();
+    if (sessionStatus === "CLOSED" || sessionStatus === "CANCELLED") {
+      setCreateError("Cannot map lots to a CLOSED or CANCELLED session.");
       return;
     }
-    const basePriceRaw = String(createForm.base_price || "").trim();
-    if (!createForm.session_id || !createForm.lot_id || !basePriceRaw) {
+    if (!createForm.session_id || !createForm.lot_id || !createBasePriceRaw) {
       setCreateError("Session, lot, and opening price are required.");
       return;
     }
-    if (!/^\d+(\.\d{1,2})?$/.test(basePriceRaw)) {
+    if (!/^\d+(\.\d{1,2})?$/.test(createBasePriceRaw)) {
       setCreateError("Opening price must be a number with up to 2 decimals.");
       return;
     }
-    const basePriceNum = Number(basePriceRaw);
+    const basePriceNum = Number(createBasePriceRaw);
     if (!Number.isFinite(basePriceNum) || basePriceNum <= 0) {
       setCreateError("Opening price must be greater than 0.");
       return;
@@ -518,7 +532,7 @@ export const AuctionLots: React.FC = () => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const resp: any = await postEncrypted("/admin/mapLotToAuctionSession", {
+      const payload = {
         api: "mapLotToAuctionSession",
         api_name: "mapLotToAuctionSession",
         username,
@@ -526,7 +540,13 @@ export const AuctionLots: React.FC = () => {
         language,
         lot_id: createForm.lot_id,
         session_id: createForm.session_id,
-        start_price_per_qtl: basePriceRaw,
+        start_price_per_qtl: createBasePriceRaw,
+      };
+      if (import.meta.env.DEV) {
+        console.debug("[AUCTION_LOTS_CREATE] payload", payload);
+      }
+      const resp: any = await postEncrypted("/admin/mapLotToAuctionSession", {
+        ...payload,
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
@@ -1031,6 +1051,11 @@ export const AuctionLots: React.FC = () => {
                   {createError}
                 </Typography>
               )}
+              {import.meta.env.DEV && (
+                <Typography variant="caption" color="text.secondary">
+                  lot_id={createForm.lot_id || "—"} | session_id={createForm.session_id || "—"} | opening_price={createBasePriceRaw || "—"} | valid={String(createSubmitValid)} | disabled={String(createSubmitDisabled)}
+                </Typography>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
@@ -1038,15 +1063,7 @@ export const AuctionLots: React.FC = () => {
             <Button
               variant="contained"
               onClick={handleCreateSubmit}
-              disabled={
-                createLoading ||
-                (String(
-                  sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || ""))?.status || ""
-                ).toUpperCase() === "LIVE") ||
-                (String(
-                  sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || ""))?.status || ""
-                ).toUpperCase() === "CLOSED")
-              }
+              disabled={createSubmitDisabled}
             >
               {createLoading ? "Submitting..." : "Submit"}
             </Button>

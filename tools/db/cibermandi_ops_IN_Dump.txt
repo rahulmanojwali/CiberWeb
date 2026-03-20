@@ -722,6 +722,18 @@ VALIDATOR:
           'null'
         ]
       },
+      start_time: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
+      end_time: {
+        bsonType: [
+          'date',
+          'null'
+        ]
+      },
       version: {
         bsonType: 'int',
         minimum: 1

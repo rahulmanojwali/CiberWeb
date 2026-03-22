@@ -652,6 +652,16 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
     },
     {
+      key: "auctionSettings",
+      labelKey: "menu.auctionSettings",
+      labelOverride: "Auction Settings",
+      path: "/auction-settings",
+      icon: React.createElement(SettingsOutlinedIcon),
+      resourceKey: "mandi_settings.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    },
+    {
       key: "auctionSessions",
       labelKey: "menu.auctionSessions",
       path: "/auction-sessions",

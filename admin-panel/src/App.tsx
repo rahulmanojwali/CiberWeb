@@ -54,6 +54,7 @@ import { GateVehicleTypes } from "./pages/gateVehicleTypes";
 import { AuctionMethods } from "./pages/auctionMethods";
 import { AuctionRounds } from "./pages/auctionRounds";
 import { AuctionPolicies } from "./pages/auctionPolicies";
+import { AuctionSettings } from "./pages/auctionSettings";
 //import { GateDevices } from "./pages/gateDevices";
 import GateDevices from "./pages/gateDevices";
 
@@ -216,6 +217,7 @@ function App() {
                   <Route path="/auction-methods" element={<AuctionMethods />} />
                   <Route path="/auction-rounds" element={<AuctionRounds />} />
                   <Route path="/auction-policies" element={<AuctionPolicies />} />
+                  <Route path="/auction-settings" element={<AuctionSettings />} />
                   <Route path="/gate-devices" element={<GateDevices />} />
                   <Route path="/gate-device-configs" element={<GateDeviceConfigs />} />
                   <Route path="/gate-tokens" element={<GateTokens />} />

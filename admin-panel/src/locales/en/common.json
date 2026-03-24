@@ -107,7 +107,14 @@
     "stallFees": "Stall Fees",
     "marketPrices": "Market Prices",
     "mandiPricePolicies": "Mandi Price Policies",
-    "mandiSettings": "Mandi Settings"
+    "mandiSettings": "Mandi Settings",
+    "workflowModes": {
+      "auction": "Auction Workflow",
+      "msp": "MSP Workflow",
+      "direct": "Direct Workflow",
+      "contract": "Contract Workflow",
+      "haat": "Haat Workflow"
+    }
   },
   "header": {
     "sign_out": "Sign Out",

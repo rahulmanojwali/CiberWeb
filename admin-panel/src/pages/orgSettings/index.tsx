@@ -12,6 +12,7 @@ type Option = { value: string; label: string };
 const LOT_CREATION_OPTIONS = [
   { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
   { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
+  { value: "FARMER_ALLOWED", label: "Farmer Allowed" },
 ];
 
 function currentUsername(): string | null {
@@ -66,7 +67,7 @@ export const OrgSettings: React.FC = () => {
       setAutoApproveFarmers(String(data?.auto_approve_farmers_on_registration || "N") === "Y");
       setAutoApproveTraders(String(data?.auto_approve_traders_on_registration || "N") === "Y");
       setDefaultMandis(Array.isArray(data?.default_mandi_ids_for_auto_approval) ? data.default_mandi_ids_for_auto_approval.map(String) : []);
-      setLotCreationMode(String(data?.workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
+      setLotCreationMode(String(data?.workflow_policies?.auction?.lot_creation_mode || data?.workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
     } finally {
       setLoading(false);
     }
@@ -94,6 +95,9 @@ export const OrgSettings: React.FC = () => {
         default_mandi_ids_for_auto_approval: defaultMandis,
         workflow_policies: {
           lot_creation_mode: lotCreationMode,
+          auction: {
+            lot_creation_mode: lotCreationMode,
+          },
         },
       },
     });

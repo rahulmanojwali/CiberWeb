@@ -31,6 +31,8 @@ import { getOrgSettings, upsertOrgSettings } from "../../services/orgSettingsApi
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getMandiSettings, upsertMandiSettings } from "../../services/mandiSettingsApi";
 import { getScreenHelp } from "../../services/screenHelpApi";
+
+import { fetchScreenHelpWithFallback } from "../../services/screenHelpApi";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -808,58 +810,95 @@ export const WorkflowPolicies: React.FC = () => {
     }
   }, [canViewMandi, language, mandiOptions, orgId]);
 
-  const loadHelpContent = useCallback(async () => {
-    if (helpFetched || helpLoading) return;
+  // const loadHelpContent = useCallback(async () => {
+  //   if (helpFetched || helpLoading) return;
 
-    setHelpLoading(true);
-    setHelpError(false);
-    setHelpContent("");
+  //   setHelpLoading(true);
+  //   setHelpError(false);
+  //   setHelpContent("");
 
-    const attempts = [
-      { lang: language, platform: "WEB" },
-      { lang: language, platform: "BOTH" },
-      { lang: "en", platform: "WEB" },
-      { lang: "en", platform: "BOTH" },
-    ];
+  //   const attempts = [
+  //     { lang: language, platform: "WEB" },
+  //     { lang: language, platform: "BOTH" },
+  //     { lang: "en", platform: "WEB" },
+  //     { lang: "en", platform: "BOTH" },
+  //   ];
 
-    const username = currentUsername();
+  //   const username = currentUsername();
 
-    try {
-      let foundContent = "";
-      for (const attempt of attempts) {
-        try {
-          const res = await getScreenHelp({
-            username: username || "",
-            language,
-            payload: {
-              route: "/system/workflow-policies",
-              language: attempt.lang,
-              platform: attempt.platform,
-              is_active: "Y",
-            },
-          });
+  //   try {
+  //     let foundContent = "";
+  //     for (const attempt of attempts) {
+  //       try {
+  //         const res = await getScreenHelp({
+  //           username: username || "",
+  //           language,
+  //           payload: {
+  //             route: "/system/workflow-policies",
+  //             language: attempt.lang,
+  //             platform: attempt.platform,
+  //             is_active: "Y",
+  //           },
+  //         });
 
-          const data = res?.data || res?.response?.data || {};
-          const items = data?.items || (Array.isArray(data) ? data : []);
-          const match = Array.isArray(items) && items.length > 0 ? items[0] : (items?.content ? items : null);
+  //         const data = res?.data || res?.response?.data || {};
+  //         const items = data?.items || (Array.isArray(data) ? data : []);
+  //         const match = Array.isArray(items) && items.length > 0 ? items[0] : (items?.content ? items : null);
 
-          if (match && match.content) {
-            foundContent = match.content;
-            break;
-          }
-        } catch (e) {
-          // Ignore specific attempt failure, proceed to next fallback
-        }
-      }
-      setHelpContent(foundContent);
-    } catch (err) {
-      console.error("Failed to load help content", err);
+  //         if (match && match.content) {
+  //           foundContent = match.content;
+  //           break;
+  //         }
+  //       } catch (e) {
+  //         // Ignore specific attempt failure, proceed to next fallback
+  //       }
+  //     }
+  //     setHelpContent(foundContent);
+  //   } catch (err) {
+  //     console.error("Failed to load help content", err);
+  //     setHelpError(true);
+  //   } finally {
+  //       setHelpLoading(false);
+  //       setHelpFetched(true);
+  //     }
+  //   }, [language, helpFetched, helpLoading]);
+
+const loadHelpContent = useCallback(async () => {
+  if (helpFetched || helpLoading) return;
+
+  setHelpLoading(true);
+  setHelpError(false);
+  setHelpContent("");
+
+  try {
+    const res = await getScreenHelp("/system/workflow-policies", language);
+
+    const match =
+      res?.data ||
+      res?.response?.data ||
+      res?.help ||
+      res?.screen_help ||
+      null;
+
+    const html =
+      match?.html ||
+      match?.content ||
+      "";
+
+    setHelpContent(html);
+
+    if (!html) {
       setHelpError(true);
-    } finally {
-      setHelpLoading(false);
-      setHelpFetched(true);
     }
-  }, [language, helpFetched, helpLoading]);
+  } catch (err) {
+    console.error("Failed to load help content", err);
+    setHelpError(true);
+  } finally {
+    setHelpLoading(false);
+    setHelpFetched(true);
+  }
+}, [language, helpFetched, helpLoading]);
+
 
   useEffect(() => {
     if (!canViewPage) return;

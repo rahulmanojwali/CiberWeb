@@ -17,6 +17,9 @@ import {
   TableRow,
   TextField,
   Typography,
+  IconButton,
+  Drawer,
+  CircularProgress,
 } from "@mui/material";
 import { useSnackbar } from "notistack";
 import { useTranslation } from "react-i18next";
@@ -27,6 +30,9 @@ import { usePermissions } from "../../authz/usePermissions";
 import { getOrgSettings, upsertOrgSettings } from "../../services/orgSettingsApi";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getMandiSettings, upsertMandiSettings } from "../../services/mandiSettingsApi";
+import { getScreenHelp } from "../../services/screenHelpApi";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
 type Option = { value: string; label: string };
 
@@ -661,6 +667,12 @@ export const WorkflowPolicies: React.FC = () => {
   const [mandiOverrides, setMandiOverrides] = useState<MandiOverrideSummary[]>([]);
   const [infoMessage, setInfoMessage] = useState("");
 
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpError, setHelpError] = useState(false);
+  const [helpContent, setHelpContent] = useState("");
+  const [helpFetched, setHelpFetched] = useState(false);
+
   const canViewPage = useMemo(
     () =>
       can("workflow_policies.menu", "VIEW") ||
@@ -796,6 +808,59 @@ export const WorkflowPolicies: React.FC = () => {
     }
   }, [canViewMandi, language, mandiOptions, orgId]);
 
+  const loadHelpContent = useCallback(async () => {
+    if (helpFetched || helpLoading) return;
+
+    setHelpLoading(true);
+    setHelpError(false);
+    setHelpContent("");
+
+    const attempts = [
+      { lang: language, platform: "WEB" },
+      { lang: language, platform: "BOTH" },
+      { lang: "en", platform: "WEB" },
+      { lang: "en", platform: "BOTH" },
+    ];
+
+    const username = currentUsername();
+
+    try {
+      let foundContent = "";
+      for (const attempt of attempts) {
+        try {
+          const res = await getScreenHelp({
+            username: username || "",
+            language,
+            payload: {
+              route: "/system/workflow-policies",
+              language: attempt.lang,
+              platform: attempt.platform,
+              is_active: "Y",
+            },
+          });
+
+          const data = res?.data || res?.response?.data || {};
+          const items = data?.items || (Array.isArray(data) ? data : []);
+          const match = Array.isArray(items) && items.length > 0 ? items[0] : (items?.content ? items : null);
+
+          if (match && match.content) {
+            foundContent = match.content;
+            break;
+          }
+        } catch (e) {
+          // Ignore specific attempt failure, proceed to next fallback
+        }
+      }
+      setHelpContent(foundContent);
+    } catch (err) {
+      console.error("Failed to load help content", err);
+      setHelpError(true);
+    } finally {
+      setHelpLoading(false);
+      setHelpFetched(true);
+    }
+  }, [language, helpFetched, helpLoading]);
+
   useEffect(() => {
     if (!canViewPage) return;
     setLoading(true);
@@ -886,12 +951,24 @@ export const WorkflowPolicies: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack spacing={0.5} mb={2}>
-        <Typography variant="h5">Workflow Policies</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Configure organisation defaults and mandi-specific overrides for auction, MSP, direct, contract and haat.
-        </Typography>
-      </Stack>
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+        <Stack spacing={0.5}>
+          <Typography variant="h5">Workflow Policies</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Configure organisation defaults and mandi-specific overrides for auction, MSP, direct, contract and haat.
+          </Typography>
+        </Stack>
+        <IconButton
+          color="primary"
+          onClick={() => {
+            setIsHelpOpen(true);
+            loadHelpContent();
+          }}
+          title="Help"
+        >
+          <HelpOutlineIcon />
+        </IconButton>
+      </Box>
 
       <Stack spacing={2}>
         {canViewOrg ? (
@@ -1039,6 +1116,58 @@ export const WorkflowPolicies: React.FC = () => {
           </>
         ) : null}
       </Stack>
+
+      <Drawer
+        anchor="right"
+        open={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        PaperProps={{ sx: { width: { xs: "100%", sm: 400 } } }}
+      >
+        <Box p={2} display="flex" justifyContent="space-between" alignItems="center" borderBottom="1px solid" borderColor="divider">
+          <Typography variant="h6">Help</Typography>
+          <IconButton onClick={() => setIsHelpOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Box
+          p={3}
+          sx={{
+            overflowY: "auto",
+            "& h1, & h2, & h3, & h4, & h5, & h6": { mt: 0, mb: 1.5, color: "text.primary" },
+            "& p": { mt: 0, mb: 2, color: "text.secondary", lineHeight: 1.6 },
+            "& ul, & ol": { mt: 0, pl: 2, mb: 2, color: "text.secondary" },
+            "& li": { mb: 0.5 },
+            "& code": {
+              backgroundColor: "action.hover",
+              padding: "2px 4px",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+              fontSize: "0.9em",
+              color: "error.main",
+            },
+          }}
+        >
+          {helpLoading && (
+            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" py={4}>
+              <CircularProgress size={24} />
+              <Typography color="text.secondary">Loading help content...</Typography>
+            </Stack>
+          )}
+          {helpError && !helpLoading && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Failed to load help content. Please try again later.
+            </Alert>
+          )}
+          {!helpLoading && !helpError && !helpContent && helpFetched && (
+            <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+              Help content is not available for this screen yet.
+            </Typography>
+          )}
+          {!helpLoading && !helpError && helpContent && (
+            <div dangerouslySetInnerHTML={{ __html: helpContent }} />
+          )}
+        </Box>
+      </Drawer>
     </PageContainer>
   );
 };
@@ -1512,4 +1641,3 @@ export const WorkflowPolicies: React.FC = () => {
 //     </PageContainer>
 //   );
 // };
-

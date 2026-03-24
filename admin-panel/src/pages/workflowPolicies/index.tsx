@@ -671,6 +671,7 @@ export const WorkflowPolicies: React.FC = () => {
   const [mandiLoadError, setMandiLoadError] = useState("");
   const [overridesLoading, setOverridesLoading] = useState(false);
   const [mandiOverrides, setMandiOverrides] = useState<MandiOverrideSummary[]>([]);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [infoMessage, setInfoMessage] = useState("");
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [helpLoading, setHelpLoading] = useState(false);
@@ -724,6 +725,13 @@ export const WorkflowPolicies: React.FC = () => {
         label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
       }));
       setMandiOptions(next);
+    //  if (selectedMandi && !next.some((m) => m.value === selectedMandi)){
+       
+       if (selectedMandi && !next.some((m: Option) => m.value === selectedMandi)) {
+        setSelectedMandi("");
+      }
+
+
       if (!selectedMandi && next.length === 1) {
         setSelectedMandi(next[0].value);
       }
@@ -748,17 +756,65 @@ export const WorkflowPolicies: React.FC = () => {
   const loadSelectedMandi = useCallback(async () => {
     const username = currentUsername();
     if (!username || !orgId || !selectedMandi) return;
+
     const resp = await getMandiSettings({
       username,
       language,
       filters: { org_id: orgId, mandi_id: selectedMandi },
     });
+
     const data = resp?.data || resp?.response?.data || {};
     const settings = data?.settings || {};
     const effective = (data?.effective_workflow_policies || {}) as EffectivePoliciesResponse;
 
-    setMandiPolicies(normalizeWorkflowPolicies(settings?.workflow_policies));
-    setEffectivePolicies(normalizeWorkflowPolicies(effective));
+    const effectiveState = normalizeWorkflowPolicies(effective);
+    const savedOverrideState = normalizeWorkflowPolicies(settings?.workflow_policies);
+
+    setMandiPolicies({
+      auction: {
+        ...effectiveState.auction,
+        ...savedOverrideState.auction,
+        lot_creation_mode: effectiveState.auction.lot_creation_mode,
+        approval_mode: effectiveState.auction.approval_mode,
+        lot_assignment_mode: effectiveState.auction.lot_assignment_mode,
+        enabled: effectiveState.auction.enabled,
+      },
+      msp: {
+        ...effectiveState.msp,
+        ...savedOverrideState.msp,
+        intake_creation_mode: effectiveState.msp.intake_creation_mode,
+        approval_mode: effectiveState.msp.approval_mode,
+        rate_source: effectiveState.msp.rate_source,
+        farmer_request_allowed: effectiveState.msp.farmer_request_allowed,
+        enabled: effectiveState.msp.enabled,
+      },
+      direct: {
+        ...effectiveState.direct,
+        ...savedOverrideState.direct,
+        listing_creation_mode: effectiveState.direct.listing_creation_mode,
+        approval_mode: effectiveState.direct.approval_mode,
+        negotiation_allowed: effectiveState.direct.negotiation_allowed,
+        enabled: effectiveState.direct.enabled,
+      },
+      contract: {
+        ...effectiveState.contract,
+        ...savedOverrideState.contract,
+        contract_creation_mode: effectiveState.contract.contract_creation_mode,
+        approval_mode: effectiveState.contract.approval_mode,
+        farmer_acceptance_required: effectiveState.contract.farmer_acceptance_required,
+        enabled: effectiveState.contract.enabled,
+      },
+      haat: {
+        ...effectiveState.haat,
+        ...savedOverrideState.haat,
+        listing_creation_mode: effectiveState.haat.listing_creation_mode,
+        approval_mode: effectiveState.haat.approval_mode,
+        event_window_required: effectiveState.haat.event_window_required,
+        enabled: effectiveState.haat.enabled,
+      },
+    });
+
+    setEffectivePolicies(effectiveState);
     setEffectiveSources(effective?.sources || {});
     setInfoMessage(
       `Auction source: ${String(effective?.source || effective?.sources?.auction || "DEFAULT").toUpperCase()}`,
@@ -771,6 +827,7 @@ export const WorkflowPolicies: React.FC = () => {
       setMandiOverrides([]);
       return;
     }
+
     setOverridesLoading(true);
     try {
       const rows = await Promise.all(
@@ -783,6 +840,7 @@ export const WorkflowPolicies: React.FC = () => {
           const data = resp?.data || resp?.response?.data || {};
           const settings = data?.settings || {};
           const effective = (data?.effective_workflow_policies || {}) as EffectivePoliciesResponse;
+
           const auctionMode = String(
             settings?.workflow_policies?.auction?.lot_creation_mode ||
               settings?.workflow_policies?.lot_creation_mode ||
@@ -790,7 +848,9 @@ export const WorkflowPolicies: React.FC = () => {
           )
             .trim()
             .toUpperCase();
+
           if (!auctionMode) return null;
+
           return {
             mandiId: mandi.value,
             mandiName: mandi.label,
@@ -804,7 +864,9 @@ export const WorkflowPolicies: React.FC = () => {
           } as MandiOverrideSummary;
         }),
       );
+
       setMandiOverrides(rows.filter(Boolean) as MandiOverrideSummary[]);
+      setSummaryLoaded(true);
     } catch (error) {
       console.error("[workflowPolicies] failed to load mandi override summary", error);
       setMandiOverrides([]);
@@ -852,11 +914,6 @@ export const WorkflowPolicies: React.FC = () => {
     loadSelectedMandi();
   }, [canViewMandi, selectedMandi, loadSelectedMandi]);
 
-  useEffect(() => {
-    if (!canViewMandi) return;
-    loadMandiOverridesSummary();
-  }, [canViewMandi, loadMandiOverridesSummary]);
-
   const saveOrgPolicies = async () => {
     const username = currentUsername();
     if (!username || !orgId) return;
@@ -880,7 +937,9 @@ export const WorkflowPolicies: React.FC = () => {
       if (selectedMandi) {
         await loadSelectedMandi();
       }
-      await loadMandiOverridesSummary();
+      if (summaryLoaded) {
+        await loadMandiOverridesSummary();
+      }
     } finally {
       setSavingOrg(false);
     }
@@ -910,7 +969,9 @@ export const WorkflowPolicies: React.FC = () => {
       }
       enqueueSnackbar("Mandi settings saved.", { variant: "success" });
       await loadSelectedMandi();
-      await loadMandiOverridesSummary();
+      if (summaryLoaded) {
+        await loadMandiOverridesSummary();
+      }
     } finally {
       setSavingMandi(false);
     }
@@ -1024,35 +1085,50 @@ export const WorkflowPolicies: React.FC = () => {
               </CardContent>
             </Card>
 
-            <PolicySection
-              title="Mandi Override Policies"
-              helper="These values are saved against the selected mandi. Leave the page untouched if you only want to inherit organisation defaults."
-              state={mandiPolicies}
-              setState={setMandiPolicies}
-              disabled={!selectedMandi || loading || savingMandi}
-              readOnly={!canEditMandi}
-              effectiveSources={effectiveSources}
-            />
-
-            {canEditMandi ? (
-              <Box>
-                <Button
-                  variant="contained"
-                  onClick={saveMandiPolicies}
+            {selectedMandi ? (
+              <>
+                <PolicySection
+                  title="Mandi Override Policies"
+                  helper="These values are shown using the current effective policy for the selected mandi. Save only if you want to create or update a mandi-specific override."
+                  state={mandiPolicies}
+                  setState={setMandiPolicies}
                   disabled={!selectedMandi || loading || savingMandi}
-                >
-                  Save Mandi Override
-                </Button>
-              </Box>
+                  readOnly={!canEditMandi}
+                  effectiveSources={effectiveSources}
+                />
+
+                {canEditMandi ? (
+                  <Box>
+                    <Button
+                      variant="contained"
+                      onClick={saveMandiPolicies}
+                      disabled={!selectedMandi || loading || savingMandi}
+                    >
+                      Save Mandi Override
+                    </Button>
+                  </Box>
+                ) : null}
+              </>
             ) : null}
 
             <Card>
               <CardContent>
                 <Stack spacing={1}>
-                  <Typography variant="subtitle1">Current Mandi Auction Overrides</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    This table helps you quickly identify which mandis currently override auction lot creation mode.
-                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" gap={2} flexWrap="wrap">
+                    <Box>
+                      <Typography variant="subtitle1">Current Mandi Auction Overrides</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        This table helps you quickly identify which mandis currently override auction lot creation mode.
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      onClick={loadMandiOverridesSummary}
+                      disabled={overridesLoading || !mandiOptions.length}
+                    >
+                      {summaryLoaded ? "Refresh Override Table" : "Load Override Table"}
+                    </Button>
+                  </Box>
 
                   {overridesLoading ? (
                     <Typography variant="body2" color="text.secondary">
@@ -1087,7 +1163,9 @@ export const WorkflowPolicies: React.FC = () => {
                     </Table>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      No mandi overrides saved yet.
+                      {summaryLoaded
+                        ? "No mandi overrides saved yet."
+                        : "Click “Load Override Table” to fetch the current mandi override summary."}
                     </Typography>
                   )}
                 </Stack>
@@ -1159,7 +1237,6 @@ export const WorkflowPolicies: React.FC = () => {
   );
 };
 
-
 // import React, { useCallback, useEffect, useMemo, useState } from "react";
 // import {
 //   Alert,
@@ -1167,8 +1244,11 @@ export const WorkflowPolicies: React.FC = () => {
 //   Button,
 //   Card,
 //   CardContent,
+//   CircularProgress,
 //   Divider,
+//   Drawer,
 //   FormControlLabel,
+//   IconButton,
 //   MenuItem,
 //   Stack,
 //   Switch,
@@ -1179,10 +1259,9 @@ export const WorkflowPolicies: React.FC = () => {
 //   TableRow,
 //   TextField,
 //   Typography,
-//   IconButton,
-//   Drawer,
-//   CircularProgress,
 // } from "@mui/material";
+// import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+// import CloseIcon from "@mui/icons-material/Close";
 // import { useSnackbar } from "notistack";
 // import { useTranslation } from "react-i18next";
 // import { PageContainer } from "../../components/PageContainer";
@@ -1193,10 +1272,6 @@ export const WorkflowPolicies: React.FC = () => {
 // import { getMandisForCurrentScope } from "../../services/mandiApi";
 // import { getMandiSettings, upsertMandiSettings } from "../../services/mandiSettingsApi";
 // import { getScreenHelp } from "../../services/screenHelpApi";
-
-// import { fetchScreenHelpWithFallback } from "../../services/screenHelpApi";
-// import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-// import CloseIcon from "@mui/icons-material/Close";
 
 // type Option = { value: string; label: string };
 
@@ -1388,9 +1463,15 @@ export const WorkflowPolicies: React.FC = () => {
 //     },
 //     contract: {
 //       enabled: normalizeBoolean(raw?.contract?.enabled, defaults.contract.enabled),
-//       contract_creation_mode: toUpperString(raw?.contract?.contract_creation_mode, defaults.contract.contract_creation_mode),
+//       contract_creation_mode: toUpperString(
+//         raw?.contract?.contract_creation_mode,
+//         defaults.contract.contract_creation_mode,
+//       ),
 //       approval_mode: toUpperString(raw?.contract?.approval_mode, defaults.contract.approval_mode),
-//       farmer_acceptance_required: normalizeBoolean(raw?.contract?.farmer_acceptance_required, defaults.contract.farmer_acceptance_required),
+//       farmer_acceptance_required: normalizeBoolean(
+//         raw?.contract?.farmer_acceptance_required,
+//         defaults.contract.farmer_acceptance_required,
+//       ),
 //     },
 //     haat: {
 //       enabled: normalizeBoolean(raw?.haat?.enabled, defaults.haat.enabled),
@@ -1830,7 +1911,6 @@ export const WorkflowPolicies: React.FC = () => {
 //   const [overridesLoading, setOverridesLoading] = useState(false);
 //   const [mandiOverrides, setMandiOverrides] = useState<MandiOverrideSummary[]>([]);
 //   const [infoMessage, setInfoMessage] = useState("");
-
 //   const [isHelpOpen, setIsHelpOpen] = useState(false);
 //   const [helpLoading, setHelpLoading] = useState(false);
 //   const [helpError, setHelpError] = useState(false);
@@ -1972,36 +2052,33 @@ export const WorkflowPolicies: React.FC = () => {
 //     }
 //   }, [canViewMandi, language, mandiOptions, orgId]);
 
+//   const loadHelpContent = useCallback(async () => {
+//     if (helpFetched || helpLoading) return;
 
-// const loadHelpContent = useCallback(async () => {
-//   if (helpFetched || helpLoading) return;
-
-//   setHelpLoading(true);
-//   setHelpError(false);
-//   setHelpContent("");
-
-//   try {
-//     const doc = await getScreenHelp("/system/workflow-policies", language);
-
-//     const html = String(doc?.html || doc?.content || "").trim();
-
-//     if (!html) {
-//       setHelpError(false);
-//       setHelpContent("");
-//     } else {
-//       setHelpContent(html);
-//       setHelpError(false);
-//     }
-//   } catch (err) {
-//     console.error("Failed to load help content", err);
-//     setHelpError(true);
+//     setHelpLoading(true);
+//     setHelpError(false);
 //     setHelpContent("");
-//   } finally {
-//     setHelpLoading(false);
-//     setHelpFetched(true);
-//   }
-// }, [language, helpFetched, helpLoading]);
 
+//     try {
+//       const doc = await getScreenHelp("/system/workflow-policies", language);
+//       const html = String(doc?.html || doc?.content || "").trim();
+
+//       if (!html) {
+//         setHelpContent("");
+//         setHelpError(false);
+//       } else {
+//         setHelpContent(html);
+//         setHelpError(false);
+//       }
+//     } catch (err) {
+//       console.error("Failed to load help content", err);
+//       setHelpError(true);
+//       setHelpContent("");
+//     } finally {
+//       setHelpLoading(false);
+//       setHelpFetched(true);
+//     }
+//   }, [language, helpFetched, helpLoading]);
 
 //   useEffect(() => {
 //     if (!canViewPage) return;
@@ -2104,7 +2181,7 @@ export const WorkflowPolicies: React.FC = () => {
 //           color="primary"
 //           onClick={() => {
 //             setIsHelpOpen(true);
-//             loadHelpContent();
+//             void loadHelpContent();
 //           }}
 //           title="Help"
 //         >
@@ -2263,22 +2340,30 @@ export const WorkflowPolicies: React.FC = () => {
 //         anchor="right"
 //         open={isHelpOpen}
 //         onClose={() => setIsHelpOpen(false)}
-//         PaperProps={{ sx: { width: { xs: "100%", sm: 400 } } }}
+//         PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
 //       >
-//         <Box p={2} display="flex" justifyContent="space-between" alignItems="center" borderBottom="1px solid" borderColor="divider">
+//         <Box
+//           p={2}
+//           display="flex"
+//           justifyContent="space-between"
+//           alignItems="center"
+//           borderBottom="1px solid"
+//           borderColor="divider"
+//         >
 //           <Typography variant="h6">Help</Typography>
 //           <IconButton onClick={() => setIsHelpOpen(false)} size="small">
 //             <CloseIcon />
 //           </IconButton>
 //         </Box>
+
 //         <Box
 //           p={3}
 //           sx={{
 //             overflowY: "auto",
 //             "& h1, & h2, & h3, & h4, & h5, & h6": { mt: 0, mb: 1.5, color: "text.primary" },
 //             "& p": { mt: 0, mb: 2, color: "text.secondary", lineHeight: 1.6 },
-//             "& ul, & ol": { mt: 0, pl: 2, mb: 2, color: "text.secondary" },
-//             "& li": { mb: 0.5 },
+//             "& ul, & ol": { mt: 0, pl: 3, mb: 2, color: "text.secondary" },
+//             "& li": { mb: 0.75 },
 //             "& code": {
 //               backgroundColor: "action.hover",
 //               padding: "2px 4px",
@@ -2287,29 +2372,29 @@ export const WorkflowPolicies: React.FC = () => {
 //               fontSize: "0.9em",
 //               color: "error.main",
 //             },
+//             "& hr": {
+//               my: 2,
+//               border: 0,
+//               borderTop: "1px solid",
+//               borderColor: "divider",
+//             },
 //           }}
 //         >
-//           {helpLoading && (
+//           {helpLoading ? (
 //             <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" py={4}>
 //               <CircularProgress size={24} />
 //               <Typography color="text.secondary">Loading help content...</Typography>
 //             </Stack>
-//           )}
-//           {helpError && !helpLoading && (
-//             <Alert severity="error" sx={{ mb: 2 }}>
-//               Failed to load help content. Please try again later.
-//             </Alert>
-//           )}
-//           {!helpLoading && !helpError && !helpContent && helpFetched && (
-//             <Typography color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-//               Help content is not available for this screen yet.
-//             </Typography>
-//           )}
-//           {!helpLoading && !helpError && helpContent && (
+//           ) : helpError ? (
+//             <Alert severity="error">Failed to load help content. Please try again later.</Alert>
+//           ) : helpContent ? (
 //             <div dangerouslySetInnerHTML={{ __html: helpContent }} />
+//           ) : (
+//             <Alert severity="info">Help content is not available for this screen yet.</Alert>
 //           )}
 //         </Box>
 //       </Drawer>
 //     </PageContainer>
 //   );
 // };
+

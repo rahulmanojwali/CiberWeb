@@ -169,6 +169,7 @@ type FormState = {
   email: string;
   mobile: string;
   org_code: string;
+  org_id: string;
   role_slug: string;
   mandi_codes: string[];
   is_active: boolean;
@@ -261,6 +262,7 @@ const AdminUsersList: React.FC = () => {
     email: "",
     mobile: "",
     org_code: scopeOrgCode || "",
+    org_id: "",
     role_slug: "",
     mandi_codes: [] as string[],
     is_active: true,
@@ -491,6 +493,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   );
 
   const resetForm = (orgCode?: string) => {
+    const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === orgCode);
     setForm({
       username: "",
       password: "",
@@ -498,6 +501,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       email: "",
       mobile: "",
       org_code: orgCode || "",
+      org_id: targetOrg?._id || "",
       role_slug: roleOptions[0] || "",
       mandi_codes: [],
       is_active: true,
@@ -530,6 +534,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       email: user.email || "",
       mobile: user.mobile || "",
       org_code: user.org_code || scopeOrgCode || "",
+      org_id: user.org_id || "",
       role_slug: user.role_slug,
       mandi_codes: normalizeMandiCodes(user.mandi_codes || []),
       is_active: user.is_active === "Y",
@@ -551,7 +556,13 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   };
 
   const handleOrgChange = async (value: string) => {
-    setForm((prev: FormState) => ({ ...prev, org_code: value, mandi_codes: [] }));
+    const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === value);
+    setForm((prev: FormState) => ({
+      ...prev,
+      org_code: value,
+      org_id: targetOrg?._id || "",
+      mandi_codes: [],
+    }));
     await loadMandis(value || null);
   };
 
@@ -605,6 +616,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       setLoading(true);
       setError(null);
       if (isEditMode && editingUser) {
+        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+        const normalizedMandiIds = (form.mandi_codes || [])
+          .map((v) => Number(v))
+          .filter((v) => Number.isFinite(v) && v > 0);
+
         const payload = {
           target_username: editingUser.username,
           display_name: form.display_name,
@@ -612,8 +628,9 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           mobile: form.mobile,
           role_slug: form.role_slug,
           org_code: form.org_code || null,
-          mandi_ids: form.mandi_codes,
-          mandi_codes: form.mandi_codes,
+          org_id: selectedOrg?._id || form.org_id || null,
+          mandi_ids: normalizedMandiIds,
+          mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
         };
         const res = await updateAdminUser({ username, language, payload });
@@ -644,6 +661,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           setLoading(false);
           return;
         }
+        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+        const normalizedMandiIds = (form.mandi_codes || [])
+          .map((v) => Number(v))
+          .filter((v) => Number.isFinite(v) && v > 0);
+
         const payload = {
           new_username: sanitizedUsername,
           password: form.password,
@@ -652,8 +674,9 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           mobile: form.mobile,
           role_slug: form.role_slug,
           org_code: form.org_code || null,
-          mandi_ids: form.mandi_codes,
-          mandi_codes: form.mandi_codes,
+          org_id: selectedOrg?._id || form.org_id || null,
+          mandi_ids: normalizedMandiIds,
+          mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
         };
         const res = await createAdminUser({ username, language, payload });
@@ -1548,6 +1571,8 @@ export default GuardedAdminUsers;
 
 
 
+
+
 // import React, { useCallback, useEffect, useMemo, useState } from "react";
 // import {
 //   Alert,
@@ -1679,6 +1704,11 @@ export default GuardedAdminUsers;
 //   is_active: "Y" | "N";
 //   last_login_on?: string | null;
 //   created_on?: string | null;
+//   org_scope?: string | null;
+//   org_id?: string | null;
+//   owner_type?: string | null;
+//   owner_org_id?: string | null;
+//   is_protected?: string | null;
 // };
 
 // const getDisplayRole = (row: any): string => {
@@ -1919,13 +1949,13 @@ export default GuardedAdminUsers;
 //       //  const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({ // rw on 25 march 2026
         
         
-//         //   const mandis: MandiOption[] = (res?.data?.items || []).map((m: any) => ({
+//         //   const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as any[]).map((m: any) => ({
         
 //         //   mandi_id: Number(m.mandi_id),
 //         //   mandi_name: m.mandi_name,
 //         //   mandi_slug: m.mandi_slug,
 //         // }));
-// const mandis: MandiOption[] = (res?.data?.items || []).map((m: any) => ({
+// const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as any[]).map((m: any) => ({
 //   mandi_id: Number(m.mandi_id),
 //   mandi_name: m.label || m.name_i18n?.en || m.mandi_slug || `Mandi ${m.mandi_id}`,
 //   mandi_slug: m.mandi_slug || "",
@@ -2076,7 +2106,7 @@ export default GuardedAdminUsers;
 //       mobile: user.mobile || "",
 //       org_code: user.org_code || scopeOrgCode || "",
 //       role_slug: user.role_slug,
-//       mandi_codes: normalizeMandiCodes(user.mandi_codes || user.mandi_codes || []),
+//       mandi_codes: normalizeMandiCodes(user.mandi_codes || []),
 //       is_active: user.is_active === "Y",
 //     });
 //     if (user.org_code) loadMandis(user.org_code);
@@ -2102,8 +2132,12 @@ export default GuardedAdminUsers;
 
 //   const handleMandiChange = (event: SelectChangeEvent<string[]>) => {
 //     const { value } = event.target;
-//     const mandis = typeof value === "string" ? value.split(",") : value;
-//     setForm((prev: FormState) => ({ ...prev, mandi_codes: mandis }));
+//     const rawMandis = typeof value === "string" ? value.split(",") : value;
+//     const normalized = rawMandis.map((item) => String(item));
+//     const nextMandis = isSingleMandiRole(form.role_slug)
+//       ? normalized.slice(-1)
+//       : normalized;
+//     setForm((prev: FormState) => ({ ...prev, mandi_codes: nextMandis }));
 //   };
 
 //   const handleSubmit = async () => {
@@ -2132,6 +2166,14 @@ export default GuardedAdminUsers;
 //     }
 //     if (!form.role_slug) {
 //       handleToast(t("adminUsers.messages.rolesRequired"), "error");
+//       return;
+//     }
+//     if (requiresMandiScope(form.role_slug) && form.mandi_codes.length === 0) {
+//       handleToast("Please select at least one mandi for this role.", "error");
+//       return;
+//     }
+//     if (isSingleMandiRole(form.role_slug) && form.mandi_codes.length !== 1) {
+//       handleToast("Please select exactly one mandi for this role.", "error");
 //       return;
 //     }
 //     try {
@@ -2853,7 +2895,7 @@ export default GuardedAdminUsers;
 //                 label={t("adminUsers.dialog.mandis")}
 //                 select
 //                 SelectProps={{
-//                   multiple: !isSingleMandiRole(form.role_slug),
+//                   multiple: true,
 //                   renderValue: (value: unknown) => {
 //                     const selected =
 //                       Array.isArray(value) && value.every((item) => typeof item === "string")
@@ -3078,4 +3120,6 @@ export default GuardedAdminUsers;
 // };
 
 // export default GuardedAdminUsers;
+
+
 

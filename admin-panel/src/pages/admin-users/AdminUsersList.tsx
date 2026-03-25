@@ -129,6 +129,11 @@ export type AdminUser = {
   is_active: "Y" | "N";
   last_login_on?: string | null;
   created_on?: string | null;
+  org_scope?: string | null;
+  org_id?: string | null;
+  owner_type?: string | null;
+  owner_org_id?: string | null;
+  is_protected?: string | null;
 };
 
 const getDisplayRole = (row: any): string => {
@@ -366,11 +371,21 @@ const loadOrgs = useCallback(async () => {
           setMandiOptions([]);
           return;
         }
-        const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({
-          mandi_id: Number(m.mandi_id),
-          mandi_name: m.mandi_name,
-          mandi_slug: m.mandi_slug,
-        }));
+      //  const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({ // rw on 25 march 2026
+        
+        
+        //   const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as any[]).map((m: any) => ({
+        
+        //   mandi_id: Number(m.mandi_id),
+        //   mandi_name: m.mandi_name,
+        //   mandi_slug: m.mandi_slug,
+        // }));
+const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as any[]).map((m: any) => ({
+  mandi_id: Number(m.mandi_id),
+  mandi_name: m.label || m.name_i18n?.en || m.mandi_slug || `Mandi ${m.mandi_id}`,
+  mandi_slug: m.mandi_slug || "",
+}));
+
         setMandiOptions(mandis);
       } catch (e) {
         console.error("[admin_users] loadMandis", e);
@@ -516,7 +531,7 @@ const loadOrgs = useCallback(async () => {
       mobile: user.mobile || "",
       org_code: user.org_code || scopeOrgCode || "",
       role_slug: user.role_slug,
-      mandi_codes: normalizeMandiCodes(user.mandi_codes || user.mandi_codes || []),
+      mandi_codes: normalizeMandiCodes(user.mandi_codes || []),
       is_active: user.is_active === "Y",
     });
     if (user.org_code) loadMandis(user.org_code);
@@ -542,8 +557,12 @@ const loadOrgs = useCallback(async () => {
 
   const handleMandiChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
-    const mandis = typeof value === "string" ? value.split(",") : value;
-    setForm((prev: FormState) => ({ ...prev, mandi_codes: mandis }));
+    const rawMandis = typeof value === "string" ? value.split(",") : value;
+    const normalized = rawMandis.map((item) => String(item));
+    const nextMandis = isSingleMandiRole(form.role_slug)
+      ? normalized.slice(-1)
+      : normalized;
+    setForm((prev: FormState) => ({ ...prev, mandi_codes: nextMandis }));
   };
 
   const handleSubmit = async () => {
@@ -572,6 +591,14 @@ const loadOrgs = useCallback(async () => {
     }
     if (!form.role_slug) {
       handleToast(t("adminUsers.messages.rolesRequired"), "error");
+      return;
+    }
+    if (requiresMandiScope(form.role_slug) && form.mandi_codes.length === 0) {
+      handleToast("Please select at least one mandi for this role.", "error");
+      return;
+    }
+    if (isSingleMandiRole(form.role_slug) && form.mandi_codes.length !== 1) {
+      handleToast("Please select exactly one mandi for this role.", "error");
       return;
     }
     try {
@@ -1293,7 +1320,7 @@ const loadOrgs = useCallback(async () => {
                 label={t("adminUsers.dialog.mandis")}
                 select
                 SelectProps={{
-                  multiple: !isSingleMandiRole(form.role_slug),
+                  multiple: true,
                   renderValue: (value: unknown) => {
                     const selected =
                       Array.isArray(value) && value.every((item) => typeof item === "string")
@@ -1521,7 +1548,6 @@ export default GuardedAdminUsers;
 
 
 
-// old one as on 25 marhc 2026 at 13:54 before making major change
 // import React, { useCallback, useEffect, useMemo, useState } from "react";
 // import {
 //   Alert,
@@ -1627,6 +1653,20 @@ export default GuardedAdminUsers;
 // ]);
 
 // const MANUAL_PASSWORD_MIN_LENGTH = 8;
+
+
+// const SINGLE_MANDI_ROLE_SLUGS = new Set(["GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"]);
+// const MANDI_REQUIRED_ROLE_SLUGS = new Set([
+//   "MANDI_ADMIN",
+//   "MANDI_MANAGER",
+//   "AUCTIONEER",
+//   "GATE_OPERATOR",
+//   "WEIGHBRIDGE_OPERATOR",
+// ]);
+
+// const requiresMandiScope = (roleSlug?: string | null) => !!roleSlug && MANDI_REQUIRED_ROLE_SLUGS.has(String(roleSlug).toUpperCase());
+// const isSingleMandiRole = (roleSlug?: string | null) => !!roleSlug && SINGLE_MANDI_ROLE_SLUGS.has(String(roleSlug).toUpperCase());
+// const normalizeMandiCodes = (value: any): string[] => Array.isArray(value) ? value.map((item) => String(item)) : [];
 
 // export type AdminUser = {
 //   username: string;
@@ -1876,11 +1916,21 @@ export default GuardedAdminUsers;
 //           setMandiOptions([]);
 //           return;
 //         }
-//         const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({
-//           mandi_id: Number(m.mandi_id),
-//           mandi_name: m.mandi_name,
-//           mandi_slug: m.mandi_slug,
-//         }));
+//       //  const mandis: MandiOption[] = (res?.data?.mappings || []).map((m: any) => ({ // rw on 25 march 2026
+        
+        
+//         //   const mandis: MandiOption[] = (res?.data?.items || []).map((m: any) => ({
+        
+//         //   mandi_id: Number(m.mandi_id),
+//         //   mandi_name: m.mandi_name,
+//         //   mandi_slug: m.mandi_slug,
+//         // }));
+// const mandis: MandiOption[] = (res?.data?.items || []).map((m: any) => ({
+//   mandi_id: Number(m.mandi_id),
+//   mandi_name: m.label || m.name_i18n?.en || m.mandi_slug || `Mandi ${m.mandi_id}`,
+//   mandi_slug: m.mandi_slug || "",
+// }));
+
 //         setMandiOptions(mandis);
 //       } catch (e) {
 //         console.error("[admin_users] loadMandis", e);
@@ -1928,7 +1978,7 @@ export default GuardedAdminUsers;
 //           mobile: u.mobile ?? null,
 //           role_slug: roleSlug || "",
 //           org_code: u.org_code ?? u.orgCode ?? null,
-//           mandi_codes: u.mandi_codes || u.mandiCodes || [],
+//           mandi_codes: normalizeMandiCodes(u.mandi_ids || u.mandi_codes || u.mandiCodes || []),
 //           is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
 //           last_login_on: u.last_login_on || null,
 //           created_on: u.created_on || null,
@@ -2026,7 +2076,7 @@ export default GuardedAdminUsers;
 //       mobile: user.mobile || "",
 //       org_code: user.org_code || scopeOrgCode || "",
 //       role_slug: user.role_slug,
-//       mandi_codes: user.mandi_codes || [],
+//       mandi_codes: normalizeMandiCodes(user.mandi_codes || user.mandi_codes || []),
 //       is_active: user.is_active === "Y",
 //     });
 //     if (user.org_code) loadMandis(user.org_code);
@@ -2095,6 +2145,7 @@ export default GuardedAdminUsers;
 //           mobile: form.mobile,
 //           role_slug: form.role_slug,
 //           org_code: form.org_code || null,
+//           mandi_ids: form.mandi_codes,
 //           mandi_codes: form.mandi_codes,
 //           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
 //         };
@@ -2134,6 +2185,7 @@ export default GuardedAdminUsers;
 //           mobile: form.mobile,
 //           role_slug: form.role_slug,
 //           org_code: form.org_code || null,
+//           mandi_ids: form.mandi_codes,
 //           mandi_codes: form.mandi_codes,
 //           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
 //         };
@@ -2801,20 +2853,36 @@ export default GuardedAdminUsers;
 //                 label={t("adminUsers.dialog.mandis")}
 //                 select
 //                 SelectProps={{
-//                   multiple: true,
+//                   multiple: !isSingleMandiRole(form.role_slug),
 //                   renderValue: (value: unknown) => {
 //                     const selected =
 //                       Array.isArray(value) && value.every((item) => typeof item === "string")
 //                         ? (value as string[])
+//                         : typeof value === "string"
+//                         ? [value]
 //                         : [];
 
-//                     return selected.join(", ");
+//                     const labels = selected.map((code) => {
+//                       const match = mandiOptions.find((item) => String(item.mandi_id) === String(code));
+//                       return match?.mandi_name || match?.mandi_slug || String(code);
+//                     });
+//                     return labels.join(", ");
 //                   },
 //                 }}
 //                 value={form.mandi_codes}
 //                 onChange={(e) => handleMandiChange(e as unknown as SelectChangeEvent<string[]>)}
 //                 fullWidth
 //                 disabled={!form.org_code}
+//                 required={requiresMandiScope(form.role_slug)}
+//                 helperText={
+//                   !form.org_code
+//                     ? "Select organisation first."
+//                     : isSingleMandiRole(form.role_slug)
+//                     ? "Exactly one mandi is required for this role."
+//                     : requiresMandiScope(form.role_slug)
+//                     ? "At least one mandi is required for this role."
+//                     : "Optional mandi scope."
+//                 }
 //               >
 //                 {mandiOptions.map((m) => {
 //                   const code = String(m.mandi_id);
@@ -3010,3 +3078,4 @@ export default GuardedAdminUsers;
 // };
 
 // export default GuardedAdminUsers;
+

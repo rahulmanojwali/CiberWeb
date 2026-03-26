@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -37,6 +38,8 @@ import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckCircleIcon from "@mui/icons-material/CheckCircleOutline";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
 
 import ListItemText from "@mui/material/ListItemText";
@@ -67,6 +70,7 @@ import {
   fetchOrganisations,
   fetchOrgMandis,
 } from "../../services/adminUsersApi";
+import { getScreenHelp } from "../../services/screenHelpApi";
 import type { RoleSlug } from "../../config/menuConfig";
 import { getOrgDisplayName } from "../../utils/orgDisplay";
 import { StepUpGuard } from "../../components/StepUpGuard";
@@ -220,7 +224,17 @@ const AdminUsersList: React.FC = () => {
   const [manualShowPassword, setManualShowPassword] = useState(false);
   const [manualShowConfirm, setManualShowConfirm] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpError, setHelpError] = useState(false);
+  const [helpContent, setHelpContent] = useState("");
+  const [helpTitle, setHelpTitle] = useState("Help");
+  const [helpFetched, setHelpFetched] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    setHelpFetched(false);
+  }, [language]);
 
   const readStored = (key: string): string | null => {
     try {
@@ -456,6 +470,39 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       setLoading(false);
     }
   }, [filters.org_code, filters.role_slug, filters.status, filters.search, language, scopeOrgCode, t]);
+
+  const loadHelpContent = useCallback(async () => {
+    if (helpFetched || helpLoading) return;
+
+    setHelpLoading(true);
+    setHelpError(false);
+    setHelpContent("");
+    setHelpTitle("Help");
+
+    try {
+      const doc = await getScreenHelp("/admin-users", language);
+      const title = String(doc?.title || "Help").trim() || "Help";
+      const html = String(doc?.html || doc?.content || "").trim();
+
+      setHelpTitle(title);
+
+      if (!html) {
+        setHelpContent("");
+        setHelpError(false);
+      } else {
+        setHelpContent(html);
+        setHelpError(false);
+      }
+    } catch (err) {
+      console.error("Failed to load help content", err);
+      setHelpError(true);
+      setHelpContent("");
+      setHelpTitle("Help");
+    } finally {
+      setHelpLoading(false);
+      setHelpFetched(true);
+    }
+  }, [helpFetched, helpLoading, language]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -1016,6 +1063,16 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
               </Button>
             )}
           </ActionGate>
+          <IconButton
+            color="primary"
+            onClick={() => {
+              setIsHelpOpen(true);
+              void loadHelpContent();
+            }}
+            title="Help"
+          >
+            <HelpOutlineIcon />
+          </IconButton>
         </Stack>
       </Stack>
 
@@ -1554,6 +1611,65 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           {toast.message}
         </Alert>
       </Snackbar>
+
+      <Drawer
+        anchor="right"
+        open={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+        PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}
+      >
+        <Box
+          p={2}
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          borderBottom="1px solid"
+          borderColor="divider"
+        >
+          <Typography variant="h6">{helpTitle || "Help"}</Typography>
+          <IconButton onClick={() => setIsHelpOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <Box
+          p={3}
+          sx={{
+            overflowY: "auto",
+            "& h1, & h2, & h3, & h4, & h5, & h6": { mt: 0, mb: 1.5, color: "text.primary" },
+            "& p": { mt: 0, mb: 2, color: "text.secondary", lineHeight: 1.6 },
+            "& ul, & ol": { mt: 0, pl: 3, mb: 2, color: "text.secondary" },
+            "& li": { mb: 0.75 },
+            "& code": {
+              backgroundColor: "action.hover",
+              padding: "2px 4px",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+              fontSize: "0.9em",
+              color: "error.main",
+            },
+            "& hr": {
+              my: 2,
+              border: 0,
+              borderTop: "1px solid",
+              borderColor: "divider",
+            },
+          }}
+        >
+          {helpLoading ? (
+            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" py={4}>
+              <CircularProgress size={24} />
+              <Typography color="text.secondary">Loading help content...</Typography>
+            </Stack>
+          ) : helpError ? (
+            <Alert severity="error">Failed to load help content. Please try again later.</Alert>
+          ) : helpContent ? (
+            <div dangerouslySetInnerHTML={{ __html: helpContent }} />
+          ) : (
+            <Alert severity="info">Help content is not available for this screen yet.</Alert>
+          )}
+        </Box>
+      </Drawer>
     </PageContainer>
   );
 };
@@ -1568,8 +1684,6 @@ const GuardedAdminUsers: React.FC = () => {
 };
 
 export default GuardedAdminUsers;
-
-
 
 
 
@@ -1744,6 +1858,7 @@ export default GuardedAdminUsers;
 //   email: string;
 //   mobile: string;
 //   org_code: string;
+//   org_id: string;
 //   role_slug: string;
 //   mandi_codes: string[];
 //   is_active: boolean;
@@ -1836,6 +1951,7 @@ export default GuardedAdminUsers;
 //     email: "",
 //     mobile: "",
 //     org_code: scopeOrgCode || "",
+//     org_id: "",
 //     role_slug: "",
 //     mandi_codes: [] as string[],
 //     is_active: true,
@@ -2066,6 +2182,7 @@ export default GuardedAdminUsers;
 //   );
 
 //   const resetForm = (orgCode?: string) => {
+//     const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === orgCode);
 //     setForm({
 //       username: "",
 //       password: "",
@@ -2073,6 +2190,7 @@ export default GuardedAdminUsers;
 //       email: "",
 //       mobile: "",
 //       org_code: orgCode || "",
+//       org_id: targetOrg?._id || "",
 //       role_slug: roleOptions[0] || "",
 //       mandi_codes: [],
 //       is_active: true,
@@ -2105,6 +2223,7 @@ export default GuardedAdminUsers;
 //       email: user.email || "",
 //       mobile: user.mobile || "",
 //       org_code: user.org_code || scopeOrgCode || "",
+//       org_id: user.org_id || "",
 //       role_slug: user.role_slug,
 //       mandi_codes: normalizeMandiCodes(user.mandi_codes || []),
 //       is_active: user.is_active === "Y",
@@ -2126,7 +2245,13 @@ export default GuardedAdminUsers;
 //   };
 
 //   const handleOrgChange = async (value: string) => {
-//     setForm((prev: FormState) => ({ ...prev, org_code: value, mandi_codes: [] }));
+//     const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === value);
+//     setForm((prev: FormState) => ({
+//       ...prev,
+//       org_code: value,
+//       org_id: targetOrg?._id || "",
+//       mandi_codes: [],
+//     }));
 //     await loadMandis(value || null);
 //   };
 
@@ -2180,6 +2305,11 @@ export default GuardedAdminUsers;
 //       setLoading(true);
 //       setError(null);
 //       if (isEditMode && editingUser) {
+//         const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+//         const normalizedMandiIds = (form.mandi_codes || [])
+//           .map((v) => Number(v))
+//           .filter((v) => Number.isFinite(v) && v > 0);
+
 //         const payload = {
 //           target_username: editingUser.username,
 //           display_name: form.display_name,
@@ -2187,8 +2317,9 @@ export default GuardedAdminUsers;
 //           mobile: form.mobile,
 //           role_slug: form.role_slug,
 //           org_code: form.org_code || null,
-//           mandi_ids: form.mandi_codes,
-//           mandi_codes: form.mandi_codes,
+//           org_id: selectedOrg?._id || form.org_id || null,
+//           mandi_ids: normalizedMandiIds,
+//           mandi_codes: normalizedMandiIds.map(String),
 //           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
 //         };
 //         const res = await updateAdminUser({ username, language, payload });
@@ -2219,6 +2350,11 @@ export default GuardedAdminUsers;
 //           setLoading(false);
 //           return;
 //         }
+//         const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+//         const normalizedMandiIds = (form.mandi_codes || [])
+//           .map((v) => Number(v))
+//           .filter((v) => Number.isFinite(v) && v > 0);
+
 //         const payload = {
 //           new_username: sanitizedUsername,
 //           password: form.password,
@@ -2227,8 +2363,9 @@ export default GuardedAdminUsers;
 //           mobile: form.mobile,
 //           role_slug: form.role_slug,
 //           org_code: form.org_code || null,
-//           mandi_ids: form.mandi_codes,
-//           mandi_codes: form.mandi_codes,
+//           org_id: selectedOrg?._id || form.org_id || null,
+//           mandi_ids: normalizedMandiIds,
+//           mandi_codes: normalizedMandiIds.map(String),
 //           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
 //         };
 //         const res = await createAdminUser({ username, language, payload });
@@ -3120,6 +3257,9 @@ export default GuardedAdminUsers;
 // };
 
 // export default GuardedAdminUsers;
+
+
+
 
 
 

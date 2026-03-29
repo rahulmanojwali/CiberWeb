@@ -945,16 +945,32 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
 
 
       { field: "org_code", headerName: t("adminUsers.columns.orgCode"), flex: 0.7 },
-      {
-        field: "mandi_codes",
-        headerName: t("adminUsers.columns.mandis"),
-        flex: 1,
-        valueGetter: (params: any) => {
-          const row = params?.row || {};
-          const codes = row.mandi_codes || row.mandiCodes || [];
-          return Array.isArray(codes) ? codes.join(", ") : "";
-        },
-      },
+      
+      // {
+      //   field: "mandi_codes",
+      //   headerName: t("adminUsers.columns.mandis"),
+      //   flex: 1,
+      //   valueGetter: (params: any) => {
+      //     const row = params?.row || {};
+      //     const codes = row.mandi_codes || row.mandiCodes || [];
+      //     return Array.isArray(codes) ? codes.join(", ") : "";
+      //   },
+      // },
+      
+{
+  field: "mandi_codes",
+  headerName: t("adminUsers.columns.mandis"),
+  flex: 1,
+  renderCell: (params: any) => {
+    const row = params?.row || {};
+    const codes = Array.isArray(row.mandi_codes) ? row.mandi_codes : [];
+    return <span>{codes.join(", ")}</span>;
+  },
+},
+      
+    
+
+
       {
         field: "is_active",
         headerName: t("adminUsers.columns.status"),

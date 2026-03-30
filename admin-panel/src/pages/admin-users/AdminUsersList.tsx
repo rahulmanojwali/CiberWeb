@@ -131,6 +131,12 @@ export type AdminUser = {
   org_code: string | null;
   mandi_codes?: string[];
   mandi_names?: string[];
+  gate_setup?: {
+    status: "OK" | "MULTIPLE" | "MISSING_BINDING" | "SCOPE_MISMATCH";
+    linked_active_devices: number;
+    valid_in_scope_bindings: number;
+    unique_gates: number;
+  } | null;
   is_active: "Y" | "N";
   last_login_on?: string | null;
   created_on?: string | null;
@@ -971,6 +977,45 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     return <span>{display}</span>;
   },
 },
+
+      {
+        field: "gate_setup",
+        headerName: "Setup",
+        flex: 0.7,
+        sortable: false,
+        renderCell: (params: any) => {
+          const row = params?.row || {};
+          const roleRaw = String(row.role_slug || row.role_code || "").toUpperCase();
+          const isGateRole = roleRaw === "GATE_OPERATOR" || roleRaw === "WEIGHBRIDGE_OPERATOR";
+          if (!isGateRole) return <span>-</span>;
+          const setup = row.gate_setup || null;
+          const status = setup?.status ? String(setup.status) : "MISSING_BINDING";
+          const label =
+            status === "OK"
+              ? "OK"
+              : status === "MULTIPLE"
+                ? "Multiple"
+                : status === "SCOPE_MISMATCH"
+                  ? "Mismatch"
+                  : "Missing";
+          const color =
+            status === "OK"
+              ? "success"
+              : status === "MULTIPLE"
+                ? "warning"
+                : status === "SCOPE_MISMATCH"
+                  ? "warning"
+                  : "default";
+          const title = setup
+            ? `Linked: ${setup.linked_active_devices}, Valid: ${setup.valid_in_scope_bindings}, Gates: ${setup.unique_gates}`
+            : "No linked active gate devices found.";
+          return (
+            <Tooltip title={title}>
+              <Chip label={label} size="small" color={color as any} />
+            </Tooltip>
+          );
+        },
+      },
       
     
 
@@ -1180,6 +1225,17 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                 const mandiPreview = mandiSource.slice(0, 2).join(", ");
                 const extraMandis = mandiSource.length > 2 ? mandiSource.length - 2 : 0;
                 const isActive = row.is_active === "Y";
+                const roleRaw = String(row.role_slug || row.role_code || "").toUpperCase();
+                const isGateRole = roleRaw === "GATE_OPERATOR" || roleRaw === "WEIGHBRIDGE_OPERATOR";
+                const setupStatus = String(row.gate_setup?.status || "MISSING_BINDING");
+                const setupLabel =
+                  setupStatus === "OK"
+                    ? "OK"
+                    : setupStatus === "MULTIPLE"
+                      ? "Multiple"
+                      : setupStatus === "SCOPE_MISMATCH"
+                        ? "Mismatch"
+                        : "Missing";
 
                 return (
                   <Card key={row.username} variant="outlined">
@@ -1217,6 +1273,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                             <Typography variant="caption" color="text.secondary" display="block">
                               {t("adminUsers.columns.mandis")}: {mandiPreview}
                               {extraMandis > 0 ? ` (+${extraMandis} more)` : ""}
+                            </Typography>
+                          )}
+                          {isGateRole && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Setup: {setupLabel}
                             </Typography>
                           )}
                         </Box>
@@ -1706,9 +1767,6 @@ const GuardedAdminUsers: React.FC = () => {
 };
 
 export default GuardedAdminUsers;
-
-
-
 
 
 

@@ -128,6 +128,7 @@ export type AdminUser = {
   email: string | null;
   mobile: string | null;
   role_slug: string;
+  role_code?: string;
   org_code: string | null;
   mandi_codes?: string[];
   mandi_names?: string[];
@@ -1767,6 +1768,5 @@ const GuardedAdminUsers: React.FC = () => {
 };
 
 export default GuardedAdminUsers;
-
 
 

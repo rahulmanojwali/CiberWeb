@@ -130,6 +130,7 @@ export type AdminUser = {
   role_slug: string;
   org_code: string | null;
   mandi_codes?: string[];
+  mandi_names?: string[];
   is_active: "Y" | "N";
   last_login_on?: string | null;
   created_on?: string | null;
@@ -450,6 +451,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           role_slug: roleSlug || "",
           org_code: u.org_code ?? u.orgCode ?? null,
           mandi_codes: normalizeMandiCodes(u.mandi_ids || u.mandi_codes || u.mandiCodes || []),
+          mandi_names: Array.isArray(u.mandi_names) ? u.mandi_names.map((value: any) => String(value)) : [],
           is_active: String(u.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
           last_login_on: u.last_login_on || null,
           created_on: u.created_on || null,
@@ -963,8 +965,10 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   flex: 1,
   renderCell: (params: any) => {
     const row = params?.row || {};
+    const names = Array.isArray(row.mandi_names) ? row.mandi_names : [];
     const codes = Array.isArray(row.mandi_codes) ? row.mandi_codes : [];
-    return <span>{codes.join(", ")}</span>;
+    const display = names.length ? names.join(", ") : codes.join(", ");
+    return <span>{display}</span>;
   },
 },
       
@@ -1170,9 +1174,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             <Stack spacing={1.5}>
               {rows.map((row: AdminUser) => {
                 const displayRole = getDisplayRole(row);
+                const mandiNames = Array.isArray(row.mandi_names) ? row.mandi_names : [];
                 const mandiCodes = Array.isArray(row.mandi_codes) ? row.mandi_codes : [];
-                const mandiPreview = mandiCodes.slice(0, 2).join(", ");
-                const extraMandis = mandiCodes.length > 2 ? mandiCodes.length - 2 : 0;
+                const mandiSource = mandiNames.length ? mandiNames : mandiCodes;
+                const mandiPreview = mandiSource.slice(0, 2).join(", ");
+                const extraMandis = mandiSource.length > 2 ? mandiSource.length - 2 : 0;
                 const isActive = row.is_active === "Y";
 
                 return (
@@ -1207,7 +1213,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                               {t("adminUsers.columns.orgCode")}: {row.org_code}
                             </Typography>
                           )}
-                          {mandiCodes.length > 0 && (
+                          {mandiSource.length > 0 && (
                             <Typography variant="caption" color="text.secondary" display="block">
                               {t("adminUsers.columns.mandis")}: {mandiPreview}
                               {extraMandis > 0 ? ` (+${extraMandis} more)` : ""}
@@ -1700,7 +1706,6 @@ const GuardedAdminUsers: React.FC = () => {
 };
 
 export default GuardedAdminUsers;
-
 
 
 

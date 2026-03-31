@@ -93,7 +93,7 @@ export const GateTokens: React.FC = () => {
     [can],
   );
   const canViewEntry = useMemo(
-    () => can("gate_entry_tokens.view", "VIEW"),
+    () => can("gate_entry_tokens.list", "VIEW"),
     [can],
   );
   const canCreateEntry = useMemo(

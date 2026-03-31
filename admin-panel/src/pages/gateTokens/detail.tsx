@@ -76,7 +76,7 @@ export const GateTokenDetail: React.FC = () => {
   const [scanLoading, setScanLoading] = useState(false);
 
   const canViewEntry = useMemo(
-    () => can(uiConfig.resources, "gate_entry_tokens.view", "VIEW"),
+    () => can(uiConfig.resources, "gate_entry_tokens.detail", "VIEW"),
     [uiConfig.resources],
   );
   const canViewPass = useMemo(

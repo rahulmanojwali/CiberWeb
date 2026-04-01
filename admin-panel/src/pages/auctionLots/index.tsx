@@ -259,7 +259,7 @@ export const AuctionLots: React.FC = () => {
       },
       {
         field: "base_price",
-        headerName: "Opening Rate",
+        headerName: "Reference Rate",
         width: 160,
         valueGetter: (value) => {
           const rate = toNumber(value);
@@ -279,7 +279,7 @@ export const AuctionLots: React.FC = () => {
       },
       {
         field: "opening_value",
-        headerName: "Lot Value",
+        headerName: "Opening Bid (Lot)",
         width: 140,
         valueGetter: (_value, row) => {
           const kg = toNumber((row as any)?.quantity);

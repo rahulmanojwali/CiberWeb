@@ -69,6 +69,15 @@ const toNumber = (v: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+const formatInr = (value: number | null): string => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  try {
+    return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(value);
+  } catch {
+    return String(value);
+  }
+};
+
 const buildLotLabel = (lot: any) => {
   const partyDisplay =
     lot?.party_display_name ||
@@ -202,6 +211,30 @@ export const AuctionLots: React.FC = () => {
   );
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
+  const selectedTotalKg = useMemo(() => {
+    const lot: any = selectedLot || null;
+    const kgCandidate =
+      lot?.quantity?.net_kg ??
+      lot?.quantity?.gross_kg ??
+      lot?.quantity?.total_kg ??
+      lot?.quantity?.estimated_kg ??
+      lot?.quantity?.weight_kg ??
+      lot?.weight_kg ??
+      null;
+    return toNumber(kgCandidate);
+  }, [selectedLot]);
+  const selectedTotalQtl = useMemo(() => {
+    if (!selectedTotalKg || selectedTotalKg <= 0) return null;
+    return selectedTotalKg / 100;
+  }, [selectedTotalKg]);
+  const openingRatePerQtl = useMemo(() => {
+    if (!createBasePriceValid) return null;
+    return Number(createBasePriceRaw);
+  }, [createBasePriceRaw, createBasePriceValid]);
+  const selectedEstimatedValue = useMemo(() => {
+    if (!openingRatePerQtl || !selectedTotalQtl) return null;
+    return openingRatePerQtl * selectedTotalQtl;
+  }, [openingRatePerQtl, selectedTotalQtl]);
   const createSubmitValid = Boolean(createForm.lot_id && createForm.session_id && createBasePriceValid);
   const createSubmitDisabled = createLoading || !createSubmitValid;
 
@@ -1042,9 +1075,17 @@ export const AuctionLots: React.FC = () => {
                 type="number"
                 value={createForm.base_price}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
-                helperText="Starting bid price for this lot."
+                helperText="Starting bid rate for this lot (per quintal)."
                 inputProps={{ step: "0.01", min: "0" }}
               />
+
+              {selectedLot && openingRatePerQtl != null && selectedTotalKg != null && (
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Quantity:</strong> {formatInr(selectedTotalKg)} kg ({selectedTotalQtl?.toFixed(2)} qtl) ·{" "}
+                  <strong>Opening Rate:</strong> ₹{formatInr(openingRatePerQtl)} / qtl ·{" "}
+                  <strong>Estimated Lot Value:</strong> ₹{formatInr(selectedEstimatedValue)}
+                </Typography>
+              )}
 
               {createError && (
                 <Typography variant="body2" color="error">

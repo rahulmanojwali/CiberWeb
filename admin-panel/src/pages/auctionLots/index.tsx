@@ -246,8 +246,49 @@ export const AuctionLots: React.FC = () => {
       { field: "mandi_code", headerName: "Mandi", width: 140 },
       { field: "commodity", headerName: "Commodity", width: 150 },
       { field: "product", headerName: "Product", width: 150 },
-      { field: "quantity", headerName: "Qty", width: 110 },
-      { field: "base_price", headerName: "Base Price", width: 130 },
+      {
+        field: "quantity",
+        headerName: "Qty",
+        width: 160,
+        valueGetter: (value) => {
+          const kg = toNumber(value);
+          if (!kg || kg <= 0) return "—";
+          const qtl = kg / 100;
+          return `${formatInr(kg)} kg / ${qtl.toFixed(2)} qtl`;
+        },
+      },
+      {
+        field: "base_price",
+        headerName: "Opening Rate",
+        width: 160,
+        valueGetter: (value) => {
+          const rate = toNumber(value);
+          if (!rate || rate <= 0) return "—";
+          return `₹${formatInr(rate)} / qtl`;
+        },
+      },
+      {
+        field: "rate_per_kg",
+        headerName: "Rate/kg",
+        width: 120,
+        valueGetter: (_value, row) => {
+          const rate = toNumber((row as any)?.base_price);
+          if (!rate || rate <= 0) return "—";
+          return `₹${formatInr(rate / 100)}`;
+        },
+      },
+      {
+        field: "opening_value",
+        headerName: "Lot Value",
+        width: 140,
+        valueGetter: (_value, row) => {
+          const kg = toNumber((row as any)?.quantity);
+          const rate = toNumber((row as any)?.base_price);
+          if (!kg || kg <= 0 || !rate || rate <= 0) return "—";
+          const value = (kg / 100) * rate;
+          return `₹${formatInr(value)}`;
+        },
+      },
       { field: "status", headerName: "Status", width: 140 },
       {
         field: "created_on",

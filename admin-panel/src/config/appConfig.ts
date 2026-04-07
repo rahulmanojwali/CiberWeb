@@ -327,6 +327,7 @@ export const API_TAGS = {
     getSettlementDetail: "getSettlementDetail",
     verifySettlementPayment: "verifySettlementPayment",
     rejectSettlementPayment: "rejectSettlementPayment",
+    generateSettlementForLot: "generateSettlementForLot",
   },
   PAYMENTS_LOG: {
     getPaymentsLog: "getPaymentsLog",
@@ -378,6 +379,7 @@ const SETTLEMENT_ROUTES = {
   getSettlementDetail: "/admin/getSettlementDetail",
   verifySettlementPayment: "/admin/verifySettlementPayment",
   rejectSettlementPayment: "/admin/rejectSettlementPayment",
+  generateSettlementForLot: "/admin/generateSettlementForLot",
 } as const;
 
 const PAYMENTS_LOG_ROUTES = {

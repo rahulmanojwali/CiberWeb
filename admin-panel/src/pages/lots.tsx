@@ -29,6 +29,8 @@ import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
 import { fetchLotDetail, fetchLots, updateLotStatus, verifyLot } from "../services/lotsApi";
+import { getAuctionResultByLot } from "../services/auctionOpsApi";
+import { generateSettlementForLot, getSettlementDetail } from "../services/settlementsApi";
 
 type LotRow = {
   id: string;
@@ -197,6 +199,18 @@ export const Lots: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [settlementDialogOpen, setSettlementDialogOpen] = useState(false);
+  const [settlementActionLoading, setSettlementActionLoading] = useState(false);
+  const [settlementActionError, setSettlementActionError] = useState<string | null>(null);
+  const [settlementPreview, setSettlementPreview] = useState<any>(null);
+  const [settlementPreviewLoading, setSettlementPreviewLoading] = useState(false);
+  const [settlementPreviewError, setSettlementPreviewError] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState("UPI");
+  const [settlementRemarks, setSettlementRemarks] = useState("");
+  const [auctionResult, setAuctionResult] = useState<any>(null);
+  const [auctionResultError, setAuctionResultError] = useState<string | null>(null);
+  const [settlementDetail, setSettlementDetail] = useState<any>(null);
+  const [settlementDetailError, setSettlementDetailError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [mandiFilter, setMandiFilter] = useState("");
   const [tokenFilter, setTokenFilter] = useState("");
@@ -368,12 +382,129 @@ export const Lots: React.FC = () => {
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction;
+  const canGenerateSettlement = Boolean(detailLot && detailStatus === "SOLD" && !detailLot?.settlement_id);
+  const resultDoc = auctionResult?.result || null;
+  const resultWinner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
+  const resultAmount = resultDoc?.final_sold_amount_lot || resultDoc?.winning_bid_amount || null;
+  const resultSessionCode = detailLot?.session_code || detailLot?.auction_session_code || detailLot?.session_code_label || null;
+  const settlementHeader = settlementDetail?.header || null;
+  const settlementStatus = settlementHeader?.status || detailLot?.settlement_status || detailLot?.payment_status || null;
+  const settlementCode = settlementHeader?.settlement_code || detailLot?.settlement_code || null;
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
     await handleOpenDetail(selectedRow);
     await loadData();
   };
+
+  const loadAuctionResult = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !detailLot) return;
+    const orgId = detailLot?.org_id || detailLot?.orgId;
+    const mandiId = detailLot?.mandi_id ?? detailLot?.mandiId;
+    const sessionId = detailLot?.session_id || detailLot?.auction_session_id || detailLot?.links?.session_id;
+    const lotId = detailLot?._id || detailLot?.lot_id || detailLot?.lotId;
+    if (!orgId || !sessionId || !lotId || mandiId == null) return;
+    try {
+      setAuctionResultError(null);
+      const resp = await getAuctionResultByLot({
+        username,
+        language,
+        payload: {
+          org_id: orgId,
+          mandi_id: mandiId,
+          session_id: sessionId,
+          lot_id: lotId,
+        },
+      });
+      const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
+      if (String(code) !== "0") {
+        setAuctionResult(null);
+        setAuctionResultError(resp?.response?.description || "Unable to load auction result.");
+        return;
+      }
+      setAuctionResult(resp?.data || null);
+    } catch (err: any) {
+      setAuctionResult(null);
+      setAuctionResultError(err?.message || "Unable to load auction result.");
+    }
+  }, [detailLot, language]);
+
+  const loadSettlementDetail = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !detailLot?.settlement_id) return;
+    try {
+      setSettlementDetailError(null);
+      const resp = await getSettlementDetail({
+        username,
+        language,
+        payload: { settlement_id: detailLot.settlement_id },
+      });
+      const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
+      if (String(code) !== "0") {
+        setSettlementDetail(null);
+        setSettlementDetailError(resp?.response?.description || "Unable to load settlement detail.");
+        return;
+      }
+      setSettlementDetail(resp?.data || null);
+    } catch (err: any) {
+      setSettlementDetail(null);
+      setSettlementDetailError(err?.message || "Unable to load settlement detail.");
+    }
+  }, [detailLot, language]);
+
+  useEffect(() => {
+    if (!detailLot) return;
+    void loadAuctionResult();
+    void loadSettlementDetail();
+  }, [detailLot, loadAuctionResult, loadSettlementDetail]);
+
+  const loadSettlementPreview = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !detailLot) return;
+    const orgId = detailLot?.org_id || detailLot?.orgId;
+    const mandiId = detailLot?.mandi_id ?? detailLot?.mandiId;
+    const lotId = detailLot?._id || detailLot?.lot_id || detailLot?.lotId;
+    if (!lotId) return;
+    setSettlementPreviewLoading(true);
+    setSettlementPreviewError(null);
+    try {
+      const resp = await generateSettlementForLot({
+        username,
+        language,
+        payload: {
+          lot_id: lotId,
+          lot_code: detailLot?.lot_code,
+          org_id: orgId,
+          mandi_id: mandiId,
+          payment_mode: paymentMode,
+          preview_only: "Y",
+        },
+      });
+      const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
+      if (String(code) !== "0") {
+        setSettlementPreview(null);
+        setSettlementPreviewError(resp?.response?.description || "Unable to load payout preview.");
+      } else {
+        setSettlementPreview(resp?.response?.data || resp?.data || null);
+      }
+    } catch (err: any) {
+      setSettlementPreview(null);
+      setSettlementPreviewError(err?.message || "Unable to load payout preview.");
+    } finally {
+      setSettlementPreviewLoading(false);
+    }
+  }, [detailLot, language, paymentMode]);
+
+  useEffect(() => {
+    if (!settlementDialogOpen) return;
+    if (paymentMode.toUpperCase() === "UPI") {
+      void loadSettlementPreview();
+    } else {
+      setSettlementPreview(null);
+      setSettlementPreviewError(null);
+    }
+  }, [paymentMode, settlementDialogOpen, loadSettlementPreview]);
 
   const runStatusUpdate = async (toStatus: string, reason?: string) => {
     const username = currentUsername();
@@ -420,6 +551,48 @@ export const Lots: React.FC = () => {
       await refreshDetail();
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const openSettlementDialog = () => {
+    setSettlementRemarks("");
+    setSettlementActionError(null);
+    setPaymentMode("UPI");
+    setSettlementDialogOpen(true);
+  };
+
+  const handleGenerateSettlement = async () => {
+    const username = currentUsername();
+    if (!username || !detailLot) return;
+    const orgId = detailLot?.org_id || detailLot?.orgId;
+    const mandiId = detailLot?.mandi_id ?? detailLot?.mandiId;
+    const lotId = detailLot?._id || detailLot?.lot_id || detailLot?.lotId;
+    if (!lotId) return;
+    setSettlementActionLoading(true);
+    setSettlementActionError(null);
+    try {
+      const resp = await generateSettlementForLot({
+        username,
+        language,
+        payload: {
+          lot_id: lotId,
+          lot_code: detailLot?.lot_code,
+          org_id: orgId,
+          mandi_id: mandiId,
+          payment_mode: paymentMode,
+          remarks: settlementRemarks || undefined,
+        },
+      });
+      const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
+      const desc = resp?.response?.description || resp?.description || "Unable to generate settlement.";
+      if (String(code) !== "0") {
+        setSettlementActionError(desc);
+        return;
+      }
+      setSettlementDialogOpen(false);
+      await refreshDetail();
+    } finally {
+      setSettlementActionLoading(false);
     }
   };
 
@@ -561,6 +734,39 @@ export const Lots: React.FC = () => {
                     </Stack>
                   </Box>
 
+                  <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} alignItems={{ sm: "center" }}>
+                      <Box>
+                        <Typography variant="subtitle1">Settlement</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {settlementStatus ? `Status: ${settlementStatus}` : "Status: Not available"}
+                        </Typography>
+                      </Box>
+                      {canGenerateSettlement && (
+                        <Button size="small" variant="contained" onClick={openSettlementDialog} disabled={actionLoading}>
+                          Generate Settlement
+                        </Button>
+                      )}
+                    </Stack>
+                    {settlementDetailError && (
+                      <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                        {settlementDetailError}
+                      </Typography>
+                    )}
+                    <Box sx={{ mt: 1 }}>
+                      <FieldRow label="Settlement Code" value={settlementCode} />
+                      <FieldRow label="Payment Mode" value={detailLot?.payment_mode || settlementHeader?.payment_mode} />
+                      <FieldRow label="Winner" value={resultWinner} />
+                      <FieldRow label="Final Amount" value={resultAmount} />
+                      <FieldRow label="Session Code" value={resultSessionCode} />
+                    </Box>
+                    {auctionResultError && (
+                      <Typography variant="caption" color="text.secondary">
+                        {auctionResultError}
+                      </Typography>
+                    )}
+                  </Box>
+
                   <Box>
                     <Typography variant="subtitle1" gutterBottom>Lot Summary</Typography>
                     <FieldRow label="Lot Code" value={detailLot?.lot_code} />
@@ -668,6 +874,78 @@ export const Lots: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedRow(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={settlementDialogOpen} onClose={() => setSettlementDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Generate Settlement</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            {settlementActionError && <Typography color="error">{settlementActionError}</Typography>}
+            <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>Lot Details</Typography>
+              <FieldRow label="Lot Code" value={detailLot?.lot_code} />
+              <FieldRow label="Session Code" value={resultSessionCode} />
+              <FieldRow label="Commodity" value={detailCommodityName} />
+              <FieldRow label="Product" value={detailProductName} />
+              <FieldRow label="Farmer" value={detailPartyDisplay} />
+              <FieldRow label="Trader Winner" value={resultWinner} />
+              <FieldRow label="Final Amount" value={resultAmount} />
+            </Box>
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Payment Mode</InputLabel>
+              <Select
+                label="Payment Mode"
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+              >
+                <MenuItem value="UPI">UPI</MenuItem>
+                <MenuItem value="CASH">Cash</MenuItem>
+                <MenuItem value="BANK_TRANSFER">Bank Transfer</MenuItem>
+              </Select>
+            </FormControl>
+
+            {paymentMode === "UPI" && (
+              <Box sx={{ p: 2, border: "1px dashed", borderColor: "divider", borderRadius: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>Payout Preview</Typography>
+                {settlementPreviewLoading && <Typography variant="body2">Loading payout details…</Typography>}
+                {settlementPreviewError && (
+                  <Typography variant="body2" color="error">{settlementPreviewError}</Typography>
+                )}
+                {!settlementPreviewLoading && !settlementPreviewError && (
+                  <>
+                    <FieldRow label="Payee Name" value={settlementPreview?.payout_destination?.payee_name} />
+                    <FieldRow label="UPI ID" value={settlementPreview?.payout_destination?.upi_id} />
+                    {!settlementPreview?.payout_destination && (
+                      <Typography variant="body2" color="text.secondary">
+                        Farmer default UPI is not configured.
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
+            )}
+
+            <TextField
+              label="Remarks (optional)"
+              value={settlementRemarks}
+              onChange={(e) => setSettlementRemarks(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettlementDialogOpen(false)}>Back</Button>
+          <Button
+            variant="contained"
+            onClick={handleGenerateSettlement}
+            disabled={settlementActionLoading || (paymentMode === "UPI" && settlementPreview?.payout_missing === "Y")}
+          >
+            Generate
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -66,3 +66,19 @@ export const rejectSettlementPayment = async ({
     language,
     ...payload,
   });
+
+export const generateSettlementForLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: Payload;
+}) =>
+  postEncrypted(API_ROUTES.admin.generateSettlementForLot, {
+    api: API_TAGS.SETTLEMENTS.generateSettlementForLot,
+    username,
+    language,
+    ...payload,
+  });

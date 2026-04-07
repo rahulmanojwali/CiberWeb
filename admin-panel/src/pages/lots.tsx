@@ -382,7 +382,6 @@ export const Lots: React.FC = () => {
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction;
-  const canGenerateSettlement = Boolean(detailLot && detailStatus === "SOLD" && !detailLot?.settlement_id);
   const resultDoc = auctionResult?.result || null;
   const resultWinner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
   const resultAmount = resultDoc?.final_sold_amount_lot || resultDoc?.winning_bid_amount || null;
@@ -390,6 +389,11 @@ export const Lots: React.FC = () => {
   const settlementHeader = settlementDetail?.header || null;
   const settlementStatus = settlementHeader?.status || detailLot?.settlement_status || detailLot?.payment_status || null;
   const settlementCode = settlementHeader?.settlement_code || detailLot?.settlement_code || null;
+  const hasResultWinner = Boolean(resultWinner && String(resultWinner).trim());
+  const numericResultAmount = Number(resultAmount || 0);
+  const hasResultAmount = Number.isFinite(numericResultAmount) && numericResultAmount > 0;
+  const hasSettlement = Boolean(detailLot?.settlement_id || settlementHeader?._id);
+  const canGenerateSettlement = Boolean(detailLot && !hasSettlement && hasResultWinner && hasResultAmount);
 
   const refreshDetail = async () => {
     if (!selectedRow) return;

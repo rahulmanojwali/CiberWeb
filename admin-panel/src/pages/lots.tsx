@@ -404,7 +404,9 @@ export const Lots: React.FC = () => {
     const mandiId = detailLot?.mandi_id ?? detailLot?.mandiId;
     const sessionId = detailLot?.session_id || detailLot?.auction_session_id || detailLot?.links?.session_id;
     const lotId = detailLot?._id || detailLot?.lot_id || detailLot?.lotId;
-    if (!orgId || !sessionId || !lotId || mandiId == null) return;
+    const lotCode = detailLot?.lot_code || detailLot?.lotCode;
+    const tokenCode = detailLot?.token_code || detailLot?.tokenCode;
+    if (!orgId || !lotId || mandiId == null) return;
     try {
       setAuctionResultError(null);
       const resp = await getAuctionResultByLot({
@@ -415,6 +417,8 @@ export const Lots: React.FC = () => {
           mandi_id: mandiId,
           session_id: sessionId,
           lot_id: lotId,
+          lot_code: lotCode,
+          token_code: tokenCode,
         },
       });
       const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";

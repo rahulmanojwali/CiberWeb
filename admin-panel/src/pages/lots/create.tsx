@@ -129,10 +129,23 @@ export const LotsCreate: React.FC = () => {
       const resp = await fetchCommodities({ username, language, filters: { is_active: "Y" } });
       const list = resp?.data?.rows || resp?.data?.items || resp?.response?.data?.rows || resp?.response?.data?.items || [];
       setCommodityOptions(
-        (list || []).map((c: any) => ({
-          value: String(c.commodity_id ?? c._id ?? c.id ?? ""),
-          label: c.commodity_name || c.label || c.name || String(c.commodity_id || ""),
-        })),
+        (list || []).map((c: any) => {
+          const id = c.commodity_id ?? c._id ?? c.id ?? "";
+          const label =
+            c.commodity_name ||
+            c.commodity_name_en ||
+            c.commodity_name_hi ||
+            c.display_label ||
+            c.label ||
+            c.name_i18n?.en ||
+            c.name_i18n?.hi ||
+            c.name ||
+            null;
+          return {
+            value: String(id),
+            label: label ? String(label) : `Commodity ${id}`,
+          };
+        }),
       );
     } catch (_) {
       setCommodityOptions([]);
@@ -155,16 +168,25 @@ export const LotsCreate: React.FC = () => {
         });
         const list = resp?.data?.rows || resp?.data?.items || resp?.response?.data?.rows || resp?.response?.data?.items || [];
         setProductOptions(
-          (list || []).map((p: any) => ({
-            value: String(p.product_id ?? p.commodity_product_id ?? p._id ?? ""),
-            label:
-              p.commodity_product_name ||
-              p.product_name ||
-              p.label ||
-              p.name ||
-              String(p.product_id || p.commodity_product_id || ""),
-          })),
-        );
+        (list || []).map((p: any) => {
+          const id = p.product_id ?? p.commodity_product_id ?? p._id ?? "";
+          const label =
+            p.commodity_product_name ||
+            p.product_name ||
+            p.product_name_en ||
+            p.product_name_hi ||
+            p.display_label ||
+            p.label ||
+            p.label_i18n?.en ||
+            p.label_i18n?.hi ||
+            p.name ||
+            null;
+          return {
+            value: String(id),
+            label: label ? String(label) : `Product ${id}`,
+          };
+        }),
+      );
       } finally {
         setLoadingProducts(false);
       }

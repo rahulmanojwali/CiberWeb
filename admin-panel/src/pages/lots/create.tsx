@@ -51,6 +51,7 @@ export const LotsCreate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingGates, setLoadingGates] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [mandiLocked, setMandiLocked] = useState(false);
 
   const [form, setForm] = useState({
     mandi_id: "",
@@ -75,24 +76,37 @@ export const LotsCreate: React.FC = () => {
     try {
       if (orgId) {
         const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
-        setMandiOptions(
+        const options =
           (list || []).map((m: any) => ({
             value: String(m.mandi_id ?? m.mandiId ?? ""),
             label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
-          })),
-        );
+          }));
+        setMandiOptions(options);
+        if (options.length === 1) {
+          setMandiLocked(true);
+          setForm((prev) => ({ ...prev, mandi_id: options[0].value }));
+        } else {
+          setMandiLocked(false);
+        }
       } else {
         const resp = await fetchMandis({ username, language, filters: { is_active: "Y" } });
         const list = resp?.data?.items || resp?.response?.data?.items || [];
-        setMandiOptions(
+        const options =
           (list || []).map((m: any) => ({
             value: String(m.mandi_id ?? m.mandiId ?? ""),
             label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
-          })),
-        );
+          }));
+        setMandiOptions(options);
+        if (options.length === 1) {
+          setMandiLocked(true);
+          setForm((prev) => ({ ...prev, mandi_id: options[0].value }));
+        } else {
+          setMandiLocked(false);
+        }
       }
     } catch (_) {
       setMandiOptions([]);
+      setMandiLocked(false);
     }
   }, [language, orgId]);
 
@@ -207,6 +221,15 @@ export const LotsCreate: React.FC = () => {
     }
   }, [form.mandi_id, loadGates]);
 
+  const handleMandiChange = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      mandi_id: value,
+      gate_id: "",
+    }));
+    setGateOptions([]);
+  };
+
   useEffect(() => {
     if (form.commodity_id) {
       loadProducts(form.commodity_id);
@@ -282,9 +305,10 @@ export const LotsCreate: React.FC = () => {
             select
             label="Mandi"
             value={form.mandi_id}
-            onChange={(e) => updateField("mandi_id", e.target.value)}
+            onChange={(e) => handleMandiChange(e.target.value)}
             fullWidth
             required
+            disabled={mandiLocked}
           >
             {mandiOptions.map((m) => (
               <MenuItem key={m.value} value={m.value}>

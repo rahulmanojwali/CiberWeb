@@ -227,11 +227,10 @@ export const Lots: React.FC = () => {
     () => can(uiConfig.resources, "lots.detail", "VIEW"),
     [uiConfig.resources],
   );
-  const canCreateLot = useMemo(() => {
-    const role = String(uiConfig.role || "").toUpperCase();
-    if (role === "MANDI_ADMIN" || role === "ORG_ADMIN" || role === "SUPER_ADMIN") return true;
-    return canPermission("gate_entry_tokens.create", "CREATE");
-  }, [uiConfig.role, canPermission]);
+  const canCreateLot = useMemo(
+    () => canPermission("lots.create", "CREATE"),
+    [canPermission],
+  );
   const canUpdateStatus = useMemo(
     () => can(uiConfig.resources, "lots.update_status", "UPDATE"),
     [uiConfig.resources],

@@ -28,6 +28,8 @@ import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
+import { usePermissions } from "../authz/usePermissions";
+import { useNavigate } from "react-router-dom";
 import { fetchLotDetail, fetchLots, updateLotStatus, verifyLot } from "../services/lotsApi";
 import { getAuctionResultByLot } from "../services/auctionOpsApi";
 import { generateSettlementForLot, getSettlementDetail } from "../services/settlementsApi";
@@ -188,6 +190,8 @@ export const Lots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const { can: canPermission } = usePermissions();
+  const navigate = useNavigate();
 
   const [rows, setRows] = useState<LotRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -223,6 +227,11 @@ export const Lots: React.FC = () => {
     () => can(uiConfig.resources, "lots.detail", "VIEW"),
     [uiConfig.resources],
   );
+  const canCreateLot = useMemo(() => {
+    const role = String(uiConfig.role || "").toUpperCase();
+    if (role === "MANDI_ADMIN" || role === "ORG_ADMIN" || role === "SUPER_ADMIN") return true;
+    return canPermission("gate_entry_tokens.create", "CREATE");
+  }, [uiConfig.role, canPermission]);
   const canUpdateStatus = useMemo(
     () => can(uiConfig.resources, "lots.update_status", "UPDATE"),
     [uiConfig.resources],
@@ -653,6 +662,11 @@ export const Lots: React.FC = () => {
             value={tokenFilter}
             onChange={(e) => setTokenFilter(e.target.value)}
           />
+          {canCreateLot && (
+            <Button variant="contained" onClick={() => navigate("/gate-entries/create")}>
+              {t("actions.createLot", { defaultValue: "Create Lot" })}
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
             Refresh
           </Button>

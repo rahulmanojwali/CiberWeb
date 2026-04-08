@@ -103,3 +103,19 @@ export const verifyLot = async ({
     language,
     lot_id,
   });
+
+export const createLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.createLot, {
+    api: API_TAGS.LOTS.create,
+    username,
+    language,
+    ...payload,
+  });

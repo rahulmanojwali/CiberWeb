@@ -663,7 +663,7 @@ export const Lots: React.FC = () => {
             onChange={(e) => setTokenFilter(e.target.value)}
           />
           {canCreateLot && (
-            <Button variant="contained" onClick={() => navigate("/gate-entries/create")}>
+            <Button variant="contained" onClick={() => navigate("/lots/create")}>
               {t("actions.createLot", { defaultValue: "Create Lot" })}
             </Button>
           )}

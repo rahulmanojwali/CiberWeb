@@ -159,6 +159,7 @@ export const API_TAGS = {
     update_status: "updateLotStatus",
     map_to_auction: "mapLotToAuction",
     verify: "verifyLot",
+    create: "createLot",
   },
   PRE_MARKET_LISTINGS: {
     create: "create_Pre_Market_Listing01",
@@ -558,6 +559,7 @@ export const API_ROUTES = {
     updateLotStatus: "/admin/updateLotStatus",
     mapLotToAuction: "/admin/mapLotToAuction",
     verifyLot: "/admin/verifyLot",
+    createLot: "/admin/createLot",
     createPreMarketListing: "/admin/createPreMarketListing",
     listPreMarketListings: "/admin/listPreMarketListings",
     getPreMarketListingDetail: "/admin/getPreMarketListingDetail",

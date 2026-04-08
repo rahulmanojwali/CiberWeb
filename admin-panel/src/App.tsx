@@ -74,6 +74,7 @@ import { AuctionSessions } from "./pages/auctionSessions";
 import { AuctionLots } from "./pages/auctionLots";
 import { AuctionResults } from "./pages/auctionResults";
 import { Lots } from "./pages/lots";
+import { LotsCreate } from "./pages/lots/create";
 import { TransportIntents } from "./pages/transportIntents";
 import { PreMarketListings } from "./pages/preMarketListings";
 import { PreMarketListingCreate } from "./pages/preMarketListings/create";
@@ -239,6 +240,7 @@ function App() {
                   <Route path="/auction-sessions" element={<AuctionSessions />} />
                   <Route path="/auction-lots" element={<AuctionLots />} />
                   <Route path="/lots" element={<Lots />} />
+                  <Route path="/lots/create" element={<LotsCreate />} />
                   <Route path="/transport-intents" element={<TransportIntents />} />
                   <Route path="/pre-market-listings" element={<PreMarketListings />} />
                   <Route path="/pre-market-listings/create" element={<PreMarketListingCreate />} />

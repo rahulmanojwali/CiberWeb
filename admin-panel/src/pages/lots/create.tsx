@@ -72,7 +72,6 @@ export const LotsCreate: React.FC = () => {
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
     if (!username) return;
-    const scopedMandiId = uiConfig.scope?.mandi_id ?? "";
     try {
       if (orgId) {
         const list = await getMandisForCurrentScope({ username, language, org_id: orgId });
@@ -92,13 +91,10 @@ export const LotsCreate: React.FC = () => {
           })),
         );
       }
-      if (scopedMandiId) {
-        updateField("mandi_id", String(scopedMandiId));
-      }
     } catch (_) {
       setMandiOptions([]);
     }
-  }, [language, orgId, uiConfig.scope?.mandi_id]);
+  }, [language, orgId]);
 
   const loadGates = useCallback(
     async (mandiId: string) => {

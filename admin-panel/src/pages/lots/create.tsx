@@ -522,29 +522,38 @@ export const LotsCreate: React.FC = () => {
     setLoading(true);
     try {
       const payload: Record<string, any> = {
-        api_name: "createLot",
+        api_name: sourceMode === "TOKEN" ? "createLotFromToken" : "createLot",
         country: DEFAULT_COUNTRY,
-        source_mode: sourceMode,
         commodity_id: form.commodity_id,
         commodity_product_id: form.commodity_product_id,
-        bags: Number(form.bags),
-        weight_kg: Number(form.weight_kg),
         quality_grade: form.quality_grade,
       };
-      if (orgId) payload.org_id = orgId;
       if (sourceMode === "TOKEN") {
-        payload.token_code = tokenContext?.token_code || fullTokenCode;
-        if (tokenContext?.mandi_id !== undefined && tokenContext?.mandi_id !== null) {
-          payload.mandi_id = Number(tokenContext.mandi_id);
+        const bags = Number(form.bags);
+        const weight = Number(form.weight_kg);
+        if (!Number.isFinite(bags) || bags <= 0) {
+          enqueueSnackbar("Bags must be greater than 0.", { variant: "warning" });
+          setLoading(false);
+          return;
         }
-        if (tokenContext?.gate_id) payload.gate_id = tokenContext.gate_id;
+        if (!Number.isFinite(weight) || weight <= 0) {
+          enqueueSnackbar("Weight must be greater than 0.", { variant: "warning" });
+          setLoading(false);
+          return;
+        }
+        payload.token_code = tokenContext?.token_code || fullTokenCode;
+        payload.quantity_bags = bags;
+        payload.weight_per_bag_kg = Number((weight / bags).toFixed(3));
         payload.client_request_id = buildClientRequestId();
-        payload.browser_session_id = getBrowserSessionId() || undefined;
       } else {
+        payload.source_mode = sourceMode;
+        if (orgId) payload.org_id = orgId;
         payload.mandi_id = Number(form.mandi_id);
         payload.gate_id = form.gate_id;
         payload.farmer_user_id = farmerContext?.user_id || farmerContext?.username || form.farmer_user_id;
         payload.override_reason = overrideReason.trim();
+        payload.bags = Number(form.bags);
+        payload.weight_kg = Number(form.weight_kg);
       }
       const resp =
         sourceMode === "TOKEN"

@@ -508,7 +508,7 @@ export const LotsCreate: React.FC = () => {
       };
       if (orgId) payload.org_id = orgId;
       if (sourceMode === "TOKEN") {
-        payload.token_code = tokenContext?.token_code || tokenCode.trim().toUpperCase();
+        payload.token_code = tokenContext?.token_code || fullTokenCode;
         if (tokenContext?.mandi_id !== undefined && tokenContext?.mandi_id !== null) {
           payload.mandi_id = Number(tokenContext.mandi_id);
         }

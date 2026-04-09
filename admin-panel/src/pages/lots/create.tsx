@@ -1,10 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Divider,
   MenuItem,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -20,12 +26,17 @@ import {
   fetchMandis,
   getMandisForCurrentScope,
 } from "../../services/mandiApi";
-import { createLot } from "../../services/lotsApi";
+import {
+  createLot,
+  fetchLotManualFarmerContext,
+  fetchLotTokenContext,
+} from "../../services/lotsApi";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useTranslation } from "react-i18next";
 
 type Option = { value: string; label: string };
+type SourceMode = "TOKEN" | "MANUAL";
 
 function currentUsername(): string | null {
   try {
@@ -52,6 +63,14 @@ export const LotsCreate: React.FC = () => {
   const [loadingGates, setLoadingGates] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [mandiLocked, setMandiLocked] = useState(false);
+  const [sourceMode, setSourceMode] = useState<SourceMode>("TOKEN");
+  const [tokenCode, setTokenCode] = useState("");
+  const [tokenLoading, setTokenLoading] = useState(false);
+  const [tokenContext, setTokenContext] = useState<any>(null);
+  const [farmerIdentifier, setFarmerIdentifier] = useState("");
+  const [farmerLoading, setFarmerLoading] = useState(false);
+  const [farmerContext, setFarmerContext] = useState<any>(null);
+  const [overrideReason, setOverrideReason] = useState("");
 
   const [form, setForm] = useState({
     mandi_id: "",
@@ -65,10 +84,26 @@ export const LotsCreate: React.FC = () => {
   });
 
   const orgId = useMemo(() => uiConfig.scope?.org_id || "", [uiConfig.scope?.org_id]);
+  const manualAllowed = useMemo(() => {
+    const role = String(uiConfig.role || "").toUpperCase();
+    return role === "SUPER_ADMIN" || role === "ORG_ADMIN" || role === "MANDI_ADMIN";
+  }, [uiConfig.role]);
 
   const updateField = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  const resetLotFields = useCallback(() => {
+    setForm((prev) => ({
+      ...prev,
+      commodity_id: "",
+      commodity_product_id: "",
+      bags: "",
+      weight_kg: "",
+      quality_grade: "",
+    }));
+    setProductOptions([]);
+  }, []);
 
   const loadMandis = useCallback(async () => {
     const username = currentUsername();
@@ -214,12 +249,12 @@ export const LotsCreate: React.FC = () => {
   }, [loadMandis, loadCommodities]);
 
   useEffect(() => {
-    if (form.mandi_id) {
+    if (sourceMode === "MANUAL" && form.mandi_id) {
       loadGates(form.mandi_id);
     } else {
       setGateOptions([]);
     }
-  }, [form.mandi_id, loadGates]);
+  }, [form.mandi_id, loadGates, sourceMode]);
 
   const handleMandiChange = (value: string) => {
     setForm((prev) => ({
@@ -238,41 +273,175 @@ export const LotsCreate: React.FC = () => {
     }
   }, [form.commodity_id, loadProducts]);
 
+  const handleSourceChange = (_: React.MouseEvent<HTMLElement>, value: SourceMode | null) => {
+    if (!value) return;
+    setSourceMode(value);
+    setTokenContext(null);
+    setTokenCode("");
+    setFarmerContext(null);
+    setFarmerIdentifier("");
+    setOverrideReason("");
+    setForm((prev) => ({
+      ...prev,
+      mandi_id: mandiLocked ? prev.mandi_id : "",
+      gate_id: "",
+      farmer_user_id: "",
+    }));
+    resetLotFields();
+  };
+
+  const fetchTokenContext = async () => {
+    const username = currentUsername();
+    if (!username) {
+      enqueueSnackbar("Missing admin session.", { variant: "error" });
+      return;
+    }
+    const code = tokenCode.trim().toUpperCase();
+    if (!code) {
+      enqueueSnackbar("Enter a token code.", { variant: "warning" });
+      return;
+    }
+    setTokenLoading(true);
+    try {
+      const resp = await fetchLotTokenContext({
+        username,
+        language,
+        token_code: code,
+      });
+      const payload =
+        resp?.data?.token ||
+        resp?.response?.data?.token ||
+        resp?.data?.data?.token ||
+        null;
+      const responseCode = resp?.response?.responsecode || resp?.data?.response?.responsecode;
+      if (responseCode !== "0" || !payload) {
+        const msg =
+          resp?.response?.description ||
+          resp?.data?.response?.description ||
+          "Unable to fetch token.";
+        enqueueSnackbar(msg, { variant: "error" });
+        setTokenContext(null);
+        return;
+      }
+      setTokenContext(payload);
+      setForm((prev) => ({
+        ...prev,
+        mandi_id: payload?.mandi_id ? String(payload.mandi_id) : prev.mandi_id,
+        gate_id: payload?.gate_id ? String(payload.gate_id) : prev.gate_id,
+        farmer_user_id: payload?.farmer_username || prev.farmer_user_id,
+      }));
+      enqueueSnackbar("Token validated.", { variant: "success" });
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  const fetchManualFarmer = async () => {
+    const username = currentUsername();
+    if (!username) {
+      enqueueSnackbar("Missing admin session.", { variant: "error" });
+      return;
+    }
+    const identifier = farmerIdentifier.trim();
+    if (!identifier) {
+      enqueueSnackbar("Enter farmer username or mobile.", { variant: "warning" });
+      return;
+    }
+    if (!manualAllowed) {
+      enqueueSnackbar("Manual mode is not allowed for your role.", { variant: "error" });
+      return;
+    }
+    setFarmerLoading(true);
+    try {
+      const resp = await fetchLotManualFarmerContext({
+        username,
+        language,
+        farmer_identifier: identifier,
+      });
+      const payload =
+        resp?.data?.farmer ||
+        resp?.response?.data?.farmer ||
+        resp?.data?.data?.farmer ||
+        null;
+      const responseCode = resp?.response?.responsecode || resp?.data?.response?.responsecode;
+      if (responseCode !== "0" || !payload) {
+        const msg =
+          resp?.response?.description ||
+          resp?.data?.response?.description ||
+          "Unable to fetch farmer.";
+        enqueueSnackbar(msg, { variant: "error" });
+        setFarmerContext(null);
+        return;
+      }
+      setFarmerContext(payload);
+      setForm((prev) => ({
+        ...prev,
+        farmer_user_id: payload?.user_id || payload?.username || prev.farmer_user_id,
+      }));
+      enqueueSnackbar("Farmer validated.", { variant: "success" });
+    } finally {
+      setFarmerLoading(false);
+    }
+  };
+
+  const clearManualFarmer = () => {
+    setFarmerContext(null);
+    setFarmerIdentifier("");
+    setForm((prev) => ({ ...prev, farmer_user_id: "" }));
+    resetLotFields();
+  };
+
+  const canEditLotFields =
+    sourceMode === "TOKEN"
+      ? Boolean(tokenContext)
+      : Boolean(farmerContext) && Boolean(overrideReason.trim());
+
+  const canSubmit =
+    canEditLotFields &&
+    form.commodity_id &&
+    form.commodity_product_id &&
+    form.bags &&
+    form.weight_kg &&
+    form.quality_grade &&
+    (sourceMode === "TOKEN" ? tokenContext : form.mandi_id && form.gate_id && farmerContext);
+
   const handleSubmit = async () => {
     const username = currentUsername();
     if (!username) {
       enqueueSnackbar("Missing admin session.", { variant: "error" });
       return;
     }
-    if (
-      !form.mandi_id ||
-      !form.gate_id ||
-      !form.farmer_user_id ||
-      !form.commodity_id ||
-      !form.commodity_product_id ||
-      !form.bags ||
-      !form.weight_kg ||
-      !form.quality_grade
-    ) {
+    if (!canSubmit) {
       enqueueSnackbar("Please fill all required fields.", { variant: "warning" });
       return;
     }
     setLoading(true);
     try {
+      const payload: Record<string, any> = {
+        source_mode: sourceMode,
+        commodity_id: form.commodity_id,
+        commodity_product_id: form.commodity_product_id,
+        bags: Number(form.bags),
+        weight_kg: Number(form.weight_kg),
+        quality_grade: form.quality_grade,
+      };
+      if (orgId) payload.org_id = orgId;
+      if (sourceMode === "TOKEN") {
+        payload.token_code = tokenContext?.token_code || tokenCode.trim().toUpperCase();
+        if (tokenContext?.mandi_id !== undefined && tokenContext?.mandi_id !== null) {
+          payload.mandi_id = Number(tokenContext.mandi_id);
+        }
+        if (tokenContext?.gate_id) payload.gate_id = tokenContext.gate_id;
+      } else {
+        payload.mandi_id = Number(form.mandi_id);
+        payload.gate_id = form.gate_id;
+        payload.farmer_user_id = farmerContext?.user_id || farmerContext?.username || form.farmer_user_id;
+        payload.override_reason = overrideReason.trim();
+      }
       const resp = await createLot({
         username,
         language,
-        payload: {
-          org_id: orgId || undefined,
-          mandi_id: Number(form.mandi_id),
-          gate_id: form.gate_id,
-          farmer_user_id: form.farmer_user_id,
-          commodity_id: form.commodity_id,
-          commodity_product_id: form.commodity_product_id,
-          bags: Number(form.bags),
-          weight_kg: Number(form.weight_kg),
-          quality_grade: form.quality_grade,
-        },
+        payload,
       });
       const code = resp?.response?.responsecode || resp?.data?.response?.responsecode;
       if (code === "0") {
@@ -301,45 +470,184 @@ export const LotsCreate: React.FC = () => {
 
       <Box sx={{ maxWidth: 720 }}>
         <Stack spacing={2}>
-          <TextField
-            select
-            label="Mandi"
-            value={form.mandi_id}
-            onChange={(e) => handleMandiChange(e.target.value)}
-            fullWidth
-            required
-            disabled={mandiLocked}
-          >
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Source
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              value={sourceMode}
+              onChange={handleSourceChange}
+              size="small"
+              color="primary"
+            >
+              <ToggleButton value="TOKEN">From Gate Token</ToggleButton>
+              <ToggleButton value="MANUAL" disabled={!manualAllowed}>
+                Emergency Manual Entry
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {!manualAllowed ? (
+              <Typography variant="caption" color="text.secondary" display="block" mt={0.75}>
+                Manual entry is restricted to admin roles only.
+              </Typography>
+            ) : null}
+          </Box>
 
-          <TextField
-            select
-            label="Gate"
-            value={form.gate_id}
-            onChange={(e) => updateField("gate_id", e.target.value)}
-            fullWidth
-            required
-            disabled={!form.mandi_id || loadingGates}
-          >
-            {gateOptions.map((g) => (
-              <MenuItem key={g.value} value={g.value}>
-                {g.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          {sourceMode === "TOKEN" ? (
+            <Stack spacing={2}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
+                <TextField
+                  label="Token Code"
+                  value={tokenCode}
+                  onChange={(e) => setTokenCode(e.target.value)}
+                  fullWidth
+                  required
+                />
+                <Button
+                  variant="contained"
+                  onClick={fetchTokenContext}
+                  disabled={tokenLoading || !tokenCode.trim()}
+                  sx={{ minWidth: 150 }}
+                >
+                  {tokenLoading ? "Fetching..." : "Fetch Token"}
+                </Button>
+              </Stack>
 
-          <TextField
-            label="Farmer User ID / Username"
-            value={form.farmer_user_id}
-            onChange={(e) => updateField("farmer_user_id", e.target.value)}
-            fullWidth
-            required
-          />
+              {tokenContext ? (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle1">Token Summary</Typography>
+                      <Divider />
+                      <Typography variant="body2">
+                        <strong>Token Code:</strong> {tokenContext.token_code || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Org:</strong> {tokenContext.org_name || tokenContext.org_id || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Mandi:</strong> {tokenContext.mandi_name || tokenContext.mandi_id || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Gate:</strong> {tokenContext.gate_name || tokenContext.gate_id || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Farmer:</strong> {tokenContext.farmer_name || tokenContext.farmer_username || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Farmer Contact:</strong>{" "}
+                        {tokenContext.farmer_mobile || tokenContext.farmer_username || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Vehicle:</strong> {tokenContext.vehicle_no || "—"} ({tokenContext.vehicle_type || "—"})
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Status:</strong> {tokenContext.status || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Last Action:</strong> {tokenContext.last_action || "—"}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Alert severity="warning">
+                Emergency manual mode should be used only when token-based creation is unavailable.
+              </Alert>
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
+                <TextField
+                  label="Farmer Username / Mobile"
+                  value={farmerIdentifier}
+                  onChange={(e) => setFarmerIdentifier(e.target.value)}
+                  fullWidth
+                  required
+                  disabled={!!farmerContext}
+                />
+                <Button
+                  variant="contained"
+                  onClick={fetchManualFarmer}
+                  disabled={farmerLoading || !farmerIdentifier.trim() || !!farmerContext}
+                  sx={{ minWidth: 150 }}
+                >
+                  {farmerLoading ? "Fetching..." : "Fetch Farmer"}
+                </Button>
+                {farmerContext ? (
+                  <Button variant="text" onClick={clearManualFarmer}>
+                    Change
+                  </Button>
+                ) : null}
+              </Stack>
+
+              {farmerContext ? (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle1">Farmer Summary</Typography>
+                      <Divider />
+                      <Typography variant="body2">
+                        <strong>Name:</strong> {farmerContext.name || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Username:</strong> {farmerContext.username || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Mobile:</strong> {farmerContext.mobile || "—"}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Status:</strong> {farmerContext.status || "—"}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              <TextField
+                label="Override Reason"
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                fullWidth
+                required
+                multiline
+                minRows={2}
+              />
+
+              <TextField
+                select
+                label="Mandi"
+                value={form.mandi_id}
+                onChange={(e) => handleMandiChange(e.target.value)}
+                fullWidth
+                required
+                disabled={mandiLocked}
+              >
+                {mandiOptions.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>
+                    {m.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                label="Gate"
+                value={form.gate_id}
+                onChange={(e) => updateField("gate_id", e.target.value)}
+                fullWidth
+                required
+                disabled={!form.mandi_id || loadingGates}
+              >
+                {gateOptions.map((g) => (
+                  <MenuItem key={g.value} value={g.value}>
+                    {g.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          )}
 
           <TextField
             select
@@ -348,6 +656,7 @@ export const LotsCreate: React.FC = () => {
             onChange={(e) => updateField("commodity_id", e.target.value)}
             fullWidth
             required
+            disabled={!canEditLotFields}
           >
             {commodityOptions.map((c) => (
               <MenuItem key={c.value} value={c.value}>
@@ -363,7 +672,7 @@ export const LotsCreate: React.FC = () => {
             onChange={(e) => updateField("commodity_product_id", e.target.value)}
             fullWidth
             required
-            disabled={!form.commodity_id || loadingProducts}
+            disabled={!form.commodity_id || loadingProducts || !canEditLotFields}
           >
             {productOptions.map((p) => (
               <MenuItem key={p.value} value={p.value}>
@@ -380,6 +689,7 @@ export const LotsCreate: React.FC = () => {
               onChange={(e) => updateField("bags", e.target.value)}
               fullWidth
               required
+              disabled={!canEditLotFields}
             />
             <TextField
               label="Weight (kg)"
@@ -388,6 +698,7 @@ export const LotsCreate: React.FC = () => {
               onChange={(e) => updateField("weight_kg", e.target.value)}
               fullWidth
               required
+              disabled={!canEditLotFields}
             />
           </Stack>
 
@@ -397,10 +708,11 @@ export const LotsCreate: React.FC = () => {
             onChange={(e) => updateField("quality_grade", e.target.value)}
             fullWidth
             required
+            disabled={!canEditLotFields}
           />
 
           <Stack direction="row" spacing={2}>
-            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSubmit} disabled={loading}>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSubmit} disabled={loading || !canSubmit}>
               Save
             </Button>
           </Stack>

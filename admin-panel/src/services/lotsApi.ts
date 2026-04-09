@@ -119,3 +119,35 @@ export const createLot = async ({
     language,
     ...payload,
   });
+
+export const fetchLotTokenContext = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  token_code,
+}: {
+  username: string;
+  language?: string;
+  token_code: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getLotTokenContext, {
+    api: API_TAGS.LOTS.token_context,
+    username,
+    language,
+    token_code,
+  });
+
+export const fetchLotManualFarmerContext = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  farmer_identifier,
+}: {
+  username: string;
+  language?: string;
+  farmer_identifier: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getLotManualFarmerContext, {
+    api: API_TAGS.LOTS.manual_farmer_context,
+    username,
+    language,
+    farmer_identifier,
+  });

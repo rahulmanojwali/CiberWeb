@@ -156,6 +156,8 @@ export const API_TAGS = {
   LOTS: {
     list: "getLotList",
     detail: "getLotDetail",
+    token_context: "getLotTokenContext",
+    manual_farmer_context: "getLotManualFarmerContext",
     update_status: "updateLotStatus",
     map_to_auction: "mapLotToAuction",
     verify: "verifyLot",
@@ -556,6 +558,8 @@ export const API_ROUTES = {
     getDailyMarketRates: "/admin/getDailyMarketRates",
     getLotList: "/admin/getLotList",
     getLotDetail: "/admin/getLotDetail",
+    getLotTokenContext: "/admin/getLotTokenContext",
+    getLotManualFarmerContext: "/admin/getLotManualFarmerContext",
     updateLotStatus: "/admin/updateLotStatus",
     mapLotToAuction: "/admin/mapLotToAuction",
     verifyLot: "/admin/verifyLot",

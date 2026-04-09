@@ -28,6 +28,7 @@ import {
 } from "../../services/mandiApi";
 import {
   createLot,
+  createLotFromToken,
   fetchLotManualFarmerContext,
   fetchLotTokenContext,
   fetchLotTokenSearch,
@@ -35,6 +36,7 @@ import {
 import { DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useTranslation } from "react-i18next";
+import { getBrowserSessionId } from "../../security/stepup/browserSession";
 
 type Option = { value: string; label: string };
 type SourceMode = "TOKEN" | "MANUAL";
@@ -55,6 +57,19 @@ function formatDateTime(value?: string | Date | null) {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
 }
+
+const disabledFieldSx = {
+  "& .MuiInputBase-root.Mui-disabled": {
+    opacity: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.04)",
+  },
+  "& .MuiInputBase-input.Mui-disabled": {
+    WebkitTextFillColor: "rgba(0, 0, 0, 0.6)",
+  },
+  "& .MuiInputLabel-root.Mui-disabled": {
+    color: "rgba(0, 0, 0, 0.6)",
+  },
+};
 
 export const LotsCreate: React.FC = () => {
   const { i18n } = useTranslation();
@@ -489,6 +504,11 @@ export const LotsCreate: React.FC = () => {
     form.quality_grade &&
     (sourceMode === "TOKEN" ? tokenContext : form.mandi_id && form.gate_id && farmerContext);
 
+  const buildClientRequestId = () => {
+    const base = getBrowserSessionId() || "web";
+    return `${base}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
+
   const handleSubmit = async (mode: "SAVE" | "SAVE_ADD") => {
     const username = currentUsername();
     if (!username) {
@@ -518,17 +538,18 @@ export const LotsCreate: React.FC = () => {
           payload.mandi_id = Number(tokenContext.mandi_id);
         }
         if (tokenContext?.gate_id) payload.gate_id = tokenContext.gate_id;
+        payload.client_request_id = buildClientRequestId();
+        payload.browser_session_id = getBrowserSessionId() || undefined;
       } else {
         payload.mandi_id = Number(form.mandi_id);
         payload.gate_id = form.gate_id;
         payload.farmer_user_id = farmerContext?.user_id || farmerContext?.username || form.farmer_user_id;
         payload.override_reason = overrideReason.trim();
       }
-      const resp = await createLot({
-        username,
-        language,
-        payload,
-      });
+      const resp =
+        sourceMode === "TOKEN"
+          ? await createLotFromToken({ username, language, payload })
+          : await createLot({ username, language, payload });
       const code = resp?.response?.responsecode || resp?.data?.response?.responsecode;
       if (code === "0") {
         if (mode === "SAVE_ADD" && sourceMode === "TOKEN") {
@@ -829,6 +850,7 @@ export const LotsCreate: React.FC = () => {
             fullWidth
             required
             disabled={!canEditLotFields}
+            sx={disabledFieldSx}
           >
             {commodityOptions.map((c) => (
               <MenuItem key={c.value} value={c.value}>
@@ -845,6 +867,7 @@ export const LotsCreate: React.FC = () => {
             fullWidth
             required
             disabled={!form.commodity_id || loadingProducts || !canEditLotFields}
+            sx={disabledFieldSx}
           >
             {productOptions.map((p) => (
               <MenuItem key={p.value} value={p.value}>
@@ -862,6 +885,7 @@ export const LotsCreate: React.FC = () => {
               fullWidth
               required
               disabled={!canEditLotFields}
+              sx={disabledFieldSx}
             />
             <TextField
               label="Weight (kg)"
@@ -871,6 +895,7 @@ export const LotsCreate: React.FC = () => {
               fullWidth
               required
               disabled={!canEditLotFields}
+              sx={disabledFieldSx}
             />
           </Stack>
 
@@ -882,6 +907,7 @@ export const LotsCreate: React.FC = () => {
             fullWidth
             required
             disabled={!canEditLotFields}
+            sx={disabledFieldSx}
           >
             {["A", "B", "C"].map((grade) => (
               <MenuItem key={grade} value={grade}>

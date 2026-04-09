@@ -120,6 +120,22 @@ export const createLot = async ({
     ...payload,
   });
 
+export const createLotFromToken = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.createLotFromToken, {
+    api: API_TAGS.LOTS.create_from_token,
+    username,
+    language,
+    ...payload,
+  });
+
 export const fetchLotTokenContext = async ({
   username,
   language = DEFAULT_LANGUAGE,

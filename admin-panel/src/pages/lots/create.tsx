@@ -30,6 +30,7 @@ import {
   createLot,
   fetchLotManualFarmerContext,
   fetchLotTokenContext,
+  fetchLotTokenSearch,
 } from "../../services/lotsApi";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { normalizeLanguageCode } from "../../config/languages";
@@ -46,6 +47,13 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
+}
+
+function formatDateTime(value?: string | Date | null) {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
 }
 
 export const LotsCreate: React.FC = () => {
@@ -67,6 +75,7 @@ export const LotsCreate: React.FC = () => {
   const [tokenCode, setTokenCode] = useState("");
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenContext, setTokenContext] = useState<any>(null);
+  const [tokenResults, setTokenResults] = useState<any[]>([]);
   const [farmerIdentifier, setFarmerIdentifier] = useState("");
   const [farmerLoading, setFarmerLoading] = useState(false);
   const [farmerContext, setFarmerContext] = useState<any>(null);
@@ -290,7 +299,16 @@ export const LotsCreate: React.FC = () => {
     resetLotFields();
   };
 
-  const fetchTokenContext = async () => {
+  const handleTokenInputChange = (value: string) => {
+    setTokenCode(value);
+    if (tokenContext) {
+      setTokenContext(null);
+      resetLotFields();
+    }
+    if (tokenResults.length) setTokenResults([]);
+  };
+
+  const fetchTokenSearch = async () => {
     const username = currentUsername();
     if (!username) {
       enqueueSnackbar("Missing admin session.", { variant: "error" });
@@ -301,6 +319,55 @@ export const LotsCreate: React.FC = () => {
       enqueueSnackbar("Enter a token code.", { variant: "warning" });
       return;
     }
+    if (!code.startsWith("GT_")) {
+      enqueueSnackbar("Token code must start with GT_.", { variant: "warning" });
+      return;
+    }
+    if (code.length < 8) {
+      enqueueSnackbar("Enter at least 8 characters to search.", { variant: "info" });
+      return;
+    }
+    setTokenLoading(true);
+    try {
+      const resp = await fetchLotTokenSearch({
+        username,
+        language,
+        token_code: code,
+        org_id: orgId || undefined,
+        mandi_id: form.mandi_id || undefined,
+      });
+      const payload =
+        resp?.data?.matches ||
+        resp?.response?.data?.matches ||
+        resp?.data?.data?.matches ||
+        [];
+      const responseCode = resp?.response?.responsecode || resp?.data?.response?.responsecode;
+      if (responseCode !== "0") {
+        const msg =
+          resp?.response?.description ||
+          resp?.data?.response?.description ||
+          "Unable to fetch token.";
+        enqueueSnackbar(msg, { variant: "error" });
+        setTokenResults([]);
+        return;
+      }
+      setTokenResults(Array.isArray(payload) ? payload : []);
+      if (Array.isArray(payload) && payload.length === 0) {
+        enqueueSnackbar("No matching tokens found.", { variant: "info" });
+      }
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  const selectToken = async (selected: any) => {
+    const username = currentUsername();
+    if (!username) {
+      enqueueSnackbar("Missing admin session.", { variant: "error" });
+      return;
+    }
+    const code = String(selected?.token_code || "").trim().toUpperCase();
+    if (!code) return;
     setTokenLoading(true);
     try {
       const resp = await fetchLotTokenContext({
@@ -324,13 +391,15 @@ export const LotsCreate: React.FC = () => {
         return;
       }
       setTokenContext(payload);
+      setTokenResults([]);
+      setTokenCode(payload?.token_code || code);
       setForm((prev) => ({
         ...prev,
         mandi_id: payload?.mandi_id ? String(payload.mandi_id) : prev.mandi_id,
         gate_id: payload?.gate_id ? String(payload.gate_id) : prev.gate_id,
         farmer_user_id: payload?.farmer_username || prev.farmer_user_id,
       }));
-      enqueueSnackbar("Token validated.", { variant: "success" });
+      enqueueSnackbar("Token selected.", { variant: "success" });
     } finally {
       setTokenLoading(false);
     }
@@ -499,19 +568,54 @@ export const LotsCreate: React.FC = () => {
                 <TextField
                   label="Token Code"
                   value={tokenCode}
-                  onChange={(e) => setTokenCode(e.target.value)}
+                  onChange={(e) => handleTokenInputChange(e.target.value)}
                   fullWidth
                   required
+                  helperText="Starts with GT_. Enter at least 8 characters to search."
                 />
                 <Button
                   variant="contained"
-                  onClick={fetchTokenContext}
+                  onClick={fetchTokenSearch}
                   disabled={tokenLoading || !tokenCode.trim()}
                   sx={{ minWidth: 150 }}
                 >
-                  {tokenLoading ? "Fetching..." : "Fetch Token"}
+                  {tokenLoading ? "Searching..." : "Search"}
                 </Button>
               </Stack>
+
+              {tokenResults.length > 0 ? (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle1">Select a Token</Typography>
+                      <Divider />
+                      {tokenResults.map((row, idx) => (
+                        <Button
+                          key={`${row.token_code || idx}`}
+                          variant="outlined"
+                          onClick={() => selectToken(row)}
+                          sx={{ justifyContent: "flex-start", textAlign: "left" }}
+                        >
+                          <Stack spacing={0.5} alignItems="flex-start">
+                            <Typography variant="subtitle2">
+                              {row.token_code || "—"} {row.status ? `(${row.status})` : ""}
+                            </Typography>
+                            <Typography variant="body2">
+                              {row.farmer_name || "—"} • {row.farmer_username || row.farmer_mobile || "—"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {row.vehicle_no || "—"} • {row.gate_name || "—"} • {row.mandi_name || "—"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Updated: {formatDateTime(row.updated_on)}
+                            </Typography>
+                          </Stack>
+                        </Button>
+                      ))}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               {tokenContext ? (
                 <Card variant="outlined">

@@ -136,6 +136,29 @@ export const fetchLotTokenContext = async ({
     token_code,
   });
 
+export const fetchLotTokenSearch = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  token_code,
+  org_id,
+  mandi_id,
+}: {
+  username: string;
+  language?: string;
+  token_code: string;
+  org_id?: string;
+  mandi_id?: number | string;
+}) =>
+  postEncrypted(API_ROUTES.admin.getLotTokenContext, {
+    api: API_TAGS.LOTS.token_context,
+    username,
+    language,
+    token_code,
+    org_id,
+    mandi_id,
+    search_only: "Y",
+  });
+
 export const fetchLotManualFarmerContext = async ({
   username,
   language = DEFAULT_LANGUAGE,

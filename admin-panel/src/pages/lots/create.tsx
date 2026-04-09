@@ -204,7 +204,7 @@ export const LotsCreate: React.FC = () => {
       const list = resp?.data?.rows || resp?.data?.items || resp?.response?.data?.rows || resp?.response?.data?.items || [];
       setCommodityOptions(
         (list || []).map((c: any) => {
-          const id = c.commodity_id ?? c._id ?? c.id ?? "";
+          const id = c._id ?? c.commodity_id ?? c.id ?? "";
           const label =
             c.commodity_name ||
             c.commodity_name_en ||
@@ -235,15 +235,16 @@ export const LotsCreate: React.FC = () => {
       }
       setLoadingProducts(true);
       try {
+        const commodityFilter = Number.isFinite(Number(commodityId)) ? Number(commodityId) : commodityId;
         const resp = await fetchCommodityProducts({
           username,
           language,
-          filters: { commodity_id: Number(commodityId), is_active: "Y", page: 1, pageSize: 500 },
+          filters: { commodity_id: commodityFilter, is_active: "Y", page: 1, pageSize: 500 },
         });
         const list = resp?.data?.rows || resp?.data?.items || resp?.response?.data?.rows || resp?.response?.data?.items || [];
         setProductOptions(
         (list || []).map((p: any) => {
-          const id = p.product_id ?? p.commodity_product_id ?? p._id ?? "";
+          const id = p._id ?? p.product_id ?? p.commodity_product_id ?? "";
           const label =
             p.commodity_product_name ||
             p.product_name ||
@@ -545,6 +546,14 @@ export const LotsCreate: React.FC = () => {
         payload.quantity_bags = bags;
         payload.weight_per_bag_kg = Number((weight / bags).toFixed(3));
         payload.client_request_id = buildClientRequestId();
+        if (tokenContext?.org_id) payload.org_id = tokenContext.org_id;
+        if (tokenContext?.mandi_id !== undefined && tokenContext?.mandi_id !== null) {
+          payload.mandi_id = Number(tokenContext.mandi_id);
+        }
+        if (tokenContext?.gate_id) payload.gate_id = tokenContext.gate_id;
+        if (tokenContext?.gate_code) payload.gate_code = tokenContext.gate_code;
+        if (tokenContext?.vehicle_no) payload.vehicle_no = tokenContext.vehicle_no;
+        if (tokenContext?.reason_label) payload.reason_label = tokenContext.reason_label;
       } else {
         payload.source_mode = sourceMode;
         if (orgId) payload.org_id = orgId;

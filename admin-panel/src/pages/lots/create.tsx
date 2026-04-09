@@ -72,7 +72,7 @@ export const LotsCreate: React.FC = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [mandiLocked, setMandiLocked] = useState(false);
   const [sourceMode, setSourceMode] = useState<SourceMode>("TOKEN");
-  const [tokenCode, setTokenCode] = useState("");
+  const [tokenBody, setTokenBody] = useState("");
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenContext, setTokenContext] = useState<any>(null);
   const [tokenResults, setTokenResults] = useState<any[]>([]);
@@ -286,7 +286,7 @@ export const LotsCreate: React.FC = () => {
     if (!value) return;
     setSourceMode(value);
     setTokenContext(null);
-    setTokenCode("");
+    setTokenBody("");
     setFarmerContext(null);
     setFarmerIdentifier("");
     setOverrideReason("");
@@ -299,8 +299,17 @@ export const LotsCreate: React.FC = () => {
     resetLotFields();
   };
 
+  const normalizeTokenBody = (value: string) => {
+    const raw = String(value || "").trim();
+    const upper = raw.toUpperCase();
+    if (upper.startsWith("GT_")) {
+      return upper.slice(3);
+    }
+    return upper;
+  };
+
   const handleTokenInputChange = (value: string) => {
-    setTokenCode(value);
+    setTokenBody(normalizeTokenBody(value));
     if (tokenContext) {
       setTokenContext(null);
       resetLotFields();
@@ -308,22 +317,21 @@ export const LotsCreate: React.FC = () => {
     if (tokenResults.length) setTokenResults([]);
   };
 
+  const fullTokenCode = `GT_${tokenBody}`;
+  const tokenBodyLength = tokenBody.length;
+  const tokenThresholdMet = tokenBodyLength >= 5;
+
   const fetchTokenSearch = async () => {
     const username = currentUsername();
     if (!username) {
       enqueueSnackbar("Missing admin session.", { variant: "error" });
       return;
     }
-    const code = tokenCode.trim().toUpperCase();
-    if (!code) {
+    if (!tokenBody.trim()) {
       enqueueSnackbar("Enter a token code.", { variant: "warning" });
       return;
     }
-    if (!code.startsWith("GT_")) {
-      enqueueSnackbar("Token code must start with GT_.", { variant: "warning" });
-      return;
-    }
-    if (code.length < 8) {
+    if (!tokenThresholdMet) {
       enqueueSnackbar("Enter at least 8 characters to search.", { variant: "info" });
       return;
     }
@@ -332,7 +340,7 @@ export const LotsCreate: React.FC = () => {
       const resp = await fetchLotTokenSearch({
         username,
         language,
-        token_code: code,
+        token_code: fullTokenCode,
         org_id: orgId || undefined,
         mandi_id: form.mandi_id || undefined,
       });
@@ -351,9 +359,13 @@ export const LotsCreate: React.FC = () => {
         setTokenResults([]);
         return;
       }
-      setTokenResults(Array.isArray(payload) ? payload : []);
-      if (Array.isArray(payload) && payload.length === 0) {
+      const results = Array.isArray(payload) ? payload : [];
+      setTokenResults(results);
+      if (results.length === 0) {
         enqueueSnackbar("No matching tokens found.", { variant: "info" });
+      }
+      if (results.length === 1) {
+        selectToken(results[0]);
       }
     } finally {
       setTokenLoading(false);
@@ -392,7 +404,7 @@ export const LotsCreate: React.FC = () => {
       }
       setTokenContext(payload);
       setTokenResults([]);
-      setTokenCode(payload?.token_code || code);
+      setTokenBody(normalizeTokenBody(payload?.token_code || code));
       setForm((prev) => ({
         ...prev,
         mandi_id: payload?.mandi_id ? String(payload.mandi_id) : prev.mandi_id,
@@ -567,16 +579,36 @@ export const LotsCreate: React.FC = () => {
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
                 <TextField
                   label="Token Code"
-                  value={tokenCode}
+                  value={tokenBody}
                   onChange={(e) => handleTokenInputChange(e.target.value)}
                   fullWidth
                   required
-                  helperText="Starts with GT_. Enter at least 8 characters to search."
+                  InputProps={{
+                    startAdornment: (
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          bgcolor: "action.hover",
+                          borderRadius: 1,
+                          mr: 1,
+                          fontWeight: 600,
+                        }}
+                      >
+                        GT_
+                      </Box>
+                    ),
+                  }}
+                  helperText={
+                    tokenBodyLength < 5
+                      ? `Entered: ${tokenBodyLength} characters after prefix`
+                      : `Entered: ${tokenBodyLength} characters after prefix · Ready to search`
+                  }
                 />
                 <Button
                   variant="contained"
                   onClick={fetchTokenSearch}
-                  disabled={tokenLoading || !tokenCode.trim()}
+                  disabled={tokenLoading || !tokenThresholdMet}
                   sx={{ minWidth: 150 }}
                 >
                   {tokenLoading ? "Searching..." : "Search"}
@@ -594,12 +626,42 @@ export const LotsCreate: React.FC = () => {
                           key={`${row.token_code || idx}`}
                           variant="outlined"
                           onClick={() => selectToken(row)}
-                          sx={{ justifyContent: "flex-start", textAlign: "left" }}
+                          sx={{
+                            justifyContent: "flex-start",
+                            textAlign: "left",
+                            borderRadius: 2,
+                            borderColor:
+                              tokenContext?.token_code === row.token_code
+                                ? "primary.main"
+                                : "divider",
+                            bgcolor:
+                              tokenContext?.token_code === row.token_code
+                                ? "action.selected"
+                                : "background.paper",
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
                         >
-                          <Stack spacing={0.5} alignItems="flex-start">
-                            <Typography variant="subtitle2">
-                              {row.token_code || "—"} {row.status ? `(${row.status})` : ""}
-                            </Typography>
+                          <Stack spacing={0.75} alignItems="flex-start" width="100%">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Typography variant="subtitle2">
+                                {row.token_code || "—"}
+                              </Typography>
+                              {row.status ? (
+                                <Box
+                                  sx={{
+                                    px: 1,
+                                    py: 0.25,
+                                    borderRadius: 1,
+                                    bgcolor: row.status === "IN_YARD" ? "success.light" : "action.hover",
+                                    color: row.status === "IN_YARD" ? "success.contrastText" : "text.secondary",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {row.status}
+                                </Box>
+                              ) : null}
+                            </Stack>
                             <Typography variant="body2">
                               {row.farmer_name || "—"} • {row.farmer_username || row.farmer_mobile || "—"}
                             </Typography>
@@ -620,37 +682,27 @@ export const LotsCreate: React.FC = () => {
               {tokenContext ? (
                 <Card variant="outlined">
                   <CardContent>
-                    <Stack spacing={1}>
+                    <Stack spacing={1.25}>
                       <Typography variant="subtitle1">Token Summary</Typography>
                       <Divider />
-                      <Typography variant="body2">
-                        <strong>Token Code:</strong> {tokenContext.token_code || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Org:</strong> {tokenContext.org_name || tokenContext.org_id || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Mandi:</strong> {tokenContext.mandi_name || tokenContext.mandi_id || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Gate:</strong> {tokenContext.gate_name || tokenContext.gate_id || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Farmer:</strong> {tokenContext.farmer_name || tokenContext.farmer_username || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Farmer Contact:</strong>{" "}
-                        {tokenContext.farmer_mobile || tokenContext.farmer_username || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Vehicle:</strong> {tokenContext.vehicle_no || "—"} ({tokenContext.vehicle_type || "—"})
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Status:</strong> {tokenContext.status || "—"}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Last Action:</strong> {tokenContext.last_action || "—"}
-                      </Typography>
+                      {[
+                        ["Token Code", tokenContext.token_code],
+                        ["Org", tokenContext.org_name || tokenContext.org_id],
+                        ["Mandi", tokenContext.mandi_name || tokenContext.mandi_id],
+                        ["Gate", tokenContext.gate_name || tokenContext.gate_id],
+                        ["Farmer", tokenContext.farmer_name || tokenContext.farmer_username],
+                        ["Farmer Contact", tokenContext.farmer_mobile || tokenContext.farmer_username],
+                        ["Vehicle", `${tokenContext.vehicle_no || "—"} (${tokenContext.vehicle_type || "—"})`],
+                        ["Status", tokenContext.status],
+                        ["Last Action", tokenContext.last_action],
+                      ].map(([label, value]) => (
+                        <Stack key={label} direction="row" spacing={1}>
+                          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 140 }}>
+                            {label}
+                          </Typography>
+                          <Typography variant="body2">{value || "—"}</Typography>
+                        </Stack>
+                      ))}
                     </Stack>
                   </CardContent>
                 </Card>
@@ -807,13 +859,20 @@ export const LotsCreate: React.FC = () => {
           </Stack>
 
           <TextField
+            select
             label="Quality Grade"
             value={form.quality_grade}
             onChange={(e) => updateField("quality_grade", e.target.value)}
             fullWidth
             required
             disabled={!canEditLotFields}
-          />
+          >
+            {["A", "B", "C"].map((grade) => (
+              <MenuItem key={grade} value={grade}>
+                {grade}
+              </MenuItem>
+            ))}
+          </TextField>
 
           <Stack direction="row" spacing={2}>
             <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSubmit} disabled={loading || !canSubmit}>

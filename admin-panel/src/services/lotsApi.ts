@@ -104,6 +104,31 @@ export const verifyLot = async ({
     lot_id,
   });
 
+export const updateLotWeight = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  lot_id,
+  new_weight_kg,
+  reason,
+  client_request_id,
+}: {
+  username: string;
+  language?: string;
+  lot_id: string;
+  new_weight_kg: number;
+  reason: string;
+  client_request_id: string;
+}) =>
+  postEncrypted(API_ROUTES.admin.updateLotWeight, {
+    api: API_TAGS.LOTS.update_weight,
+    username,
+    language,
+    lot_id,
+    new_weight_kg,
+    reason,
+    client_request_id,
+  });
+
 export const createLot = async ({
   username,
   language = DEFAULT_LANGUAGE,

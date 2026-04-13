@@ -30,7 +30,7 @@ import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
 import { usePermissions } from "../authz/usePermissions";
 import { useNavigate } from "react-router-dom";
-import { fetchLotDetail, fetchLots, updateLotStatus, verifyLot } from "../services/lotsApi";
+import { fetchLotDetail, fetchLots, updateLotStatus, updateLotWeight, verifyLot } from "../services/lotsApi";
 import { getAuctionResultByLot } from "../services/auctionOpsApi";
 import { generateSettlementForLot, getSettlementDetail } from "../services/settlementsApi";
 
@@ -203,6 +203,10 @@ export const Lots: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false);
+  const [weightNewValue, setWeightNewValue] = useState("");
+  const [weightReason, setWeightReason] = useState("");
+  const [weightActionError, setWeightActionError] = useState<string | null>(null);
   const [settlementDialogOpen, setSettlementDialogOpen] = useState(false);
   const [settlementActionLoading, setSettlementActionLoading] = useState(false);
   const [settlementActionError, setSettlementActionError] = useState<string | null>(null);
@@ -389,6 +393,7 @@ export const Lots: React.FC = () => {
   const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
+  const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction;
   const resultDoc = auctionResult?.result || null;
   const resultWinner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
@@ -407,6 +412,51 @@ export const Lots: React.FC = () => {
     if (!selectedRow) return;
     await handleOpenDetail(selectedRow);
     await loadData();
+  };
+
+  const openWeightDialog = () => {
+    setWeightActionError(null);
+    setWeightReason("");
+    setWeightNewValue(detailWeightKg !== null && detailWeightKg !== undefined ? String(detailWeightKg) : "");
+    setWeightDialogOpen(true);
+  };
+
+  const runUpdateWeight = async () => {
+    const username = currentUsername();
+    if (!username || !detailLot) return;
+    setWeightActionError(null);
+    const parsed = Number(weightNewValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setWeightActionError("Please enter a valid new weight (kg).");
+      return;
+    }
+    if (!weightReason.trim()) {
+      setWeightActionError("Reason is required.");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const resp = await updateLotWeight({
+        username,
+        language,
+        lot_id: detailLot._id || detailLot.lot_id,
+        new_weight_kg: parsed,
+        reason: weightReason.trim(),
+        client_request_id: `${username}-${Date.now()}-weight`,
+      });
+      const rc = resp?.response?.responsecode || resp?.responsecode || "1";
+      if (String(rc) !== "0") {
+        const msg = resp?.response?.description || resp?.description || "Unable to update weight.";
+        setWeightActionError(msg);
+        return;
+      }
+      setWeightDialogOpen(false);
+      await refreshDetail();
+    } catch (err: any) {
+      setWeightActionError(err?.message || "Unable to update weight.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const loadAuctionResult = useCallback(async () => {
@@ -726,6 +776,16 @@ export const Lots: React.FC = () => {
                     Cancel
                   </Button>
                 )}
+                {detailLot && canUpdateStatus && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={openWeightDialog}
+                    disabled={actionLoading || !weightEditAllowed}
+                  >
+                    Edit Weight
+                  </Button>
+                )}
               </Stack>
               {(canLockWeighmentAction || canVerifyAction || canCancelAction) && (
                 <Typography variant="caption" color="text.secondary">
@@ -826,6 +886,17 @@ export const Lots: React.FC = () => {
                     <FieldRow label="Bags" value={formatNumber(detailBags)} />
                     <FieldRow label="Weight per bag (kg)" value={formatNumber(detailWeightPerBagKg)} />
                     <FieldRow label="Total weight (kg)" value={formatNumber(detailWeightKg)} />
+                    <FieldRow label="Gross weight (kg)" value={formatNumber(detailLot?.gross_weight_kg)} />
+                    <FieldRow label="Net weight (kg)" value={formatNumber(detailLot?.net_weight_kg)} />
+                    <FieldRow label="Auctionable weight (kg)" value={formatNumber(detailLot?.auctionable_weight_kg)} />
+                    <FieldRow label="Settlement weight (kg)" value={formatNumber(detailLot?.settlement_weight_kg)} />
+                    <FieldRow label="Authoritative weight (kg)" value={formatNumber(detailLot?.authoritative_weight_kg)} />
+                    <FieldRow label="Authoritative stage" value={detailLot?.authoritative_weight_stage} />
+                    {!weightEditAllowed && (
+                      <Typography variant="caption" color="text.secondary">
+                        Weight edit blocked: {detailLot?.workflow?.weight_edit_block_reason || "Not allowed"}.
+                      </Typography>
+                    )}
                   </Box>
                   <Divider />
                   <Box>
@@ -841,14 +912,14 @@ export const Lots: React.FC = () => {
                 <Typography variant="subtitle1" gutterBottom>
                   Timeline
                 </Typography>
-                {(!detail?.events || detail.events.length === 0) && (
+                {(!detailLot?.history || detailLot.history.length === 0) && (
                   <Typography variant="body2" color="text.secondary">
                     No events yet.
                   </Typography>
                 )}
-                {detail?.events && detail.events.length > 0 && (
+                {detailLot?.history && detailLot.history.length > 0 && (
                   <Stack spacing={1}>
-                    {detail.events.map((event: any, idx: number) => (
+                    {detailLot.history.map((event: any, idx: number) => (
                       <Box key={event._id || idx} sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
                         <Typography variant="body2">
                           {event.event_type || "EVENT"}: {event.from_status || ""} → {event.to_status || ""}
@@ -858,9 +929,9 @@ export const Lots: React.FC = () => {
                             Reason: {event.reason}
                           </Typography>
                         )}
-                        {event.ts && (
+                        {event.created_on && (
                           <Typography variant="caption" color="text.secondary">
-                            {formatDate(event.ts)}
+                            {formatDate(event.created_on)} • {event.created_by || ""}
                           </Typography>
                         )}
                       </Box>
@@ -895,6 +966,42 @@ export const Lots: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedRow(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={weightDialogOpen} onClose={() => setWeightDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Edit Lot Weight</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            {weightActionError && <Typography color="error">{weightActionError}</Typography>}
+            <Typography variant="body2" color="text.secondary">
+              Updating weight will recalculate per-bag weight and update downstream derived values.
+            </Typography>
+            <TextField
+              label="New Total Weight (kg)"
+              size="small"
+              value={weightNewValue}
+              onChange={(e) => setWeightNewValue(e.target.value)}
+              type="number"
+              inputProps={{ min: 0, step: 0.1 }}
+              fullWidth
+              disabled={actionLoading}
+            />
+            <TextField
+              label="Reason"
+              size="small"
+              value={weightReason}
+              onChange={(e) => setWeightReason(e.target.value)}
+              fullWidth
+              disabled={actionLoading}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWeightDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
+          <Button variant="contained" onClick={runUpdateWeight} disabled={actionLoading}>
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -91,7 +91,6 @@ export const LotsCreate: React.FC = () => {
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenContext, setTokenContext] = useState<any>(null);
   const [tokenResults, setTokenResults] = useState<any[]>([]);
-  const [tokenCreateCount, setTokenCreateCount] = useState(0);
   const [farmerIdentifier, setFarmerIdentifier] = useState("");
   const [farmerLoading, setFarmerLoading] = useState(false);
   const [farmerContext, setFarmerContext] = useState<any>(null);
@@ -307,7 +306,6 @@ export const LotsCreate: React.FC = () => {
     setFarmerContext(null);
     setFarmerIdentifier("");
     setOverrideReason("");
-    setTokenCreateCount(0);
     setForm((prev) => ({
       ...prev,
       mandi_id: mandiLocked ? prev.mandi_id : "",
@@ -333,7 +331,6 @@ export const LotsCreate: React.FC = () => {
       resetLotFields();
     }
     if (tokenResults.length) setTokenResults([]);
-    if (tokenCreateCount) setTokenCreateCount(0);
   };
 
   const fullTokenCode = `GT_${tokenBody}`;
@@ -510,7 +507,7 @@ export const LotsCreate: React.FC = () => {
     return `${base}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   };
 
-  const handleSubmit = async (mode: "SAVE" | "SAVE_ADD") => {
+  const handleSubmit = async () => {
     const username = currentUsername();
     if (!username) {
       enqueueSnackbar("Missing admin session.", { variant: "error" });
@@ -570,14 +567,8 @@ export const LotsCreate: React.FC = () => {
           : await createLot({ username, language, payload });
       const code = resp?.response?.responsecode || resp?.data?.response?.responsecode;
       if (code === "0") {
-        if (mode === "SAVE_ADD" && sourceMode === "TOKEN") {
-          setTokenCreateCount((prev) => prev + 1);
-          resetLotFields();
-          enqueueSnackbar("Lot created successfully. You can add another lot for this token.", { variant: "success" });
-        } else {
-          enqueueSnackbar("Lot created successfully.", { variant: "success" });
-          navigate("/lots");
-        }
+        enqueueSnackbar("Lot created successfully.", { variant: "success" });
+        navigate("/lots");
       } else {
         const msg =
           resp?.response?.description ||
@@ -754,11 +745,6 @@ export const LotsCreate: React.FC = () => {
                         </Stack>
                       ))}
                     </Stack>
-                    {tokenCreateCount > 0 ? (
-                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                        Lots created in this session: {tokenCreateCount}
-                      </Typography>
-                    ) : null}
                   </CardContent>
                 </Card>
               ) : null}
@@ -938,20 +924,11 @@ export const LotsCreate: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
-              onClick={() => handleSubmit("SAVE")}
+              onClick={handleSubmit}
               disabled={loading || !canSubmit}
             >
               Save
             </Button>
-            {sourceMode === "TOKEN" && tokenContext ? (
-              <Button
-                variant="outlined"
-                onClick={() => handleSubmit("SAVE_ADD")}
-                disabled={loading || !canSubmit}
-              >
-                Save & Add Another
-              </Button>
-            ) : null}
           </Stack>
         </Stack>
       </Box>

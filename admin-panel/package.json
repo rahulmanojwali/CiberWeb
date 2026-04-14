@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^20",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
@@ -50,9 +51,12 @@
   },
   "scripts": {
     "dev": "refine dev",
+    "dev:test": "node ./node_modules/vite/bin/vite.js dev --host 127.0.0.1 --port 4173 --mode test",
     "build": "tsc && vite build",
     "start": "refine start",
-    "refine": "refine"
+    "refine": "refine",
+    "test:phase1:web": "playwright test tests/e2e",
+    "test:phase1:web:local": "PLAYWRIGHT_USE_EXISTING_BACKEND=true PLAYWRIGHT_REUSE_WEB_SERVER=true playwright test tests/e2e"
   },
   "browserslist": {
     "production": [

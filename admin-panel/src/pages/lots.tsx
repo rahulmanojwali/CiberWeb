@@ -924,6 +924,20 @@ export const Lots: React.FC = () => {
                         <Typography variant="body2">
                           {event.event_type || "EVENT"}: {event.from_status || ""} → {event.to_status || ""}
                         </Typography>
+                        {event.event_type === "FIELDS_UPDATED" && event.diff?.quantity && (
+                          <Box sx={{ mt: 0.5 }}>
+                            {event.diff.quantity.weight_per_bag_kg && (
+                              <Typography variant="body2" color="text.secondary">
+                                Weight per bag: {formatNumber(event.diff.quantity.weight_per_bag_kg.from)} → {formatNumber(event.diff.quantity.weight_per_bag_kg.to)}
+                              </Typography>
+                            )}
+                            {event.diff.quantity.weight_kg && (
+                              <Typography variant="body2" color="text.secondary">
+                                Total weight: {formatNumber(event.diff.quantity.weight_kg.from)} → {formatNumber(event.diff.quantity.weight_kg.to)}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
                         {event.reason && (
                           <Typography variant="body2" color="text.secondary">
                             Reason: {event.reason}

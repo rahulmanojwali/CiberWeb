@@ -390,6 +390,7 @@ export const Lots: React.FC = () => {
     Boolean(detailPartyDisplay) &&
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
+  const isPreAuctionLot = ["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(detailStatus);
   const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
@@ -462,6 +463,14 @@ export const Lots: React.FC = () => {
   const loadAuctionResult = useCallback(async () => {
     const username = currentUsername();
     if (!username || !detailLot) return;
+    const lotStatus = normalizeStatus(detailLot?.status);
+    const preAuction = ["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(lotStatus);
+    if (preAuction) {
+      // Pre-auction lots are expected to have no auction lot/result yet.
+      setAuctionResult(null);
+      setAuctionResultError(null);
+      return;
+    }
     const orgId = detailLot?.org_id || detailLot?.orgId;
     const mandiId = detailLot?.mandi_id ?? detailLot?.mandiId;
     const sessionId = detailLot?.session_id || detailLot?.auction_session_id || detailLot?.links?.session_id;
@@ -485,6 +494,16 @@ export const Lots: React.FC = () => {
       });
       const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
       if (String(code) !== "0") {
+        const desc = String(resp?.response?.description || "").trim();
+        if (desc.toLowerCase() === "auction lot not found.") {
+          // Treat as empty only for pre-auction lots; for later stages, surface as warning/error.
+          const currentStatus = normalizeStatus(detailLot?.status);
+          if (["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(currentStatus)) {
+            setAuctionResult(null);
+            setAuctionResultError(null);
+            return;
+          }
+        }
         setAuctionResult(null);
         setAuctionResultError(resp?.response?.description || "Unable to load auction result.");
         return;
@@ -841,7 +860,12 @@ export const Lots: React.FC = () => {
                       <FieldRow label="Final Amount" value={resultAmount} />
                       <FieldRow label="Session Code" value={resultSessionCode} />
                     </Box>
-                    {auctionResultError && (
+                    {isPreAuctionLot && (
+                      <Typography variant="caption" color="text.secondary">
+                        Auction not started yet for this lot.
+                      </Typography>
+                    )}
+                    {!isPreAuctionLot && auctionResultError && (
                       <Typography variant="caption" color="text.secondary">
                         {auctionResultError}
                       </Typography>

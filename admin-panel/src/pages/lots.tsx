@@ -20,6 +20,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
@@ -402,17 +403,188 @@ function FieldRow({ label, value }: { label: string; value: any }) {
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "1fr", sm: "160px 1fr" },
-        gap: 1,
-        py: 0.75,
+        gridTemplateColumns: { xs: "1fr", sm: "170px 1fr" },
+        gap: 1.25,
+        py: 0.6,
+        alignItems: "baseline",
       }}
     >
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.2 }}>
         {label}
       </Typography>
-      <Typography variant="body2">{displayValue(value)}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        {displayValue(value)}
+      </Typography>
     </Box>
   );
+}
+
+function SectionCard({
+  title,
+  right,
+  helper,
+  children,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  helper?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <Box
+      sx={{
+        p: 2,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 2,
+        bgcolor: alpha(theme.palette.background.paper, 0.95),
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 1 }}>
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {title}
+          </Typography>
+          {helper && (
+            <Typography variant="caption" color="text.secondary">
+              {helper}
+            </Typography>
+          )}
+        </Box>
+        {right}
+      </Stack>
+      {children}
+    </Box>
+  );
+}
+
+function buildStatusChipSx(theme: any, status: string) {
+  const key = normalizeStatus(status);
+  const base = {
+    fontWeight: 700,
+    borderWidth: 1,
+    height: 28,
+  } as const;
+  if (key === "CREATED" || key === "WEIGHMENT_LOCKED") {
+    return { ...base, borderColor: alpha(theme.palette.success.main, 0.35), bgcolor: alpha(theme.palette.success.main, 0.08), color: theme.palette.success.dark };
+  }
+  if (key === "VERIFIED") {
+    return { ...base, borderColor: alpha(theme.palette.success.main, 0.45), bgcolor: alpha(theme.palette.success.main, 0.12), color: theme.palette.success.dark };
+  }
+  if (key === "CANCELLED") {
+    return { ...base, borderColor: alpha(theme.palette.error.main, 0.35), bgcolor: alpha(theme.palette.error.main, 0.08), color: theme.palette.error.dark };
+  }
+  if (key === "MAPPED_TO_AUCTION" || key === "IN_AUCTION") {
+    return { ...base, borderColor: alpha(theme.palette.info.main, 0.35), bgcolor: alpha(theme.palette.info.main, 0.08), color: theme.palette.info.dark };
+  }
+  if (key === "SETTLED" || key === "CLOSED" || key === "DISPATCHED") {
+    return { ...base, borderColor: alpha(theme.palette.success.main, 0.25), bgcolor: alpha(theme.palette.success.main, 0.06), color: theme.palette.success.dark };
+  }
+  return { ...base, borderColor: "divider", bgcolor: alpha(theme.palette.text.primary, 0.04) };
+}
+
+function buildSettlementStateChip(theme: any, uiState: any) {
+  const state = String(uiState?.settlementDisplayState || "").toUpperCase();
+  const lotStatus = String(uiState?.status || "").toUpperCase();
+  const base = {
+    height: 24,
+    fontWeight: 800,
+    borderWidth: 1,
+  } as const;
+
+  if (state === "PRE_AUCTION") {
+    return {
+      label: "Not Available",
+      sx: { ...base, borderColor: "divider", bgcolor: alpha(theme.palette.text.primary, 0.03), color: theme.palette.text.secondary },
+    };
+  }
+  if (state === "NOT_APPLICABLE") {
+    return {
+      label: "Not Applicable",
+      sx: { ...base, borderColor: "divider", bgcolor: alpha(theme.palette.text.primary, 0.02), color: theme.palette.text.secondary },
+    };
+  }
+  if (state === "AWAITING_RESULT") {
+    return {
+      label: "Awaiting Result",
+      sx: { ...base, borderColor: alpha(theme.palette.info.main, 0.28), bgcolor: alpha(theme.palette.info.main, 0.06), color: theme.palette.info.dark },
+    };
+  }
+  if (state === "IN_AUCTION") {
+    return {
+      label: "In Auction",
+      sx: { ...base, borderColor: alpha(theme.palette.info.main, 0.32), bgcolor: alpha(theme.palette.info.main, 0.08), color: theme.palette.info.dark },
+    };
+  }
+  if (state === "ERROR_PERMISSION") {
+    return {
+      label: "Permission Required",
+      sx: { ...base, borderColor: alpha(theme.palette.warning.main, 0.35), bgcolor: alpha(theme.palette.warning.main, 0.08), color: theme.palette.warning.dark },
+    };
+  }
+  if (state === "ERROR_UNKNOWN") {
+    return {
+      label: "Unavailable",
+      sx: { ...base, borderColor: alpha(theme.palette.warning.main, 0.25), bgcolor: alpha(theme.palette.warning.main, 0.05), color: theme.palette.warning.dark },
+    };
+  }
+
+  if (lotStatus === "DISPATCHED") {
+    return {
+      label: "Dispatched",
+      sx: { ...base, borderColor: alpha(theme.palette.success.main, 0.22), bgcolor: alpha(theme.palette.success.main, 0.05), color: theme.palette.success.dark },
+    };
+  }
+  if (lotStatus === "CLOSED") {
+    return {
+      label: "Closed",
+      sx: { ...base, borderColor: alpha(theme.palette.success.main, 0.22), bgcolor: alpha(theme.palette.success.main, 0.05), color: theme.palette.success.dark },
+    };
+  }
+  if (lotStatus === "SETTLED" || String(uiState?.settlementFields?.statusText || "").toUpperCase().includes("SETTLED")) {
+    return {
+      label: "Settled",
+      sx: { ...base, borderColor: alpha(theme.palette.success.main, 0.28), bgcolor: alpha(theme.palette.success.main, 0.08), color: theme.palette.success.dark },
+    };
+  }
+  if (
+    lotStatus === "SOLD" ||
+    lotStatus === "SETTLEMENT_PENDING" ||
+    String(uiState?.settlementFields?.statusText || "").toUpperCase().includes("PENDING")
+  ) {
+    return {
+      label: "Settlement Pending",
+      sx: { ...base, borderColor: alpha(theme.palette.success.main, 0.22), bgcolor: alpha(theme.palette.success.main, 0.06), color: theme.palette.success.dark },
+    };
+  }
+
+  return {
+    label: "Status",
+    sx: { ...base, borderColor: "divider", bgcolor: alpha(theme.palette.text.primary, 0.03), color: theme.palette.text.secondary },
+  };
+}
+
+function getSettlementHelperText(uiState: any) {
+  const state = String(uiState?.settlementDisplayState || "").toUpperCase();
+  const lotStatus = String(uiState?.status || "").toUpperCase();
+  if (state === "PRE_AUCTION") return "Auction not started yet for this lot.";
+  if (state === "NOT_APPLICABLE") {
+    if (lotStatus === "CANCELLED") return "Settlement not applicable for cancelled lots.";
+    if (lotStatus === "UNSOLD") return "Settlement not applicable for unsold lots.";
+    return "Settlement not applicable for this lot.";
+  }
+  if (state === "AWAITING_RESULT") return "Awaiting auction result.";
+  if (state === "IN_AUCTION") return "Auction is in progress for this lot.";
+  if (state === "ERROR_PERMISSION") return "Permission required to view settlement details.";
+  if (state === "ERROR_UNKNOWN") return "Settlement details are temporarily unavailable.";
+  if (lotStatus === "DISPATCHED" || lotStatus === "CLOSED") return "Lot processing is complete.";
+  if (lotStatus === "SETTLED") return "Settlement completed successfully.";
+  if (lotStatus === "SOLD" || lotStatus === "SETTLEMENT_PENDING") return "Settlement has been generated and is pending payment.";
+  const statusText = String(uiState?.settlementFields?.statusText || "").toUpperCase();
+  if (statusText.includes("PENDING")) return "Settlement has been generated and is pending payment.";
+  if (statusText.includes("SETTLED")) return "Settlement completed successfully.";
+  return null;
 }
 
 const STATUS_OPTIONS = [
@@ -436,6 +608,7 @@ export const Lots: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const { can: canPermission } = usePermissions();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const [rows, setRows] = useState<LotRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -662,7 +835,10 @@ export const Lots: React.FC = () => {
   const settlementPaymentMode = uiState.settlementFields.paymentMode;
   const settlementWinner = uiState.settlementFields.winner;
   const settlementAmount = uiState.settlementFields.amount;
-  const settlementErrorText = settlementDetailError || auctionResultError || "NO_PERMISSION";
+  const settlementErrorText =
+    uiState.settlementDisplayState === "ERROR_PERMISSION"
+      ? "Permission required to view settlement details."
+      : "Settlement details are temporarily unavailable.";
   const isDetailBusy = Boolean(
     detailLoading ||
       actionLoading ||
@@ -1028,226 +1204,263 @@ export const Lots: React.FC = () => {
         />
       </Box>
 
-      <Dialog open={!!selectedRow} onClose={() => setSelectedRow(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Lot Details</DialogTitle>
-        <DialogContent dividers>
-          {isDetailBusy && <LinearProgress sx={{ position: "sticky", top: 0, left: 0, right: 0, zIndex: 1, mb: 2 }} />}
-          {detailLoading && <Typography>Loading...</Typography>}
-          {detailError && <Typography color="error">{detailError}</Typography>}
+      <Dialog
+        open={!!selectedRow}
+        onClose={() => setSelectedRow(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: "hidden",
+            boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, 0.12)}`,
+            bgcolor: "background.default",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
+            bgcolor: "background.paper",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            pb: 1.5,
+          }}
+        >
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1.5} alignItems={{ sm: "center" }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                {displayValue(detailLot?.lot_code, "Lot Details")}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Token {displayValue(detailLot?.token_code)}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip
+                label={humanizeLotStatus(detailLot?.status)}
+                variant="outlined"
+                sx={buildStatusChipSx(theme, detailLot?.status)}
+              />
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={refreshDetail}
+                disabled={detailLoading || actionLoading}
+              >
+                Refresh
+              </Button>
+            </Stack>
+          </Stack>
+          {isDetailBusy && <LinearProgress sx={{ mt: 1 }} />}
+        </DialogTitle>
+
+        <DialogContent sx={{ bgcolor: "background.default" }}>
+          {detailLoading && <Typography variant="body2" color="text.secondary">Loading lot detail…</Typography>}
+          {detailError && <Typography variant="body2" color="error">{detailError}</Typography>}
           {!detailLoading && !detailError && (
-            <Stack spacing={2}>
-              {actionError && <Typography color="error">{actionError}</Typography>}
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                {canLockWeighmentAction && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => runStatusUpdate("WEIGHMENT_LOCKED")}
-                    disabled={actionLoading}
-                  >
-                    Lock Weighment
-                  </Button>
+            <Stack spacing={2.5}>
+              <SectionCard
+                title="Actions"
+                helper={
+                  isWorkflowReadOnly
+                    ? "This lot is read-only in its current lifecycle stage."
+                    : "Use actions to progress the workflow."
+                }
+              >
+                {actionError && (
+                  <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+                    {actionError}
+                  </Typography>
                 )}
-                {canVerifyAction && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={runVerifyLot}
-                    disabled={actionLoading}
-                  >
-                    Verify
-                  </Button>
-                )}
-                {canCancelAction && (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={() => setCancelDialogOpen(true)}
-                    disabled={actionLoading}
-                  >
-                    Cancel
-                  </Button>
-                )}
-                {detailLot && canEditWeightAction && (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={openWeightDialog}
-                    disabled={actionLoading || !uiState.canEditWeight}
-                  >
-                    Edit Weight
-                  </Button>
-                )}
-              </Stack>
-              {(canLockWeighmentAction || canVerifyAction || canCancelAction) && (
-                <Typography variant="caption" color="text.secondary">
-                  {[
-                    canLockWeighmentAction ? "Lock Weighment: Finalize bags and total weight" : null,
-                    canVerifyAction ? "Verify: Approve this lot for auction workflow" : null,
-                    canCancelAction ? "Cancel: Cancel this lot" : null,
-                  ].filter(Boolean).join(" • ")}
-                </Typography>
-              )}
-              {isWorkflowReadOnly && (
-                <Typography variant="caption" color="text.secondary">
-                  This lot is read-only in its current lifecycle stage.
-                </Typography>
-              )}
-              {detail && (
-                <Stack spacing={2}>
-                  <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
-                      <Box>
-                        <Typography variant="subtitle1">{displayValue(detailLot?.lot_code, "Lot")}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Token {displayValue(detailLot?.token_code)}
-                        </Typography>
-                      </Box>
-                      <Chip label={humanizeLotStatus(detailLot?.status)} color="primary" variant="outlined" />
-                    </Stack>
-                  </Box>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" alignItems={{ sm: "center" }}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {canLockWeighmentAction && (
+                      <Button size="small" variant="contained" onClick={() => runStatusUpdate("WEIGHMENT_LOCKED")} disabled={actionLoading}>
+                        Lock Weighment
+                      </Button>
+                    )}
+                    {canVerifyAction && (
+                      <Button size="small" variant="contained" onClick={runVerifyLot} disabled={actionLoading}>
+                        Verify
+                      </Button>
+                    )}
+                    {detailLot && canEditWeightAction && (
+                      <Button size="small" variant="outlined" onClick={openWeightDialog} disabled={actionLoading || !uiState.canEditWeight}>
+                        Edit Weight
+                      </Button>
+                    )}
+                  </Stack>
+                  <Box sx={{ flex: 1 }} />
+                  {canCancelAction && (
+                    <Button size="small" variant="outlined" color="error" onClick={() => setCancelDialogOpen(true)} disabled={actionLoading}>
+                      Cancel
+                    </Button>
+                  )}
+                </Stack>
+              </SectionCard>
 
-                  <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} alignItems={{ sm: "center" }}>
-                      <Box>
-                        <Typography variant="subtitle1">Settlement</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {settlementStatusText ? `Status: ${settlementStatusText}` : "Status: Not available"}
-                        </Typography>
-                      </Box>
-                      {canGenerateSettlement && (
-                        <Button size="small" variant="contained" onClick={openSettlementDialog} disabled={actionLoading}>
-                          Generate Settlement
-                        </Button>
-                      )}
-                    </Stack>
-                    {(uiState.settlementDisplayState === "ERROR_PERMISSION" || uiState.settlementDisplayState === "ERROR_UNKNOWN") && (
-                      <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                        {settlementErrorText}
-                      </Typography>
+              <SectionCard
+                title="Settlement"
+                right={
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" justifyContent="flex-end">
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={buildSettlementStateChip(theme, uiState).label}
+                      sx={buildSettlementStateChip(theme, uiState).sx}
+                    />
+                    {canGenerateSettlement && (
+                      <Button size="small" variant="contained" onClick={openSettlementDialog} disabled={actionLoading}>
+                        Generate Settlement
+                      </Button>
                     )}
-                    <Box sx={{ mt: 1 }}>
-                      <FieldRow label="Settlement Code" value={settlementCode} />
-                      <FieldRow label="Payment Mode" value={settlementPaymentMode} />
-                      <FieldRow label="Winner" value={settlementWinner} />
-                      <FieldRow label="Final Amount" value={settlementAmount} />
-                      <FieldRow label="Session Code" value={resultSessionCode} />
-                    </Box>
-                    {uiState.settlementHelperText && (
-                      <Typography variant="caption" color="text.secondary">
-                        {uiState.settlementHelperText}
-                      </Typography>
-                    )}
-                    {!isPreAuctionLot &&
-                      AUCTION_STAGE_OR_LATER_STATUSES.has(detailStatus) &&
-                      auctionResultError &&
-                      !isAuctionNotFoundMessage(auctionResultError) &&
-                      !uiState.hasSettlementSummary &&
-                      !uiState.showSettlementPermissionError && (
-                      <Typography variant="caption" color="text.secondary">
-                        {auctionResultError}
-                      </Typography>
-                    )}
-                  </Box>
+                  </Stack>
+                }
+              >
+                {(uiState.settlementDisplayState === "ERROR_PERMISSION" || uiState.settlementDisplayState === "ERROR_UNKNOWN") && (
+                  <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+                    {settlementErrorText}
+                  </Typography>
+                )}
+                <Box>
+                  <FieldRow label="Settlement Code" value={settlementCode} />
+                  <FieldRow label="Payment Mode" value={settlementPaymentMode} />
+                  <FieldRow label="Winner" value={settlementWinner} />
+                  <FieldRow label="Final Amount" value={settlementAmount} />
+                  <FieldRow label="Session Code" value={resultSessionCode} />
+                </Box>
+                {getSettlementHelperText(uiState) && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                    {getSettlementHelperText(uiState)}
+                  </Typography>
+                )}
+              </SectionCard>
 
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Lot Summary</Typography>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                <Stack spacing={2} sx={{ flex: 1 }}>
+                  <SectionCard title="Lot Summary">
                     <FieldRow label="Lot Code" value={detailLot?.lot_code} />
                     <FieldRow label="Status" value={humanizeLotStatus(detailLot?.status)} />
                     <FieldRow label="Token Code" value={detailLot?.token_code} />
-                  </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Context</Typography>
+                  </SectionCard>
+
+                  <SectionCard title="Context">
                     <FieldRow label="Org" value={detailLot?.org_name || detailLot?.org_name_en || detailLot?.org_code} />
                     <FieldRow label="Mandi" value={detailLot?.mandi_name || detailLot?.mandi_name_en || detailLot?.mandi_id} />
                     <FieldRow label="Gate" value={detailGateLabel} />
                     <FieldRow label="Vehicle" value={detailLot?.vehicle_no} />
                     <FieldRow label="Reason Label" value={detailLot?.reason_label} />
-                  </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Party</Typography>
+                  </SectionCard>
+
+                  <SectionCard title="Party">
                     <FieldRow label="Party Kind" value={humanizePartyKind(detailParty?.kind || detailLot?.party_kind)} />
                     <FieldRow label="Party Type" value={humanizePartyType(detailParty?.party_type || detailLot?.party_type)} />
                     {shouldShowPartyRow && <FieldRow label="Party" value={detailPartyDisplay} />}
                     <FieldRow label="Username / Mobile" value={usernameMobileCombined} />
                     <FieldRow label="Walk-in Name" value={detailWalkin?.name} />
                     <FieldRow label="Walk-in Mobile" value={detailWalkin?.mobile} />
-                  </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Commodity</Typography>
+                  </SectionCard>
+                </Stack>
+
+                <Stack spacing={2} sx={{ flex: 1 }}>
+                  <SectionCard title="Commodity">
                     <FieldRow label="Commodity" value={detailCommodityName} />
                     <FieldRow label="Product" value={detailProductName} />
                     <FieldRow label="Quality Grade" value={detailLot?.quality_grade} />
-                  </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Quantity</Typography>
+                  </SectionCard>
+
+                  <SectionCard
+                    title="Quantity"
+                    helper={
+                      !weightEditAllowed
+                        ? `Weight edit blocked: ${detailLot?.workflow?.weight_edit_block_reason || "Not allowed"}.`
+                        : null
+                    }
+                  >
                     <FieldRow label="Bags" value={formatNumber(detailBags)} />
                     <FieldRow label="Weight per bag (kg)" value={formatNumber(detailWeightPerBagKg)} />
                     <FieldRow label="Total weight (kg)" value={formatNumber(detailWeightKg)} />
+                    <Divider sx={{ my: 1 }} />
                     <FieldRow label="Gross weight (kg)" value={formatNumber(detailLot?.gross_weight_kg)} />
                     <FieldRow label="Net weight (kg)" value={formatNumber(detailLot?.net_weight_kg)} />
                     <FieldRow label="Auctionable weight (kg)" value={formatNumber(detailLot?.auctionable_weight_kg)} />
                     <FieldRow label="Settlement weight (kg)" value={formatNumber(detailLot?.settlement_weight_kg)} />
                     <FieldRow label="Authoritative weight (kg)" value={formatNumber(detailLot?.authoritative_weight_kg)} />
                     <FieldRow label="Authoritative stage" value={detailLot?.authoritative_weight_stage} />
-                    {!weightEditAllowed && (
-                      <Typography variant="caption" color="text.secondary">
-                        Weight edit blocked: {detailLot?.workflow?.weight_edit_block_reason || "Not allowed"}.
-                      </Typography>
-                    )}
-                  </Box>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle1" gutterBottom>Audit</Typography>
+                  </SectionCard>
+
+                  <SectionCard title="Audit">
                     <FieldRow label="Created By" value={detailLot?.created_by} />
                     <FieldRow label="Updated By" value={detailLot?.updated_by} />
                     <FieldRow label="Created On" value={formatDate(detailLot?.created_on) || "—"} />
                     <FieldRow label="Updated On" value={formatDate(detailLot?.updated_on) || "—"} />
-                  </Box>
+                  </SectionCard>
                 </Stack>
-              )}
-              <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Timeline
-                </Typography>
+              </Stack>
+
+              <SectionCard title="Timeline" helper="Recent events and edits">
                 {(!detailLot?.history || detailLot.history.length === 0) && (
                   <Typography variant="body2" color="text.secondary">
                     No events yet.
                   </Typography>
                 )}
                 {detailLot?.history && detailLot.history.length > 0 && (
-                  <Stack spacing={1}>
+                  <Stack spacing={1.25}>
                     {detailLot.history.map((event: any, idx: number) => (
-                      <Box key={event._id || idx} sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
-                        <Typography variant="body2">
-                          {event.event_type || "EVENT"}: {event.from_status || ""} → {event.to_status || ""}
-                        </Typography>
+                      <Box
+                        key={event._id || idx}
+                        sx={{
+                          p: 1.25,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.background.paper, 0.9),
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: "wrap" }}>
+                          <Chip
+                            size="small"
+                            label={displayValue(event.event_type || "EVENT")}
+                            variant="outlined"
+                            sx={{ height: 22, fontWeight: 700, bgcolor: alpha(theme.palette.text.primary, 0.04) }}
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {displayValue(event.from_status || "")} → {displayValue(event.to_status || "")}
+                          </Typography>
+                        </Stack>
+
                         {event.event_type === "FIELDS_UPDATED" && event.diff?.quantity && (
-                          <Box sx={{ mt: 0.5 }}>
+                          <Box sx={{ mt: 0.25 }}>
                             {event.diff.quantity.weight_per_bag_kg && (
                               <Typography variant="body2" color="text.secondary">
-                                Weight per bag: {formatNumber(event.diff.quantity.weight_per_bag_kg.from)} → {formatNumber(event.diff.quantity.weight_per_bag_kg.to)}
+                                Weight per bag: {formatNumber(event.diff.quantity.weight_per_bag_kg.from)} →{" "}
+                                <Box component="span" sx={{ color: "text.primary", fontWeight: 700 }}>
+                                  {formatNumber(event.diff.quantity.weight_per_bag_kg.to)}
+                                </Box>
                               </Typography>
                             )}
                             {event.diff.quantity.weight_kg && (
                               <Typography variant="body2" color="text.secondary">
-                                Total weight: {formatNumber(event.diff.quantity.weight_kg.from)} → {formatNumber(event.diff.quantity.weight_kg.to)}
+                                Total weight: {formatNumber(event.diff.quantity.weight_kg.from)} →{" "}
+                                <Box component="span" sx={{ color: "text.primary", fontWeight: 700 }}>
+                                  {formatNumber(event.diff.quantity.weight_kg.to)}
+                                </Box>
                               </Typography>
                             )}
                           </Box>
                         )}
+
                         {event.reason && (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
                             Reason: {event.reason}
                           </Typography>
                         )}
                         {event.created_on && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
                             {formatDate(event.created_on)} • {event.created_by || ""}
                           </Typography>
                         )}
@@ -1255,19 +1468,20 @@ export const Lots: React.FC = () => {
                     ))}
                   </Stack>
                 )}
-              </Box>
-              <Accordion disableGutters>
+              </SectionCard>
+
+              <Accordion disableGutters sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, overflow: "hidden" }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle2">Debug Data</Typography>
                 </AccordionSummary>
-                <AccordionDetails>
+                <AccordionDetails sx={{ bgcolor: "background.paper" }}>
                   <Box
                     component="pre"
                     sx={{
                       m: 0,
                       p: 2,
                       bgcolor: "background.default",
-                      borderRadius: 1,
+                      borderRadius: 2,
                       border: "1px solid",
                       borderColor: "divider",
                       overflow: "auto",
@@ -1281,7 +1495,7 @@ export const Lots: React.FC = () => {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider" }}>
           <Button onClick={() => setSelectedRow(null)}>Close</Button>
         </DialogActions>
       </Dialog>

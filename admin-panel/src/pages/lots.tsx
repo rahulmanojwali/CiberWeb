@@ -282,7 +282,20 @@ function deriveLotDetailUiState(
     return "HAS_RESULT";
   })();
 
-  const showNoPermission = Boolean(shouldShowPermissionError && !hasSettlementSummary);
+  let showSettlementPermissionError = shouldShowPermissionError;
+  let showSettlementUnknownError = shouldShowUnknownError;
+  let showNoPermission = Boolean(shouldShowPermissionError && !hasSettlementSummary);
+
+  // Make display state mutually exclusive: for PRE_AUCTION / NOT_APPLICABLE / AWAITING_RESULT / IN_AUCTION,
+  // suppress any auxiliary-call permission/error noise.
+  if (["PRE_AUCTION", "NOT_APPLICABLE", "AWAITING_RESULT", "IN_AUCTION"].includes(settlementDisplayState)) {
+    showSettlementPermissionError = false;
+    showSettlementUnknownError = false;
+    showNoPermission = false;
+  } else {
+    // Only show NO_PERMISSION when the resolved state is explicitly permission-related.
+    if (settlementDisplayState !== "ERROR_PERMISSION") showNoPermission = false;
+  }
 
   const canLockWeighment = status === "CREATED";
   const canCancel = status === "CREATED" || status === "WEIGHMENT_LOCKED";
@@ -298,8 +311,8 @@ function deriveLotDetailUiState(
     settlementHelperText,
     settlementFields,
     hasSettlementSummary,
-    showSettlementPermissionError: shouldShowPermissionError,
-    showSettlementUnknownError: shouldShowUnknownError,
+    showSettlementPermissionError,
+    showSettlementUnknownError,
     showNoPermission,
     canLockWeighment,
     canCancel,
@@ -1109,7 +1122,7 @@ export const Lots: React.FC = () => {
                         </Button>
                       )}
                     </Stack>
-                    {(uiState.showSettlementPermissionError || uiState.showSettlementUnknownError) && (
+                    {(uiState.settlementDisplayState === "ERROR_PERMISSION" || uiState.settlementDisplayState === "ERROR_UNKNOWN") && (
                       <Typography variant="body2" color="error" sx={{ mt: 1 }}>
                         {settlementErrorText}
                       </Typography>

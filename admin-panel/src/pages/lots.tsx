@@ -391,11 +391,29 @@ export const Lots: React.FC = () => {
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
   const isPreAuctionLot = ["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(detailStatus);
+  const hasSettlementSignals = Boolean(
+    detailLot?.settlement_id ||
+      detailLot?.settlement_code ||
+      detailLot?.settlement_status ||
+      detailLot?.payment_status ||
+      detailLot?.payment_mode
+  );
+  const isBeyondEditableLifecycle = [
+    "MAPPED_TO_AUCTION",
+    "IN_AUCTION",
+    "SOLD",
+    "UNSOLD",
+    "SETTLEMENT_PENDING",
+    "SETTLED",
+    "DISPATCHED",
+    "CLOSED",
+  ].includes(detailStatus) || hasSettlementSignals;
   const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
   const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
-  const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction;
+  const canEditWeightAction = Boolean(detailLot && canUpdateStatus && !isBeyondEditableLifecycle);
+  const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction && !canEditWeightAction;
   const resultDoc = auctionResult?.result || null;
   const resultWinner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
   const resultAmount = resultDoc?.final_sold_amount_lot || resultDoc?.winning_bid_amount || null;
@@ -403,6 +421,15 @@ export const Lots: React.FC = () => {
   const settlementHeader = settlementDetail?.header || null;
   const settlementStatus = settlementHeader?.status || detailLot?.settlement_status || detailLot?.payment_status || null;
   const settlementCode = settlementHeader?.settlement_code || detailLot?.settlement_code || null;
+  const hasSettlementSummary = Boolean(
+    settlementCode ||
+      settlementStatus ||
+      settlementHeader?._id ||
+      detailLot?.payment_mode ||
+      resultWinner ||
+      resultAmount
+  );
+  const shouldShowSettlementDetailError = Boolean(settlementDetailError && !hasSettlementSummary);
   const hasResultWinner = Boolean(resultWinner && String(resultWinner).trim());
   const numericResultAmount = Number(resultAmount || 0);
   const hasResultAmount = Number.isFinite(numericResultAmount) && numericResultAmount > 0;
@@ -795,12 +822,12 @@ export const Lots: React.FC = () => {
                     Cancel
                   </Button>
                 )}
-                {detailLot && canUpdateStatus && (
+                {detailLot && canEditWeightAction && (
                   <Button
                     size="small"
                     variant="outlined"
                     onClick={openWeightDialog}
-                    disabled={actionLoading || !weightEditAllowed}
+                    disabled={actionLoading || !weightEditAllowed || isBeyondEditableLifecycle}
                   >
                     Edit Weight
                   </Button>
@@ -848,7 +875,7 @@ export const Lots: React.FC = () => {
                         </Button>
                       )}
                     </Stack>
-                    {settlementDetailError && (
+                    {shouldShowSettlementDetailError && (
                       <Typography variant="body2" color="error" sx={{ mt: 1 }}>
                         {settlementDetailError}
                       </Typography>

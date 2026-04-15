@@ -75,6 +75,204 @@ function normalizeStatus(value?: string | null) {
   return String(value || "").trim().toUpperCase();
 }
 
+const PRE_AUCTION_STATUSES = new Set(["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"]);
+const AUCTION_STAGE_OR_LATER_STATUSES = new Set([
+  "MAPPED_TO_AUCTION",
+  "IN_AUCTION",
+  "SOLD",
+  "UNSOLD",
+  "SETTLEMENT_PENDING",
+  "SETTLED",
+  "DISPATCHED",
+  "CLOSED",
+]);
+
+function isPermissionDeniedMessage(message: any) {
+  const text = displayValue(message, "").toUpperCase();
+  if (!text) return false;
+  return (
+    text.includes("NO_PERMISSION") ||
+    text.includes("FORBIDDEN") ||
+    text.includes("YOU DO NOT HAVE PERMISSION")
+  );
+}
+
+function isAuctionNotFoundMessage(message: any) {
+  const text = displayValue(message, "").toLowerCase();
+  return (
+    text === "auction lot not found." ||
+    text === "auction result not found." ||
+    text === "auction lot not found" ||
+    text === "auction result not found"
+  );
+}
+
+type SettlementUiState =
+  | "PRE_AUCTION"
+  | "AUCTION_IN_PROGRESS"
+  | "SOLD_PENDING_SETTLEMENT"
+  | "SETTLED"
+  | "UNSOLD"
+  | "CANCELLED"
+  | "POST_DISPATCH"
+  | "ERROR_PERMISSION"
+  | "ERROR_UNKNOWN";
+
+function deriveLotDetailUiState({
+  lot,
+  auctionResult,
+  auctionResultError,
+  settlementDetail,
+  settlementDetailError,
+}: {
+  lot: any;
+  auctionResult: any;
+  auctionResultError: string | null;
+  settlementDetail: any;
+  settlementDetailError: string | null;
+}) {
+  const status = normalizeStatus(lot?.status);
+  const isPreAuction = PRE_AUCTION_STATUSES.has(status);
+  const hasSettlementSignals = Boolean(
+    lot?.settlement_id ||
+      lot?.settlement_code ||
+      lot?.settlement_status ||
+      lot?.payment_status ||
+      lot?.payment_mode
+  );
+
+  const weightEditAllowed = Boolean(lot?.workflow?.weight_edit_allowed);
+  const canEditWeight = Boolean(isPreAuction && weightEditAllowed && !hasSettlementSignals);
+
+  const resultDoc = auctionResult?.result || null;
+  const winner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
+  const amount = resultDoc?.final_sold_amount_lot || resultDoc?.winning_bid_amount || null;
+
+  const settlementHeader = settlementDetail?.header || null;
+  const settlementStatus = settlementHeader?.status || lot?.settlement_status || lot?.payment_status || null;
+  const settlementCode = settlementHeader?.settlement_code || lot?.settlement_code || null;
+  const paymentMode = lot?.payment_mode || settlementHeader?.payment_mode || null;
+
+  const hasSettlementSummary = Boolean(
+    settlementCode || settlementStatus || settlementHeader?._id || paymentMode || winner || amount
+  );
+
+  let settlementUiState: SettlementUiState = "ERROR_UNKNOWN";
+  let settlementHelperText: string | null = null;
+
+  if (isPreAuction) {
+    settlementUiState = "PRE_AUCTION";
+    settlementHelperText = "Auction not started yet for this lot.";
+  } else if (status === "CANCELLED") {
+    settlementUiState = "CANCELLED";
+    settlementHelperText = "Settlement not applicable for cancelled lots.";
+  } else if (status === "UNSOLD") {
+    settlementUiState = "UNSOLD";
+    settlementHelperText = "Settlement not applicable for unsold lots.";
+  } else if (status === "IN_AUCTION") {
+    settlementUiState = "AUCTION_IN_PROGRESS";
+    settlementHelperText = "Auction is in progress for this lot.";
+  } else if (settlementStatus && String(settlementStatus).toUpperCase().includes("SETTLED")) {
+    settlementUiState = "SETTLED";
+  } else if (status === "DISPATCHED" || status === "CLOSED") {
+    settlementUiState = "POST_DISPATCH";
+  } else if (
+    status === "SOLD" ||
+    status === "SETTLEMENT_PENDING" ||
+    hasSettlementSignals ||
+    hasSettlementSummary
+  ) {
+    settlementUiState = "SOLD_PENDING_SETTLEMENT";
+  } else if (status === "MAPPED_TO_AUCTION") {
+    settlementUiState = "SOLD_PENDING_SETTLEMENT";
+    if (!resultDoc && (isAuctionNotFoundMessage(auctionResultError) || !auctionResultError)) {
+      settlementUiState = "SOLD_PENDING_SETTLEMENT";
+      settlementHelperText = "Awaiting auction result.";
+    }
+  }
+
+  // Error display rules: only show NO_PERMISSION when it is truly permission-related and no fallback exists.
+  const permissionDenied = isPermissionDeniedMessage(settlementDetailError) || isPermissionDeniedMessage(auctionResultError);
+  const shouldShowPermissionError = Boolean(permissionDenied && !hasSettlementSummary);
+  const shouldShowUnknownError = Boolean(!shouldShowPermissionError && !hasSettlementSummary && (settlementDetailError || (!isAuctionNotFoundMessage(auctionResultError) && auctionResultError)));
+
+  if (shouldShowPermissionError) settlementUiState = "ERROR_PERMISSION";
+  else if (shouldShowUnknownError) settlementUiState = "ERROR_UNKNOWN";
+
+  const shouldFetchAuctionResult = Boolean(
+    !isPreAuction &&
+      (AUCTION_STAGE_OR_LATER_STATUSES.has(status) || hasSettlementSignals)
+  );
+
+  const settlementFields = (() => {
+    const sessionCode =
+      lot?.session_code || lot?.auction_session_code || lot?.session_code_label || null;
+
+    if (settlementUiState === "PRE_AUCTION") {
+      return {
+        statusText: "Not available",
+        settlementCode: "—",
+        paymentMode: "—",
+        winner: "—",
+        amount: "—",
+        sessionCode: "—",
+      };
+    }
+    if (settlementUiState === "AUCTION_IN_PROGRESS") {
+      return {
+        statusText: "Not available",
+        settlementCode: settlementCode || "—",
+        paymentMode: paymentMode || "—",
+        winner: winner || "—",
+        amount: amount || "—",
+        sessionCode: sessionCode || "—",
+      };
+    }
+    if (settlementUiState === "UNSOLD") {
+      return {
+        statusText: "Unsold",
+        settlementCode: "—",
+        paymentMode: "—",
+        winner: "—",
+        amount: "—",
+        sessionCode: sessionCode || "—",
+      };
+    }
+    if (settlementUiState === "CANCELLED") {
+      return {
+        statusText: "Cancelled",
+        settlementCode: "—",
+        paymentMode: "—",
+        winner: "—",
+        amount: "—",
+        sessionCode: sessionCode || "—",
+      };
+    }
+
+    return {
+      statusText: settlementStatus || "Not available",
+      settlementCode: settlementCode || "—",
+      paymentMode: paymentMode || "—",
+      winner: winner || "—",
+      amount: amount || "—",
+      sessionCode: sessionCode || "—",
+    };
+  })();
+
+  return {
+    status,
+    isPreAuction,
+    canEditWeight,
+    shouldFetchAuctionResult,
+    settlementUiState,
+    settlementHelperText,
+    settlementFields,
+    hasSettlementSummary,
+    showSettlementPermissionError: shouldShowPermissionError,
+    showSettlementUnknownError: shouldShowUnknownError,
+  };
+}
+
 function displayValue(value: any, fallback = "—") {
   if (value === null || value === undefined) return fallback;
   const text = String(value).trim();
@@ -390,51 +588,40 @@ export const Lots: React.FC = () => {
     Boolean(detailPartyDisplay) &&
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
-  const isPreAuctionLot = ["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(detailStatus);
-  const hasSettlementSignals = Boolean(
-    detailLot?.settlement_id ||
-      detailLot?.settlement_code ||
-      detailLot?.settlement_status ||
-      detailLot?.payment_status ||
-      detailLot?.payment_mode
+  const uiState = useMemo(
+    () =>
+      deriveLotDetailUiState({
+        lot: detailLot,
+        auctionResult,
+        auctionResultError,
+        settlementDetail,
+        settlementDetailError,
+      }),
+    [detailLot, auctionResult, auctionResultError, settlementDetail, settlementDetailError],
   );
-  const isBeyondEditableLifecycle = [
-    "MAPPED_TO_AUCTION",
-    "IN_AUCTION",
-    "SOLD",
-    "UNSOLD",
-    "SETTLEMENT_PENDING",
-    "SETTLED",
-    "DISPATCHED",
-    "CLOSED",
-  ].includes(detailStatus) || hasSettlementSignals;
+  const isPreAuctionLot = uiState.isPreAuction;
   const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
   const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
   const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
-  const canEditWeightAction = Boolean(detailLot && canUpdateStatus && !isBeyondEditableLifecycle);
+  const canEditWeightAction = Boolean(detailLot && canUpdateStatus && uiState.canEditWeight);
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction && !canEditWeightAction;
+  const settlementHeader = settlementDetail?.header || null;
+  const hasSettlement = Boolean(detailLot?.settlement_id || settlementHeader?._id);
   const resultDoc = auctionResult?.result || null;
   const resultWinner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
   const resultAmount = resultDoc?.final_sold_amount_lot || resultDoc?.winning_bid_amount || null;
-  const resultSessionCode = detailLot?.session_code || detailLot?.auction_session_code || detailLot?.session_code_label || null;
-  const settlementHeader = settlementDetail?.header || null;
-  const settlementStatus = settlementHeader?.status || detailLot?.settlement_status || detailLot?.payment_status || null;
-  const settlementCode = settlementHeader?.settlement_code || detailLot?.settlement_code || null;
-  const hasSettlementSummary = Boolean(
-    settlementCode ||
-      settlementStatus ||
-      settlementHeader?._id ||
-      detailLot?.payment_mode ||
-      resultWinner ||
-      resultAmount
-  );
-  const shouldShowSettlementDetailError = Boolean(settlementDetailError && !hasSettlementSummary);
   const hasResultWinner = Boolean(resultWinner && String(resultWinner).trim());
   const numericResultAmount = Number(resultAmount || 0);
   const hasResultAmount = Number.isFinite(numericResultAmount) && numericResultAmount > 0;
-  const hasSettlement = Boolean(detailLot?.settlement_id || settlementHeader?._id);
   const canGenerateSettlement = Boolean(detailLot && !hasSettlement && hasResultWinner && hasResultAmount);
+  const resultSessionCode = uiState.settlementFields.sessionCode;
+  const settlementCode = uiState.settlementFields.settlementCode;
+  const settlementStatusText = uiState.settlementFields.statusText;
+  const settlementPaymentMode = uiState.settlementFields.paymentMode;
+  const settlementWinner = uiState.settlementFields.winner;
+  const settlementAmount = uiState.settlementFields.amount;
+  const settlementErrorText = settlementDetailError || auctionResultError || "NO_PERMISSION";
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -490,10 +677,7 @@ export const Lots: React.FC = () => {
   const loadAuctionResult = useCallback(async () => {
     const username = currentUsername();
     if (!username || !detailLot) return;
-    const lotStatus = normalizeStatus(detailLot?.status);
-    const preAuction = ["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(lotStatus);
-    if (preAuction) {
-      // Pre-auction lots are expected to have no auction lot/result yet.
+    if (!uiState.shouldFetchAuctionResult) {
       setAuctionResult(null);
       setAuctionResultError(null);
       return;
@@ -522,10 +706,10 @@ export const Lots: React.FC = () => {
       const code = resp?.response?.responsecode ?? resp?.responsecode ?? "1";
       if (String(code) !== "0") {
         const desc = String(resp?.response?.description || "").trim();
-        if (desc.toLowerCase() === "auction lot not found.") {
-          // Treat as empty only for pre-auction lots; for later stages, surface as warning/error.
+        // For pre-auction and mapped/auction-in-progress stages, "not found" is a normal empty state.
+        if (isAuctionNotFoundMessage(desc)) {
           const currentStatus = normalizeStatus(detailLot?.status);
-          if (["CREATED", "WEIGHMENT_LOCKED", "VERIFIED"].includes(currentStatus)) {
+          if (PRE_AUCTION_STATUSES.has(currentStatus) || currentStatus === "MAPPED_TO_AUCTION" || currentStatus === "IN_AUCTION") {
             setAuctionResult(null);
             setAuctionResultError(null);
             return;
@@ -540,7 +724,7 @@ export const Lots: React.FC = () => {
       setAuctionResult(null);
       setAuctionResultError(err?.message || "Unable to load auction result.");
     }
-  }, [detailLot, language]);
+  }, [detailLot, language, uiState.shouldFetchAuctionResult]);
 
   const loadSettlementDetail = useCallback(async () => {
     const username = currentUsername();
@@ -827,7 +1011,7 @@ export const Lots: React.FC = () => {
                     size="small"
                     variant="outlined"
                     onClick={openWeightDialog}
-                    disabled={actionLoading || !weightEditAllowed || isBeyondEditableLifecycle}
+                    disabled={actionLoading || !uiState.canEditWeight}
                   >
                     Edit Weight
                   </Button>
@@ -866,7 +1050,7 @@ export const Lots: React.FC = () => {
                       <Box>
                         <Typography variant="subtitle1">Settlement</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {settlementStatus ? `Status: ${settlementStatus}` : "Status: Not available"}
+                          {settlementStatusText ? `Status: ${settlementStatusText}` : "Status: Not available"}
                         </Typography>
                       </Box>
                       {canGenerateSettlement && (
@@ -875,24 +1059,29 @@ export const Lots: React.FC = () => {
                         </Button>
                       )}
                     </Stack>
-                    {shouldShowSettlementDetailError && (
+                    {(uiState.showSettlementPermissionError || uiState.showSettlementUnknownError) && (
                       <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                        {settlementDetailError}
+                        {settlementErrorText}
                       </Typography>
                     )}
                     <Box sx={{ mt: 1 }}>
                       <FieldRow label="Settlement Code" value={settlementCode} />
-                      <FieldRow label="Payment Mode" value={detailLot?.payment_mode || settlementHeader?.payment_mode} />
-                      <FieldRow label="Winner" value={resultWinner} />
-                      <FieldRow label="Final Amount" value={resultAmount} />
+                      <FieldRow label="Payment Mode" value={settlementPaymentMode} />
+                      <FieldRow label="Winner" value={settlementWinner} />
+                      <FieldRow label="Final Amount" value={settlementAmount} />
                       <FieldRow label="Session Code" value={resultSessionCode} />
                     </Box>
-                    {isPreAuctionLot && (
+                    {uiState.settlementHelperText && (
                       <Typography variant="caption" color="text.secondary">
-                        Auction not started yet for this lot.
+                        {uiState.settlementHelperText}
                       </Typography>
                     )}
-                    {!isPreAuctionLot && auctionResultError && (
+                    {!isPreAuctionLot &&
+                      AUCTION_STAGE_OR_LATER_STATUSES.has(detailStatus) &&
+                      auctionResultError &&
+                      !isAuctionNotFoundMessage(auctionResultError) &&
+                      !uiState.hasSettlementSummary &&
+                      !uiState.showSettlementPermissionError && (
                       <Typography variant="caption" color="text.secondary">
                         {auctionResultError}
                       </Typography>

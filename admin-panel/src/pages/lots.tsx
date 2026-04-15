@@ -13,6 +13,7 @@ import {
   DialogTitle,
   FormControl,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Select,
   Stack,
@@ -53,6 +54,16 @@ type LotRow = {
   created_on?: string | null;
   raw?: any;
 };
+
+type SettlementDisplayState =
+  | "PRE_AUCTION"
+  | "NOT_APPLICABLE"
+  | "AWAITING_RESULT"
+  | "IN_AUCTION"
+  | "HAS_RESULT"
+  | "HAS_SETTLEMENT"
+  | "ERROR_PERMISSION"
+  | "ERROR_UNKNOWN";
 
 function currentUsername(): string | null {
   try {
@@ -118,19 +129,14 @@ type SettlementUiState =
   | "ERROR_PERMISSION"
   | "ERROR_UNKNOWN";
 
-function deriveLotDetailUiState({
-  lot,
-  auctionResult,
-  auctionResultError,
-  settlementDetail,
-  settlementDetailError,
-}: {
-  lot: any;
-  auctionResult: any;
-  auctionResultError: string | null;
-  settlementDetail: any;
-  settlementDetailError: string | null;
-}) {
+function deriveLotDetailUiState(
+  detailLot: any,
+  auctionResult: any,
+  settlementDetail: any,
+  auctionResultError: string | null,
+  settlementDetailError: string | null,
+) {
+  const lot = detailLot;
   const status = normalizeStatus(lot?.status);
   const isPreAuction = PRE_AUCTION_STATUSES.has(status);
   const hasSettlementSignals = Boolean(
@@ -152,6 +158,7 @@ function deriveLotDetailUiState({
   const settlementStatus = settlementHeader?.status || lot?.settlement_status || lot?.payment_status || null;
   const settlementCode = settlementHeader?.settlement_code || lot?.settlement_code || null;
   const paymentMode = lot?.payment_mode || settlementHeader?.payment_mode || null;
+  const hasSettlement = Boolean(lot?.settlement_id || settlementHeader?._id);
 
   const hasSettlementSummary = Boolean(
     settlementCode || settlementStatus || settlementHeader?._id || paymentMode || winner || amount
@@ -199,9 +206,13 @@ function deriveLotDetailUiState({
   if (shouldShowPermissionError) settlementUiState = "ERROR_PERMISSION";
   else if (shouldShowUnknownError) settlementUiState = "ERROR_UNKNOWN";
 
-  const shouldFetchAuctionResult = Boolean(
+  const shouldFetchAuctionResult = Boolean(!isPreAuction && status !== "CANCELLED" && status !== "UNSOLD" && (AUCTION_STAGE_OR_LATER_STATUSES.has(status) || hasSettlementSignals));
+  const shouldFetchSettlementDetail = Boolean(
     !isPreAuction &&
-      (AUCTION_STAGE_OR_LATER_STATUSES.has(status) || hasSettlementSignals)
+      status !== "CANCELLED" &&
+      status !== "UNSOLD" &&
+      Boolean(lot?.settlement_id) &&
+      ["SOLD", "SETTLEMENT_PENDING", "SETTLED", "DISPATCHED", "CLOSED"].includes(status)
   );
 
   const settlementFields = (() => {
@@ -230,7 +241,7 @@ function deriveLotDetailUiState({
     }
     if (settlementUiState === "UNSOLD") {
       return {
-        statusText: "Unsold",
+        statusText: "Not applicable",
         settlementCode: "—",
         paymentMode: "—",
         winner: "—",
@@ -240,7 +251,7 @@ function deriveLotDetailUiState({
     }
     if (settlementUiState === "CANCELLED") {
       return {
-        statusText: "Cancelled",
+        statusText: "Not applicable",
         settlementCode: "—",
         paymentMode: "—",
         winner: "—",
@@ -259,17 +270,39 @@ function deriveLotDetailUiState({
     };
   })();
 
+  const settlementDisplayState: SettlementDisplayState = (() => {
+    if (settlementUiState === "PRE_AUCTION") return "PRE_AUCTION";
+    if (settlementUiState === "CANCELLED" || settlementUiState === "UNSOLD") return "NOT_APPLICABLE";
+    if (status === "MAPPED_TO_AUCTION" && !resultDoc) return "AWAITING_RESULT";
+    if (status === "IN_AUCTION") return "IN_AUCTION";
+    if (hasSettlement) return "HAS_SETTLEMENT";
+    if (resultDoc) return "HAS_RESULT";
+    if (settlementUiState === "ERROR_PERMISSION") return "ERROR_PERMISSION";
+    if (settlementUiState === "ERROR_UNKNOWN") return "ERROR_UNKNOWN";
+    return "HAS_RESULT";
+  })();
+
+  const showNoPermission = Boolean(shouldShowPermissionError && !hasSettlementSummary);
+
+  const canLockWeighment = status === "CREATED";
+  const canCancel = status === "CREATED" || status === "WEIGHMENT_LOCKED";
+
   return {
     status,
     isPreAuction,
     canEditWeight,
     shouldFetchAuctionResult,
+    shouldFetchSettlementDetail,
     settlementUiState,
+    settlementDisplayState,
     settlementHelperText,
     settlementFields,
     hasSettlementSummary,
     showSettlementPermissionError: shouldShowPermissionError,
     showSettlementUnknownError: shouldShowUnknownError,
+    showNoPermission,
+    canLockWeighment,
+    canCancel,
   };
 }
 
@@ -415,8 +448,10 @@ export const Lots: React.FC = () => {
   const [settlementRemarks, setSettlementRemarks] = useState("");
   const [auctionResult, setAuctionResult] = useState<any>(null);
   const [auctionResultError, setAuctionResultError] = useState<string | null>(null);
+  const [auctionResultLoading, setAuctionResultLoading] = useState(false);
   const [settlementDetail, setSettlementDetail] = useState<any>(null);
   const [settlementDetailError, setSettlementDetailError] = useState<string | null>(null);
+  const [settlementDetailLoading, setSettlementDetailLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [mandiFilter, setMandiFilter] = useState("");
   const [tokenFilter, setTokenFilter] = useState("");
@@ -589,20 +624,13 @@ export const Lots: React.FC = () => {
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
   const uiState = useMemo(
-    () =>
-      deriveLotDetailUiState({
-        lot: detailLot,
-        auctionResult,
-        auctionResultError,
-        settlementDetail,
-        settlementDetailError,
-      }),
-    [detailLot, auctionResult, auctionResultError, settlementDetail, settlementDetailError],
+    () => deriveLotDetailUiState(detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError),
+    [detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError],
   );
   const isPreAuctionLot = uiState.isPreAuction;
-  const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && detailStatus === "CREATED");
+  const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && uiState.canLockWeighment);
   const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
-  const canCancelAction = Boolean(detailLot && canUpdateStatus && (detailStatus === "CREATED" || detailStatus === "WEIGHMENT_LOCKED"));
+  const canCancelAction = Boolean(detailLot && canUpdateStatus && uiState.canCancel);
   const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
   const canEditWeightAction = Boolean(detailLot && canUpdateStatus && uiState.canEditWeight);
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction && !canEditWeightAction;
@@ -622,6 +650,14 @@ export const Lots: React.FC = () => {
   const settlementWinner = uiState.settlementFields.winner;
   const settlementAmount = uiState.settlementFields.amount;
   const settlementErrorText = settlementDetailError || auctionResultError || "NO_PERMISSION";
+  const isDetailBusy = Boolean(
+    detailLoading ||
+      actionLoading ||
+      settlementActionLoading ||
+      settlementPreviewLoading ||
+      auctionResultLoading ||
+      settlementDetailLoading
+  );
 
   const refreshDetail = async () => {
     if (!selectedRow) return;
@@ -678,6 +714,7 @@ export const Lots: React.FC = () => {
     const username = currentUsername();
     if (!username || !detailLot) return;
     if (!uiState.shouldFetchAuctionResult) {
+      setAuctionResultLoading(false);
       setAuctionResult(null);
       setAuctionResultError(null);
       return;
@@ -690,6 +727,7 @@ export const Lots: React.FC = () => {
     const tokenCode = detailLot?.token_code || detailLot?.tokenCode;
     if (!orgId || !lotId || mandiId == null) return;
     try {
+      setAuctionResultLoading(true);
       setAuctionResultError(null);
       const resp = await getAuctionResultByLot({
         username,
@@ -723,13 +761,22 @@ export const Lots: React.FC = () => {
     } catch (err: any) {
       setAuctionResult(null);
       setAuctionResultError(err?.message || "Unable to load auction result.");
+    } finally {
+      setAuctionResultLoading(false);
     }
   }, [detailLot, language, uiState.shouldFetchAuctionResult]);
 
   const loadSettlementDetail = useCallback(async () => {
     const username = currentUsername();
     if (!username || !detailLot?.settlement_id) return;
+    if (!uiState.shouldFetchSettlementDetail) {
+      setSettlementDetailLoading(false);
+      setSettlementDetail(null);
+      setSettlementDetailError(null);
+      return;
+    }
     try {
+      setSettlementDetailLoading(true);
       setSettlementDetailError(null);
       const resp = await getSettlementDetail({
         username,
@@ -746,8 +793,10 @@ export const Lots: React.FC = () => {
     } catch (err: any) {
       setSettlementDetail(null);
       setSettlementDetailError(err?.message || "Unable to load settlement detail.");
+    } finally {
+      setSettlementDetailLoading(false);
     }
-  }, [detailLot, language]);
+  }, [detailLot, language, uiState.shouldFetchSettlementDetail]);
 
   useEffect(() => {
     if (!detailLot) return;
@@ -969,6 +1018,7 @@ export const Lots: React.FC = () => {
       <Dialog open={!!selectedRow} onClose={() => setSelectedRow(null)} maxWidth="md" fullWidth>
         <DialogTitle>Lot Details</DialogTitle>
         <DialogContent dividers>
+          {isDetailBusy && <LinearProgress sx={{ position: "sticky", top: 0, left: 0, right: 0, zIndex: 1, mb: 2 }} />}
           {detailLoading && <Typography>Loading...</Typography>}
           {detailError && <Typography color="error">{detailError}</Typography>}
           {!detailLoading && !detailError && (

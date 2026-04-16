@@ -86,6 +86,26 @@ function currentUsername(): string | null {
   }
 }
 
+function currentRoleSlug(): string | null {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    const role =
+      parsed?.default_role_code ||
+      parsed?.role_slug ||
+      parsed?.role_code ||
+      parsed?.role ||
+      null;
+    const normalized = String(role || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[\s-]+/g, "_");
+    return normalized || null;
+  } catch {
+    return null;
+  }
+}
+
 function formatDate(value?: string | Date | null) {
   if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
@@ -108,6 +128,15 @@ const AUCTION_STAGE_OR_LATER_STATUSES = new Set([
   "DISPATCHED",
   "CLOSED",
 ]);
+const LOCK_WEIGHMENT_ALLOWED_ROLES = new Set([
+  "ORG_ADMIN",
+  "MANDI_ADMIN",
+  "MANDI_MANAGER",
+  "WEIGHBRIDGE_OPERATOR",
+  "SUPER_ADMIN",
+]);
+const VERIFY_ALLOWED_ROLES = new Set(["MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"]);
+const CANCEL_ALLOWED_ROLES = new Set(["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"]);
 
 function isPermissionDeniedMessage(message: any) {
   const text = displayValue(message, "").toUpperCase();
@@ -969,14 +998,30 @@ export const Lots: React.FC = () => {
     Boolean(detailPartyDisplay) &&
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
+  const currentRole = currentRoleSlug();
   const uiState = useMemo(
     () => deriveLotDetailUiState(detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError),
     [detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError],
   );
   const isPreAuctionLot = uiState.isPreAuction;
-  const canLockWeighmentAction = Boolean(detailLot && canUpdateStatus && uiState.canLockWeighment);
-  const canVerifyAction = Boolean(detailLot && canVerify && detailStatus === "WEIGHMENT_LOCKED");
-  const canCancelAction = Boolean(detailLot && canUpdateStatus && uiState.canCancel);
+  const canLockWeighmentAction = Boolean(
+    detailLot &&
+      canUpdateStatus &&
+      uiState.canLockWeighment &&
+      LOCK_WEIGHMENT_ALLOWED_ROLES.has(String(currentRole || ""))
+  );
+  const canVerifyAction = Boolean(
+    detailLot &&
+      canVerify &&
+      detailStatus === "WEIGHMENT_LOCKED" &&
+      VERIFY_ALLOWED_ROLES.has(String(currentRole || ""))
+  );
+  const canCancelAction = Boolean(
+    detailLot &&
+      canUpdateStatus &&
+      uiState.canCancel &&
+      CANCEL_ALLOWED_ROLES.has(String(currentRole || ""))
+  );
   const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
   const canEditWeightAction = Boolean(detailLot && canUpdateStatus && uiState.canEditWeight);
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction && !canEditWeightAction;

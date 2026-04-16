@@ -12,17 +12,27 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  InputAdornment,
   InputLabel,
   LinearProgress,
   MenuItem,
+  Paper,
   Select,
+  Skeleton,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
@@ -587,6 +597,56 @@ function getSettlementHelperText(uiState: any) {
   return null;
 }
 
+function DashboardMetricCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        border: "1px solid",
+        borderColor: alpha(theme.palette.success.main, 0.18),
+        bgcolor: alpha(theme.palette.success.light, 0.08),
+        minWidth: { xs: "100%", sm: 180 },
+        flex: 1,
+      }}
+    >
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            display: "grid",
+            placeItems: "center",
+            bgcolor: alpha(theme.palette.success.main, 0.16),
+            color: theme.palette.success.dark,
+          }}
+        >
+          {icon}
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ lineHeight: 1.1, fontWeight: 800 }}>
+            {formatNumber(value)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {label}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
 const STATUS_OPTIONS = [
   "CREATED",
   "WEIGHMENT_LOCKED",
@@ -641,6 +701,7 @@ export const Lots: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [mandiFilter, setMandiFilter] = useState("");
   const [tokenFilter, setTokenFilter] = useState("");
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const canView = useMemo(
     () => can(uiConfig.resources, "lots.list", "VIEW"),
@@ -718,6 +779,7 @@ export const Lots: React.FC = () => {
         raw: item,
       }));
       setRows(mapped);
+      setLastRefreshedAt(new Date());
     } finally {
       setLoading(false);
     }
@@ -757,16 +819,90 @@ export const Lots: React.FC = () => {
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
-      { field: "token_code", headerName: "Token Code", width: 180 },
+      {
+        field: "token_code",
+        headerName: "Token Code",
+        width: 220,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 700,
+                fontFamily: '"Roboto Mono", "Source Code Pro", monospace',
+                color: "text.primary",
+              }}
+            >
+              {displayValue(params.row.token_code)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(params.row.lot_code)}
+            </Typography>
+          </Stack>
+        ),
+      },
       { field: "mandi_name", headerName: "Mandi", width: 180 },
       { field: "gate_label", headerName: "Gate", width: 180 },
-      { field: "party_username", headerName: "Party", width: 180 },
-      { field: "commodity_name", headerName: "Commodity", width: 180 },
-      { field: "commodity_product_name", headerName: "Product", width: 180 },
-      { field: "bags", headerName: "Bags", width: 110, valueFormatter: (value) => formatNumber(value) },
-      { field: "weight_kg", headerName: "Weight (kg)", width: 140, valueFormatter: (value) => formatNumber(value) },
+      {
+        field: "party_username",
+        headerName: "Party",
+        width: 220,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {displayValue(params.row.party_username)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(params.row.raw?.party_type || params.row.raw?.party?.party_type)}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "commodity_name",
+        headerName: "Commodity / Product",
+        width: 240,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {displayValue(params.row.commodity_name)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(params.row.commodity_product_name)}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "bags",
+        headerName: "Bags",
+        width: 110,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => formatNumber(value),
+      },
+      {
+        field: "weight_kg",
+        headerName: "Weight (kg)",
+        width: 140,
+        align: "right",
+        headerAlign: "right",
+        valueFormatter: (value) => formatNumber(value),
+      },
       { field: "quality_grade", headerName: "Quality Grade", width: 150, valueFormatter: (value) => displayValue(value) },
-      { field: "status", headerName: "Status", width: 140 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 180,
+        renderCell: (params) => (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={humanizeLotStatus(params.row.status)}
+              sx={buildStatusChipSx(theme, params.row.status || "")}
+            />
+        ),
+      },
       {
         field: "created_on",
         headerName: "Created On",
@@ -774,8 +910,26 @@ export const Lots: React.FC = () => {
         valueFormatter: (value) => formatDate(value) || "—",
       },
     ],
-    [],
+    [theme],
   );
+
+  const dashboardMetrics = useMemo(() => {
+    const summary = {
+      total: rows.length,
+      created: 0,
+      verified: 0,
+      mapped: 0,
+      settlementPending: 0,
+    };
+    for (const item of rows) {
+      const key = normalizeStatus(item.status);
+      if (key === "CREATED") summary.created += 1;
+      if (key === "VERIFIED") summary.verified += 1;
+      if (key === "MAPPED_TO_AUCTION") summary.mapped += 1;
+      if (key === "SETTLEMENT_PENDING") summary.settlementPending += 1;
+    }
+    return summary;
+  }, [rows]);
 
   const detailLot = detail || selectedRow?.raw || null;
   const detailParty = detailLot?.party && typeof detailLot.party === "object" ? detailLot.party : null;
@@ -1144,65 +1298,217 @@ export const Lots: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.lots", { defaultValue: "Lots" })}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Live lots linked to gate tokens (read-only).
-          </Typography>
-        </Stack>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              label="Status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="">All</MenuItem>
-              {STATUS_OPTIONS.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            label="Mandi ID"
-            size="small"
-            value={mandiFilter}
-            onChange={(e) => setMandiFilter(e.target.value)}
-          />
-          <TextField
-            label="Token Code"
-            size="small"
-            value={tokenFilter}
-            onChange={(e) => setTokenFilter(e.target.value)}
-          />
-          {canCreateLot && (
-            <Button variant="contained" onClick={() => navigate("/lots/create")}>
-              {t("actions.createLot", { defaultValue: "Create Lot" })}
-            </Button>
-          )}
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-            Refresh
-          </Button>
-        </Stack>
-      </Stack>
+      <Stack spacing={2.2}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            border: "1px solid",
+            borderColor: alpha(theme.palette.success.main, 0.18),
+            borderRadius: 2.5,
+            bgcolor: alpha(theme.palette.success.light, 0.06),
+          }}
+        >
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5}>
+            <Stack spacing={0.5}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                {t("menu.lots", { defaultValue: "Lots" })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Live operations view for gate-linked lots, status progress, and settlement readiness.
+              </Typography>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary" }}>
+              <RefreshIcon fontSize="small" />
+              <Typography variant="caption">
+                Last refreshed: {lastRefreshedAt ? formatDate(lastRefreshedAt) : "—"}
+              </Typography>
+            </Stack>
+          </Stack>
+        </Paper>
 
-      <Box sx={{ width: "100%" }}>
-        <ResponsiveDataGrid
-          rows={rows}
-          columns={columns}
-          loading={loading}
-          getRowId={(r) => r.id || r.token_code}
-          disableRowSelectionOnClick
-          onRowClick={(params) => handleOpenDetail(params.row as LotRow)}
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-          minWidth={960}
-        />
-      </Box>
+        {loading && rows.length === 0 ? (
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} variant="rounded" height={74} sx={{ flex: 1, borderRadius: 2 }} />
+            ))}
+          </Stack>
+        ) : (
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25} flexWrap="wrap">
+            <DashboardMetricCard label="Total Lots" value={dashboardMetrics.total} icon={<Inventory2OutlinedIcon fontSize="small" />} />
+            <DashboardMetricCard label="Created" value={dashboardMetrics.created} icon={<LocalShippingOutlinedIcon fontSize="small" />} />
+            <DashboardMetricCard label="Verified" value={dashboardMetrics.verified} icon={<VerifiedOutlinedIcon fontSize="small" />} />
+            <DashboardMetricCard label="Mapped To Auction" value={dashboardMetrics.mapped} icon={<MapOutlinedIcon fontSize="small" />} />
+            <DashboardMetricCard label="Settlement Pending" value={dashboardMetrics.settlementPending} icon={<PendingActionsOutlinedIcon fontSize="small" />} />
+          </Stack>
+        )}
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 1.5, md: 2 },
+            borderRadius: 2.5,
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: alpha(theme.palette.background.paper, 0.98),
+          }}
+        >
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25} alignItems={{ lg: "center" }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 170 }}>
+              <FilterAltOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Filters
+              </Typography>
+            </Stack>
+
+            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 170 } }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="">All</MenuItem>
+                {STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {humanizeLotStatus(status)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Mandi ID"
+              size="small"
+              value={mandiFilter}
+              onChange={(e) => setMandiFilter(e.target.value)}
+              sx={{ minWidth: { xs: "100%", sm: 150 } }}
+            />
+
+            <TextField
+              label="Token Code"
+              size="small"
+              value={tokenFilter}
+              onChange={(e) => setTokenFilter(e.target.value)}
+              sx={{ minWidth: { xs: "100%", sm: 220 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Box sx={{ flex: 1 }} />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setStatusFilter("");
+                  setMandiFilter("");
+                  setTokenFilter("");
+                }}
+                disabled={loading || (!statusFilter && !mandiFilter && !tokenFilter)}
+              >
+                Clear
+              </Button>
+              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+                Refresh
+              </Button>
+              {canCreateLot && (
+                <Button variant="contained" onClick={() => navigate("/lots/create")}>
+                  {t("actions.createLot", { defaultValue: "Create Lot" })}
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1,
+            borderRadius: 2.5,
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: alpha(theme.palette.background.paper, 0.98),
+            overflow: "hidden",
+          }}
+        >
+          {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1 }} />}
+          {!loading && rows.length === 0 && (
+            <Box
+              sx={{
+                mb: 1,
+                p: 2,
+                borderRadius: 2,
+                border: "1px dashed",
+                borderColor: alpha(theme.palette.success.main, 0.3),
+                bgcolor: alpha(theme.palette.success.light, 0.06),
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                No lots found for the current filters
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try clearing one or more filters, or refresh to load the latest lots.
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ width: "100%" }}>
+            <ResponsiveDataGrid
+              rows={rows}
+              columns={columns}
+              loading={loading}
+              getRowId={(r) => r.id || r.token_code}
+              disableRowSelectionOnClick
+              onRowClick={(params) => handleOpenDetail(params.row as LotRow)}
+              pageSizeOptions={[25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+              minWidth={960}
+              sx={{
+                bgcolor: "transparent",
+                "& .MuiDataGrid-columnHeaders": {
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 1,
+                  bgcolor: alpha(theme.palette.success.light, 0.14),
+                  borderBottom: "1px solid",
+                  borderColor: alpha(theme.palette.success.main, 0.22),
+                  backdropFilter: "blur(2px)",
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontWeight: 800,
+                  color: "text.primary",
+                  letterSpacing: 0.15,
+                },
+                "& .MuiDataGrid-cell": {
+                  borderBottomColor: alpha(theme.palette.text.primary, 0.08),
+                  py: 0.7,
+                },
+                "& .MuiDataGrid-row": {
+                  cursor: "pointer",
+                  transition: "background-color 120ms ease",
+                },
+                "& .MuiDataGrid-row:hover": {
+                  bgcolor: alpha(theme.palette.success.main, 0.08),
+                },
+                "& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row.Mui-selected:hover": {
+                  bgcolor: alpha(theme.palette.success.main, 0.12),
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: "1px solid",
+                  borderColor: alpha(theme.palette.text.primary, 0.12),
+                  minHeight: 52,
+                  px: 0.5,
+                  bgcolor: alpha(theme.palette.background.default, 0.7),
+                },
+              }}
+            />
+          </Box>
+        </Paper>
+      </Stack>
 
       <Dialog
         open={!!selectedRow}

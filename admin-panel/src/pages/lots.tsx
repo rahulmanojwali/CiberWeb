@@ -86,21 +86,31 @@ function currentUsername(): string | null {
   }
 }
 
-function currentRoleSlug(): string | null {
+function normalizeRoleSlug(value: any): string | null {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  if (!normalized) return null;
+  if (normalized === "SUPERADMIN") return "SUPER_ADMIN";
+  if (normalized === "ORGADMIN") return "ORG_ADMIN";
+  if (normalized === "MANDIADMIN") return "MANDI_ADMIN";
+  return normalized;
+}
+
+function currentRoleSlug(preferredRole?: string | null): string | null {
   try {
+    const preferred = normalizeRoleSlug(preferredRole);
+    if (preferred) return preferred;
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
-    const role =
+    const roleCandidate =
       parsed?.default_role_code ||
       parsed?.role_slug ||
       parsed?.role_code ||
       parsed?.role ||
       null;
-    const normalized = String(role || "")
-      .trim()
-      .toUpperCase()
-      .replace(/[\s-]+/g, "_");
-    return normalized || null;
+    return normalizeRoleSlug(roleCandidate);
   } catch {
     return null;
   }
@@ -998,7 +1008,7 @@ export const Lots: React.FC = () => {
     Boolean(detailPartyDisplay) &&
     String(detailPartyDisplay).trim() !== String(usernameMobileCombined || "").trim();
   const detailStatus = normalizeStatus(detailLot?.status);
-  const currentRole = currentRoleSlug();
+  const currentRole = useMemo(() => currentRoleSlug(uiConfig.role), [uiConfig.role]);
   const uiState = useMemo(
     () => deriveLotDetailUiState(detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError),
     [detailLot, auctionResult, settlementDetail, auctionResultError, settlementDetailError],
@@ -1052,6 +1062,17 @@ export const Lots: React.FC = () => {
       auctionResultLoading ||
       settlementDetailLoading
   );
+
+  useEffect(() => {
+    if (!detailLot || !import.meta.env.DEV) return;
+    console.log("[lots/detail][action_gating]", {
+      username: currentUsername(),
+      role: currentRole,
+      status: detailStatus,
+      canLockWeighment: canLockWeighmentAction,
+      canEditWeight: canEditWeightAction,
+    });
+  }, [detailLot, currentRole, detailStatus, canLockWeighmentAction, canEditWeightAction]);
 
   const refreshDetail = async () => {
     if (!selectedRow) return;

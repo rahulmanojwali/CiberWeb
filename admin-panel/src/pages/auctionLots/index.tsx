@@ -1,5 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -145,6 +160,12 @@ const toDateTimeLocal = (date: Date) => {
 const defaultScheduledEndLocal = (durationMinutes = 120) =>
   toDateTimeLocal(new Date(Date.now() + Math.max(1, durationMinutes) * 60 * 1000));
 
+const closureModeHelperText = (closureMode: string) => {
+  if (closureMode === "MANUAL_ONLY") return "Manual close only. Scheduled end is optional.";
+  if (closureMode === "AUTO_AT_END_TIME") return "Auto close at scheduled end time. Scheduled end is required.";
+  return "Auto close at scheduled end time or manual close earlier. Scheduled end is required.";
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -249,6 +270,11 @@ export const AuctionLots: React.FC = () => {
   }, [openingRatePerQtl, selectedTotalQtl]);
   const createSubmitValid = Boolean(createForm.lot_id && createForm.session_id && createBasePriceValid);
   const createSubmitDisabled = createLoading || !createSubmitValid;
+  const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && !filters.mandi_code;
+  const showMandiInstruction = !loading && requiresMandiSelection;
+  const showNoRowsForFilters = !loading && !showMandiInstruction && rows.length === 0;
+  const createSessionRequiresEnd =
+    createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO";
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -667,7 +693,7 @@ export const AuctionLots: React.FC = () => {
         mandi_id: mandiId,
         method_code: createSessionForm.method_code || "OPEN_OUTCRY",
         rounds_enabled: createSessionForm.rounds_enabled?.length ? createSessionForm.rounds_enabled : ["ROUND1"],
-        status: createSessionForm.status || "PLANNED",
+        status: "PLANNED",
         closure_mode: createSessionForm.closure_mode || "MANUAL_OR_AUTO",
         scheduled_start_time: createSessionForm.scheduled_start_time
           ? new Date(createSessionForm.scheduled_start_time).toISOString()
@@ -839,6 +865,19 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
+  const clearFilters = () => {
+    setFilters({
+      org_code: uiConfig.role === "SUPER_ADMIN" ? "" : defaultOrgCode || "",
+      mandi_code: defaultMandiCode || "",
+      commodity: "",
+      product: "",
+      session_id: "",
+      lot_status: "",
+      date_from: "",
+      date_to: "",
+    });
+  };
+
   if (!canMenu || !canView) {
     return (
       <PageContainer>
@@ -849,25 +888,37 @@ export const AuctionLots: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+        mb={2}
+      >
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Auction lots and linked sessions (read-only).
+            Monitor mapped lots, active sessions, and opening rates before live auction.
           </Typography>
-          {!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN" && (
-            <Typography variant="body2" color="warning.main">
-              Please select a mandi to view auction lots.
-            </Typography>
-          )}
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {selectedRow && canLotUpdate && (
             <>
-              <Button variant="contained" size="small" onClick={handleStartSelectedLot} disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED"}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleStartSelectedLot}
+                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED"}
+              >
                 Start Selected Lot
               </Button>
-              <Button variant="outlined" size="small" color="error" onClick={handleFinalizeSelectedLot} disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "LIVE"}>
+              <Button
+                variant="outlined"
+                size="small"
+                color="error"
+                onClick={handleFinalizeSelectedLot}
+                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "LIVE"}
+              >
                 Finalize Selected Lot
               </Button>
             </>
@@ -877,295 +928,292 @@ export const AuctionLots: React.FC = () => {
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
             Refresh
           </Button>
         </Stack>
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        mb={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
-        flexWrap="wrap"
-      >
-        {uiConfig.role === "SUPER_ADMIN" && (
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Filter Auction Lots
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="text" onClick={clearFilters}>
+              Clear
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+              Apply / Refresh
+            </Button>
+          </Stack>
+        </Stack>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(180px, 1fr))", lg: "repeat(4, minmax(180px, 1fr))" },
+            gap: 1.5,
+          }}
+        >
+          {uiConfig.role === "SUPER_ADMIN" && (
+            <TextField
+              select
+              label="Organisation"
+              size="small"
+              value={filters.org_code}
+              onChange={(e) => updateFilter("org_code", e.target.value)}
+              fullWidth
+            >
+              <MenuItem value="">All</MenuItem>
+              {orgOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
           <TextField
             select
-            label="Organisation"
+            label="Mandi"
             size="small"
-            sx={{ minWidth: 200 }}
-            value={filters.org_code}
-            onChange={(e) => updateFilter("org_code", e.target.value)}
+            value={filters.mandi_code}
+            onChange={(e) => updateFilter("mandi_code", e.target.value)}
+            fullWidth
           >
             <MenuItem value="">All</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>
+                {m.label}
               </MenuItem>
             ))}
           </TextField>
+
+          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth />
+          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth />
+          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth />
+          <TextField
+            select
+            label="Lot Status"
+            size="small"
+            value={filters.lot_status}
+            onChange={(e) => updateFilter("lot_status", e.target.value)}
+            fullWidth
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="CREATED">Created</MenuItem>
+            <MenuItem value="PUBLISHED">Published</MenuItem>
+            <MenuItem value="SOLD">Sold</MenuItem>
+            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          </TextField>
+          <TextField
+            label="Date From"
+            type="date"
+            size="small"
+            value={filters.date_from}
+            onChange={(e) => updateFilter("date_from", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+          <TextField
+            label="Date To"
+            type="date"
+            size="small"
+            value={filters.date_to}
+            onChange={(e) => updateFilter("date_to", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+        </Box>
+      </Paper>
+
+      {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        {loading && <LinearProgress />}
+        <Box sx={{ p: 1.5, pb: 0 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Auction Lots List
+          </Typography>
+        </Box>
+        {!showMandiInstruction && (
+          <Box sx={{ px: 1.5, pb: 1.5 }}>
+            <ResponsiveDataGrid
+              rows={rows}
+              columns={columns}
+              loading={loading}
+              getRowId={(r) => r.id}
+              disableRowSelectionOnClick
+              pageSizeOptions={[25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+              minWidth={960}
+              onRowClick={(params) => setSelectedRow(params.row as LotRow)}
+              sx={{
+                "& .MuiDataGrid-row": { cursor: "pointer" },
+                "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(47,166,82,0.05)" },
+                "& .MuiDataGrid-columnHeaders": { position: "sticky", top: 0, zIndex: 1 },
+              }}
+            />
+          </Box>
         )}
+      </Paper>
 
-        <TextField
-          select
-          label="Mandi"
-          size="small"
-          sx={{ minWidth: 180 }}
-          value={filters.mandi_code}
-          onChange={(e) => updateFilter("mandi_code", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          {mandiOptions.map((m) => (
-            <MenuItem key={m.value} value={m.value}>
-              {m.label}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <TextField
-          label="Session ID"
-          size="small"
-          value={filters.session_id}
-          onChange={(e) => updateFilter("session_id", e.target.value)}
-        />
-
-        <TextField
-          label="Commodity"
-          size="small"
-          value={filters.commodity}
-          onChange={(e) => updateFilter("commodity", e.target.value)}
-        />
-
-        <TextField
-          label="Product"
-          size="small"
-          value={filters.product}
-          onChange={(e) => updateFilter("product", e.target.value)}
-        />
-
-        <TextField
-          select
-          label="Lot Status"
-          size="small"
-          sx={{ minWidth: 150 }}
-          value={filters.lot_status}
-          onChange={(e) => updateFilter("lot_status", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="CREATED">Created</MenuItem>
-          <MenuItem value="PUBLISHED">Published</MenuItem>
-          <MenuItem value="SOLD">Sold</MenuItem>
-          <MenuItem value="CANCELLED">Cancelled</MenuItem>
-        </TextField>
-
-        <TextField
-          label="Date From"
-          type="date"
-          size="small"
-          value={filters.date_from}
-          onChange={(e) => updateFilter("date_from", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label="Date To"
-          type="date"
-          size="small"
-          value={filters.date_to}
-          onChange={(e) => updateFilter("date_to", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-      </Stack>
-
-      {actionError && (
-        <Typography variant="body2" color="error" sx={{ mb: 1 }}>
-          {actionError}
-        </Typography>
+      {showMandiInstruction && (
+        <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: "rgba(47,166,82,0.04)" }}>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            Select a mandi to continue
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Choose a mandi in filters to load auction lots and sessions for operations.
+          </Typography>
+        </Paper>
       )}
 
-      <Box sx={{ width: "100%" }}>
-        <ResponsiveDataGrid
-          rows={rows}
-          columns={columns}
-          loading={loading}
-          getRowId={(r) => r.id}
-          disableRowSelectionOnClick
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-          minWidth={960}
-          onRowClick={(params) => setSelectedRow(params.row as LotRow)}
-        />
-      </Box>
-
-      {!loading && rows.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-          No auction lots found. If you are preparing new auction inventory, open the Lots page first to verify lots and map them into an auction session.
-        </Typography>
+      {showNoRowsForFilters && (
+        <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            No auction lots found for selected filters
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Verify lots first and map them to an active auction session, then refresh this page.
+          </Typography>
+        </Paper>
       )}
 
       {openCreate && (
-        <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="sm">
+        <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="md">
           <DialogTitle>Create Auction Lot</DialogTitle>
           <DialogContent>
             {createOptionsLoading && <LinearProgress sx={{ mb: 2 }} />}
             <Stack spacing={2} mt={1}>
-              <TextField
-                select
-                label="Available VERIFIED Lots"
-                size="small"
-                value={createForm.lot_id}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // ✅ when lot changes, session selection must reset
-                  setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
-                  const next = lotOptions.find((l) => l.value === value);
-                  setSelectedLot(next?.lot || null);
-                }}
-              >
-                <MenuItem value="">Select</MenuItem>
-                {lotOptions.map((l) => (
-                  <MenuItem key={l.value} value={l.value}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
-                      <Typography variant="body2" sx={{ flex: 1 }}>
-                        {l.label}
-                      </Typography>
-                      {l.shortCode && (
-                        <Typography variant="caption" color="text.secondary">
-                          #{l.shortCode}
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section A — Source Lot
+                </Typography>
+                <TextField
+                  select
+                  label="Select VERIFIED Lot"
+                  size="small"
+                  value={createForm.lot_id}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
+                    const next = lotOptions.find((l) => l.value === value);
+                    setSelectedLot(next?.lot || null);
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="">Select</MenuItem>
+                  {lotOptions.map((l) => (
+                    <MenuItem key={l.value} value={l.value}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                        <Typography variant="body2" sx={{ flex: 1 }}>
+                          {l.label}
                         </Typography>
-                      )}
+                        {l.shortCode && (
+                          <Typography variant="caption" color="text.secondary">
+                            #{l.shortCode}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {!createOptionsLoading && lotOptions.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    No VERIFIED lots available. Complete lot verification first.
+                  </Typography>
+                )}
+
+                {selectedLot && (
+                  <Paper variant="outlined" sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.03)" }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Selected Lot Summary
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="body2"><strong>Party:</strong> {selectedLot?.party?.ref || selectedLot?.party?.username || selectedLot?.party_username || selectedLot?.party_ref || selectedLot?.farmer_username || selectedLot?.trader_username || "-"}</Typography>
+                      <Typography variant="body2"><strong>Token / Lot:</strong> {selectedLot?.token_code || selectedLot?.lot_code || selectedLot?._id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Commodity:</strong> {selectedLot?.commodity_name_en || selectedLot?.commodity_name || selectedLot?.commodity || selectedLot?.commodity_code || selectedLot?.commodity_id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Product:</strong> {selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || selectedLot?.product_code || selectedLot?.commodity_product_id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Bags:</strong> {selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-"}</Typography>
+                      <Typography variant="body2"><strong>Weight/Bag:</strong> {selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-"} kg</Typography>
+                      <Typography variant="body2"><strong>Total Weight:</strong> {selectedTotalKg != null ? `${formatInr(selectedTotalKg)} kg` : "-"}</Typography>
+                      <Typography variant="body2"><strong>Gate / Mandi:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"} / {selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || "-"}</Typography>
+                    </Box>
+                  </Paper>
+                )}
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section B — Auction Session
+                </Typography>
+                <TextField
+                  select
+                  label="Auction Session"
+                  size="small"
+                  value={createForm.session_id}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
+                  SelectProps={{ onOpen: loadSessionsForDropdown }}
+                  onClick={loadSessionsForDropdown}
+                  fullWidth
+                >
+                  <MenuItem value="">Select</MenuItem>
+                  {sessionOptions.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>
+                      {s.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {!canSessionsList && (
+                  <Alert severity="error" sx={{ mt: 1.25 }}>
+                    Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.
+                  </Alert>
+                )}
+                {selectedLot && sessionOptions.length === 0 && (
+                  <Alert severity="info" sx={{ mt: 1.25 }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
+                      <Typography variant="body2">No active sessions found for selected org/mandi.</Typography>
+                      <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
+                        Create Session
+                      </Button>
                     </Stack>
-                  </MenuItem>
-                ))}
-              </TextField>
-              {!createOptionsLoading && lotOptions.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  No VERIFIED lots available. Please complete lot verification first.
+                  </Alert>
+                )}
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section C — Pricing
                 </Typography>
-              )}
+                <TextField
+                  label="Opening Price (₹/qtl)"
+                  size="small"
+                  type="number"
+                  value={createForm.base_price}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
+                  helperText="Opening bid rate for this lot (per quintal)."
+                  inputProps={{ step: "0.01", min: "0" }}
+                  fullWidth
+                />
+                {selectedLot && openingRatePerQtl != null && (
+                  <Paper variant="outlined" sx={{ mt: 1.25, p: 1.25, borderRadius: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Rate/kg: <strong>₹{formatInr(openingRatePerQtl / 100)}</strong> · Quantity:{" "}
+                      <strong>{selectedTotalKg != null ? `${formatInr(selectedTotalKg)} kg` : "—"}</strong> · Estimated lot opening value:{" "}
+                      <strong>₹{formatInr(selectedEstimatedValue)}</strong>
+                    </Typography>
+                  </Paper>
+                )}
+              </Paper>
 
-              <TextField
-                select
-                label="Auction Session"
-                size="small"
-                value={createForm.session_id}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
-                SelectProps={{ onOpen: loadSessionsForDropdown }}
-                onClick={loadSessionsForDropdown}
-              >
-                <MenuItem value="">Select</MenuItem>
-                {sessionOptions.map((s) => (
-                  <MenuItem key={s.value} value={s.value}>
-                    {s.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {!canSessionsList && (
-                <Typography variant="body2" color="error">
-                  Missing permission: auction_sessions.list (VIEW). Session dropdown cannot load.
-                </Typography>
-              )}
-
-              {selectedLot && sessionOptions.length === 0 && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" mb={1}>
-                    No active sessions for this org/mandi.
-                  </Typography>
-                  <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
-                    Create Session (1 minute)
-                  </Button>
-                </Box>
-              )}
-
-              {selectedLot && (
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1.5 }}>
-                  <Typography variant="subtitle2" mb={1}>
-                    Lot Details
-                  </Typography>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2">
-                      <strong>Party:</strong>{" "}
-                      {selectedLot?.party?.type || selectedLot?.party_type || selectedLot?.party_role || "Party"}{" "}
-                      {selectedLot?.party?.ref ||
-                        selectedLot?.party?.username ||
-                        selectedLot?.party_username ||
-                        selectedLot?.party_ref ||
-                        selectedLot?.farmer_username ||
-                        selectedLot?.trader_username ||
-                        "-"}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Token:</strong> {selectedLot?.token_code || selectedLot?.token || "-"}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Commodity/Product:</strong>{" "}
-                      {selectedLot?.commodity_name_en ||
-                        selectedLot?.commodity_name ||
-                        selectedLot?.commodity ||
-                        selectedLot?.commodity_code ||
-                        selectedLot?.commodity_id ||
-                        "-"}{" "}
-                      /{" "}
-                      {selectedLot?.product_name_en ||
-                        selectedLot?.commodity_product_name_en ||
-                        selectedLot?.product ||
-                        selectedLot?.product_code ||
-                        selectedLot?.commodity_product_id ||
-                        "-"}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Bags:</strong>{" "}
-                      {selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-"} | <strong>Weight/Bag:</strong>{" "}
-                      {selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-"} kg |{" "}
-                      <strong>Total:</strong>{" "}
-                      {selectedLot?.quantity?.net_kg ??
-                        selectedLot?.quantity?.gross_kg ??
-                        selectedLot?.quantity?.total_kg ??
-                        selectedLot?.quantity?.estimated_kg ??
-                        selectedLot?.quantity?.weight_kg ??
-                        selectedLot?.weight_kg ??
-                        "-"}{" "}
-                      kg
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Gate:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Mandi:</strong>{" "}
-                      {selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || "-"}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Org:</strong>{" "}
-                      {selectedLot?.org_name || selectedLot?.org_name_en || selectedLot?.org_code || selectedLot?.org_id || "-"}
-                    </Typography>
-                  </Stack>
-                </Box>
-              )}
-
-              <TextField
-                label="Opening Price (₹/qtl)"
-                size="small"
-                type="number"
-                value={createForm.base_price}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
-                helperText="Starting bid rate for this lot (per quintal)."
-                inputProps={{ step: "0.01", min: "0" }}
-              />
-
-              {selectedLot && openingRatePerQtl != null && selectedTotalKg != null && (
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Quantity:</strong> {formatInr(selectedTotalKg)} kg ({selectedTotalQtl?.toFixed(2)} qtl) ·{" "}
-                  <strong>Opening Rate:</strong> ₹{formatInr(openingRatePerQtl)} / qtl ·{" "}
-                  <strong>Estimated Lot Value:</strong> ₹{formatInr(selectedEstimatedValue)}
-                </Typography>
-              )}
-
-              {createError && (
-                <Typography variant="body2" color="error">
-                  {createError}
-                </Typography>
-              )}
+              {createError && <Alert severity="error">{createError}</Alert>}
               {import.meta.env.DEV && (
                 <Typography variant="caption" color="text.secondary">
                   lot_id={createForm.lot_id || "—"} | session_id={createForm.session_id || "—"} | opening_price={createBasePriceRaw || "—"} | valid={String(createSubmitValid)} | disabled={String(createSubmitDisabled)}
@@ -1187,102 +1235,150 @@ export const AuctionLots: React.FC = () => {
       )}
 
       {openCreateSession && (
-        <Dialog open={openCreateSession} onClose={() => setOpenCreateSession(false)} fullWidth maxWidth="sm">
+        <Dialog open={openCreateSession} onClose={() => setOpenCreateSession(false)} fullWidth maxWidth="md">
           <DialogTitle>Create Session</DialogTitle>
           <DialogContent>
             <Stack spacing={2} mt={1}>
-              <TextField
-                label="Organisation"
-                size="small"
-                value={selectedLot?.org_name || selectedLot?.org_name_en || selectedLot?.org_code || selectedLot?.org_id || ""}
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                label="Mandi"
-                size="small"
-                value={selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || ""}
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                select
-                label="Method"
-                size="small"
-                value={createSessionForm.method_code}
-                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, method_code: e.target.value }))}
-              >
-                <MenuItem value="OPEN_OUTCRY">OPEN_OUTCRY</MenuItem>
-                <MenuItem value="E_AUCTION">E_AUCTION</MenuItem>
-              </TextField>
-              <TextField
-                select
-                label="Rounds Enabled"
-                size="small"
-                SelectProps={{
-                  multiple: true,
-                  value: createSessionForm.rounds_enabled,
-                  onChange: (e) => {
-                    const value = e.target.value;
-                    setCreateSessionForm((prev) => ({
-                      ...prev,
-                      rounds_enabled: Array.isArray(value) ? value : String(value).split(","),
-                    }));
-                  },
-                }}
-              >
-                <MenuItem value="PREVIEW">PREVIEW</MenuItem>
-                <MenuItem value="ROUND1">ROUND1</MenuItem>
-                <MenuItem value="ROUND2">ROUND2</MenuItem>
-                <MenuItem value="FINAL">FINAL</MenuItem>
-              </TextField>
-              <TextField
-                select
-                label="Status"
-                size="small"
-                value={createSessionForm.status}
-                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, status: e.target.value }))}
-              >
-                <MenuItem value="PLANNED">PLANNED</MenuItem>
-                <MenuItem value="LIVE">LIVE</MenuItem>
-                <MenuItem value="PAUSED">PAUSED</MenuItem>
-                <MenuItem value="CLOSED">CLOSED</MenuItem>
-                <MenuItem value="CANCELLED">CANCELLED</MenuItem>
-              </TextField>
-              <TextField
-                label="Session Code"
-                size="small"
-                value={createSessionForm.session_code}
-                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_code: e.target.value }))}
-              />
-              <TextField
-                select
-                label="Closure Mode"
-                size="small"
-                value={createSessionForm.closure_mode}
-                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
-              >
-                <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
-                <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
-                <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
-              </TextField>
-              {(createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO") && (
-                <>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section A — Session Context
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 1.5,
+                  }}
+                >
                   <TextField
-                    label="Scheduled Start (optional)"
-                    type="datetime-local"
+                    label="Organisation"
                     size="small"
-                    value={createSessionForm.scheduled_start_time}
-                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
+                    value={selectedLot?.org_name || selectedLot?.org_name_en || selectedLot?.org_code || selectedLot?.org_id || ""}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
                   />
                   <TextField
-                    label="Scheduled End"
-                    type="datetime-local"
-                    required
+                    label="Mandi"
                     size="small"
-                    value={createSessionForm.scheduled_end_time}
-                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
+                    value={selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || ""}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
                   />
+                  <TextField
+                    select
+                    label="Method"
+                    size="small"
+                    value={createSessionForm.method_code}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, method_code: e.target.value }))}
+                    fullWidth
+                  >
+                    <MenuItem value="OPEN_OUTCRY">OPEN_OUTCRY</MenuItem>
+                    <MenuItem value="E_AUCTION">E_AUCTION</MenuItem>
+                  </TextField>
+                  <TextField
+                    select
+                    label="Rounds Enabled"
+                    size="small"
+                    SelectProps={{
+                      multiple: true,
+                      value: createSessionForm.rounds_enabled,
+                      onChange: (e) => {
+                        const value = e.target.value;
+                        setCreateSessionForm((prev) => ({
+                          ...prev,
+                          rounds_enabled: Array.isArray(value) ? value : String(value).split(","),
+                        }));
+                      },
+                    }}
+                    fullWidth
+                  >
+                    <MenuItem value="PREVIEW">PREVIEW</MenuItem>
+                    <MenuItem value="ROUND1">ROUND1</MenuItem>
+                    <MenuItem value="ROUND2">ROUND2</MenuItem>
+                    <MenuItem value="FINAL">FINAL</MenuItem>
+                  </TextField>
+                </Box>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section B — Session State
+                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 1.5,
+                  }}
+                >
+                  <TextField
+                    select
+                    label="Status"
+                    size="small"
+                    value={createSessionForm.status}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, status: e.target.value }))}
+                    fullWidth
+                  >
+                    <MenuItem value="PLANNED">PLANNED</MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Session Code"
+                    size="small"
+                    value={createSessionForm.session_code}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_code: e.target.value }))}
+                    fullWidth
+                  />
+                </Box>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section C — Closure Plan
+                </Typography>
+                <Stack spacing={1.5}>
+                  <TextField
+                    select
+                    label="Closure Mode"
+                    size="small"
+                    value={createSessionForm.closure_mode}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
+                    fullWidth
+                  >
+                    <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
+                    <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                  </TextField>
+                  <Typography variant="caption" color="text.secondary">
+                    {closureModeHelperText(createSessionForm.closure_mode)}
+                  </Typography>
+                  <Divider />
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 1.5,
+                    }}
+                  >
+                    <TextField
+                      label="Scheduled Start (optional)"
+                      type="datetime-local"
+                      size="small"
+                      value={createSessionForm.scheduled_start_time}
+                      onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Scheduled End"
+                      type="datetime-local"
+                      required={createSessionRequiresEnd}
+                      size="small"
+                      value={createSessionForm.scheduled_end_time}
+                      onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      fullWidth
+                    />
+                  </Box>
                   {createSessionForm.closure_mode === "AUTO_AT_END_TIME" && (
                     <TextField
                       select
@@ -1295,19 +1391,16 @@ export const AuctionLots: React.FC = () => {
                           allow_manual_close_when_auto_enabled: e.target.value === "Y",
                         }))
                       }
+                      fullWidth
                     >
                       <MenuItem value="Y">Yes</MenuItem>
                       <MenuItem value="N">No</MenuItem>
                     </TextField>
                   )}
-                </>
-              )}
+                </Stack>
+              </Paper>
 
-              {createSessionError && (
-                <Typography variant="body2" color="error">
-                  {createSessionError}
-                </Typography>
-              )}
+              {createSessionError && <Alert severity="error">{createSessionError}</Alert>}
             </Stack>
           </DialogContent>
           <DialogActions>

@@ -344,6 +344,12 @@ function formatNumber(value: any) {
   return num.toLocaleString();
 }
 
+function formatWeight(value: any, decimals = 3) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "—";
+  return Number(num).toFixed(decimals);
+}
+
 function titleCaseLabel(value: any) {
   const text = displayValue(value, "");
   if (!text) return "—";
@@ -1015,17 +1021,49 @@ export const Lots: React.FC = () => {
     setWeightDialogOpen(true);
   };
 
+  const detailBagsNumber = Number(detailBags);
+  const hasValidBagsForWeightEdit = Number.isFinite(detailBagsNumber) && detailBagsNumber > 0;
+  const currentTotalWeightNumber = Number(detailWeightKg);
+  const currentPerBagWeightNumber = Number(detailWeightPerBagKg);
+  const parsedNewWeightNumber = Number(weightNewValue);
+  const hasValidNewWeightInput = Number.isFinite(parsedNewWeightNumber) && parsedNewWeightNumber > 0;
+  const computedNewPerBagWeight = hasValidBagsForWeightEdit && hasValidNewWeightInput
+    ? Number((parsedNewWeightNumber / detailBagsNumber).toFixed(3))
+    : null;
+  const hasWeightChange =
+    hasValidNewWeightInput &&
+    Number.isFinite(currentTotalWeightNumber) &&
+    Number(parsedNewWeightNumber.toFixed(3)) !== Number(currentTotalWeightNumber.toFixed(3));
+  const weightReasonRequired = hasWeightChange;
+  const canSubmitWeightEdit = Boolean(
+    hasValidBagsForWeightEdit &&
+      hasValidNewWeightInput &&
+      hasWeightChange &&
+      weightReason.trim()
+  );
+
   const runUpdateWeight = async () => {
     const username = currentUsername();
     if (!username || !detailLot) return;
     setWeightActionError(null);
     const parsed = Number(weightNewValue);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setWeightActionError("Please enter a valid new weight (kg).");
+    if (!hasValidBagsForWeightEdit) {
+      setWeightActionError("Lot bags must be greater than zero for recalculation.");
       return;
     }
-    if (!weightReason.trim()) {
-      setWeightActionError("Reason is required.");
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setWeightActionError("New total weight must be greater than zero.");
+      return;
+    }
+    if (
+      Number.isFinite(currentTotalWeightNumber) &&
+      Number(parsed.toFixed(3)) === Number(currentTotalWeightNumber.toFixed(3))
+    ) {
+      setWeightActionError("No changes detected.");
+      return;
+    }
+    if (hasWeightChange && !weightReason.trim()) {
+      setWeightActionError("Reason is required when changing lot weight.");
       return;
     }
     setActionLoading(true);
@@ -1812,8 +1850,29 @@ export const Lots: React.FC = () => {
           <Stack spacing={2}>
             {weightActionError && <Typography color="error">{weightActionError}</Typography>}
             <Typography variant="body2" color="text.secondary">
-              Updating weight will recalculate per-bag weight and update downstream derived values.
+              Bags will remain unchanged. Weight per bag will be recalculated automatically.
             </Typography>
+            <TextField
+              label="Bags"
+              size="small"
+              value={hasValidBagsForWeightEdit ? String(detailBagsNumber) : "—"}
+              fullWidth
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="Current Weight Per Bag (kg)"
+              size="small"
+              value={Number.isFinite(currentPerBagWeightNumber) ? formatWeight(currentPerBagWeightNumber) : "—"}
+              fullWidth
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
+              label="Current Total Weight (kg)"
+              size="small"
+              value={Number.isFinite(currentTotalWeightNumber) ? formatWeight(currentTotalWeightNumber) : "—"}
+              fullWidth
+              InputProps={{ readOnly: true }}
+            />
             <TextField
               label="New Total Weight (kg)"
               size="small"
@@ -1825,18 +1884,43 @@ export const Lots: React.FC = () => {
               disabled={actionLoading}
             />
             <TextField
+              label="New Weight Per Bag (kg)"
+              size="small"
+              value={computedNewPerBagWeight !== null ? formatWeight(computedNewPerBagWeight) : "—"}
+              fullWidth
+              InputProps={{ readOnly: true }}
+            />
+            <TextField
               label="Reason"
               size="small"
               value={weightReason}
               onChange={(e) => setWeightReason(e.target.value)}
               fullWidth
               disabled={actionLoading}
+              required={weightReasonRequired}
+              helperText={weightReasonRequired ? "Reason is required for weight changes." : "Reason is required when changing total weight."}
             />
+            {hasValidBagsForWeightEdit && Number.isFinite(currentTotalWeightNumber) && computedNewPerBagWeight !== null && (
+              <Box sx={{ p: 1.25, borderRadius: 1.5, border: "1px dashed", borderColor: "divider" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  Before
+                </Typography>
+                <Typography variant="body2">
+                  Bags: {detailBagsNumber} · Weight/Bag: {formatWeight(currentPerBagWeightNumber)} · Total: {formatWeight(currentTotalWeightNumber)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, mb: 0.5 }}>
+                  After
+                </Typography>
+                <Typography variant="body2">
+                  Bags: {detailBagsNumber} · Weight/Bag: {formatWeight(computedNewPerBagWeight)} · Total: {hasValidNewWeightInput ? formatWeight(parsedNewWeightNumber) : "—"}
+                </Typography>
+              </Box>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setWeightDialogOpen(false)} disabled={actionLoading}>Cancel</Button>
-          <Button variant="contained" onClick={runUpdateWeight} disabled={actionLoading}>
+          <Button variant="contained" onClick={runUpdateWeight} disabled={actionLoading || !canSubmitWeightEdit}>
             Save
           </Button>
         </DialogActions>

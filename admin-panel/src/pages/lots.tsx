@@ -138,15 +138,54 @@ const AUCTION_STAGE_OR_LATER_STATUSES = new Set([
   "DISPATCHED",
   "CLOSED",
 ]);
-const LOCK_WEIGHMENT_ALLOWED_ROLES = new Set([
-  "ORG_ADMIN",
-  "MANDI_ADMIN",
-  "MANDI_MANAGER",
-  "WEIGHBRIDGE_OPERATOR",
-  "SUPER_ADMIN",
-]);
-const VERIFY_ALLOWED_ROLES = new Set(["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"]);
-const CANCEL_ALLOWED_ROLES = new Set(["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"]);
+const LOT_ACTION_MATRIX: Record<string, Record<string, string[]>> = {
+  CREATED: {
+    EDIT_WEIGHT: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"],
+    LOCK_WEIGHMENT: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "WEIGHBRIDGE_OPERATOR", "SUPER_ADMIN"],
+    VERIFY: [],
+    MAP_TO_AUCTION: [],
+    CANCEL: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"],
+  },
+  WEIGHMENT_LOCKED: {
+    EDIT_WEIGHT: [],
+    LOCK_WEIGHMENT: [],
+    VERIFY: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"],
+    MAP_TO_AUCTION: [],
+    CANCEL: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"],
+  },
+  VERIFIED: {
+    EDIT_WEIGHT: [],
+    LOCK_WEIGHMENT: [],
+    VERIFY: [],
+    MAP_TO_AUCTION: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "AUCTIONEER", "SUPER_ADMIN"],
+    CANCEL: ["ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "SUPER_ADMIN"],
+  },
+  MAPPED_TO_AUCTION: {},
+  IN_AUCTION: {},
+  SOLD: {},
+  UNSOLD: {},
+  SETTLEMENT_PENDING: {},
+  SETTLED: {},
+  DISPATCHED: {},
+  CLOSED: {},
+  CANCELLED: {},
+};
+
+const isLotActionAllowedByMatrix = (status: any, role: any, action: string): boolean => {
+  const normalizedStatus = normalizeStatus(status);
+  const normalizedRole = normalizeRoleSlug(role);
+  const normalizedAction = String(action || "").trim().toUpperCase();
+  if (!normalizedStatus || !normalizedRole || !normalizedAction) return false;
+  const allowedRoles = LOT_ACTION_MATRIX[normalizedStatus]?.[normalizedAction] || [];
+  return allowedRoles.includes(normalizedRole);
+};
+
+const isLotActionEnabledForStatus = (status: any, action: string): boolean => {
+  const normalizedStatus = normalizeStatus(status);
+  const normalizedAction = String(action || "").trim().toUpperCase();
+  const allowedRoles = LOT_ACTION_MATRIX[normalizedStatus]?.[normalizedAction] || [];
+  return allowedRoles.length > 0;
+};
 
 function isPermissionDeniedMessage(message: any) {
   const text = displayValue(message, "").toUpperCase();
@@ -198,7 +237,8 @@ function deriveLotDetailUiState(
   );
 
   const weightEditAllowed = Boolean(lot?.workflow?.weight_edit_allowed);
-  const canEditWeight = Boolean(isPreAuction && weightEditAllowed && !hasSettlementSignals);
+  const canEditWeightByStatus = isLotActionEnabledForStatus(status, "EDIT_WEIGHT");
+  const canEditWeight = Boolean(canEditWeightByStatus && weightEditAllowed && !hasSettlementSignals);
 
   const resultDoc = auctionResult?.result || null;
   const winner = resultDoc?.winning_bidder_username || resultDoc?.winner_code || resultDoc?.winning_bidder || null;
@@ -347,8 +387,8 @@ function deriveLotDetailUiState(
     if (settlementDisplayState !== "ERROR_PERMISSION") showNoPermission = false;
   }
 
-  const canLockWeighment = status === "CREATED";
-  const canCancel = status === "CREATED" || status === "WEIGHMENT_LOCKED";
+  const canLockWeighment = isLotActionEnabledForStatus(status, "LOCK_WEIGHMENT");
+  const canCancel = isLotActionEnabledForStatus(status, "CANCEL");
 
   return {
     status,
@@ -1018,22 +1058,27 @@ export const Lots: React.FC = () => {
     detailLot &&
       canUpdateStatus &&
       uiState.canLockWeighment &&
-      LOCK_WEIGHMENT_ALLOWED_ROLES.has(String(currentRole || ""))
+      isLotActionAllowedByMatrix(detailStatus, currentRole, "LOCK_WEIGHMENT")
   );
   const canVerifyAction = Boolean(
     detailLot &&
       canVerify &&
       detailStatus === "WEIGHMENT_LOCKED" &&
-      VERIFY_ALLOWED_ROLES.has(String(currentRole || ""))
+      isLotActionAllowedByMatrix(detailStatus, currentRole, "VERIFY")
   );
   const canCancelAction = Boolean(
     detailLot &&
       canUpdateStatus &&
       uiState.canCancel &&
-      CANCEL_ALLOWED_ROLES.has(String(currentRole || ""))
+      isLotActionAllowedByMatrix(detailStatus, currentRole, "CANCEL")
   );
   const weightEditAllowed = Boolean(detailLot?.workflow?.weight_edit_allowed);
-  const canEditWeightAction = Boolean(detailLot && canUpdateStatus && uiState.canEditWeight);
+  const canEditWeightAction = Boolean(
+    detailLot &&
+      canUpdateStatus &&
+      uiState.canEditWeight &&
+      isLotActionAllowedByMatrix(detailStatus, currentRole, "EDIT_WEIGHT")
+  );
   const isWorkflowReadOnly = Boolean(detailLot) && !canLockWeighmentAction && !canVerifyAction && !canCancelAction && !canEditWeightAction;
   const settlementHeader = settlementDetail?.header || null;
   const hasSettlement = Boolean(detailLot?.settlement_id || settlementHeader?._id);

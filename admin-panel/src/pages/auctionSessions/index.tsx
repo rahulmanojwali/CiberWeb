@@ -16,6 +16,7 @@ import { closeAuctionSession, getAuctionSessions, startAuctionSession } from "..
 type SessionRow = {
   id: string;
   session_id: string;
+  session_code?: string | null;
   org_code?: string | null;
   mandi_code?: string | null;
   method?: string | null;
@@ -23,6 +24,13 @@ type SessionRow = {
   status?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  closure_mode?: string | null;
+  scheduled_start_time?: string | null;
+  scheduled_end_time?: string | null;
+  auto_close_enabled?: boolean;
+  closed_by_type?: string | null;
+  close_reason?: string | null;
+  closed_by_username?: string | null;
 };
 
 type Option = { value: string; label: string };
@@ -42,6 +50,20 @@ function formatDate(value?: string | Date | null) {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString();
+}
+
+function isAutoClosureMode(mode?: string | null) {
+  const raw = String(mode || "").trim().toUpperCase();
+  return raw === "AUTO_AT_END_TIME" || raw === "MANUAL_OR_AUTO";
+}
+
+function isOverdueSession(session: SessionRow) {
+  if (String(session.status || "").toUpperCase() !== "LIVE") return false;
+  if (!isAutoClosureMode(session.closure_mode)) return false;
+  if (!session.scheduled_end_time) return false;
+  const end = new Date(session.scheduled_end_time);
+  if (Number.isNaN(end.getTime())) return false;
+  return Date.now() > end.getTime();
 }
 
 export const AuctionSessions: React.FC = () => {
@@ -84,12 +106,37 @@ export const AuctionSessions: React.FC = () => {
 
   const columns = useMemo<GridColDef<SessionRow>[]>(
     () => [
+      { field: "session_code", headerName: "Session Code", width: 170, valueGetter: (_v, row) => row.session_code || row.session_id },
       { field: "session_id", headerName: "Session ID", width: 150 },
       { field: "org_code", headerName: "Org", width: 120 },
       { field: "mandi_code", headerName: "Mandi", width: 140 },
       { field: "method", headerName: "Method", width: 130 },
       { field: "round", headerName: "Round", width: 120 },
-      { field: "status", headerName: "Status", width: 140 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 190,
+        renderCell: (params) => {
+          const row = params.row as SessionRow;
+          const baseStatus = String(row.status || "PLANNED").toUpperCase();
+          if (isOverdueSession(row)) {
+            return (
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Chip size="small" label={baseStatus} color={statusColor(baseStatus)} />
+                <Chip size="small" label="OVERDUE" color="warning" variant="outlined" />
+              </Stack>
+            );
+          }
+          return <Chip size="small" label={baseStatus} color={statusColor(baseStatus)} />;
+        },
+      },
+      { field: "closure_mode", headerName: "Closure Mode", width: 170, valueGetter: (v) => v || "MANUAL_OR_AUTO" },
+      {
+        field: "scheduled_end_time",
+        headerName: "Scheduled End",
+        width: 180,
+        valueFormatter: (value) => formatDate(value) || "—",
+      },
       {
         field: "start_time",
         headerName: "Start",
@@ -156,6 +203,7 @@ export const AuctionSessions: React.FC = () => {
       const mapped: SessionRow[] = list.map((item: any, idx: number) => ({
         id: item._id || item.session_id || `session-${idx}`,
         session_id: item.session_id || item._id || `session-${idx}`,
+        session_code: item.session_code || null,
         org_code: item.org_code || null,
         mandi_code: item.mandi_code || null,
         method: item.method || item.method_code || null,
@@ -163,6 +211,13 @@ export const AuctionSessions: React.FC = () => {
         status: item.status || null,
         start_time: item.start_time || item.start || null,
         end_time: item.end_time || item.end || null,
+        closure_mode: item.closure_mode || "MANUAL_OR_AUTO",
+        scheduled_start_time: item.scheduled_start_time || null,
+        scheduled_end_time: item.scheduled_end_time || null,
+        auto_close_enabled: Boolean(item.auto_close_enabled),
+        closed_by_type: item.closed_by_type || null,
+        close_reason: item.close_reason || null,
+        closed_by_username: item.closed_by_username || null,
       }));
       setRows(mapped);
       if (selectedSession) {
@@ -360,7 +415,7 @@ export const AuctionSessions: React.FC = () => {
           <MenuItem value="">All</MenuItem>
           <MenuItem value="PLANNED">Planned</MenuItem>
           <MenuItem value="LIVE">Live</MenuItem>
-          <MenuItem value="COMPLETED">Completed</MenuItem>
+          <MenuItem value="CLOSED">Closed</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>
         </TextField>
 
@@ -431,6 +486,9 @@ export const AuctionSessions: React.FC = () => {
                 <strong>Session ID:</strong> {selectedSession.session_id}
               </Typography>
               <Typography variant="body2">
+                <strong>Session Code:</strong> {selectedSession.session_code || "-"}
+              </Typography>
+              <Typography variant="body2">
                 <strong>Org:</strong> {selectedSession.org_code || "-"}
               </Typography>
               <Typography variant="body2">
@@ -447,6 +505,21 @@ export const AuctionSessions: React.FC = () => {
               </Typography>
               <Typography variant="body2">
                 <strong>End:</strong> {formatDate(selectedSession.end_time)}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Closure Mode:</strong> {selectedSession.closure_mode || "MANUAL_OR_AUTO"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Scheduled End:</strong> {formatDate(selectedSession.scheduled_end_time) || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Closed By Type:</strong> {selectedSession.closed_by_type || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Close Reason:</strong> {selectedSession.close_reason || "-"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Closed By Username:</strong> {selectedSession.closed_by_username || "-"}
               </Typography>
               {detailError && (
                 <Typography variant="body2" color="error">

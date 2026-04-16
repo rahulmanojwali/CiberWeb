@@ -45,6 +45,12 @@ const DEFAULT_WORKFLOW_POLICIES: WorkflowPoliciesState = {
     lot_creation_mode: "STRICT_ADMIN_ONLY",
     approval_mode: "MANUAL",
     lot_assignment_mode: "MANUAL",
+    auction_settings: {
+      session_closure_mode: "MANUAL_OR_AUTO",
+      allow_manual_close_when_auto_enabled: true,
+      default_session_duration_minutes: 120,
+      auto_close_grace_seconds: 0,
+    },
   },
   msp: {
     enabled: false,
@@ -95,6 +101,11 @@ const RATE_SOURCE_OPTIONS = [
   { value: "MANDI", label: "Mandi" },
   { value: "MANUAL", label: "Manual" },
 ];
+const SESSION_CLOSURE_MODE_OPTIONS = [
+  { value: "MANUAL_ONLY", label: "Manual Only" },
+  { value: "AUTO_AT_END_TIME", label: "Auto At End Time" },
+  { value: "MANUAL_OR_AUTO", label: "Manual Or Auto" },
+];
 
 function currentUsername(): string | null {
   try {
@@ -109,6 +120,10 @@ function currentUsername(): string | null {
 function withDefaults(input: any): WorkflowPoliciesState {
   const source = input && typeof input === "object" ? input : {};
   const auction = source.auction && typeof source.auction === "object" ? source.auction : {};
+  const auctionSettings = auction.auction_settings && typeof auction.auction_settings === "object"
+    ? auction.auction_settings
+    : {};
+  const defaultAuctionSettings = DEFAULT_WORKFLOW_POLICIES.auction.auction_settings as Record<string, any>;
   return {
     lot_creation_mode: String(source.lot_creation_mode || auction.lot_creation_mode || DEFAULT_WORKFLOW_POLICIES.lot_creation_mode).toUpperCase(),
     auction: {
@@ -119,6 +134,28 @@ function withDefaults(input: any): WorkflowPoliciesState {
       lot_creation_mode: String(auction.lot_creation_mode || source.lot_creation_mode || DEFAULT_WORKFLOW_POLICIES.auction.lot_creation_mode).toUpperCase(),
       approval_mode: String(auction.approval_mode || DEFAULT_WORKFLOW_POLICIES.auction.approval_mode).toUpperCase(),
       lot_assignment_mode: String(auction.lot_assignment_mode || DEFAULT_WORKFLOW_POLICIES.auction.lot_assignment_mode).toUpperCase(),
+      auction_settings: {
+        ...defaultAuctionSettings,
+        ...auctionSettings,
+        session_closure_mode: String(
+          auctionSettings.session_closure_mode || defaultAuctionSettings.session_closure_mode || "MANUAL_OR_AUTO",
+        ).toUpperCase(),
+        allow_manual_close_when_auto_enabled: Boolean(
+          auctionSettings.allow_manual_close_when_auto_enabled ??
+          defaultAuctionSettings.allow_manual_close_when_auto_enabled ??
+          true,
+        ),
+        default_session_duration_minutes: Number(
+          auctionSettings.default_session_duration_minutes ??
+          defaultAuctionSettings.default_session_duration_minutes ??
+          120,
+        ) || 120,
+        auto_close_grace_seconds: Number(
+          auctionSettings.auto_close_grace_seconds ??
+          defaultAuctionSettings.auto_close_grace_seconds ??
+          0,
+        ) || 0,
+      },
     },
     msp: {
       ...DEFAULT_WORKFLOW_POLICIES.msp,
@@ -233,6 +270,19 @@ export const AuctionSettings: React.FC = () => {
     }));
   };
 
+  const updateAuctionSettings = (key: string, value: any) => {
+    setWorkflowPolicies((prev) => ({
+      ...prev,
+      auction: {
+        ...(prev.auction || {}),
+        auction_settings: {
+          ...(prev.auction?.auction_settings || {}),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
   const saveSettings = async () => {
     const username = currentUsername();
     const orgId = uiConfig.scope?.org_id || "";
@@ -313,6 +363,43 @@ export const AuctionSettings: React.FC = () => {
             <TextField select label="Lot Assignment Mode" value={workflowPolicies.auction.lot_assignment_mode} onChange={(e) => updateMode("auction", "lot_assignment_mode", e.target.value)}>
               {ASSIGNMENT_OPTIONS.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
             </TextField>
+            <Divider />
+            <Typography variant="subtitle2">Session Closure</Typography>
+            <TextField
+              select
+              label="Session Closure Mode"
+              value={String(workflowPolicies.auction?.auction_settings?.session_closure_mode || "MANUAL_OR_AUTO")}
+              onChange={(e) => updateAuctionSettings("session_closure_mode", e.target.value)}
+            >
+              {SESSION_CLOSURE_MODE_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={Boolean(workflowPolicies.auction?.auction_settings?.allow_manual_close_when_auto_enabled)}
+                  onChange={(e) => updateAuctionSettings("allow_manual_close_when_auto_enabled", e.target.checked)}
+                />
+              }
+              label="Allow Manual Close When Auto Enabled"
+            />
+            <TextField
+              label="Default Session Duration (minutes)"
+              type="number"
+              value={String(workflowPolicies.auction?.auction_settings?.default_session_duration_minutes ?? 120)}
+              onChange={(e) => updateAuctionSettings("default_session_duration_minutes", Number(e.target.value || 120))}
+              inputProps={{ min: 1, step: 1 }}
+            />
+            <TextField
+              label="Auto Close Grace (seconds)"
+              type="number"
+              value={String(workflowPolicies.auction?.auction_settings?.auto_close_grace_seconds ?? 0)}
+              onChange={(e) => updateAuctionSettings("auto_close_grace_seconds", Number(e.target.value || 0))}
+              inputProps={{ min: 0, step: 1 }}
+            />
           </Stack>
         </SectionCard>
 

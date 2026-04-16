@@ -49,6 +49,22 @@ export const closeAuctionSession = async ({
     session_id,
   });
 
+export const createAuctionSession = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted("/admin/createAuctionSession", {
+    api: "createAuctionSession",
+    username,
+    language,
+    ...payload,
+  });
+
 export const getAuctionLots = async ({
   username,
   language = DEFAULT_LANGUAGE,

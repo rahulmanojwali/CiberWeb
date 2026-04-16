@@ -11,7 +11,7 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot } from "../../services/auctionOpsApi";
+import { createAuctionSession, finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot } from "../../services/auctionOpsApi";
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
@@ -137,6 +137,14 @@ const buildSessionCode = () => {
   return `SESS_${yyyy}${mm}${dd}_${hh}${min}`;
 };
 
+const toDateTimeLocal = (date: Date) => {
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const defaultScheduledEndLocal = (durationMinutes = 120) =>
+  toDateTimeLocal(new Date(Date.now() + Math.max(1, durationMinutes) * 60 * 1000));
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -157,6 +165,10 @@ export const AuctionLots: React.FC = () => {
     rounds_enabled: ["ROUND1"],
     status: "PLANNED",
     session_code: buildSessionCode(),
+    closure_mode: "MANUAL_OR_AUTO",
+    scheduled_start_time: "",
+    scheduled_end_time: defaultScheduledEndLocal(120),
+    allow_manual_close_when_auto_enabled: true,
   });
   const [createForm, setCreateForm] = useState({
     session_id: "",
@@ -651,17 +663,34 @@ export const AuctionLots: React.FC = () => {
         return;
       }
       const payload = {
-        api: "createAuctionSession",
-        username,
-        language,
         org_id: orgId,
         mandi_id: mandiId,
         method_code: createSessionForm.method_code || "OPEN_OUTCRY",
         rounds_enabled: createSessionForm.rounds_enabled?.length ? createSessionForm.rounds_enabled : ["ROUND1"],
         status: createSessionForm.status || "PLANNED",
+        closure_mode: createSessionForm.closure_mode || "MANUAL_OR_AUTO",
+        scheduled_start_time: createSessionForm.scheduled_start_time
+          ? new Date(createSessionForm.scheduled_start_time).toISOString()
+          : undefined,
+        scheduled_end_time:
+          createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO"
+            ? (createSessionForm.scheduled_end_time ? new Date(createSessionForm.scheduled_end_time).toISOString() : undefined)
+            : undefined,
+        allow_manual_close_when_auto_enabled: Boolean(createSessionForm.allow_manual_close_when_auto_enabled),
       };
+      if (
+        (payload.closure_mode === "AUTO_AT_END_TIME" || payload.closure_mode === "MANUAL_OR_AUTO") &&
+        !payload.scheduled_end_time
+      ) {
+        setCreateSessionError("Scheduled end time is required for selected closure mode.");
+        return;
+      }
 
-      const resp: any = await postEncrypted("/admin/createAuctionSession", payload);
+      const resp: any = await createAuctionSession({
+        username,
+        language,
+        payload,
+      });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
@@ -780,6 +809,10 @@ export const AuctionLots: React.FC = () => {
         rounds_enabled: ["ROUND1"],
         status: "PLANNED",
         session_code: buildSessionCode(),
+        closure_mode: "MANUAL_OR_AUTO",
+        scheduled_start_time: "",
+        scheduled_end_time: defaultScheduledEndLocal(120),
+        allow_manual_close_when_auto_enabled: true,
       });
       loadCreateOptions();
     }
@@ -1220,6 +1253,55 @@ export const AuctionLots: React.FC = () => {
                 value={createSessionForm.session_code}
                 onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_code: e.target.value }))}
               />
+              <TextField
+                select
+                label="Closure Mode"
+                size="small"
+                value={createSessionForm.closure_mode}
+                onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
+              >
+                <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
+                <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
+                <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+              </TextField>
+              {(createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO") && (
+                <>
+                  <TextField
+                    label="Scheduled Start (optional)"
+                    type="datetime-local"
+                    size="small"
+                    value={createSessionForm.scheduled_start_time}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    label="Scheduled End"
+                    type="datetime-local"
+                    required
+                    size="small"
+                    value={createSessionForm.scheduled_end_time}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  {createSessionForm.closure_mode === "AUTO_AT_END_TIME" && (
+                    <TextField
+                      select
+                      label="Allow Manual Close"
+                      size="small"
+                      value={createSessionForm.allow_manual_close_when_auto_enabled ? "Y" : "N"}
+                      onChange={(e) =>
+                        setCreateSessionForm((prev) => ({
+                          ...prev,
+                          allow_manual_close_when_auto_enabled: e.target.value === "Y",
+                        }))
+                      }
+                    >
+                      <MenuItem value="Y">Yes</MenuItem>
+                      <MenuItem value="N">No</MenuItem>
+                    </TextField>
+                  )}
+                </>
+              )}
 
               {createSessionError && (
                 <Typography variant="body2" color="error">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -49,7 +49,13 @@ function formatDate(value?: string | Date | null) {
   if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
 }
 
 function isAutoClosureMode(mode?: string | null) {
@@ -65,6 +71,40 @@ function isOverdueSession(session: SessionRow) {
   if (Number.isNaN(end.getTime())) return false;
   return Date.now() > end.getTime();
 }
+
+function displayValue(value?: string | null) {
+  const text = String(value || "").trim();
+  return text || "—";
+}
+
+function closureModeLabel(mode?: string | null) {
+  const normalized = String(mode || "").trim().toUpperCase();
+  if (normalized === "MANUAL_ONLY") return "Manual";
+  if (normalized === "AUTO_AT_END_TIME") return "Auto";
+  if (normalized === "MANUAL_OR_AUTO") return "Manual + Auto";
+  return displayValue(mode);
+}
+
+function sessionStatusHelperText(status?: string | null) {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (normalized === "PLANNED") return "This session is created but not started yet. Bidding should remain blocked until the session is started.";
+  if (normalized === "LIVE") return "This session is currently active.";
+  if (normalized === "PAUSED") return "This session is currently paused.";
+  if (normalized === "CLOSED") return "This session has ended.";
+  if (normalized === "CANCELLED") return "This session was cancelled.";
+  return "Session status is currently unavailable.";
+}
+
+const DetailField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <Stack spacing={0.35}>
+    <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: 0.2 }}>
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 600 }}>
+      {value}
+    </Typography>
+  </Stack>
+);
 
 export const AuctionSessions: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -340,6 +380,8 @@ export const AuctionSessions: React.FC = () => {
   const statusColor = (status?: string | null) => {
     const s = String(status || "").toUpperCase();
     if (s === "LIVE") return "success";
+    if (s === "CANCELLED") return "error";
+    if (s === "PAUSED" || s === "PLANNED") return "warning";
     if (s === "CLOSED") return "default";
     return "warning";
   };
@@ -470,57 +512,72 @@ export const AuctionSessions: React.FC = () => {
       </Box>
 
       {openDetail && selectedSession && (
-        <Dialog open={openDetail} onClose={() => setOpenDetail(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Auction Session Detail</DialogTitle>
-          <DialogContent>
-            <Stack spacing={1.5} mt={1}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle2">Status</Typography>
-                <Chip
-                  size="small"
-                  label={(selectedSession.status || "PLANNED").toUpperCase()}
-                  color={statusColor(selectedSession.status)}
-                />
+        <Dialog open={openDetail} onClose={() => setOpenDetail(false)} fullWidth maxWidth="md">
+          <DialogTitle sx={{ pb: 1.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+              <Stack spacing={0.4}>
+                <Typography variant="h6">Auction Session Detail</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  {displayValue(selectedSession.session_code)}
+                </Typography>
               </Stack>
-              <Typography variant="body2">
-                <strong>Session ID:</strong> {selectedSession.session_id}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Session Code:</strong> {selectedSession.session_code || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Org:</strong> {selectedSession.org_code || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Mandi:</strong> {selectedSession.mandi_code || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Method:</strong> {selectedSession.method || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Round:</strong> {selectedSession.round || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Start:</strong> {formatDate(selectedSession.start_time)}
-              </Typography>
-              <Typography variant="body2">
-                <strong>End:</strong> {formatDate(selectedSession.end_time)}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Closure Mode:</strong> {selectedSession.closure_mode || "MANUAL_OR_AUTO"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Scheduled End:</strong> {formatDate(selectedSession.scheduled_end_time) || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Closed By Type:</strong> {selectedSession.closed_by_type || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Close Reason:</strong> {selectedSession.close_reason || "-"}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Closed By Username:</strong> {selectedSession.closed_by_username || "-"}
-              </Typography>
+              <Chip
+                size="small"
+                label={(selectedSession.status || "PLANNED").toUpperCase()}
+                color={statusColor(selectedSession.status)}
+                sx={{ alignSelf: "center", fontWeight: 700 }}
+              />
+            </Stack>
+          </DialogTitle>
+          <Divider />
+          <DialogContent sx={{ bgcolor: "#f7f8f3", py: 2.5 }}>
+            <Stack spacing={2}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.4, fontWeight: 700 }}>
+                  Session Identity
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+                  <DetailField label="Session ID" value={displayValue(selectedSession.session_id)} />
+                  <DetailField label="Session Code" value={displayValue(selectedSession.session_code)} />
+                  <DetailField label="Organisation" value={displayValue(selectedSession.org_code)} />
+                  <DetailField label="Mandi" value={displayValue(selectedSession.mandi_code)} />
+                  <DetailField label="Method" value={displayValue(selectedSession.method)} />
+                  <DetailField label="Round(s)" value={displayValue(selectedSession.round)} />
+                </Box>
+              </Box>
+
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.4, fontWeight: 700 }}>
+                  Session Timing
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+                  <DetailField label="Start Time" value={displayValue(formatDate(selectedSession.start_time))} />
+                  <DetailField label="End Time" value={displayValue(formatDate(selectedSession.end_time))} />
+                  <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
+                  <DetailField label="Closure Mode" value={closureModeLabel(selectedSession.closure_mode || "MANUAL_OR_AUTO")} />
+                  <DetailField label="Closed By Type" value={displayValue(selectedSession.closed_by_type)} />
+                  <DetailField label="Close Reason" value={displayValue(selectedSession.close_reason)} />
+                  <DetailField label="Closed By Username" value={displayValue(selectedSession.closed_by_username)} />
+                </Box>
+                {selectedSession.scheduled_end_time && ["PLANNED", "LIVE"].includes(String(selectedSession.status || "").toUpperCase()) && (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`Scheduled to end at ${formatDate(selectedSession.scheduled_end_time)}`}
+                    sx={{ mt: 1.5 }}
+                  />
+                )}
+              </Box>
+
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.8, fontWeight: 700 }}>
+                  Session Progress
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {sessionStatusHelperText(selectedSession.status)}
+                </Typography>
+              </Box>
+
               {detailError && (
                 <Typography variant="body2" color="error">
                   {detailError}
@@ -528,17 +585,17 @@ export const AuctionSessions: React.FC = () => {
               )}
             </Stack>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDetail(false)} disabled={detailLoading}>
+          <DialogActions sx={{ px: 3, py: 1.75 }}>
+            <Button onClick={() => setOpenDetail(false)} disabled={detailLoading} color="inherit">
               Close
             </Button>
             {String(selectedSession.status || "").toUpperCase() === "PLANNED" && (
-              <Button variant="contained" onClick={handleStart} disabled={detailLoading}>
+              <Button variant="contained" onClick={handleStart} disabled={detailLoading} sx={{ minWidth: 140 }}>
                 {detailLoading ? "Starting..." : "Start Auction"}
               </Button>
             )}
             {String(selectedSession.status || "").toUpperCase() === "LIVE" && (
-              <Button variant="contained" color="error" onClick={handleClose} disabled={detailLoading}>
+              <Button variant="contained" onClick={handleClose} disabled={detailLoading} sx={{ minWidth: 140 }}>
                 {detailLoading ? "Closing..." : "Close Auction"}
               </Button>
             )}

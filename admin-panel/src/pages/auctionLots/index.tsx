@@ -201,6 +201,35 @@ const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number)
   };
 };
 
+const normalizeSessionStatus = (value: string | null | undefined) => {
+  const key = String(value || "").trim().toUpperCase();
+  if (["PLANNED", "LIVE", "PAUSED", "CLOSED", "CANCELLED"].includes(key)) return key;
+  return "";
+};
+
+const getTimeLeftPresentation = (
+  sessionStatus: string | null | undefined,
+  scheduledEnd: string | null | undefined,
+  nowMs: number
+) => {
+  const status = normalizeSessionStatus(sessionStatus);
+  if (status === "PLANNED") return { label: "Not started", tone: "muted" as const };
+  if (status === "PAUSED") return { label: "Paused", tone: "warning" as const };
+  if (status === "CLOSED") return { label: "Ended", tone: "muted" as const };
+  if (status === "CANCELLED") return { label: "Cancelled", tone: "error" as const };
+  if (status !== "LIVE") return { label: "No session timing available", tone: "muted" as const };
+
+  const countdown = formatCountdown(scheduledEnd, nowMs);
+  if (countdown.label === "No session timing available") return { label: countdown.label, tone: "muted" as const };
+  if (countdown.label === "Ended / Awaiting Close") return { label: countdown.label, tone: "error" as const };
+  const end = new Date(String(scheduledEnd || ""));
+  const diffMs = end.getTime() - nowMs;
+  if (!Number.isFinite(diffMs)) return { label: countdown.label, tone: "muted" as const };
+  if (diffMs < 2 * 60 * 1000) return { label: countdown.label, tone: "error" as const };
+  if (diffMs < 10 * 60 * 1000) return { label: countdown.label, tone: "warning" as const };
+  return { label: countdown.label, tone: "live" as const };
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -251,6 +280,10 @@ export const AuctionLots: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || selectedRow?.status || ""));
+  const isSelectedSessionLive = selectedSessionStatus === "LIVE";
+  const canStartSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "QUEUED");
+  const canFinalizeSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "LIVE");
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -380,14 +413,29 @@ export const AuctionLots: React.FC = () => {
         headerName: "Time Left",
         width: 200,
         renderCell: (params) => {
-          const countdown = formatCountdown(params.row.session_scheduled_end_time, nowMs);
+          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
+          const timeLeft = getTimeLeftPresentation(sessionStatus, params.row.session_scheduled_end_time, nowMs);
+          const color =
+            timeLeft.tone === "error"
+              ? "error.main"
+              : timeLeft.tone === "warning"
+              ? "warning.main"
+              : timeLeft.tone === "live"
+              ? "success.main"
+              : "text.secondary";
           return (
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, color: countdown.danger ? "error.main" : "text.primary" }}
-            >
-              {countdown.label}
-            </Typography>
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: timeLeft.tone === "muted" ? 500 : 700,
+                  color,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {timeLeft.label}
+              </Typography>
+            </Box>
           );
         },
       },
@@ -399,29 +447,29 @@ export const AuctionLots: React.FC = () => {
       },
       {
         field: "status",
-        headerName: "Status",
-        width: 220,
+        headerName: "Session Status",
+        width: 160,
         renderCell: (params) => {
-          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
-          const isLive = sessionStatus === "LIVE";
-          const countdown = formatCountdown(params.row.session_scheduled_end_time, nowMs);
+          const sessionStatus = normalizeSessionStatus(String(params.row.session_status || params.row.status || ""));
+          const label = sessionStatus || "—";
+          const color =
+            sessionStatus === "LIVE"
+              ? "success"
+              : sessionStatus === "PAUSED"
+              ? "warning"
+              : sessionStatus === "CANCELLED"
+              ? "error"
+              : "default";
+          const variant = sessionStatus === "PLANNED" || sessionStatus === "CLOSED" ? "outlined" : "filled";
           return (
-            <Stack direction="row" spacing={0.75} alignItems="center">
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
               <Chip
                 size="small"
-                label={sessionStatus || "—"}
-                color={isLive ? "success" : "default"}
-                variant={isLive ? "filled" : "outlined"}
+                label={label}
+                color={color as "default" | "success" | "warning" | "error"}
+                variant={variant}
               />
-              {isLive && (
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 700, color: countdown.danger ? "error.main" : "text.secondary" }}
-                >
-                  {countdown.label}
-                </Typography>
-              )}
-            </Stack>
+            </Box>
           );
         },
       },
@@ -620,6 +668,10 @@ export const AuctionLots: React.FC = () => {
   const handleStartSelectedLot = async () => {
     const username = currentUsername();
     if (!username || !selectedRow || !selectedRow.backend_lot_id || !selectedRow.session_id || !selectedRow.org_id || selectedRow.mandi_id_value == null) return;
+    if (!isSelectedSessionLive) {
+      setActionError("Auction lot can be started only when the auction session is live.");
+      return;
+    }
     setActionLoading(true);
     setActionError(null);
     try {
@@ -650,6 +702,10 @@ export const AuctionLots: React.FC = () => {
   const handleFinalizeSelectedLot = async () => {
     const username = currentUsername();
     if (!username || !selectedRow || !selectedRow.backend_lot_id || !selectedRow.session_id || !selectedRow.org_id || selectedRow.mandi_id_value == null) return;
+    if (!isSelectedSessionLive) {
+      setActionError("Auction lot cannot be finalized unless the session is live.");
+      return;
+    }
     setActionLoading(true);
     setActionError(null);
     try {
@@ -1014,7 +1070,7 @@ export const AuctionLots: React.FC = () => {
                 variant="contained"
                 size="small"
                 onClick={handleStartSelectedLot}
-                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED"}
+                disabled={actionLoading || !canStartSelectedLot}
               >
                 Start Selected Lot
               </Button>
@@ -1023,7 +1079,7 @@ export const AuctionLots: React.FC = () => {
                 size="small"
                 color="error"
                 onClick={handleFinalizeSelectedLot}
-                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "LIVE"}
+                disabled={actionLoading || !canFinalizeSelectedLot}
               >
                 Finalize Selected Lot
               </Button>
@@ -1158,6 +1214,7 @@ export const AuctionLots: React.FC = () => {
                 "& .MuiDataGrid-row": { cursor: "pointer" },
                 "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(47,166,82,0.05)" },
                 "& .MuiDataGrid-columnHeaders": { position: "sticky", top: 0, zIndex: 1 },
+                "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
               }}
             />
           </Box>

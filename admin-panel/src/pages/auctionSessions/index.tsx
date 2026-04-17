@@ -98,7 +98,7 @@ function closureModeLabel(mode?: string | null) {
 function sessionStatusHelperText(status?: string | null) {
   const normalized = String(status || "").trim().toUpperCase();
   if (normalized === "PLANNED") return "This session is created but not started yet. Bidding should remain blocked until the session is started.";
-  if (normalized === "EXPIRED") return "This session was never started and its scheduled end time has already passed.";
+  if (normalized === "EXPIRED") return "This session has not started yet. Update the schedule to continue.";
   if (normalized === "LIVE") return "This session is currently active.";
   if (normalized === "PAUSED") return "This session is currently paused.";
   if (normalized === "CLOSED") return "This session has ended.";
@@ -666,7 +666,7 @@ export const AuctionSessions: React.FC = () => {
                 </Typography>
                 {isExpiredPlanned && (
                   <Typography variant="body2" sx={{ mt: 0.8 }} color="text.secondary">
-                    Start unavailable: scheduled end time already passed.
+                    This session has not started yet. Update the schedule to continue.
                   </Typography>
                 )}
               </Box>

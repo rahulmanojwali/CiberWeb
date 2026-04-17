@@ -11,7 +11,7 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { closeAuctionSession, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
+import { closeAuctionSession, getAuctionLots, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
 
 type SessionRow = {
   id: string;
@@ -35,6 +35,10 @@ type SessionRow = {
 };
 
 type Option = { value: string; label: string };
+type CloseSummary = {
+  mappedCount: number;
+  liveCount: number;
+};
 
 function currentUsername(): string | null {
   try {
@@ -148,6 +152,9 @@ export const AuctionSessions: React.FC = () => {
     scheduled_start_time: "",
     scheduled_end_time: "",
   });
+  const [openCloseConfirm, setOpenCloseConfirm] = useState(false);
+  const [closeConfirmLoading, setCloseConfirmLoading] = useState(false);
+  const [closeSummary, setCloseSummary] = useState<CloseSummary>({ mappedCount: 0, liveCount: 0 });
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -381,7 +388,7 @@ export const AuctionSessions: React.FC = () => {
 
   const handleClose = async () => {
     const username = currentUsername();
-    if (!username || !selectedSession) return;
+    if (!username || !selectedSession) return false;
     setDetailLoading(true);
     setDetailError(null);
     try {
@@ -394,13 +401,49 @@ export const AuctionSessions: React.FC = () => {
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
         setDetailError(desc || "Failed to close session.");
-        return;
+        return false;
       }
       await loadData();
+      return true;
     } catch (err: any) {
       setDetailError(err?.message || "Failed to close session.");
+      return false;
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleOpenCloseConfirm = async () => {
+    const username = currentUsername();
+    if (!username || !selectedSession) return;
+    setDetailError(null);
+    setCloseConfirmLoading(true);
+    try {
+      const resp = await getAuctionLots({
+        username,
+        language,
+        filters: {
+          session_id: selectedSession.session_id,
+          mandi_code: selectedSession.mandi_code || undefined,
+          org_code: selectedSession.org_code || undefined,
+          page_size: 200,
+        },
+      });
+      const list: any[] = resp?.data?.items || resp?.response?.data?.items || [];
+      const liveCount = list.filter((item) => String(item?.status || "").toUpperCase() === "LIVE").length;
+      setCloseSummary({ mappedCount: list.length, liveCount });
+    } catch {
+      setCloseSummary({ mappedCount: 0, liveCount: 0 });
+    } finally {
+      setCloseConfirmLoading(false);
+      setOpenCloseConfirm(true);
+    }
+  };
+
+  const handleConfirmCloseAuction = async () => {
+    const ok = await handleClose();
+    if (ok) {
+      setOpenCloseConfirm(false);
     }
   };
 
@@ -692,11 +735,48 @@ export const AuctionSessions: React.FC = () => {
                 {detailLoading ? "Starting..." : "Start Auction"}
               </Button>
             )}
-            {String(selectedSession.status || "").toUpperCase() === "LIVE" && (
-              <Button variant="contained" onClick={handleClose} disabled={detailLoading} sx={{ minWidth: 140 }}>
-                {detailLoading ? "Closing..." : "Close Auction"}
+            {(String(selectedSession.status || "").toUpperCase() === "LIVE" || String(selectedSession.status || "").toUpperCase() === "PLANNED") && (
+              <Button variant="outlined" color="error" onClick={handleOpenCloseConfirm} disabled={detailLoading} sx={{ minWidth: 140 }}>
+                Close Auction
               </Button>
             )}
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {openCloseConfirm && selectedSession && (
+        <Dialog open={openCloseConfirm} onClose={() => setOpenCloseConfirm(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Close Auction Session?</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.25} mt={0.5}>
+              <DetailField label="Session Code" value={displayValue(selectedSession.session_code)} />
+              <DetailField label="Status" value={selectedSessionDisplayStatus} />
+              <DetailField label="Mandi" value={displayValue(selectedSession.mandi_code)} />
+              <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
+              <DetailField label="Mapped Lots" value={String(closeSummary.mappedCount)} />
+              <DetailField label="Active/Live Lots" value={String(closeSummary.liveCount)} />
+              <Typography variant="body2" color="text.secondary">
+                Closing this session will stop bidding. Mapped lots will be evaluated: lots with winning bids become SOLD and move to settlement pending, while lots without bids become UNSOLD. Results will be written to Auction Results.
+              </Typography>
+              {detailError && (
+                <Typography variant="body2" color="error">
+                  {detailError}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCloseConfirm(false)} disabled={detailLoading || closeConfirmLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmCloseAuction}
+              disabled={detailLoading || closeConfirmLoading}
+            >
+              {detailLoading ? "Closing..." : "Confirm Close"}
+            </Button>
           </DialogActions>
         </Dialog>
       )}

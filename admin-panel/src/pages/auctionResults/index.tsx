@@ -17,7 +17,9 @@ type ResultRow = {
   id: string;
   result_id: string;
   session_id?: string | null;
+  session_code?: string | null;
   lot_id?: string | null;
+  lot_code?: string | null;
   org_code?: string | null;
   mandi_code?: string | null;
   commodity?: string | null;
@@ -46,6 +48,13 @@ function formatDate(value?: string | Date | null) {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString();
+}
+
+function mapResultStatus(value?: string | null) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "CONFIRMED" || raw === "SOLD") return "SOLD";
+  if (raw === "CANCELLED" || raw === "UNSOLD") return "UNSOLD";
+  return raw || "—";
 }
 
 export const AuctionResults: React.FC = () => {
@@ -78,8 +87,8 @@ export const AuctionResults: React.FC = () => {
   const columns = useMemo<GridColDef<ResultRow>[]>(
     () => [
       { field: "result_id", headerName: "Result ID", width: 140 },
-      { field: "session_id", headerName: "Session", width: 140 },
-      { field: "lot_id", headerName: "Lot", width: 140 },
+      { field: "session_code", headerName: "Session", width: 150, valueGetter: (_v, row) => row.session_code || row.session_id || "—" },
+      { field: "lot_code", headerName: "Lot", width: 150, valueGetter: (_v, row) => row.lot_code || row.lot_id || "—" },
       { field: "org_code", headerName: "Org", width: 110 },
       { field: "mandi_code", headerName: "Mandi", width: 140 },
       { field: "commodity", headerName: "Commodity", width: 140 },
@@ -87,12 +96,12 @@ export const AuctionResults: React.FC = () => {
       { field: "winning_trader", headerName: "Winning Trader", width: 170 },
       { field: "price", headerName: "Price", width: 130 },
       { field: "quantity", headerName: "Qty", width: 110 },
-      { field: "status", headerName: "Status", width: 140 },
+      { field: "status", headerName: "Result Status", width: 140 },
       {
         field: "result_time",
-        headerName: "Timestamp",
+        headerName: "Finalised On",
         width: 180,
-        valueFormatter: (value) => formatDate(value),
+        valueFormatter: (value) => formatDate(value) || "—",
       },
     ],
     [],
@@ -130,6 +139,11 @@ export const AuctionResults: React.FC = () => {
     if (!username || !canView) return;
     setLoading(true);
     try {
+      const statusFilter = String(filters.result_status || "").toUpperCase();
+      const backendStatusFilter =
+        statusFilter === "SOLD" ? "CONFIRMED"
+          : statusFilter === "UNSOLD" ? "CANCELLED"
+            : (filters.result_status || undefined);
       const resp = filters.session_id
         ? await listAuctionResultsBySession({
             username,
@@ -138,7 +152,7 @@ export const AuctionResults: React.FC = () => {
               org_id: uiConfig.scope?.org_id || undefined,
               mandi_id: filters.mandi_code || undefined,
               session_id: filters.session_id,
-              status: filters.result_status || undefined,
+              status: backendStatusFilter,
               page_size: 100,
             },
           })
@@ -151,7 +165,7 @@ export const AuctionResults: React.FC = () => {
               commodity: filters.commodity || undefined,
               product: filters.product || undefined,
               lot_id: filters.lot_id || undefined,
-              result_status: filters.result_status || undefined,
+              result_status: backendStatusFilter,
               date_from: filters.date_from || undefined,
               date_to: filters.date_to || undefined,
               page_size: 100,
@@ -162,16 +176,18 @@ export const AuctionResults: React.FC = () => {
         id: item._id || item.result_id || `result-${idx}`,
         result_id: item.result_id || item._id || `result-${idx}`,
         session_id: item.session_id || null,
+        session_code: item.session_code || null,
         lot_id: item.lot_id || null,
+        lot_code: item.lot_code || null,
         org_code: item.org_code || null,
         mandi_code: item.mandi_code || null,
         commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
         product: item.product_name_en || item.product || item.product_code || null,
-        winning_trader: item.winner_code || item.winning_trader || item.trader || null,
+        winning_trader: item.winning_bidder_username || item.winner_code || item.winning_trader || item.trader || "—",
         price: item.final_price_per_qtl ?? item.price ?? item.winning_price ?? null,
         quantity: item.quantity ?? item.estimated_qty_kg ?? null,
-        status: item.status || null,
-        result_time: item.updated_on || item.created_on || item.result_time || item.timestamp || null,
+        status: mapResultStatus(item.status),
+        result_time: item.finalized_on || item.updated_on || item.created_on || item.result_time || item.timestamp || null,
       }));
       setRows(mapped);
     } finally {
@@ -316,8 +332,8 @@ export const AuctionResults: React.FC = () => {
           onChange={(e) => updateFilter("result_status", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="CONFIRMED">Confirmed</MenuItem>
-          <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          <MenuItem value="SOLD">Sold</MenuItem>
+          <MenuItem value="UNSOLD">Unsold</MenuItem>
         </TextField>
 
         <TextField

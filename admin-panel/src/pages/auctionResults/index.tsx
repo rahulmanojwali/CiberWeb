@@ -1,5 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -15,20 +30,33 @@ import { subscribeAuctionSession } from "../../services/socketClient";
 
 type ResultRow = {
   id: string;
-  result_id: string;
+  result_id: string | null;
   session_id?: string | null;
   session_code?: string | null;
   lot_id?: string | null;
   lot_code?: string | null;
-  org_code?: string | null;
-  mandi_code?: string | null;
-  commodity?: string | null;
-  product?: string | null;
-  winning_trader?: string | null;
-  price?: string | null;
-  quantity?: number | null;
-  status?: string | null;
-  result_time?: string | null;
+  org_id?: string | null;
+  org_name?: string | null;
+  mandi_id?: number | null;
+  mandi_name?: string | null;
+  commodity_id?: string | null;
+  commodity_name?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  winning_trader_username?: string | null;
+  winning_trader_name?: string | null;
+  result_status?: string | null;
+  qty_kg?: number | null;
+  qty_qtl?: number | null;
+  final_amount_lot?: number | null;
+  final_rate_qtl?: number | null;
+  final_rate_kg?: number | null;
+  finalized_on?: string | null;
+  closure_mode?: string | null;
+  session_method?: string | null;
+  session_status?: string | null;
+  lot_current_status?: string | null;
+  settlement_status?: string | null;
 };
 
 type Option = { value: string; label: string };
@@ -43,18 +71,72 @@ function currentUsername(): string | null {
   }
 }
 
+function toNumber(value: any): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value === "object" && value.$numberDecimal !== undefined) {
+    const parsed = Number(value.$numberDecimal);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value?.toString === "function") {
+    const parsed = Number(value.toString());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
+  if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
+  if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
 }
 
-function mapResultStatus(value?: string | null) {
+function formatNumber(value: any, digits = 2) {
+  const num = toNumber(value);
+  if (num == null) return "—";
+  return num.toLocaleString("en-IN", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
+}
+
+function formatCurrency(value: any) {
+  const num = toNumber(value);
+  if (num == null) return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(num);
+}
+
+function normalizeStatus(value?: string | null) {
   const raw = String(value || "").trim().toUpperCase();
-  if (raw === "CONFIRMED" || raw === "SOLD") return "SOLD";
-  if (raw === "CANCELLED" || raw === "UNSOLD") return "UNSOLD";
-  return raw || "—";
+  if (!raw) return "PENDING";
+  if (raw === "CONFIRMED") return "SOLD";
+  if (raw === "CANCELLED") return "UNSOLD";
+  return raw;
+}
+
+function statusChip(statusRaw?: string | null) {
+  const status = normalizeStatus(statusRaw);
+  if (status === "SOLD") return { label: "SOLD", color: "success" as const, variant: "filled" as const };
+  if (status === "UNSOLD") return { label: "UNSOLD", color: "warning" as const, variant: "outlined" as const };
+  if (status === "CANCELLED") return { label: "CANCELLED", color: "error" as const, variant: "outlined" as const };
+  return { label: status, color: "default" as const, variant: "outlined" as const };
+}
+
+function display(value: any) {
+  const text = String(value ?? "").trim();
+  if (!text || text.toLowerCase() === "null" || text.toLowerCase() === "undefined") return "—";
+  if (text === "[object Object]") return "—";
+  return text;
 }
 
 export const AuctionResults: React.FC = () => {
@@ -77,6 +159,8 @@ export const AuctionResults: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRow, setSelectedRow] = useState<ResultRow | null>(null);
 
   const canMenu = useMemo(
     () => can(uiConfig.resources, "auction_results.menu", "VIEW") || can(uiConfig.resources, "auction_results.view", "VIEW"),
@@ -86,23 +170,49 @@ export const AuctionResults: React.FC = () => {
 
   const columns = useMemo<GridColDef<ResultRow>[]>(
     () => [
-      { field: "result_id", headerName: "Result ID", width: 140 },
-      { field: "session_code", headerName: "Session", width: 150, valueGetter: (_v, row) => row.session_code || row.session_id || "—" },
-      { field: "lot_code", headerName: "Lot", width: 150, valueGetter: (_v, row) => row.lot_code || row.lot_id || "—" },
-      { field: "org_code", headerName: "Org", width: 110 },
-      { field: "mandi_code", headerName: "Mandi", width: 140 },
-      { field: "commodity", headerName: "Commodity", width: 140 },
-      { field: "product", headerName: "Product", width: 140 },
-      { field: "winning_trader", headerName: "Winning Trader", width: 170 },
-      { field: "price", headerName: "Price", width: 130 },
-      { field: "quantity", headerName: "Qty", width: 110 },
-      { field: "status", headerName: "Result Status", width: 140 },
+      { field: "result_id", headerName: "Result ID", width: 210, valueGetter: (_v, row) => display(row.result_id) },
+      { field: "session_code", headerName: "Session", width: 160, valueGetter: (_v, row) => display(row.session_code || row.session_id) },
+      { field: "lot_code", headerName: "Lot", width: 150, valueGetter: (_v, row) => display(row.lot_code || row.lot_id) },
+      { field: "org_name", headerName: "Organisation", width: 170, valueGetter: (_v, row) => display(row.org_name || row.org_id) },
+      { field: "mandi_name", headerName: "Mandi", width: 150, valueGetter: (_v, row) => display(row.mandi_name || row.mandi_id) },
+      { field: "commodity_name", headerName: "Commodity", width: 150, valueGetter: (_v, row) => display(row.commodity_name || row.commodity_id) },
+      { field: "product_name", headerName: "Product", width: 150, valueGetter: (_v, row) => display(row.product_name || row.product_id) },
       {
-        field: "result_time",
-        headerName: "Finalised On",
-        width: 180,
-        valueFormatter: (value) => formatDate(value) || "—",
+        field: "winning_trader",
+        headerName: "Winning Trader",
+        width: 210,
+        valueGetter: (_v, row) => display(row.winning_trader_name || row.winning_trader_username),
       },
+      { field: "qty_kg", headerName: "Qty (kg)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_kg) },
+      { field: "qty_qtl", headerName: "Qty (qtl)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_qtl, 4) },
+      {
+        field: "final_amount_lot",
+        headerName: "Final Amount (Lot)",
+        width: 190,
+        valueGetter: (_v, row) => formatCurrency(row.final_amount_lot),
+      },
+      {
+        field: "final_rate_qtl",
+        headerName: "Rate (/qtl)",
+        width: 150,
+        valueGetter: (_v, row) => formatCurrency(row.final_rate_qtl),
+      },
+      {
+        field: "final_rate_kg",
+        headerName: "Rate (/kg)",
+        width: 140,
+        valueGetter: (_v, row) => formatCurrency(row.final_rate_kg),
+      },
+      {
+        field: "result_status",
+        headerName: "Result",
+        width: 130,
+        renderCell: (params) => {
+          const chip = statusChip(params.row.result_status);
+          return <Chip size="small" label={chip.label} color={chip.color} variant={chip.variant} />;
+        },
+      },
+      { field: "finalized_on", headerName: "Finalized On", width: 190, valueGetter: (_v, row) => formatDate(row.finalized_on) },
     ],
     [],
   );
@@ -138,13 +248,15 @@ export const AuctionResults: React.FC = () => {
     const username = currentUsername();
     if (!username || !canView) return;
     setLoading(true);
+    setError(null);
     try {
-      const statusFilter = String(filters.result_status || "").toUpperCase();
+      const statusFilter = normalizeStatus(filters.result_status || undefined);
       const backendStatusFilter =
-        statusFilter === "SOLD" ? "CONFIRMED"
-          : statusFilter === "UNSOLD" ? "CANCELLED"
-            : (filters.result_status || undefined);
-      const resp = filters.session_id
+        statusFilter === "SOLD" ? "SOLD"
+        : statusFilter === "UNSOLD" ? "UNSOLD"
+        : (filters.result_status || undefined);
+
+      const response = filters.session_id
         ? await listAuctionResultsBySession({
             username,
             language,
@@ -164,6 +276,7 @@ export const AuctionResults: React.FC = () => {
               mandi_code: filters.mandi_code || undefined,
               commodity: filters.commodity || undefined,
               product: filters.product || undefined,
+              session_id: filters.session_id || undefined,
               lot_id: filters.lot_id || undefined,
               result_status: backendStatusFilter,
               date_from: filters.date_from || undefined,
@@ -171,25 +284,44 @@ export const AuctionResults: React.FC = () => {
               page_size: 100,
             },
           });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
+
+      const list = response?.data?.items || response?.response?.data?.items || [];
       const mapped: ResultRow[] = list.map((item: any, idx: number) => ({
-        id: item._id || item.result_id || `result-${idx}`,
-        result_id: item.result_id || item._id || `result-${idx}`,
-        session_id: item.session_id || null,
+        id: String(item.result_id || item._id || `result-${idx}`),
+        result_id: item.result_id ? String(item.result_id) : (item._id ? String(item._id) : null),
+        session_id: item.session_id ? String(item.session_id) : null,
         session_code: item.session_code || null,
-        lot_id: item.lot_id || null,
+        lot_id: item.lot_id ? String(item.lot_id) : null,
         lot_code: item.lot_code || null,
-        org_code: item.org_code || null,
-        mandi_code: item.mandi_code || null,
-        commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
-        product: item.product_name_en || item.product || item.product_code || null,
-        winning_trader: item.winning_bidder_username || item.winner_code || item.winning_trader || item.trader || "—",
-        price: item.final_price_per_qtl ?? item.price ?? item.winning_price ?? null,
-        quantity: item.quantity ?? item.estimated_qty_kg ?? null,
-        status: mapResultStatus(item.status),
-        result_time: item.finalized_on || item.updated_on || item.created_on || item.result_time || item.timestamp || null,
+        org_id: item.org_id ? String(item.org_id) : null,
+        org_name: item.org_name || null,
+        mandi_id: toNumber(item.mandi_id),
+        mandi_name: item.mandi_name || null,
+        commodity_id: item.commodity_id ? String(item.commodity_id) : null,
+        commodity_name: item.commodity_name || null,
+        product_id: item.product_id ? String(item.product_id) : null,
+        product_name: item.product_name || null,
+        winning_trader_username: item.winning_trader_username || null,
+        winning_trader_name: item.winning_trader_name || null,
+        result_status: normalizeStatus(item.result_status || item.status),
+        qty_kg: toNumber(item.qty_kg),
+        qty_qtl: toNumber(item.qty_qtl),
+        final_amount_lot: toNumber(item.final_amount_lot),
+        final_rate_qtl: toNumber(item.final_rate_qtl),
+        final_rate_kg: toNumber(item.final_rate_kg),
+        finalized_on: item.finalized_on || null,
+        closure_mode: item.closure_mode || null,
+        session_method: item.session_method || null,
+        session_status: item.session_status || null,
+        lot_current_status: item.lot_current_status || null,
+        settlement_status: item.settlement_status || null,
       }));
+
       setRows(mapped);
+      setSelectedRow((prev) => mapped.find((row) => row.id === prev?.id) || null);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load auction results.");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -202,7 +334,19 @@ export const AuctionResults: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lot_id, filters.result_status, filters.date_from, filters.date_to, language, canView]);
+  }, [
+    filters.org_code,
+    filters.mandi_code,
+    filters.commodity,
+    filters.product,
+    filters.session_id,
+    filters.lot_id,
+    filters.result_status,
+    filters.date_from,
+    filters.date_to,
+    language,
+    canView,
+  ]);
 
   useEffect(() => {
     if (!canView || !filters.session_id) return;
@@ -211,25 +355,43 @@ export const AuctionResults: React.FC = () => {
       if (!payload?.session_id || String(payload.session_id) !== String(filters.session_id)) return;
       void loadData();
     };
+
     subscribeAuctionSession(
       { sessionId: filters.session_id, mandiId: filters.mandi_code || undefined },
       {
         "auction.result.finalized": reload,
         "auction.session.updated": reload,
         "auction.lot.updated": reload,
-      }
-    ).then((cleanup) => {
-      unsubscribe = cleanup;
-    }).catch((err) => {
-      if (import.meta.env.DEV) console.debug("[auctionResults] realtime subscribe failed", err);
-    });
+      },
+    )
+      .then((cleanup) => {
+        unsubscribe = cleanup;
+      })
+      .catch((err) => {
+        if (import.meta.env.DEV) console.debug("[auctionResults] realtime subscribe failed", err);
+      });
+
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [canView, filters.session_id, filters.mandi_code, language]);
+  }, [canView, filters.session_id, filters.mandi_code]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      org_code: "",
+      mandi_code: "",
+      commodity: "",
+      product: "",
+      session_id: "",
+      lot_id: "",
+      result_status: "",
+      date_from: "",
+      date_to: "",
+    });
   };
 
   if (!canMenu || !canView) {
@@ -240,13 +402,15 @@ export const AuctionResults: React.FC = () => {
     );
   }
 
+  const selectedChip = statusChip(selectedRow?.result_status);
+
   return (
     <PageContainer>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionResults", { defaultValue: "Auction Results" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Final auction results and winners. Use session filter for the stable session-scoped result feed.
+            Post-auction outcomes with lot/session context, pricing, and winner details.
           </Typography>
         </Stack>
         <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
@@ -254,118 +418,154 @@ export const AuctionResults: React.FC = () => {
         </Button>
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        mb={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
-        flexWrap="wrap"
-      >
-        {uiConfig.role === "SUPER_ADMIN" && (
-          <TextField
-            select
-            label="Organisation"
-            size="small"
-            sx={{ minWidth: 200 }}
-            value={filters.org_code}
-            onChange={(e) => updateFilter("org_code", e.target.value)}
-          >
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Filter Auction Results
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="text" onClick={clearFilters}>Clear</Button>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+              Apply / Refresh
+            </Button>
+          </Stack>
+        </Stack>
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(180px, 1fr))", lg: "repeat(4, minmax(180px, 1fr))" },
+            gap: 1.5,
+          }}
+        >
+          {uiConfig.role === "SUPER_ADMIN" && (
+            <TextField select label="Organisation" size="small" value={filters.org_code} onChange={(e) => updateFilter("org_code", e.target.value)} fullWidth>
+              <MenuItem value="">All</MenuItem>
+              {orgOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          <TextField select label="Mandi" size="small" value={filters.mandi_code} onChange={(e) => updateFilter("mandi_code", e.target.value)} fullWidth>
             <MenuItem value="">All</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
-              </MenuItem>
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
             ))}
           </TextField>
-        )}
 
-        <TextField
-          select
-          label="Mandi"
-          size="small"
-          sx={{ minWidth: 180 }}
-          value={filters.mandi_code}
-          onChange={(e) => updateFilter("mandi_code", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          {mandiOptions.map((m) => (
-            <MenuItem key={m.value} value={m.value}>
-              {m.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth />
+          <TextField label="Lot ID / Lot Code" size="small" value={filters.lot_id} onChange={(e) => updateFilter("lot_id", e.target.value)} fullWidth />
+          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth />
+          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth />
 
-        <TextField
-          label="Session ID"
-          size="small"
-          value={filters.session_id}
-          onChange={(e) => updateFilter("session_id", e.target.value)}
-        />
+          <TextField select label="Result Status" size="small" value={filters.result_status} onChange={(e) => updateFilter("result_status", e.target.value)} fullWidth>
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="SOLD">Sold</MenuItem>
+            <MenuItem value="UNSOLD">Unsold</MenuItem>
+            <MenuItem value="PENDING">Pending</MenuItem>
+            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          </TextField>
 
-        <TextField
-          label="Lot ID"
-          size="small"
-          value={filters.lot_id}
-          onChange={(e) => updateFilter("lot_id", e.target.value)}
-        />
+          <TextField label="Date From" type="date" size="small" value={filters.date_from} onChange={(e) => updateFilter("date_from", e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
+          <TextField label="Date To" type="date" size="small" value={filters.date_to} onChange={(e) => updateFilter("date_to", e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
+        </Box>
+      </Paper>
 
-        <TextField
-          label="Commodity"
-          size="small"
-          value={filters.commodity}
-          onChange={(e) => updateFilter("commodity", e.target.value)}
-        />
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <TextField
-          label="Product"
-          size="small"
-          value={filters.product}
-          onChange={(e) => updateFilter("product", e.target.value)}
-        />
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        {loading && <LinearProgress />}
+        <Box sx={{ p: 1.5, pb: 0 }}>
+          <Typography variant="subtitle2" color="text.secondary">Auction Results List</Typography>
+        </Box>
+        <Box sx={{ px: 1.5, pb: 1.5 }}>
+          <ResponsiveDataGrid
+            rows={rows}
+            columns={columns}
+            loading={loading}
+            getRowId={(r) => r.id}
+            disableRowSelectionOnClick
+            pageSizeOptions={[25, 50, 100]}
+            initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+            minWidth={1350}
+            onRowClick={(params) => setSelectedRow(params.row as ResultRow)}
+            sx={{
+              "& .MuiDataGrid-row": { cursor: "pointer" },
+              "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(47,166,82,0.05)" },
+              "& .MuiDataGrid-columnHeaders": { position: "sticky", top: 0, zIndex: 1 },
+              "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
+            }}
+          />
+        </Box>
+      </Paper>
 
-        <TextField
-          select
-          label="Result Status"
-          size="small"
-          sx={{ minWidth: 150 }}
-          value={filters.result_status}
-          onChange={(e) => updateFilter("result_status", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="SOLD">Sold</MenuItem>
-          <MenuItem value="UNSOLD">Unsold</MenuItem>
-        </TextField>
+      {!loading && rows.length === 0 && (
+        <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            No auction results found for the selected filters.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Try changing mandi/session/date filters or finalize an auction lot first.
+          </Typography>
+        </Paper>
+      )}
 
-        <TextField
-          label="Date From"
-          type="date"
-          size="small"
-          value={filters.date_from}
-          onChange={(e) => updateFilter("date_from", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label="Date To"
-          type="date"
-          size="small"
-          value={filters.date_to}
-          onChange={(e) => updateFilter("date_to", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-      </Stack>
+      <Dialog open={Boolean(selectedRow)} onClose={() => setSelectedRow(null)} fullWidth maxWidth="md">
+        <DialogTitle>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
+            <Typography variant="h6">Auction Result Detail</Typography>
+            <Chip size="small" label={selectedChip.label} color={selectedChip.color} variant={selectedChip.variant} />
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Section A — Result Summary</Typography>
+              <Typography variant="body2"><strong>Result ID:</strong> {display(selectedRow?.result_id)}</Typography>
+              <Typography variant="body2"><strong>Result Status:</strong> {display(selectedRow?.result_status)}</Typography>
+              <Typography variant="body2"><strong>Finalized On:</strong> {formatDate(selectedRow?.finalized_on)}</Typography>
+            </Paper>
 
-      <Box sx={{ width: "100%" }}>
-        <ResponsiveDataGrid
-          rows={rows}
-          columns={columns}
-          loading={loading}
-          getRowId={(r) => r.id}
-          disableRowSelectionOnClick
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-          minWidth={960}
-        />
-      </Box>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Section B — Session / Lot</Typography>
+              <Typography variant="body2"><strong>Session Code:</strong> {display(selectedRow?.session_code || selectedRow?.session_id)}</Typography>
+              <Typography variant="body2"><strong>Lot Code:</strong> {display(selectedRow?.lot_code || selectedRow?.lot_id)}</Typography>
+              <Typography variant="body2"><strong>Method:</strong> {display(selectedRow?.session_method)}</Typography>
+              <Typography variant="body2"><strong>Session Status:</strong> {display(selectedRow?.session_status)}</Typography>
+              <Typography variant="body2"><strong>Mandi:</strong> {display(selectedRow?.mandi_name || selectedRow?.mandi_id)}</Typography>
+              <Typography variant="body2"><strong>Organisation:</strong> {display(selectedRow?.org_name || selectedRow?.org_id)}</Typography>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Section C — Commodity / Quantity</Typography>
+              <Typography variant="body2"><strong>Commodity:</strong> {display(selectedRow?.commodity_name || selectedRow?.commodity_id)}</Typography>
+              <Typography variant="body2"><strong>Product:</strong> {display(selectedRow?.product_name || selectedRow?.product_id)}</Typography>
+              <Typography variant="body2"><strong>Qty (kg):</strong> {formatNumber(selectedRow?.qty_kg)}</Typography>
+              <Typography variant="body2"><strong>Qty (qtl):</strong> {formatNumber(selectedRow?.qty_qtl, 4)}</Typography>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Section D — Price / Outcome</Typography>
+              <Typography variant="body2"><strong>Final Amount (Lot):</strong> {formatCurrency(selectedRow?.final_amount_lot)}</Typography>
+              <Typography variant="body2"><strong>Rate (/qtl):</strong> {formatCurrency(selectedRow?.final_rate_qtl)}</Typography>
+              <Typography variant="body2"><strong>Rate (/kg):</strong> {formatCurrency(selectedRow?.final_rate_kg)}</Typography>
+              <Typography variant="body2"><strong>Winning Trader:</strong> {display(selectedRow?.winning_trader_name)}</Typography>
+              <Typography variant="body2"><strong>Winning Trader Username:</strong> {display(selectedRow?.winning_trader_username)}</Typography>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Section E — Lifecycle / Follow-up</Typography>
+              <Typography variant="body2"><strong>Settlement Status:</strong> {display(selectedRow?.settlement_status)}</Typography>
+              <Typography variant="body2"><strong>Lot Current Status:</strong> {display(selectedRow?.lot_current_status)}</Typography>
+              <Typography variant="body2"><strong>Closure Mode:</strong> {display(selectedRow?.closure_mode)}</Typography>
+            </Paper>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSelectedRow(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 };

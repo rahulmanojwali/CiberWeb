@@ -49,6 +49,22 @@ export const closeAuctionSession = async ({
     session_id,
   });
 
+export const rescheduleAuctionSession = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.rescheduleAuctionSession, {
+    api: API_TAGS.AUCTION_OPS.SESSIONS.reschedule,
+    username,
+    language,
+    ...payload,
+  });
+
 export const createAuctionSession = async ({
   username,
   language = DEFAULT_LANGUAGE,

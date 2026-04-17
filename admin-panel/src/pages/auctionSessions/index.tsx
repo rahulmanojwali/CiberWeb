@@ -11,7 +11,7 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { closeAuctionSession, getAuctionSessions, startAuctionSession } from "../../services/auctionOpsApi";
+import { closeAuctionSession, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
 
 type SessionRow = {
   id: string;
@@ -22,6 +22,7 @@ type SessionRow = {
   method?: string | null;
   round?: string | null;
   status?: string | null;
+  derived_status?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   closure_mode?: string | null;
@@ -59,12 +60,26 @@ function formatDate(value?: string | Date | null) {
 }
 
 function deriveDisplayStatus(session: SessionRow, nowMs: number) {
+  const backendDerived = String(session.derived_status || "").trim().toUpperCase();
+  if (backendDerived === "EXPIRED") return "EXPIRED";
   const base = String(session.status || "PLANNED").trim().toUpperCase();
   if (base === "PLANNED" && session.scheduled_end_time) {
     const scheduledEnd = new Date(session.scheduled_end_time);
     if (!Number.isNaN(scheduledEnd.getTime()) && nowMs > scheduledEnd.getTime()) return "EXPIRED";
   }
   return base;
+}
+
+function toDateTimeInputValue(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function displayValue(value?: string | null) {
@@ -126,6 +141,13 @@ export const AuctionSessions: React.FC = () => {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [openReschedule, setOpenReschedule] = useState(false);
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({
+    scheduled_start_time: "",
+    scheduled_end_time: "",
+  });
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -140,6 +162,7 @@ export const AuctionSessions: React.FC = () => {
     [uiConfig.resources],
   );
   const canView = useMemo(() => can(uiConfig.resources, "auction_sessions.list", "VIEW"), [uiConfig.resources]);
+  const canUpdateSessions = useMemo(() => can(uiConfig.resources, "auction_sessions.update", "UPDATE"), [uiConfig.resources]);
 
   const statusColor = (status?: string | null) => {
     const s = String(status || "").toUpperCase();
@@ -247,6 +270,7 @@ export const AuctionSessions: React.FC = () => {
         method: item.method || item.method_code || null,
         round: item.round || item.round_code || null,
         status: item.status || null,
+        derived_status: item.derived_status || null,
         start_time: item.start_time || item.start || null,
         end_time: item.end_time || item.end || null,
         closure_mode: item.closure_mode || "MANUAL_OR_AUTO",
@@ -380,8 +404,56 @@ export const AuctionSessions: React.FC = () => {
     }
   };
 
+  const handleOpenReschedule = () => {
+    if (!selectedSession) return;
+    setRescheduleError(null);
+    setRescheduleForm({
+      scheduled_start_time: toDateTimeInputValue(selectedSession.scheduled_start_time || null),
+      scheduled_end_time: toDateTimeInputValue(selectedSession.scheduled_end_time || null),
+    });
+    setOpenReschedule(true);
+  };
+
+  const handleSubmitReschedule = async () => {
+    const username = currentUsername();
+    if (!username || !selectedSession) return;
+    setRescheduleLoading(true);
+    setRescheduleError(null);
+    try {
+      const payload: Record<string, any> = { session_id: selectedSession.session_id };
+      if (rescheduleForm.scheduled_start_time) payload.scheduled_start_time = new Date(rescheduleForm.scheduled_start_time).toISOString();
+      if (rescheduleForm.scheduled_end_time) payload.scheduled_end_time = new Date(rescheduleForm.scheduled_end_time).toISOString();
+      const resp: any = await rescheduleAuctionSession({
+        username,
+        language,
+        payload,
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setRescheduleError(desc || "Failed to reschedule session.");
+        return;
+      }
+      setOpenReschedule(false);
+      await loadData();
+    } catch (err: any) {
+      setRescheduleError(err?.message || "Failed to reschedule session.");
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
   const selectedSessionDisplayStatus = selectedSession ? deriveDisplayStatus(selectedSession, nowMs) : "PLANNED";
   const isExpiredPlanned = selectedSessionDisplayStatus === "EXPIRED";
+  const selectedRole = String(uiConfig.role || "").toUpperCase();
+  const roleCanReschedule = ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"].includes(selectedRole);
+  const canRescheduleSelected = Boolean(
+    selectedSession &&
+    canUpdateSessions &&
+    roleCanReschedule &&
+    String(selectedSession.status || "").toUpperCase() === "PLANNED" &&
+    !selectedSession.start_time
+  );
 
   return (
     <PageContainer>
@@ -610,6 +682,11 @@ export const AuctionSessions: React.FC = () => {
             <Button onClick={() => setOpenDetail(false)} disabled={detailLoading} color="inherit">
               Close
             </Button>
+            {canRescheduleSelected && (
+              <Button variant="outlined" onClick={handleOpenReschedule} disabled={detailLoading}>
+                Reschedule
+              </Button>
+            )}
             {String(selectedSession.status || "").toUpperCase() === "PLANNED" && !isExpiredPlanned && (
               <Button variant="contained" onClick={handleStart} disabled={detailLoading} sx={{ minWidth: 140 }}>
                 {detailLoading ? "Starting..." : "Start Auction"}
@@ -620,6 +697,53 @@ export const AuctionSessions: React.FC = () => {
                 {detailLoading ? "Closing..." : "Close Auction"}
               </Button>
             )}
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {openReschedule && selectedSession && (
+        <Dialog open={openReschedule} onClose={() => setOpenReschedule(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Reschedule Session</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} mt={1}>
+              <Typography variant="body2" color="text.secondary">
+                You can reschedule only before the auction session starts.
+              </Typography>
+              {isExpiredPlanned && (
+                <Typography variant="body2" color="text.secondary">
+                  This session missed its scheduled window. Reschedule it to make it startable again.
+                </Typography>
+              )}
+              <TextField
+                label="Scheduled Start"
+                type="datetime-local"
+                value={rescheduleForm.scheduled_start_time}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                label="Scheduled End"
+                type="datetime-local"
+                value={rescheduleForm.scheduled_end_time}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              {rescheduleError && (
+                <Typography variant="body2" color="error">
+                  {rescheduleError}
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenReschedule(false)} disabled={rescheduleLoading}>
+              Close
+            </Button>
+            <Button variant="contained" onClick={handleSubmitReschedule} disabled={rescheduleLoading || (!rescheduleForm.scheduled_start_time && !rescheduleForm.scheduled_end_time)}>
+              {rescheduleLoading ? "Saving..." : "Save Reschedule"}
+            </Button>
           </DialogActions>
         </Dialog>
       )}

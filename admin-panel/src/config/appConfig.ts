@@ -140,6 +140,7 @@ export const API_TAGS = {
     SESSIONS: {
       list: "getAuctionSessions",
       start: "startAuctionSession",
+      reschedule: "rescheduleAuctionSession",
       close: "closeAuctionSession",
     },
     LOTS: {
@@ -548,6 +549,7 @@ export const API_ROUTES = {
     updateFarmerStatus: "/admin/updateFarmerStatus",
     getAuctionSessions: "/admin/getAuctionSessions",
     startAuctionSession: "/admin/startAuctionSession",
+    rescheduleAuctionSession: "/admin/rescheduleAuctionSession",
     closeAuctionSession: "/admin/closeAuctionSession",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",

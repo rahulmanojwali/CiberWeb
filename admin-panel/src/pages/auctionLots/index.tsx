@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -45,6 +46,10 @@ type LotRow = {
   quantity?: number | null;
   status?: string | null;
   base_price?: number | null;
+  session_start_time?: string | null;
+  session_scheduled_end_time?: string | null;
+  session_closure_mode?: string | null;
+  session_status?: string | null;
   created_on?: string | null;
 };
 
@@ -166,6 +171,36 @@ const closureModeHelperText = (closureMode: string) => {
   return "Auto close at scheduled end time or manual close earlier. Scheduled end is required.";
 };
 
+const closureModeLabel = (mode: string | null | undefined) => {
+  const key = String(mode || "").trim().toUpperCase();
+  if (key === "MANUAL_ONLY") return "Manual";
+  if (key === "AUTO_AT_END_TIME") return "Auto";
+  if (key === "MANUAL_OR_AUTO") return "Manual + Auto";
+  return "—";
+};
+
+const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number) => {
+  if (!scheduledEnd) {
+    return { label: "No session timing available", danger: false };
+  }
+  const end = new Date(scheduledEnd);
+  if (Number.isNaN(end.getTime())) {
+    return { label: "No session timing available", danger: false };
+  }
+  const diffMs = end.getTime() - nowMs;
+  if (diffMs <= 0) {
+    return { label: "Ended / Awaiting Close", danger: true };
+  }
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+  const danger = diffMs < 10 * 60 * 1000;
+  return {
+    label: `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+    danger,
+  };
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -215,6 +250,7 @@ export const AuctionLots: React.FC = () => {
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -327,7 +363,68 @@ export const AuctionLots: React.FC = () => {
           return `₹${formatInr(value)}`;
         },
       },
-      { field: "status", headerName: "Status", width: 140 },
+      {
+        field: "start_time",
+        headerName: "Start Time",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.session_start_time) || "—",
+      },
+      {
+        field: "end_time",
+        headerName: "End Time",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
+      },
+      {
+        field: "time_left",
+        headerName: "Time Left",
+        width: 200,
+        renderCell: (params) => {
+          const countdown = formatCountdown(params.row.session_scheduled_end_time, nowMs);
+          return (
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 600, color: countdown.danger ? "error.main" : "text.primary" }}
+            >
+              {countdown.label}
+            </Typography>
+          );
+        },
+      },
+      {
+        field: "closure_mode",
+        headerName: "Closure Mode",
+        width: 140,
+        valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 220,
+        renderCell: (params) => {
+          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
+          const isLive = sessionStatus === "LIVE";
+          const countdown = formatCountdown(params.row.session_scheduled_end_time, nowMs);
+          return (
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Chip
+                size="small"
+                label={sessionStatus || "—"}
+                color={isLive ? "success" : "default"}
+                variant={isLive ? "filled" : "outlined"}
+              />
+              {isLive && (
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 700, color: countdown.danger ? "error.main" : "text.secondary" }}
+                >
+                  {countdown.label}
+                </Typography>
+              )}
+            </Stack>
+          );
+        },
+      },
       {
         field: "created_on",
         headerName: "Created On",
@@ -335,7 +432,7 @@ export const AuctionLots: React.FC = () => {
         valueFormatter: (value) => formatDate(value),
       },
     ],
-    [],
+    [nowMs],
   );
 
   const loadOrganisations = async () => {
@@ -462,6 +559,10 @@ export const AuctionLots: React.FC = () => {
         quantity: item.estimated_qty_kg ?? item.quantity ?? null,
         base_price: parseDecimal(item.start_price_per_qtl) ?? item.base_price ?? null,
         status: item.status || null,
+        session_start_time: item?.session?.start_time || item?.session_start_time || item?.start_time || null,
+        session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
+        session_closure_mode: item?.session?.closure_mode || item?.session_closure_mode || item?.closure_mode || null,
+        session_status: item?.session?.status || item?.session_status || null,
         created_on: item.created_on || item.createdAt || null,
       }));
       if (import.meta.env.DEV) {
@@ -740,6 +841,11 @@ export const AuctionLots: React.FC = () => {
     loadOrganisations();
     loadMandis();
   }, [language, uiConfig.role]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setFilters((prev) => {

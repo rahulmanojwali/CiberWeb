@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
@@ -58,18 +58,13 @@ function formatDate(value?: string | Date | null) {
   }).format(d);
 }
 
-function isAutoClosureMode(mode?: string | null) {
-  const raw = String(mode || "").trim().toUpperCase();
-  return raw === "AUTO_AT_END_TIME" || raw === "MANUAL_OR_AUTO";
-}
-
-function isOverdueSession(session: SessionRow) {
-  if (String(session.status || "").toUpperCase() !== "LIVE") return false;
-  if (!isAutoClosureMode(session.closure_mode)) return false;
-  if (!session.scheduled_end_time) return false;
-  const end = new Date(session.scheduled_end_time);
-  if (Number.isNaN(end.getTime())) return false;
-  return Date.now() > end.getTime();
+function deriveDisplayStatus(session: SessionRow, nowMs: number) {
+  const base = String(session.status || "PLANNED").trim().toUpperCase();
+  if (base === "PLANNED" && session.scheduled_end_time) {
+    const scheduledEnd = new Date(session.scheduled_end_time);
+    if (!Number.isNaN(scheduledEnd.getTime()) && nowMs > scheduledEnd.getTime()) return "EXPIRED";
+  }
+  return base;
 }
 
 function displayValue(value?: string | null) {
@@ -88,6 +83,7 @@ function closureModeLabel(mode?: string | null) {
 function sessionStatusHelperText(status?: string | null) {
   const normalized = String(status || "").trim().toUpperCase();
   if (normalized === "PLANNED") return "This session is created but not started yet. Bidding should remain blocked until the session is started.";
+  if (normalized === "EXPIRED") return "This session was never started and its scheduled end time has already passed.";
   if (normalized === "LIVE") return "This session is currently active.";
   if (normalized === "PAUSED") return "This session is currently paused.";
   if (normalized === "CLOSED") return "This session has ended.";
@@ -129,6 +125,7 @@ export const AuctionSessions: React.FC = () => {
   const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -144,6 +141,15 @@ export const AuctionSessions: React.FC = () => {
   );
   const canView = useMemo(() => can(uiConfig.resources, "auction_sessions.list", "VIEW"), [uiConfig.resources]);
 
+  const statusColor = (status?: string | null) => {
+    const s = String(status || "").toUpperCase();
+    if (s === "LIVE") return "success";
+    if (s === "EXPIRED" || s === "CANCELLED") return "error";
+    if (s === "PAUSED" || s === "PLANNED") return "warning";
+    if (s === "CLOSED") return "default";
+    return "default";
+  };
+
   const columns = useMemo<GridColDef<SessionRow>[]>(
     () => [
       { field: "session_code", headerName: "Session Code", width: 170, valueGetter: (_v, row) => row.session_code || row.session_id },
@@ -158,16 +164,8 @@ export const AuctionSessions: React.FC = () => {
         width: 190,
         renderCell: (params) => {
           const row = params.row as SessionRow;
-          const baseStatus = String(row.status || "PLANNED").toUpperCase();
-          if (isOverdueSession(row)) {
-            return (
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Chip size="small" label={baseStatus} color={statusColor(baseStatus)} />
-                <Chip size="small" label="OVERDUE" color="warning" variant="outlined" />
-              </Stack>
-            );
-          }
-          return <Chip size="small" label={baseStatus} color={statusColor(baseStatus)} />;
+          const derivedStatus = deriveDisplayStatus(row, nowMs);
+          return <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />;
         },
       },
       { field: "closure_mode", headerName: "Closure Mode", width: 170, valueGetter: (v) => v || "MANUAL_OR_AUTO" },
@@ -181,16 +179,16 @@ export const AuctionSessions: React.FC = () => {
         field: "start_time",
         headerName: "Start",
         width: 180,
-        valueFormatter: (value) => formatDate(value),
+        valueFormatter: (value) => formatDate(value) || "—",
       },
       {
         field: "end_time",
         headerName: "End",
         width: 180,
-        valueFormatter: (value) => formatDate(value),
+        valueFormatter: (value) => formatDate(value) || "—",
       },
     ],
-    [],
+    [nowMs],
   );
 
   const loadOrganisations = async () => {
@@ -273,6 +271,11 @@ export const AuctionSessions: React.FC = () => {
     loadOrganisations();
     loadMandis();
   }, [language, uiConfig.role]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setFilters((prev) => {
@@ -377,14 +380,8 @@ export const AuctionSessions: React.FC = () => {
     }
   };
 
-  const statusColor = (status?: string | null) => {
-    const s = String(status || "").toUpperCase();
-    if (s === "LIVE") return "success";
-    if (s === "CANCELLED") return "error";
-    if (s === "PAUSED" || s === "PLANNED") return "warning";
-    if (s === "CLOSED") return "default";
-    return "warning";
-  };
+  const selectedSessionDisplayStatus = selectedSession ? deriveDisplayStatus(selectedSession, nowMs) : "PLANNED";
+  const isExpiredPlanned = selectedSessionDisplayStatus === "EXPIRED";
 
   return (
     <PageContainer>
@@ -405,95 +402,101 @@ export const AuctionSessions: React.FC = () => {
         </Button>
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        mb={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
-        flexWrap="wrap"
-      >
-        {uiConfig.role === "SUPER_ADMIN" && (
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Filter Sessions
+          </Typography>
+        </Stack>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(190px, 1fr))", lg: "repeat(4, minmax(190px, 1fr))" },
+            gap: 1.5,
+          }}
+        >
+          {uiConfig.role === "SUPER_ADMIN" && (
+            <TextField
+              select
+              label="Organisation"
+              size="small"
+              value={filters.org_code}
+              onChange={(e) => updateFilter("org_code", e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              {orgOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
           <TextField
             select
-            label="Organisation"
+            label="Mandi"
             size="small"
-            sx={{ minWidth: 200 }}
-            value={filters.org_code}
-            onChange={(e) => updateFilter("org_code", e.target.value)}
+            value={filters.mandi_code}
+            onChange={(e) => updateFilter("mandi_code", e.target.value)}
           >
             <MenuItem value="">All</MenuItem>
-            {orgOptions.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
+            {mandiOptions.map((m) => (
+              <MenuItem key={m.value} value={m.value}>
+                {m.label}
               </MenuItem>
             ))}
           </TextField>
-        )}
 
-        <TextField
-          select
-          label="Mandi"
-          size="small"
-          sx={{ minWidth: 180 }}
-          value={filters.mandi_code}
-          onChange={(e) => updateFilter("mandi_code", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          {mandiOptions.map((m) => (
-            <MenuItem key={m.value} value={m.value}>
-              {m.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          <TextField
+            select
+            label="Status"
+            size="small"
+            value={filters.status}
+            onChange={(e) => updateFilter("status", e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="PLANNED">Planned</MenuItem>
+            <MenuItem value="LIVE">Live</MenuItem>
+            <MenuItem value="PAUSED">Paused</MenuItem>
+            <MenuItem value="CLOSED">Closed</MenuItem>
+            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+          </TextField>
 
-        <TextField
-          select
-          label="Status"
-          size="small"
-          sx={{ minWidth: 150 }}
-          value={filters.status}
-          onChange={(e) => updateFilter("status", e.target.value)}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="PLANNED">Planned</MenuItem>
-          <MenuItem value="LIVE">Live</MenuItem>
-          <MenuItem value="CLOSED">Closed</MenuItem>
-          <MenuItem value="CANCELLED">Cancelled</MenuItem>
-        </TextField>
+          <TextField
+            label="Method"
+            size="small"
+            value={filters.method}
+            onChange={(e) => updateFilter("method", e.target.value)}
+          />
 
-        <TextField
-          label="Method"
-          size="small"
-          value={filters.method}
-          onChange={(e) => updateFilter("method", e.target.value)}
-        />
+          <TextField
+            label="Round"
+            size="small"
+            value={filters.round}
+            onChange={(e) => updateFilter("round", e.target.value)}
+          />
 
-        <TextField
-          label="Round"
-          size="small"
-          value={filters.round}
-          onChange={(e) => updateFilter("round", e.target.value)}
-        />
+          <TextField
+            label="Date From"
+            type="date"
+            size="small"
+            value={filters.date_from}
+            onChange={(e) => updateFilter("date_from", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label="Date To"
+            type="date"
+            size="small"
+            value={filters.date_to}
+            onChange={(e) => updateFilter("date_to", e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Box>
+      </Paper>
 
-        <TextField
-          label="Date From"
-          type="date"
-          size="small"
-          value={filters.date_from}
-          onChange={(e) => updateFilter("date_from", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <TextField
-          label="Date To"
-          type="date"
-          size="small"
-          value={filters.date_to}
-          onChange={(e) => updateFilter("date_to", e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-      </Stack>
-
-      <Box sx={{ width: "100%" }}>
+      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+        <Box sx={{ width: "100%" }}>
         <ResponsiveDataGrid
           rows={rows}
           columns={columns}
@@ -508,8 +511,21 @@ export const AuctionSessions: React.FC = () => {
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           minWidth={960}
+          sx={{
+            "& .MuiDataGrid-cell": { alignItems: "center", py: 0.6 },
+            "& .MuiDataGrid-columnHeaders": { borderBottom: "1px solid", borderColor: "divider" },
+            "& .MuiDataGrid-row:hover": { backgroundColor: "action.hover", cursor: "pointer" },
+          }}
         />
-      </Box>
+        </Box>
+        {!loading && rows.length === 0 && (
+          <Box sx={{ py: 4, textAlign: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              No auction sessions found for selected filters.
+            </Typography>
+          </Box>
+        )}
+      </Paper>
 
       {openDetail && selectedSession && (
         <Dialog open={openDetail} onClose={() => setOpenDetail(false)} fullWidth maxWidth="md">
@@ -523,8 +539,8 @@ export const AuctionSessions: React.FC = () => {
               </Stack>
               <Chip
                 size="small"
-                label={(selectedSession.status || "PLANNED").toUpperCase()}
-                color={statusColor(selectedSession.status)}
+                label={selectedSessionDisplayStatus}
+                color={statusColor(selectedSessionDisplayStatus)}
                 sx={{ alignSelf: "center", fontWeight: 700 }}
               />
             </Stack>
@@ -574,8 +590,13 @@ export const AuctionSessions: React.FC = () => {
                   Session Progress
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {sessionStatusHelperText(selectedSession.status)}
+                  {sessionStatusHelperText(selectedSessionDisplayStatus)}
                 </Typography>
+                {isExpiredPlanned && (
+                  <Typography variant="body2" sx={{ mt: 0.8 }} color="text.secondary">
+                    Start unavailable: scheduled end time already passed.
+                  </Typography>
+                )}
               </Box>
 
               {detailError && (
@@ -589,7 +610,7 @@ export const AuctionSessions: React.FC = () => {
             <Button onClick={() => setOpenDetail(false)} disabled={detailLoading} color="inherit">
               Close
             </Button>
-            {String(selectedSession.status || "").toUpperCase() === "PLANNED" && (
+            {String(selectedSession.status || "").toUpperCase() === "PLANNED" && !isExpiredPlanned && (
               <Button variant="contained" onClick={handleStart} disabled={detailLoading} sx={{ minWidth: 140 }}>
                 {detailLoading ? "Starting..." : "Start Auction"}
               </Button>

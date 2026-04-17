@@ -50,6 +50,14 @@ type LotRow = {
   session_scheduled_end_time?: string | null;
   session_closure_mode?: string | null;
   session_status?: string | null;
+  is_active_lot?: "Y" | "N" | null;
+  lot_phase?: string | null;
+  session_has_active_lot?: boolean | null;
+  session_no_active_lot?: boolean | null;
+  session_remaining_lot_count?: number | null;
+  session_ready_to_close?: boolean | null;
+  session_active_lot_id?: string | null;
+  session_next_queued_lot_id?: string | null;
   created_on?: string | null;
 };
 
@@ -280,10 +288,15 @@ export const AuctionLots: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || selectedRow?.status || ""));
+  const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || ""));
   const isSelectedSessionLive = selectedSessionStatus === "LIVE";
   const canStartSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "QUEUED");
-  const canFinalizeSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "LIVE");
+  const canFinalizeSelectedLot = Boolean(
+    selectedRow &&
+    isSelectedSessionLive &&
+    String(selectedRow.status || "").toUpperCase() === "LIVE" &&
+    String(selectedRow.is_active_lot || "N").toUpperCase() === "Y"
+  );
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -446,11 +459,56 @@ export const AuctionLots: React.FC = () => {
         valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
       },
       {
-        field: "status",
+        field: "lot_status",
+        headerName: "Lot Status",
+        width: 150,
+        renderCell: (params) => {
+          const lotStatus = String(params.row.status || "").toUpperCase() || "—";
+          const color =
+            lotStatus === "LIVE"
+              ? "success"
+              : lotStatus === "QUEUED"
+              ? "warning"
+              : lotStatus === "SOLD"
+              ? "success"
+              : lotStatus === "UNSOLD"
+              ? "default"
+              : "default";
+          const variant = lotStatus === "LIVE" ? "filled" : "outlined";
+          return (
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+              <Chip
+                size="small"
+                label={lotStatus}
+                color={color as "default" | "success" | "warning" | "error"}
+                variant={variant}
+              />
+            </Box>
+          );
+        },
+      },
+      {
+        field: "is_active_lot",
+        headerName: "Active Lot",
+        width: 120,
+        renderCell: (params) => {
+          const isActive = String(params.row.is_active_lot || "N").toUpperCase() === "Y";
+          return (
+            <Chip
+              size="small"
+              label={isActive ? "YES" : "NO"}
+              color={isActive ? "success" : "default"}
+              variant={isActive ? "filled" : "outlined"}
+            />
+          );
+        },
+      },
+      {
+        field: "session_status",
         headerName: "Session Status",
         width: 160,
         renderCell: (params) => {
-          const sessionStatus = normalizeSessionStatus(String(params.row.session_status || params.row.status || ""));
+          const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
           const label = sessionStatus || "—";
           const color =
             sessionStatus === "LIVE"
@@ -607,10 +665,21 @@ export const AuctionLots: React.FC = () => {
         quantity: item.estimated_qty_kg ?? item.quantity ?? null,
         base_price: parseDecimal(item.start_price_per_qtl) ?? item.base_price ?? null,
         status: item.status || null,
+        is_active_lot: String(item.is_active_lot || "").toUpperCase() === "Y" ? "Y" : "N",
+        lot_phase: item.lot_phase || null,
         session_start_time: item?.session?.start_time || item?.session_start_time || item?.start_time || null,
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
         session_closure_mode: item?.session?.closure_mode || item?.session_closure_mode || item?.closure_mode || null,
         session_status: item?.session?.status || item?.session_status || null,
+        session_has_active_lot: typeof item?.session?.has_active_lot === "boolean" ? item.session.has_active_lot : null,
+        session_no_active_lot: typeof item?.session?.no_active_lot === "boolean" ? item.session.no_active_lot : null,
+        session_remaining_lot_count:
+          item?.session?.remaining_lot_count !== undefined && item?.session?.remaining_lot_count !== null
+            ? Number(item.session.remaining_lot_count)
+            : null,
+        session_ready_to_close: typeof item?.session?.ready_to_close === "boolean" ? item.session.ready_to_close : null,
+        session_active_lot_id: item?.session?.active_lot_id || null,
+        session_next_queued_lot_id: item?.session?.next_queued_lot_id || null,
         created_on: item.created_on || item.createdAt || null,
       }));
       if (import.meta.env.DEV) {
@@ -1163,9 +1232,10 @@ export const AuctionLots: React.FC = () => {
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
-            <MenuItem value="CREATED">Created</MenuItem>
-            <MenuItem value="PUBLISHED">Published</MenuItem>
+            <MenuItem value="QUEUED">Queued</MenuItem>
+            <MenuItem value="LIVE">Live</MenuItem>
             <MenuItem value="SOLD">Sold</MenuItem>
+            <MenuItem value="UNSOLD">Unsold</MenuItem>
             <MenuItem value="CANCELLED">Cancelled</MenuItem>
           </TextField>
           <TextField
@@ -1190,6 +1260,12 @@ export const AuctionLots: React.FC = () => {
       </Paper>
 
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
+      {selectedRow?.session_status === "LIVE" && selectedRow?.session_no_active_lot && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No active lot currently selected in this live session.
+          {selectedRow?.session_ready_to_close ? " This session is ready to close." : ""}
+        </Alert>
+      )}
 
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
         {loading && <LinearProgress />}

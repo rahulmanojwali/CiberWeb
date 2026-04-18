@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
@@ -17,10 +18,12 @@ import {
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -285,6 +288,7 @@ export const AuctionLots: React.FC = () => {
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
+  const [openHelp, setOpenHelp] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -1161,6 +1165,9 @@ export const AuctionLots: React.FC = () => {
           <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
             Refresh
           </Button>
+          <IconButton color="primary" size="small" onClick={() => setOpenHelp(true)} title="Help">
+            <HelpOutlineIcon fontSize="small" />
+          </IconButton>
         </Stack>
       </Stack>
 
@@ -1654,6 +1661,12 @@ export const AuctionLots: React.FC = () => {
           </DialogActions>
         </Dialog>
       )}
+      <ScreenHelpDrawer
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+        route="/auction-lots"
+        language={language}
+      />
     </PageContainer>
   );
 };

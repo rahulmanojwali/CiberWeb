@@ -8,6 +8,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
@@ -22,10 +23,12 @@ import {
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -216,6 +219,7 @@ export const AuctionResults: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<ResultRow | null>(null);
+  const [openHelp, setOpenHelp] = useState(false);
 
   const canMenu = useMemo(
     () => can(uiConfig.resources, "auction_results.menu", "VIEW") || can(uiConfig.resources, "auction_results.view", "VIEW"),
@@ -508,9 +512,14 @@ export const AuctionResults: React.FC = () => {
             Post-auction outcomes with lot/session context, pricing, and winner details.
           </Typography>
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
+            <HelpOutlineIcon />
+          </IconButton>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
@@ -743,6 +752,12 @@ export const AuctionResults: React.FC = () => {
           <Button onClick={() => setSelectedRow(null)}>Close</Button>
         </DialogActions>
       </Dialog>
+      <ScreenHelpDrawer
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+        route="/auction-results"
+        language={language}
+      />
     </PageContainer>
   );
 };

@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
   InputAdornment,
   InputLabel,
   LinearProgress,
@@ -33,10 +34,12 @@ import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlin
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
 import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
+import { ScreenHelpDrawer } from "../components/ScreenHelpDrawer";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
@@ -787,6 +790,7 @@ export const Lots: React.FC = () => {
   const [mandiFilter, setMandiFilter] = useState("");
   const [tokenFilter, setTokenFilter] = useState("");
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  const [openHelp, setOpenHelp] = useState(false);
 
   const canView = useMemo(
     () => can(uiConfig.resources, "lots.list", "VIEW"),
@@ -1472,6 +1476,9 @@ export const Lots: React.FC = () => {
               <Typography variant="caption">
                 Last refreshed: {lastRefreshedAt ? formatDate(lastRefreshedAt) : "—"}
               </Typography>
+              <IconButton color="primary" size="small" onClick={() => setOpenHelp(true)} title="Help">
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
             </Stack>
           </Stack>
         </Paper>
@@ -2137,6 +2144,12 @@ export const Lots: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ScreenHelpDrawer
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+        route="/lots"
+        language={language}
+      />
     </PageContainer>
   );
 };

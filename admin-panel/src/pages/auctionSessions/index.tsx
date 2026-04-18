@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -155,6 +157,7 @@ export const AuctionSessions: React.FC = () => {
   const [openCloseConfirm, setOpenCloseConfirm] = useState(false);
   const [closeConfirmLoading, setCloseConfirmLoading] = useState(false);
   const [closeSummary, setCloseSummary] = useState<CloseSummary>({ mappedCount: 0, liveCount: 0 });
+  const [openHelp, setOpenHelp] = useState(false);
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -512,9 +515,14 @@ export const AuctionSessions: React.FC = () => {
             </Typography>
           )}
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
+            <HelpOutlineIcon />
+          </IconButton>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            Refresh
+          </Button>
+        </Stack>
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
@@ -830,6 +838,12 @@ export const AuctionSessions: React.FC = () => {
           </DialogActions>
         </Dialog>
       )}
+      <ScreenHelpDrawer
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+        route="/auction-sessions"
+        language={language}
+      />
     </PageContainer>
   );
 };

@@ -594,7 +594,7 @@ export const AuctionLots: React.FC = () => {
 
     return sessions
       .filter((s) => {
-        const status = String(s?.status || "").toUpperCase();
+        const status = String(s?.derived_status || s?.status || "").toUpperCase();
         if (!allowedStatuses.has(status)) return false;
         const sOrgId = s?.org_id ? String(s.org_id) : null;
         const sOrgCode = s?.org_code ? String(s.org_code) : null;
@@ -700,7 +700,7 @@ export const AuctionLots: React.FC = () => {
     setCreateOptionsLoading(true);
     try {
       const [sessionsResp, lotsResp] = await Promise.all([
-        canSessionsList ? getAuctionSessions({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, page_size: 100 } }) : Promise.resolve(null),
+        canSessionsList ? getAuctionSessions({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, page_size: 100, usable_for_mapping: true } }) : Promise.resolve(null),
         getLotList({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, status: "VERIFIED", page_size: 100 } }),
       ]);
       const sessions = sessionsResp?.data?.items ?? [];
@@ -817,14 +817,12 @@ export const AuctionLots: React.FC = () => {
           org_id: selectedLot?.org_id || undefined,
           mandi_id: selectedLot?.mandi_id ?? undefined,
           page_size: 100,
+          usable_for_mapping: true,
         },
       });
       const sessions = resp?.data?.items ?? [];
       setSessionItems(sessions);
-      const options = sessions.map((s: any) => ({
-        value: s._id || s.session_id || "",
-        label: s.session_code || s._id || s.session_id || "",
-      }));
+      const options = buildSessionOptionsForLot(selectedLot, sessions);
       setSessionOptions(options);
     } catch (err: any) {
       setCreateError(err?.message || "Failed to load sessions.");
@@ -1418,7 +1416,7 @@ export const AuctionLots: React.FC = () => {
                 {selectedLot && sessionOptions.length === 0 && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
-                      <Typography variant="body2">No active sessions found for selected org/mandi.</Typography>
+                      <Typography variant="body2">No usable auction session is available for this mandi.</Typography>
                       <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
                         Create Session
                       </Button>

@@ -37,9 +37,35 @@ export const ScreenHelpDrawer: React.FC<ScreenHelpDrawerProps> = ({
       setHelpLoading(true);
       setHelpError(false);
       try {
-        const doc = await getScreenHelp(route, language);
+        const payload = await getScreenHelp(route, language);
         if (cancelled) return;
-        const html = String(doc?.content_html || "").trim();
+        const responseCode = String(payload?.response?.responsecode ?? "0");
+        const success = payload?.response ? responseCode === "0" : true;
+        const html = String(
+          payload?.data?.html ||
+          payload?.data?.content ||
+          payload?.html ||
+          payload?.content ||
+          payload?.content_html ||
+          ""
+        ).trim();
+
+        if (import.meta.env.DEV) {
+          // Dev-only diagnostics for screen help parsing compatibility.
+          // eslint-disable-next-line no-console
+          console.debug("[screenHelpDrawer]", {
+            route,
+            responsecode: payload?.response?.responsecode ?? null,
+            htmlLength: String(payload?.data?.html || payload?.html || "").trim().length,
+            contentLength: String(payload?.data?.content || payload?.content || "").trim().length,
+          });
+        }
+
+        if (!success) {
+          setHelpError(true);
+          setHelpContent("");
+          return;
+        }
         setHelpContent(html);
       } catch {
         if (cancelled) return;

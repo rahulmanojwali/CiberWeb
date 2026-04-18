@@ -6,6 +6,32 @@ export type FetchScreenHelpParams = {
   platform: "WEB" | "BOTH";
 };
 
+function normalizeRoute(route: string) {
+  const raw = String(route || "").trim();
+  if (!raw) return "";
+  let normalized = raw.startsWith("/") ? raw : `/${raw}`;
+  if (normalized.length > 1) {
+    normalized = normalized.replace(/\/+$/, "");
+  }
+  return normalized;
+}
+
+function buildRouteCandidates(route: string) {
+  const normalized = normalizeRoute(route);
+  if (!normalized) return [];
+
+  const candidates: string[] = [normalized];
+  if (normalized.startsWith("/admin/")) {
+    const stripped = normalizeRoute(normalized.replace(/^\/admin\/+/, "/"));
+    if (stripped) candidates.push(stripped);
+  } else if (normalized !== "/admin") {
+    const adminPrefixed = normalizeRoute(`/admin${normalized}`);
+    if (adminPrefixed) candidates.push(adminPrefixed);
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
 function getCurrentUser() {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -42,12 +68,13 @@ export async function fetchScreenHelp(params: FetchScreenHelpParams) {
 }
 
 export async function fetchScreenHelpWithFallback(route: string, lang: string) {
-  const attempts: FetchScreenHelpParams[] = [
-    { route, lang, platform: "WEB" },
-    { route, lang, platform: "BOTH" },
-    { route, lang: "en", platform: "WEB" },
-    { route, lang: "en", platform: "BOTH" },
-  ];
+  const routeCandidates = buildRouteCandidates(route);
+  const attempts: FetchScreenHelpParams[] = routeCandidates.flatMap((routeCandidate) => ([
+    { route: routeCandidate, lang, platform: "WEB" as const },
+    { route: routeCandidate, lang, platform: "BOTH" as const },
+    { route: routeCandidate, lang: "en", platform: "WEB" as const },
+    { route: routeCandidate, lang: "en", platform: "BOTH" as const },
+  ]));
 
   for (const attempt of attempts) {
     try {

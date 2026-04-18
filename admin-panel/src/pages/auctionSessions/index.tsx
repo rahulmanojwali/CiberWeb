@@ -183,11 +183,6 @@ export const AuctionSessions: React.FC = () => {
   const columns = useMemo<GridColDef<SessionRow>[]>(
     () => [
       { field: "session_code", headerName: "Session Code", width: 170, valueGetter: (_v, row) => row.session_code || row.session_id },
-      { field: "session_id", headerName: "Session ID", width: 150 },
-      { field: "org_code", headerName: "Org", width: 120 },
-      { field: "mandi_code", headerName: "Mandi", width: 140 },
-      { field: "method", headerName: "Method", width: 130 },
-      { field: "round", headerName: "Round", width: 120 },
       {
         field: "status",
         headerName: "Status",
@@ -198,6 +193,8 @@ export const AuctionSessions: React.FC = () => {
           return <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />;
         },
       },
+      { field: "mandi_code", headerName: "Mandi", width: 140 },
+      { field: "method", headerName: "Method", width: 130 },
       { field: "closure_mode", headerName: "Closure Mode", width: 170, valueGetter: (v) => v || "MANUAL_OR_AUTO" },
       {
         field: "scheduled_end_time",
@@ -217,6 +214,9 @@ export const AuctionSessions: React.FC = () => {
         width: 180,
         valueFormatter: (value) => formatDate(value) || "—",
       },
+      { field: "org_code", headerName: "Org", width: 120 },
+      { field: "round", headerName: "Round", width: 120 },
+      { field: "session_id", headerName: "Session ID", width: 150 },
     ],
     [nowMs],
   );

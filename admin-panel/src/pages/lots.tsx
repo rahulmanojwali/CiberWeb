@@ -926,21 +926,17 @@ export const Lots: React.FC = () => {
           </Stack>
         ),
       },
-      { field: "mandi_name", headerName: "Mandi", width: 180 },
-      { field: "gate_label", headerName: "Gate", width: 180 },
       {
-        field: "party_username",
-        headerName: "Party",
-        width: 220,
+        field: "status",
+        headerName: "Status",
+        width: 180,
         renderCell: (params) => (
-          <Stack spacing={0.2} sx={{ py: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {displayValue(params.row.party_username)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {displayValue(params.row.raw?.party_type || params.row.raw?.party?.party_type)}
-            </Typography>
-          </Stack>
+            <Chip
+              size="small"
+              variant="outlined"
+              label={humanizeLotStatus(params.row.status)}
+              sx={buildStatusChipSx(theme, params.row.status || "")}
+            />
         ),
       },
       {
@@ -954,6 +950,21 @@ export const Lots: React.FC = () => {
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {displayValue(params.row.commodity_product_name)}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "party_username",
+        headerName: "Party",
+        width: 220,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {displayValue(params.row.party_username)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(params.row.raw?.party_type || params.row.raw?.party?.party_type)}
             </Typography>
           </Stack>
         ),
@@ -976,24 +987,13 @@ export const Lots: React.FC = () => {
       },
       { field: "quality_grade", headerName: "Quality Grade", width: 150, valueFormatter: (value) => displayValue(value) },
       {
-        field: "status",
-        headerName: "Status",
-        width: 180,
-        renderCell: (params) => (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={humanizeLotStatus(params.row.status)}
-              sx={buildStatusChipSx(theme, params.row.status || "")}
-            />
-        ),
-      },
-      {
         field: "created_on",
         headerName: "Created On",
         width: 190,
         valueFormatter: (value) => formatDate(value) || "—",
       },
+      { field: "mandi_name", headerName: "Mandi", width: 180 },
+      { field: "gate_label", headerName: "Gate", width: 180 },
     ],
     [theme],
   );

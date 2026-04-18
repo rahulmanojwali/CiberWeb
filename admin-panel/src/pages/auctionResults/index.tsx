@@ -170,27 +170,32 @@ export const AuctionResults: React.FC = () => {
 
   const columns = useMemo<GridColDef<ResultRow>[]>(
     () => [
-      { field: "result_id", headerName: "Result ID", width: 210, valueGetter: (_v, row) => display(row.result_id) },
       { field: "session_code", headerName: "Session", width: 160, valueGetter: (_v, row) => display(row.session_code || row.session_id) },
       { field: "lot_code", headerName: "Lot", width: 150, valueGetter: (_v, row) => display(row.lot_code || row.lot_id) },
-      { field: "org_name", headerName: "Organisation", width: 170, valueGetter: (_v, row) => display(row.org_name || row.org_id) },
-      { field: "mandi_name", headerName: "Mandi", width: 150, valueGetter: (_v, row) => display(row.mandi_name || row.mandi_id) },
-      { field: "commodity_name", headerName: "Commodity", width: 150, valueGetter: (_v, row) => display(row.commodity_name || row.commodity_id) },
-      { field: "product_name", headerName: "Product", width: 150, valueGetter: (_v, row) => display(row.product_name || row.product_id) },
+      {
+        field: "result_status",
+        headerName: "Result",
+        width: 130,
+        renderCell: (params) => {
+          const chip = statusChip(params.row.result_status);
+          return <Chip size="small" label={chip.label} color={chip.color} variant={chip.variant} />;
+        },
+      },
+      { field: "product_name", headerName: "Product", width: 150, valueGetter: (_v, row) => display(row.product_name || row.commodity_name || row.product_id || row.commodity_id) },
       {
         field: "winning_trader",
         headerName: "Winning Trader",
         width: 210,
         valueGetter: (_v, row) => display(row.winning_trader_name || row.winning_trader_username),
       },
-      { field: "qty_kg", headerName: "Qty (kg)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_kg) },
-      { field: "qty_qtl", headerName: "Qty (qtl)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_qtl, 4) },
       {
         field: "final_amount_lot",
         headerName: "Final Amount (Lot)",
         width: 190,
         valueGetter: (_v, row) => formatCurrency(row.final_amount_lot),
       },
+      { field: "qty_kg", headerName: "Qty (kg)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_kg) },
+      { field: "qty_qtl", headerName: "Qty (qtl)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_qtl, 4) },
       {
         field: "final_rate_qtl",
         headerName: "Rate (/qtl)",
@@ -203,16 +208,11 @@ export const AuctionResults: React.FC = () => {
         width: 140,
         valueGetter: (_v, row) => formatCurrency(row.final_rate_kg),
       },
-      {
-        field: "result_status",
-        headerName: "Result",
-        width: 130,
-        renderCell: (params) => {
-          const chip = statusChip(params.row.result_status);
-          return <Chip size="small" label={chip.label} color={chip.color} variant={chip.variant} />;
-        },
-      },
       { field: "finalized_on", headerName: "Finalized On", width: 190, valueGetter: (_v, row) => formatDate(row.finalized_on) },
+      { field: "org_name", headerName: "Organisation", width: 170, valueGetter: (_v, row) => display(row.org_name || row.org_id) },
+      { field: "mandi_name", headerName: "Mandi", width: 150, valueGetter: (_v, row) => display(row.mandi_name || row.mandi_id) },
+      { field: "commodity_name", headerName: "Commodity", width: 150, valueGetter: (_v, row) => display(row.commodity_name || row.commodity_id) },
+      { field: "result_id", headerName: "Result ID", width: 210, valueGetter: (_v, row) => display(row.result_id) },
     ],
     [],
   );

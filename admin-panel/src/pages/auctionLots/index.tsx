@@ -361,11 +361,134 @@ export const AuctionLots: React.FC = () => {
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
       { field: "lot_id", headerName: "Lot ID", width: 140 },
+      { field: "commodity", headerName: "Commodity", width: 150 },
+      { field: "product", headerName: "Product", width: 150 },
+      {
+        field: "lot_status",
+        headerName: "Lot Status",
+        width: 150,
+        renderCell: (params) => {
+          const lotStatus = String(params.row.status || "").toUpperCase() || "—";
+          const sessionStatusForLot = normalizeSessionStatus(String(params.row.session_status || ""));
+          const label = lotStatus === "WITHDRAWN" && sessionStatusForLot === "EXPIRED" ? "Expired" : lotStatus;
+          const color =
+            lotStatus === "LIVE"
+              ? "success"
+              : lotStatus === "QUEUED"
+              ? "warning"
+              : lotStatus === "SOLD"
+              ? "success"
+              : lotStatus === "WITHDRAWN"
+              ? "default"
+              : lotStatus === "UNSOLD"
+              ? "default"
+              : "default";
+          const variant = lotStatus === "LIVE" ? "filled" : "outlined";
+          return (
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+              <Chip
+                size="small"
+                label={label}
+                color={color as "default" | "success" | "warning" | "error"}
+                variant={variant}
+              />
+            </Box>
+          );
+        },
+      },
+      {
+        field: "session_status",
+        headerName: "Session Status",
+        width: 160,
+        renderCell: (params) => {
+          const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
+          const label = sessionStatus || "—";
+          const color =
+            sessionStatus === "LIVE"
+              ? "success"
+              : sessionStatus === "PAUSED"
+              ? "warning"
+              : sessionStatus === "EXPIRED"
+              ? "error"
+              : sessionStatus === "CANCELLED"
+              ? "error"
+              : "default";
+          const variant = sessionStatus === "PLANNED" || sessionStatus === "CLOSED" ? "outlined" : "filled";
+          return (
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+              <Chip
+                size="small"
+                label={label}
+                color={color as "default" | "success" | "warning" | "error"}
+                variant={variant}
+              />
+            </Box>
+          );
+        },
+      },
+      {
+        field: "time_left",
+        headerName: "Time Left",
+        width: 200,
+        renderCell: (params) => {
+          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
+          const timeLeft = getTimeLeftPresentation(sessionStatus, params.row.session_scheduled_end_time, nowMs);
+          const color =
+            timeLeft.tone === "error"
+              ? "error.main"
+              : timeLeft.tone === "warning"
+              ? "warning.main"
+              : timeLeft.tone === "live"
+              ? "success.main"
+              : "text.secondary";
+          return (
+            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: timeLeft.tone === "muted" ? 500 : 700,
+                  color,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {timeLeft.label}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: "end_time",
+        headerName: "End Time",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
+      },
+      {
+        field: "closure_mode",
+        headerName: "Closure Mode",
+        width: 140,
+        valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
+      },
+      {
+        field: "is_active_lot",
+        headerName: "Active Lot",
+        width: 120,
+        renderCell: (params) => {
+          const isActive = String(params.row.is_active_lot || "N").toUpperCase() === "Y";
+          return (
+            <Chip
+              size="small"
+              label={isActive ? "YES" : "NO"}
+              color={isActive ? "success" : "default"}
+              variant={isActive ? "filled" : "outlined"}
+            />
+          );
+        },
+      },
+      { field: "created_on", headerName: "Created On", width: 180, valueFormatter: (value) => formatDate(value) },
       { field: "session_id", headerName: "Session", width: 140 },
       { field: "org_code", headerName: "Org", width: 110 },
       { field: "mandi_code", headerName: "Mandi", width: 140 },
-      { field: "commodity", headerName: "Commodity", width: 150 },
-      { field: "product", headerName: "Product", width: 150 },
       {
         field: "quantity",
         headerName: "Qty",
@@ -414,134 +537,6 @@ export const AuctionLots: React.FC = () => {
         headerName: "Start Time",
         width: 180,
         valueGetter: (_value, row) => formatDate((row as any)?.session_start_time) || "—",
-      },
-      {
-        field: "end_time",
-        headerName: "End Time",
-        width: 180,
-        valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
-      },
-      {
-        field: "time_left",
-        headerName: "Time Left",
-        width: 200,
-        renderCell: (params) => {
-          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
-          const timeLeft = getTimeLeftPresentation(sessionStatus, params.row.session_scheduled_end_time, nowMs);
-          const color =
-            timeLeft.tone === "error"
-              ? "error.main"
-              : timeLeft.tone === "warning"
-              ? "warning.main"
-              : timeLeft.tone === "live"
-              ? "success.main"
-              : "text.secondary";
-          return (
-            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: timeLeft.tone === "muted" ? 500 : 700,
-                  color,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {timeLeft.label}
-              </Typography>
-            </Box>
-          );
-        },
-      },
-      {
-        field: "closure_mode",
-        headerName: "Closure Mode",
-        width: 140,
-        valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
-      },
-      {
-        field: "lot_status",
-        headerName: "Lot Status",
-        width: 150,
-        renderCell: (params) => {
-          const lotStatus = String(params.row.status || "").toUpperCase() || "—";
-          const sessionStatusForLot = normalizeSessionStatus(String(params.row.session_status || ""));
-          const label = lotStatus === "WITHDRAWN" && sessionStatusForLot === "EXPIRED" ? "Expired" : lotStatus;
-          const color =
-            lotStatus === "LIVE"
-              ? "success"
-              : lotStatus === "QUEUED"
-              ? "warning"
-              : lotStatus === "SOLD"
-              ? "success"
-              : lotStatus === "WITHDRAWN"
-              ? "default"
-              : lotStatus === "UNSOLD"
-              ? "default"
-              : "default";
-          const variant = lotStatus === "LIVE" ? "filled" : "outlined";
-          return (
-            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
-              <Chip
-                size="small"
-                label={label}
-                color={color as "default" | "success" | "warning" | "error"}
-                variant={variant}
-              />
-            </Box>
-          );
-        },
-      },
-      {
-        field: "is_active_lot",
-        headerName: "Active Lot",
-        width: 120,
-        renderCell: (params) => {
-          const isActive = String(params.row.is_active_lot || "N").toUpperCase() === "Y";
-          return (
-            <Chip
-              size="small"
-              label={isActive ? "YES" : "NO"}
-              color={isActive ? "success" : "default"}
-              variant={isActive ? "filled" : "outlined"}
-            />
-          );
-        },
-      },
-      {
-        field: "session_status",
-        headerName: "Session Status",
-        width: 160,
-        renderCell: (params) => {
-          const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
-          const label = sessionStatus || "—";
-          const color =
-            sessionStatus === "LIVE"
-              ? "success"
-              : sessionStatus === "PAUSED"
-              ? "warning"
-              : sessionStatus === "EXPIRED"
-              ? "error"
-              : sessionStatus === "CANCELLED"
-              ? "error"
-              : "default";
-          const variant = sessionStatus === "PLANNED" || sessionStatus === "CLOSED" ? "outlined" : "filled";
-          return (
-            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
-              <Chip
-                size="small"
-                label={label}
-                color={color as "default" | "success" | "warning" | "error"}
-                variant={variant}
-              />
-            </Box>
-          );
-        },
-      },
-      {
-        field: "created_on",
-        headerName: "Created On",
-        width: 180,
-        valueFormatter: (value) => formatDate(value),
       },
     ],
     [nowMs],

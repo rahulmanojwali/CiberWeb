@@ -459,7 +459,7 @@ export const AuctionLots: React.FC = () => {
       },
       {
         field: "end_time",
-        headerName: "End Time",
+        headerName: "Scheduled End",
         width: 180,
         valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
       },
@@ -1271,6 +1271,9 @@ export const AuctionLots: React.FC = () => {
         <Box sx={{ p: 1.5, pb: 0 }}>
           <Typography variant="subtitle2" color="text.secondary">
             Auction Lots List
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+            Historical rows are retained: older withdrawn attempts remain visible for audit, and remapped attempts appear as new rows. Actual End appears only after session closure.
           </Typography>
         </Box>
         {!showMandiInstruction && (

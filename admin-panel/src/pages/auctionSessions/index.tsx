@@ -210,7 +210,7 @@ export const AuctionSessions: React.FC = () => {
       },
       {
         field: "end_time",
-        headerName: "End",
+        headerName: "Actual End",
         width: 180,
         valueFormatter: (value) => formatDate(value) || "—",
       },
@@ -683,13 +683,16 @@ export const AuctionSessions: React.FC = () => {
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
                   <DetailField label="Start Time" value={displayValue(formatDate(selectedSession.start_time))} />
-                  <DetailField label="End Time" value={displayValue(formatDate(selectedSession.end_time))} />
+                  <DetailField label="Actual End" value={displayValue(formatDate(selectedSession.end_time))} />
                   <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
                   <DetailField label="Closure Mode" value={closureModeLabel(selectedSession.closure_mode || "MANUAL_OR_AUTO")} />
                   <DetailField label="Closed By Type" value={displayValue(selectedSession.closed_by_type)} />
                   <DetailField label="Close Reason" value={displayValue(selectedSession.close_reason)} />
                   <DetailField label="Closed By Username" value={displayValue(selectedSession.closed_by_username)} />
                 </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1.2, display: "block" }}>
+                  Actual End remains blank until the session is closed.
+                </Typography>
                 {selectedSession.scheduled_end_time && ["PLANNED", "LIVE"].includes(String(selectedSession.status || "").toUpperCase()) && (
                   <Chip
                     size="small"

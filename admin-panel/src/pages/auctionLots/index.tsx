@@ -464,6 +464,8 @@ export const AuctionLots: React.FC = () => {
         width: 150,
         renderCell: (params) => {
           const lotStatus = String(params.row.status || "").toUpperCase() || "—";
+          const sessionStatusForLot = normalizeSessionStatus(String(params.row.session_status || ""));
+          const label = lotStatus === "WITHDRAWN" && sessionStatusForLot === "EXPIRED" ? "Expired" : lotStatus;
           const color =
             lotStatus === "LIVE"
               ? "success"
@@ -471,6 +473,8 @@ export const AuctionLots: React.FC = () => {
               ? "warning"
               : lotStatus === "SOLD"
               ? "success"
+              : lotStatus === "WITHDRAWN"
+              ? "default"
               : lotStatus === "UNSOLD"
               ? "default"
               : "default";
@@ -479,7 +483,7 @@ export const AuctionLots: React.FC = () => {
             <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
               <Chip
                 size="small"
-                label={lotStatus}
+                label={label}
                 color={color as "default" | "success" | "warning" | "error"}
                 variant={variant}
               />
@@ -515,6 +519,8 @@ export const AuctionLots: React.FC = () => {
               ? "success"
               : sessionStatus === "PAUSED"
               ? "warning"
+              : sessionStatus === "EXPIRED"
+              ? "error"
               : sessionStatus === "CANCELLED"
               ? "error"
               : "default";

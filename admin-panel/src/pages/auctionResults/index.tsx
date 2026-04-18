@@ -12,6 +12,12 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -48,15 +54,39 @@ type ResultRow = {
   result_status?: string | null;
   qty_kg?: number | null;
   qty_qtl?: number | null;
+  opening_price_per_qtl?: number | null;
+  opening_price_per_kg?: number | null;
+  opening_amount_lot?: number | null;
   final_amount_lot?: number | null;
+  final_price_per_qtl?: number | null;
+  final_price_per_kg?: number | null;
   final_rate_qtl?: number | null;
   final_rate_kg?: number | null;
+  gain_over_opening?: number | null;
+  gain_over_opening_pct?: number | null;
+  bid_audit_trail?: BidAuditRow[];
+  total_bid_count?: number | null;
+  auction_duration_seconds?: number | null;
+  bid_intervals_seconds?: number[] | null;
   finalized_on?: string | null;
   closure_mode?: string | null;
   session_method?: string | null;
   session_status?: string | null;
   lot_current_status?: string | null;
   settlement_status?: string | null;
+};
+
+type BidAuditRow = {
+  bid_id?: string | null;
+  bidder_id?: string | null;
+  bidder_name?: string | null;
+  trader_username?: string | null;
+  bid_amount?: number | null;
+  bid_rate_qtl?: number | null;
+  created_at?: string | null;
+  lot_id?: string | null;
+  session_id?: string | null;
+  is_winning_bid?: boolean;
 };
 
 type Option = { value: string; label: string };
@@ -96,6 +126,21 @@ function formatDate(value?: string | Date | null) {
   return d.toLocaleString();
 }
 
+function formatDateTimeWithSeconds(value?: string | Date | null) {
+  if (!value) return "—";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 function formatNumber(value: any, digits = 2) {
   const num = toNumber(value);
   if (num == null) return "—";
@@ -114,6 +159,16 @@ function formatCurrency(value: any) {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   }).format(num);
+}
+
+function formatSignedCurrency(value: any) {
+  const num = toNumber(value);
+  if (num == null) return "—";
+  const absText = formatCurrency(Math.abs(num));
+  if (absText === "—") return "—";
+  if (num > 0) return `+${absText}`;
+  if (num < 0) return `-${absText}`;
+  return absText;
 }
 
 function normalizeStatus(value?: string | null) {
@@ -198,13 +253,13 @@ export const AuctionResults: React.FC = () => {
       { field: "qty_qtl", headerName: "Qty (qtl)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_qtl, 4) },
       {
         field: "final_rate_qtl",
-        headerName: "Rate (/qtl)",
+        headerName: "Final Rate (/qtl)",
         width: 150,
         valueGetter: (_v, row) => formatCurrency(row.final_rate_qtl),
       },
       {
         field: "final_rate_kg",
-        headerName: "Rate (/kg)",
+        headerName: "Final Rate (/kg)",
         width: 140,
         valueGetter: (_v, row) => formatCurrency(row.final_rate_kg),
       },
@@ -306,9 +361,35 @@ export const AuctionResults: React.FC = () => {
         result_status: normalizeStatus(item.result_status || item.status),
         qty_kg: toNumber(item.qty_kg),
         qty_qtl: toNumber(item.qty_qtl),
+        opening_price_per_qtl: toNumber(item.opening_price_per_qtl),
+        opening_price_per_kg: toNumber(item.opening_price_per_kg),
+        opening_amount_lot: toNumber(item.opening_amount_lot),
         final_amount_lot: toNumber(item.final_amount_lot),
-        final_rate_qtl: toNumber(item.final_rate_qtl),
-        final_rate_kg: toNumber(item.final_rate_kg),
+        final_price_per_qtl: toNumber(item.final_price_per_qtl),
+        final_price_per_kg: toNumber(item.final_price_per_kg),
+        final_rate_qtl: toNumber(item.final_price_per_qtl ?? item.final_rate_qtl),
+        final_rate_kg: toNumber(item.final_price_per_kg ?? item.final_rate_kg),
+        gain_over_opening: toNumber(item.gain_over_opening),
+        gain_over_opening_pct: toNumber(item.gain_over_opening_pct),
+        bid_audit_trail: Array.isArray(item.bid_audit_trail)
+          ? item.bid_audit_trail.map((bid: any) => ({
+              bid_id: bid?.bid_id ? String(bid.bid_id) : null,
+              bidder_id: bid?.bidder_id ? String(bid.bidder_id) : null,
+              bidder_name: bid?.bidder_name || null,
+              trader_username: bid?.trader_username || null,
+              bid_amount: toNumber(bid?.bid_amount),
+              bid_rate_qtl: toNumber(bid?.bid_rate_qtl),
+              created_at: bid?.created_at || null,
+              lot_id: bid?.lot_id ? String(bid.lot_id) : null,
+              session_id: bid?.session_id ? String(bid.session_id) : null,
+              is_winning_bid: Boolean(bid?.is_winning_bid),
+            }))
+          : [],
+        total_bid_count: toNumber(item.total_bid_count),
+        auction_duration_seconds: toNumber(item.auction_duration_seconds),
+        bid_intervals_seconds: Array.isArray(item.bid_intervals_seconds)
+          ? item.bid_intervals_seconds.map((v: any) => Number(v)).filter((v: number) => Number.isFinite(v))
+          : [],
         finalized_on: item.finalized_on || null,
         closure_mode: item.closure_mode || null,
         session_method: item.session_method || null,
@@ -403,6 +484,20 @@ export const AuctionResults: React.FC = () => {
   }
 
   const selectedChip = statusChip(selectedRow?.result_status);
+  const gainPctText = toNumber(selectedRow?.gain_over_opening_pct) != null ? `${formatNumber(selectedRow?.gain_over_opening_pct)}%` : "—";
+  const gainValue = toNumber(selectedRow?.gain_over_opening);
+  const gainColor = gainValue == null ? "text.secondary" : gainValue > 0 ? "success.main" : gainValue < 0 ? "error.main" : "text.primary";
+  const selectedBidTrail = Array.isArray(selectedRow?.bid_audit_trail) ? selectedRow.bid_audit_trail : [];
+  const selectedBidCount = toNumber(selectedRow?.total_bid_count) ?? selectedBidTrail.length;
+  const auctionDurationText = toNumber(selectedRow?.auction_duration_seconds) != null
+    ? `${formatNumber(selectedRow?.auction_duration_seconds, 0)} sec`
+    : "—";
+  const avgGapText = Array.isArray(selectedRow?.bid_intervals_seconds) && selectedRow.bid_intervals_seconds.length > 0
+    ? `${formatNumber(
+        selectedRow.bid_intervals_seconds.reduce((acc, n) => acc + n, 0) / selectedRow.bid_intervals_seconds.length,
+        1,
+      )} sec`
+    : "—";
 
   return (
     <PageContainer>
@@ -520,6 +615,28 @@ export const AuctionResults: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.03)" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Outcome Snapshot</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Result Status</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{display(selectedRow?.result_status)}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Opening Amount</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(selectedRow?.opening_amount_lot)}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Final Amount</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(selectedRow?.final_amount_lot)}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Gain/Loss</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: gainColor }}>{formatSignedCurrency(selectedRow?.gain_over_opening)}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Section A — Result Summary</Typography>
               <Typography variant="body2"><strong>Result ID:</strong> {display(selectedRow?.result_id)}</Typography>
@@ -547,9 +664,17 @@ export const AuctionResults: React.FC = () => {
 
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Section D — Price / Outcome</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.4 }}>Opening</Typography>
+              <Typography variant="body2"><strong>Opening Rate (/qtl):</strong> {formatCurrency(selectedRow?.opening_price_per_qtl)}</Typography>
+              <Typography variant="body2"><strong>Opening Rate (/kg):</strong> {formatCurrency(selectedRow?.opening_price_per_kg)}</Typography>
+              <Typography variant="body2"><strong>Opening Amount (Lot):</strong> {formatCurrency(selectedRow?.opening_amount_lot)}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, mt: 1.2, mb: 0.4 }}>Final</Typography>
+              <Typography variant="body2"><strong>Final Rate (/qtl):</strong> {formatCurrency(selectedRow?.final_rate_qtl)}</Typography>
+              <Typography variant="body2"><strong>Final Rate (/kg):</strong> {formatCurrency(selectedRow?.final_rate_kg)}</Typography>
               <Typography variant="body2"><strong>Final Amount (Lot):</strong> {formatCurrency(selectedRow?.final_amount_lot)}</Typography>
-              <Typography variant="body2"><strong>Rate (/qtl):</strong> {formatCurrency(selectedRow?.final_rate_qtl)}</Typography>
-              <Typography variant="body2"><strong>Rate (/kg):</strong> {formatCurrency(selectedRow?.final_rate_kg)}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, mt: 1.2, mb: 0.4 }}>Comparison</Typography>
+              <Typography variant="body2"><strong>Gain Over Opening:</strong> <Box component="span" sx={{ color: gainColor, fontWeight: 700 }}>{formatSignedCurrency(selectedRow?.gain_over_opening)}</Box></Typography>
+              <Typography variant="body2"><strong>Improvement (%):</strong> {gainPctText}</Typography>
               <Typography variant="body2"><strong>Winning Trader:</strong> {display(selectedRow?.winning_trader_name)}</Typography>
               <Typography variant="body2"><strong>Winning Trader Username:</strong> {display(selectedRow?.winning_trader_username)}</Typography>
             </Paper>
@@ -559,6 +684,58 @@ export const AuctionResults: React.FC = () => {
               <Typography variant="body2"><strong>Settlement Status:</strong> {display(selectedRow?.settlement_status)}</Typography>
               <Typography variant="body2"><strong>Lot Current Status:</strong> {display(selectedRow?.lot_current_status)}</Typography>
               <Typography variant="body2"><strong>Closure Mode:</strong> {display(selectedRow?.closure_mode)}</Typography>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">Section F — Bidding Audit Trail</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Total Bids: {formatNumber(selectedBidCount, 0)} | Duration: {auctionDurationText} | Avg Gap: {avgGapText}
+                </Typography>
+              </Stack>
+              <TableContainer sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1.25 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Bidder</TableCell>
+                      <TableCell>Trader Username</TableCell>
+                      <TableCell align="right">Bid Amount</TableCell>
+                      <TableCell align="right">Bid Rate (/qtl)</TableCell>
+                      <TableCell>Timestamp</TableCell>
+                      <TableCell>Winner</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedBidTrail.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ color: "text.secondary" }}>
+                          No bids recorded for this lot.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      selectedBidTrail.map((bid, index) => (
+                        <TableRow
+                          key={bid.bid_id || `${bid.created_at || "na"}-${index}`}
+                          sx={bid.is_winning_bid ? { bgcolor: "rgba(47,166,82,0.08)" } : undefined}
+                        >
+                          <TableCell>{display(bid.bidder_name)}</TableCell>
+                          <TableCell>{display(bid.trader_username)}</TableCell>
+                          <TableCell align="right">{formatCurrency(bid.bid_amount)}</TableCell>
+                          <TableCell align="right">{formatCurrency(bid.bid_rate_qtl)}</TableCell>
+                          <TableCell>{formatDateTimeWithSeconds(bid.created_at)}</TableCell>
+                          <TableCell>
+                            {bid.is_winning_bid ? (
+                              <Chip size="small" color="success" label="WINNING BID" />
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           </Stack>
         </DialogContent>

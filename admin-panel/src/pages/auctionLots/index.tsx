@@ -65,11 +65,20 @@ type LotRow = {
   session_remaining_lot_count?: number | null;
   session_ready_to_close?: boolean | null;
   session_active_lot_id?: string | null;
+  session_active_lot_code?: string | null;
   session_next_queued_lot_id?: string | null;
+  session_next_queued_lot_code?: string | null;
+  session_queued_count?: number | null;
+  session_live_count?: number | null;
+  session_sold_count?: number | null;
+  session_unsold_count?: number | null;
   created_on?: string | null;
 };
 
 type Option = { value: string; label: string };
+type SessionOption = Option & {
+  session: any;
+};
 type LotOption = { value: string; label: string; shortCode?: string; lot: any };
 
 function currentUsername(): string | null {
@@ -195,6 +204,15 @@ const closureModeLabel = (mode: string | null | undefined) => {
   return "—";
 };
 
+const humanizeLaneType = (value: string | null | undefined) => {
+  const key = String(value || "").trim().toUpperCase();
+  if (!key) return "—";
+  return key
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+};
+
 const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number) => {
   if (!scheduledEnd) {
     return { label: "No session timing available", danger: false };
@@ -255,7 +273,7 @@ export const AuctionLots: React.FC = () => {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createOptionsLoading, setCreateOptionsLoading] = useState(false);
   const [sessionItems, setSessionItems] = useState<any[]>([]);
-  const [sessionOptions, setSessionOptions] = useState<Option[]>([]);
+  const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
   const [lotOptions, setLotOptions] = useState<LotOption[]>([]);
   const [selectedLot, setSelectedLot] = useState<any | null>(null);
   const [openCreateSession, setOpenCreateSession] = useState(false);
@@ -657,10 +675,11 @@ export const AuctionLots: React.FC = () => {
         label: [
           s.session_name || s.session_code || s._id || s.session_id || "",
           s.commodity_group ? `• ${s.commodity_group}` : "",
-          s.lane_type ? `• ${String(s.lane_type).replace(/_/g, " ")}` : "",
+          s.lane_type ? `• ${humanizeLaneType(s.lane_type)}` : "",
         ].filter(Boolean).join(" "),
+        session: s,
       }))
-      .filter((s: Option) => s.value);
+      .filter((s: SessionOption) => s.value);
   };
 
   const loadData = async () => {
@@ -735,7 +754,13 @@ export const AuctionLots: React.FC = () => {
             : null,
         session_ready_to_close: typeof item?.session?.ready_to_close === "boolean" ? item.session.ready_to_close : null,
         session_active_lot_id: item?.session?.active_lot_id || null,
+        session_active_lot_code: item?.session?.active_lot_code || null,
         session_next_queued_lot_id: item?.session?.next_queued_lot_id || null,
+        session_next_queued_lot_code: item?.session?.next_queued_lot_code || null,
+        session_queued_count: item?.session?.queued_count != null ? Number(item.session.queued_count) : null,
+        session_live_count: item?.session?.live_count != null ? Number(item.session.live_count) : null,
+        session_sold_count: item?.session?.sold_count != null ? Number(item.session.sold_count) : null,
+        session_unsold_count: item?.session?.unsold_count != null ? Number(item.session.unsold_count) : null,
         created_on: item.created_on || item.createdAt || null,
       }));
       if (import.meta.env.DEV) {
@@ -756,10 +781,20 @@ export const AuctionLots: React.FC = () => {
     setCreateOptionsLoading(true);
     try {
       const [sessionsResp, lotsResp] = await Promise.all([
-        canSessionsList ? getAuctionSessions({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, page_size: 100, usable_for_mapping: true } }) : Promise.resolve(null),
+        canSessionsList ? getAuctionSessions({
+          username,
+          language,
+          filters: {
+            org_code: filters.org_code || undefined,
+            mandi_code: filters.mandi_code || undefined,
+            page_size: 100,
+            usable_for_mapping: true,
+            lot_id: selectedLot?._id || selectedLot?.lot_id || undefined,
+          }
+        }) : Promise.resolve(null),
         getLotList({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, status: "VERIFIED", page_size: 100 } }),
       ]);
-      const sessions = sessionsResp?.data?.items ?? [];
+      const sessions = sessionsResp?.data?.items ?? sessionsResp?.response?.data?.items ?? [];
       const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
 
       setSessionItems(sessions);
@@ -874,9 +909,10 @@ export const AuctionLots: React.FC = () => {
           mandi_id: selectedLot?.mandi_id ?? undefined,
           page_size: 100,
           usable_for_mapping: true,
+          lot_id: selectedLot?._id || selectedLot?.lot_id || undefined,
         },
       });
-      const sessions = resp?.data?.items ?? [];
+      const sessions = resp?.data?.items ?? resp?.response?.data?.items ?? [];
       setSessionItems(sessions);
       const options = buildSessionOptionsForLot(selectedLot, sessions);
       setSessionOptions(options);
@@ -1472,11 +1508,11 @@ export const AuctionLots: React.FC = () => {
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  Section B — Auction Session
+                  Section B — Auction Lane
                 </Typography>
                 <TextField
                   select
-                  label="Auction Session"
+                  label="Auction Lane"
                   size="small"
                   value={createForm.session_id}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
@@ -1487,7 +1523,30 @@ export const AuctionLots: React.FC = () => {
                   <MenuItem value="">Select</MenuItem>
                   {sessionOptions.map((s) => (
                     <MenuItem key={s.value} value={s.value}>
-                      {s.label}
+                      <Stack spacing={0.2} sx={{ py: 0.3 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {s.session?.session_name || s.session?.session_code || s.label}
+                          </Typography>
+                          {s.session?.suggested_for_selected_lot && (
+                            <Chip size="small" color="success" label="Suggested" />
+                          )}
+                          {s.session?.is_overflow_lane && (
+                            <Chip size="small" color="warning" variant="outlined" label="Overflow" />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {humanizeLaneType(s.session?.lane_type)} · {s.session?.commodity_group || "No commodity group"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "—"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Queued: {s.session?.queued_count ?? 0} · Active Lot: {s.session?.active_lot_code || "—"}
+                        </Typography>
+                        {s.session?.suggestion_reason && (
+                          <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
+                            {s.session.suggested_for_selected_lot ? "Best match for selected lot" : s.session.suggestion_reason}
+                          </Typography>
+                        )}
+                      </Stack>
                     </MenuItem>
                   ))}
                 </TextField>
@@ -1499,12 +1558,29 @@ export const AuctionLots: React.FC = () => {
                 {selectedLot && sessionOptions.length === 0 && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
-                      <Typography variant="body2">No usable auction session is available for this mandi.</Typography>
+                      <Typography variant="body2">No usable auction lane is currently available for this mandi.</Typography>
                       <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
                         Create Session
                       </Button>
                     </Stack>
                   </Alert>
+                )}
+                {selectedCreateSession && (
+                  <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Selected Lane Summary
+                    </Typography>
+                    <Stack spacing={0.6}>
+                      <Typography variant="body2"><strong>Lane Name:</strong> {selectedCreateSession.session_name || selectedCreateSession.session_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Lane Type:</strong> {humanizeLaneType(selectedCreateSession.lane_type)}</Typography>
+                      <Typography variant="body2"><strong>Commodity Group:</strong> {selectedCreateSession.commodity_group || "—"}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {selectedCreateSession.status_display || selectedCreateSession.derived_status || selectedCreateSession.status || "—"}</Typography>
+                      <Typography variant="body2"><strong>Active Lot:</strong> {selectedCreateSession.active_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Queued Count:</strong> {selectedCreateSession.queued_count ?? 0}</Typography>
+                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {selectedCreateSession.next_queued_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Ready to Close:</strong> {selectedCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
+                    </Stack>
+                  </Paper>
                 )}
               </Paper>
 

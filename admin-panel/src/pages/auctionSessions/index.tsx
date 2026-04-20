@@ -307,6 +307,12 @@ export const AuctionSessions: React.FC = () => {
         valueGetter: (_v, row) => row.active_lot_code || "—",
       },
       {
+        field: "next_queued_lot_code",
+        headerName: "Next Queued",
+        width: 160,
+        valueGetter: (_v, row) => row.next_queued_lot_code || "—",
+      },
+      {
         field: "queued_count",
         headerName: "Queued",
         width: 110,
@@ -973,6 +979,9 @@ export const AuctionSessions: React.FC = () => {
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
                       Active lot: <strong>{displayValue(lane.active_lot_code)}</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Next queued: <strong>{displayValue(lane.next_queued_lot_code)}</strong>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Queue: <strong>{displayCount(lane.queued_count)}</strong> · Sold: <strong>{displayCount(lane.sold_count)}</strong> · Unsold: <strong>{displayCount(lane.unsold_count)}</strong>

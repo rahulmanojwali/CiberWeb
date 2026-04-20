@@ -40,6 +40,11 @@ type LotRow = {
   lot_id: string;
   backend_lot_id?: string | null;
   session_id?: string | null;
+  session_code?: string | null;
+  session_name?: string | null;
+  session_lane_type?: string | null;
+  session_commodity_group?: string | null;
+  session_is_overflow_lane?: boolean | null;
   org_id?: string | null;
   mandi_id_value?: number | string | null;
   org_code?: string | null;
@@ -261,9 +266,19 @@ export const AuctionLots: React.FC = () => {
     rounds_enabled: ["ROUND1"],
     status: "PLANNED",
     session_code: buildSessionCode(),
+    session_name: "",
+    lane_type: "COMMODITY_LANE",
+    commodity_group: "",
+    commodity_group_code: "",
+    hall_or_zone: "",
+    auctioneer_username: "",
     closure_mode: "MANUAL_OR_AUTO",
     scheduled_start_time: "",
     scheduled_end_time: defaultScheduledEndLocal(120),
+    is_overflow_lane: false,
+    max_queue_size: "",
+    display_order: "",
+    notes: "",
     allow_manual_close_when_auto_enabled: true,
   });
   const [createForm, setCreateForm] = useState({
@@ -364,9 +379,21 @@ export const AuctionLots: React.FC = () => {
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
-      { field: "lot_id", headerName: "Lot ID", width: 140 },
-      { field: "commodity", headerName: "Commodity", width: 150 },
-      { field: "product", headerName: "Product", width: 150 },
+      {
+        field: "lot_id",
+        headerName: "Lot / Product",
+        width: 240,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {params.row.lot_id}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {params.row.commodity || "—"} / {params.row.product || "—"}
+            </Typography>
+          </Stack>
+        ),
+      },
       {
         field: "lot_status",
         headerName: "Lot Status",
@@ -474,6 +501,21 @@ export const AuctionLots: React.FC = () => {
         valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
       },
       {
+        field: "session_lane",
+        headerName: "Lane",
+        width: 240,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {params.row.session_name || params.row.session_code || "—"}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {[params.row.session_commodity_group, params.row.session_lane_type?.replace(/_/g, " ")].filter(Boolean).join(" • ") || "—"}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
         field: "is_active_lot",
         headerName: "Active Lot",
         width: 120,
@@ -490,7 +532,7 @@ export const AuctionLots: React.FC = () => {
         },
       },
       { field: "created_on", headerName: "Created On", width: 180, valueFormatter: (value) => formatDate(value) },
-      { field: "session_id", headerName: "Session", width: 140 },
+      { field: "session_code", headerName: "Session Code", width: 150, valueGetter: (_value, row) => row.session_code || row.session_id || "—" },
       { field: "org_code", headerName: "Org", width: 110 },
       { field: "mandi_code", headerName: "Mandi", width: 140 },
       {
@@ -612,7 +654,11 @@ export const AuctionLots: React.FC = () => {
       })
       .map((s: any) => ({
         value: s._id || s.session_id || "",
-        label: s.session_code || s._id || s.session_id || "",
+        label: [
+          s.session_name || s.session_code || s._id || s.session_id || "",
+          s.commodity_group ? `• ${s.commodity_group}` : "",
+          s.lane_type ? `• ${String(s.lane_type).replace(/_/g, " ")}` : "",
+        ].filter(Boolean).join(" "),
       }))
       .filter((s: Option) => s.value);
   };
@@ -661,6 +707,11 @@ export const AuctionLots: React.FC = () => {
         lot_id: item.lot_code || item.lot_id || item._id || `lot-${idx}`,
         backend_lot_id: item._id || item.lot_id || null,
         session_id: item.session_id || null,
+        session_code: item?.session?.session_code || item?.session_code || null,
+        session_name: item?.session?.session_name || item?.session_name || null,
+        session_lane_type: item?.session?.lane_type || item?.session_lane_type || null,
+        session_commodity_group: item?.session?.commodity_group || item?.session_commodity_group || null,
+        session_is_overflow_lane: typeof item?.session?.is_overflow_lane === "boolean" ? item.session.is_overflow_lane : null,
         org_id: item.org_id || null,
         mandi_id_value: item.mandi_id ?? null,
         org_code: item.org_code || item.org_id || null,
@@ -923,6 +974,13 @@ export const AuctionLots: React.FC = () => {
         method_code: createSessionForm.method_code || "OPEN_OUTCRY",
         rounds_enabled: createSessionForm.rounds_enabled?.length ? createSessionForm.rounds_enabled : ["ROUND1"],
         status: "PLANNED",
+        session_code: createSessionForm.session_code || undefined,
+        session_name: createSessionForm.session_name,
+        lane_type: createSessionForm.lane_type,
+        commodity_group: createSessionForm.commodity_group || undefined,
+        commodity_group_code: createSessionForm.commodity_group_code || undefined,
+        hall_or_zone: createSessionForm.hall_or_zone || undefined,
+        auctioneer_username: createSessionForm.auctioneer_username || undefined,
         closure_mode: createSessionForm.closure_mode || "MANUAL_OR_AUTO",
         scheduled_start_time: createSessionForm.scheduled_start_time
           ? new Date(createSessionForm.scheduled_start_time).toISOString()
@@ -931,6 +989,10 @@ export const AuctionLots: React.FC = () => {
           createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO"
             ? (createSessionForm.scheduled_end_time ? new Date(createSessionForm.scheduled_end_time).toISOString() : undefined)
             : undefined,
+        is_overflow_lane: Boolean(createSessionForm.is_overflow_lane),
+        max_queue_size: createSessionForm.max_queue_size || undefined,
+        display_order: createSessionForm.display_order || undefined,
+        notes: createSessionForm.notes || undefined,
         allow_manual_close_when_auto_enabled: Boolean(createSessionForm.allow_manual_close_when_auto_enabled),
       };
       if (
@@ -1069,9 +1131,19 @@ export const AuctionLots: React.FC = () => {
         rounds_enabled: ["ROUND1"],
         status: "PLANNED",
         session_code: buildSessionCode(),
+        session_name: "",
+        lane_type: "COMMODITY_LANE",
+        commodity_group: "",
+        commodity_group_code: "",
+        hall_or_zone: "",
+        auctioneer_username: "",
         closure_mode: "MANUAL_OR_AUTO",
         scheduled_start_time: "",
         scheduled_end_time: defaultScheduledEndLocal(120),
+        is_overflow_lane: false,
+        max_queue_size: "",
+        display_order: "",
+        notes: "",
         allow_manual_close_when_auto_enabled: true,
       });
       loadCreateOptions();
@@ -1550,7 +1622,7 @@ export const AuctionLots: React.FC = () => {
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  Section B — Session State
+                  Section B — Lane Identity
                 </Typography>
                 <Box
                   sx={{
@@ -1560,20 +1632,87 @@ export const AuctionLots: React.FC = () => {
                   }}
                 >
                   <TextField
-                    select
-                    label="Status"
-                    size="small"
-                    value={createSessionForm.status}
-                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, status: e.target.value }))}
-                    fullWidth
-                  >
-                    <MenuItem value="PLANNED">PLANNED</MenuItem>
-                  </TextField>
-                  <TextField
                     label="Session Code"
                     size="small"
                     value={createSessionForm.session_code}
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_code: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Session Name"
+                    size="small"
+                    value={createSessionForm.session_name}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_name: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label="Lane Type"
+                    size="small"
+                    value={createSessionForm.lane_type}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+                    fullWidth
+                  >
+                    <MenuItem value="COMMODITY_LANE">COMMODITY_LANE</MenuItem>
+                    <MenuItem value="PREMIUM_LANE">PREMIUM_LANE</MenuItem>
+                    <MenuItem value="FAST_TRACK_LANE">FAST_TRACK_LANE</MenuItem>
+                    <MenuItem value="BULK_LANE">BULK_LANE</MenuItem>
+                    <MenuItem value="OVERFLOW_LANE">OVERFLOW_LANE</MenuItem>
+                    <MenuItem value="SPECIAL_EVENT_LANE">SPECIAL_EVENT_LANE</MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Commodity Group"
+                    size="small"
+                    value={createSessionForm.commodity_group}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Commodity Group Code"
+                    size="small"
+                    value={createSessionForm.commodity_group_code}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Hall / Zone"
+                    size="small"
+                    value={createSessionForm.hall_or_zone}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Auctioneer Username"
+                    size="small"
+                    value={createSessionForm.auctioneer_username}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label="Overflow Lane"
+                    size="small"
+                    value={createSessionForm.is_overflow_lane ? "Y" : "N"}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "Y" }))}
+                    fullWidth
+                  >
+                    <MenuItem value="N">No</MenuItem>
+                    <MenuItem value="Y">Yes</MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Max Queue Size"
+                    size="small"
+                    type="number"
+                    value={createSessionForm.max_queue_size}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Display Order"
+                    size="small"
+                    type="number"
+                    value={createSessionForm.display_order}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, display_order: e.target.value }))}
                     fullWidth
                   />
                 </Box>
@@ -1645,6 +1784,15 @@ export const AuctionLots: React.FC = () => {
                       <MenuItem value="N">No</MenuItem>
                     </TextField>
                   )}
+                  <TextField
+                    label="Notes"
+                    size="small"
+                    value={createSessionForm.notes}
+                    onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    multiline
+                    minRows={3}
+                    fullWidth
+                  />
                 </Stack>
               </Paper>
 
@@ -1655,7 +1803,7 @@ export const AuctionLots: React.FC = () => {
             <Button onClick={() => setOpenCreateSession(false)} disabled={createSessionLoading}>
               Close
             </Button>
-            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading}>
+            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading || !createSessionForm.session_name}>
               {createSessionLoading ? "Creating..." : "Create Session"}
             </Button>
           </DialogActions>

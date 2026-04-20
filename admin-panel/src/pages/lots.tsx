@@ -65,6 +65,10 @@ type LotRow = {
   weight_kg: number | null;
   quality_grade?: string | null;
   status: string | null;
+  session_code?: string | null;
+  session_name?: string | null;
+  session_lane_type?: string | null;
+  session_commodity_group?: string | null;
   created_on?: string | null;
   raw?: any;
 };
@@ -864,6 +868,10 @@ export const Lots: React.FC = () => {
         weight_kg: item.weight_kg ?? item.net_weight ?? null,
         quality_grade: item.quality_grade ?? null,
         status: item.status ?? null,
+        session_code: item.session_code || null,
+        session_name: item.session_name || null,
+        session_lane_type: item.session_lane_type || null,
+        session_commodity_group: item.session_commodity_group || null,
         created_on: item.created_on || item.createdAt || null,
         raw: item,
       }));
@@ -954,6 +962,25 @@ export const Lots: React.FC = () => {
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {displayValue(params.row.commodity_product_name)}
+            </Typography>
+          </Stack>
+        ),
+      },
+      {
+        field: "session_name",
+        headerName: "Mapped Lane",
+        width: 220,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {displayValue(params.row.session_name || params.row.session_code)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(
+                [params.row.session_commodity_group, params.row.session_lane_type?.replace(/_/g, " ")]
+                  .filter(Boolean)
+                  .join(" • "),
+              )}
             </Typography>
           </Stack>
         ),

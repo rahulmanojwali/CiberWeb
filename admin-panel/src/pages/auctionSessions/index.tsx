@@ -13,12 +13,22 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { closeAuctionSession, getAuctionLots, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
+import { closeAuctionSession, createAuctionSession, getAuctionLots, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
 
 type SessionRow = {
   id: string;
   session_id: string;
   session_code?: string | null;
+  session_name?: string | null;
+  lane_type?: string | null;
+  commodity_group?: string | null;
+  commodity_group_code?: string | null;
+  hall_or_zone?: string | null;
+  auctioneer_username?: string | null;
+  is_overflow_lane?: boolean;
+  max_queue_size?: number | null;
+  display_order?: number | null;
+  notes?: string | null;
   org_code?: string | null;
   mandi_code?: string | null;
   method?: string | null;
@@ -34,7 +44,25 @@ type SessionRow = {
   closed_by_type?: string | null;
   close_reason?: string | null;
   closed_by_username?: string | null;
+  queued_count?: number | null;
+  live_count?: number | null;
+  sold_count?: number | null;
+  unsold_count?: number | null;
+  withdrawn_count?: number | null;
+  has_active_lot?: boolean;
+  active_lot_code?: string | null;
+  next_queued_lot_code?: string | null;
+  ready_to_close?: boolean;
 };
+
+const LANE_TYPE_OPTIONS = [
+  "COMMODITY_LANE",
+  "PREMIUM_LANE",
+  "FAST_TRACK_LANE",
+  "BULK_LANE",
+  "OVERFLOW_LANE",
+  "SPECIAL_EVENT_LANE",
+];
 
 type Option = { value: string; label: string };
 type CloseSummary = {
@@ -93,6 +121,16 @@ function displayValue(value?: string | null) {
   return text || "—";
 }
 
+function displayCount(value?: number | null) {
+  return Number.isFinite(Number(value)) ? String(Number(value)) : "0";
+}
+
+function humanizeLaneType(value?: string | null) {
+  const text = String(value || "").trim();
+  if (!text) return "—";
+  return text.replace(/_/g, " ");
+}
+
 function closureModeLabel(mode?: string | null) {
   const normalized = String(mode || "").trim().toUpperCase();
   if (normalized === "MANUAL_ONLY") return "Manual";
@@ -134,7 +172,10 @@ export const AuctionSessions: React.FC = () => {
     mandi_code: persistedScope.mandi_code || "",
     status: "",
     method: "",
-    round: "",
+    lane_type: "",
+    commodity_group: "",
+    overflow_only: "",
+    auctioneer_username: "",
     date_from: "",
     date_to: "",
   });
@@ -153,11 +194,42 @@ export const AuctionSessions: React.FC = () => {
   const [rescheduleForm, setRescheduleForm] = useState({
     scheduled_start_time: "",
     scheduled_end_time: "",
+    session_name: "",
+    lane_type: "COMMODITY_LANE",
+    commodity_group: "",
+    commodity_group_code: "",
+    hall_or_zone: "",
+    auctioneer_username: "",
+    is_overflow_lane: false,
+    max_queue_size: "",
+    display_order: "",
+    notes: "",
   });
   const [openCloseConfirm, setOpenCloseConfirm] = useState(false);
   const [closeConfirmLoading, setCloseConfirmLoading] = useState(false);
   const [closeSummary, setCloseSummary] = useState<CloseSummary>({ mappedCount: 0, liveCount: 0 });
   const [openHelp, setOpenHelp] = useState(false);
+  const [openCreateLane, setOpenCreateLane] = useState(false);
+  const [createLaneLoading, setCreateLaneLoading] = useState(false);
+  const [createLaneError, setCreateLaneError] = useState<string | null>(null);
+  const [createLaneForm, setCreateLaneForm] = useState({
+    session_code: "",
+    session_name: "",
+    lane_type: "COMMODITY_LANE",
+    commodity_group: "",
+    commodity_group_code: "",
+    hall_or_zone: "",
+    auctioneer_username: "",
+    method_code: "OPEN_OUTCRY",
+    rounds_enabled: ["ROUND1"],
+    closure_mode: "MANUAL_OR_AUTO",
+    scheduled_start_time: "",
+    scheduled_end_time: "",
+    is_overflow_lane: false,
+    max_queue_size: "",
+    display_order: "",
+    notes: "",
+  });
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -173,6 +245,7 @@ export const AuctionSessions: React.FC = () => {
   );
   const canView = useMemo(() => can(uiConfig.resources, "auction_sessions.list", "VIEW"), [uiConfig.resources]);
   const canUpdateSessions = useMemo(() => can(uiConfig.resources, "auction_sessions.update", "UPDATE"), [uiConfig.resources]);
+  const canCreateSessions = canUpdateSessions;
 
   const statusColor = (status?: string | null) => {
     const s = String(status || "").toUpperCase();
@@ -185,7 +258,21 @@ export const AuctionSessions: React.FC = () => {
 
   const columns = useMemo<GridColDef<SessionRow>[]>(
     () => [
-      { field: "session_code", headerName: "Session Code", width: 170, valueGetter: (_v, row) => row.session_code || row.session_id },
+      {
+        field: "session_code",
+        headerName: "Lane",
+        width: 230,
+        renderCell: (params) => (
+          <Stack spacing={0.2} sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {displayValue(params.row.session_name || params.row.session_code)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {displayValue(params.row.session_code)}
+            </Typography>
+          </Stack>
+        ),
+      },
       {
         field: "status",
         headerName: "Status",
@@ -196,7 +283,56 @@ export const AuctionSessions: React.FC = () => {
           return <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />;
         },
       },
+      {
+        field: "commodity_group",
+        headerName: "Commodity Group",
+        width: 180,
+        valueGetter: (_v, row) => row.commodity_group || "—",
+      },
       { field: "mandi_code", headerName: "Mandi", width: 140 },
+      {
+        field: "lane_type",
+        headerName: "Lane Type",
+        width: 170,
+        valueGetter: (_v, row) => humanizeLaneType(row.lane_type),
+      },
+      {
+        field: "active_lot_code",
+        headerName: "Active Lot",
+        width: 160,
+        valueGetter: (_v, row) => row.active_lot_code || "—",
+      },
+      {
+        field: "queued_count",
+        headerName: "Queued",
+        width: 110,
+        valueGetter: (_v, row) => row.queued_count ?? 0,
+      },
+      {
+        field: "sold_count",
+        headerName: "Sold",
+        width: 110,
+        valueGetter: (_v, row) => row.sold_count ?? 0,
+      },
+      {
+        field: "unsold_count",
+        headerName: "Unsold",
+        width: 110,
+        valueGetter: (_v, row) => row.unsold_count ?? 0,
+      },
+      {
+        field: "ready_to_close",
+        headerName: "Ready To Close",
+        width: 150,
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            label={params.row.ready_to_close ? "YES" : "NO"}
+            color={params.row.ready_to_close ? "success" : "default"}
+            variant={params.row.ready_to_close ? "filled" : "outlined"}
+          />
+        ),
+      },
       { field: "method", headerName: "Method", width: 130 },
       { field: "closure_mode", headerName: "Closure Mode", width: 170, valueGetter: (v) => v || "MANUAL_OR_AUTO" },
       {
@@ -217,9 +353,21 @@ export const AuctionSessions: React.FC = () => {
         width: 180,
         valueFormatter: (value) => formatDate(value) || "—",
       },
-      { field: "org_code", headerName: "Org", width: 120 },
-      { field: "round", headerName: "Round", width: 120 },
-      { field: "session_id", headerName: "Session ID", width: 150 },
+      { field: "hall_or_zone", headerName: "Hall / Zone", width: 140, valueGetter: (value) => value || "—" },
+      { field: "auctioneer_username", headerName: "Auctioneer", width: 160, valueGetter: (value) => value || "—" },
+      {
+        field: "is_overflow_lane",
+        headerName: "Overflow",
+        width: 120,
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            label={params.row.is_overflow_lane ? "OVERFLOW" : "STANDARD"}
+            color={params.row.is_overflow_lane ? "warning" : "default"}
+            variant={params.row.is_overflow_lane ? "filled" : "outlined"}
+          />
+        ),
+      },
     ],
     [nowMs],
   );
@@ -264,7 +412,10 @@ export const AuctionSessions: React.FC = () => {
           mandi_code: filters.mandi_code || undefined,
           status: filters.status || undefined,
           method: filters.method || undefined,
-          round: filters.round || undefined,
+          lane_type: filters.lane_type || undefined,
+          commodity_group: filters.commodity_group || undefined,
+          is_overflow_lane: filters.overflow_only || undefined,
+          auctioneer_username: filters.auctioneer_username || undefined,
           date_from: filters.date_from || undefined,
           date_to: filters.date_to || undefined,
           page_size: 100,
@@ -275,6 +426,16 @@ export const AuctionSessions: React.FC = () => {
         id: item._id || item.session_id || `session-${idx}`,
         session_id: item.session_id || item._id || `session-${idx}`,
         session_code: item.session_code || null,
+        session_name: item.session_name || null,
+        lane_type: item.lane_type || null,
+        commodity_group: item.commodity_group || null,
+        commodity_group_code: item.commodity_group_code || null,
+        hall_or_zone: item.hall_or_zone || null,
+        auctioneer_username: item.auctioneer_username || null,
+        is_overflow_lane: Boolean(item.is_overflow_lane),
+        max_queue_size: item.max_queue_size ?? null,
+        display_order: item.display_order ?? null,
+        notes: item.notes || null,
         org_code: item.org_code || null,
         mandi_code: item.mandi_code || null,
         method: item.method || item.method_code || null,
@@ -290,6 +451,15 @@ export const AuctionSessions: React.FC = () => {
         closed_by_type: item.closed_by_type || null,
         close_reason: item.close_reason || null,
         closed_by_username: item.closed_by_username || null,
+        queued_count: item.queued_count ?? 0,
+        live_count: item.live_count ?? 0,
+        sold_count: item.sold_count ?? 0,
+        unsold_count: item.unsold_count ?? 0,
+        withdrawn_count: item.withdrawn_count ?? 0,
+        has_active_lot: Boolean(item.has_active_lot),
+        active_lot_code: item.active_lot_code || null,
+        next_queued_lot_code: item.next_queued_lot_code || null,
+        ready_to_close: Boolean(item.ready_to_close),
       }));
       setRows(mapped);
       if (selectedSession) {
@@ -347,7 +517,20 @@ export const AuctionSessions: React.FC = () => {
       });
     }
     loadData();
-  }, [filters.org_code, filters.mandi_code, filters.status, filters.method, filters.round, filters.date_from, filters.date_to, language, canView]);
+  }, [
+    filters.org_code,
+    filters.mandi_code,
+    filters.status,
+    filters.method,
+    filters.lane_type,
+    filters.commodity_group,
+    filters.overflow_only,
+    filters.auctioneer_username,
+    filters.date_from,
+    filters.date_to,
+    language,
+    canView,
+  ]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -456,6 +639,16 @@ export const AuctionSessions: React.FC = () => {
     setRescheduleForm({
       scheduled_start_time: toDateTimeInputValue(selectedSession.scheduled_start_time || null),
       scheduled_end_time: toDateTimeInputValue(selectedSession.scheduled_end_time || null),
+      session_name: selectedSession.session_name || "",
+      lane_type: selectedSession.lane_type || "COMMODITY_LANE",
+      commodity_group: selectedSession.commodity_group || "",
+      commodity_group_code: selectedSession.commodity_group_code || "",
+      hall_or_zone: selectedSession.hall_or_zone || "",
+      auctioneer_username: selectedSession.auctioneer_username || "",
+      is_overflow_lane: Boolean(selectedSession.is_overflow_lane),
+      max_queue_size: selectedSession.max_queue_size != null ? String(selectedSession.max_queue_size) : "",
+      display_order: selectedSession.display_order != null ? String(selectedSession.display_order) : "",
+      notes: selectedSession.notes || "",
     });
     setOpenReschedule(true);
   };
@@ -469,6 +662,16 @@ export const AuctionSessions: React.FC = () => {
       const payload: Record<string, any> = { session_id: selectedSession.session_id };
       if (rescheduleForm.scheduled_start_time) payload.scheduled_start_time = new Date(rescheduleForm.scheduled_start_time).toISOString();
       if (rescheduleForm.scheduled_end_time) payload.scheduled_end_time = new Date(rescheduleForm.scheduled_end_time).toISOString();
+      payload.session_name = rescheduleForm.session_name;
+      payload.lane_type = rescheduleForm.lane_type;
+      payload.commodity_group = rescheduleForm.commodity_group || undefined;
+      payload.commodity_group_code = rescheduleForm.commodity_group_code || undefined;
+      payload.hall_or_zone = rescheduleForm.hall_or_zone || undefined;
+      payload.auctioneer_username = rescheduleForm.auctioneer_username || undefined;
+      payload.is_overflow_lane = rescheduleForm.is_overflow_lane;
+      payload.max_queue_size = rescheduleForm.max_queue_size || undefined;
+      payload.display_order = rescheduleForm.display_order || undefined;
+      payload.notes = rescheduleForm.notes || undefined;
       const resp: any = await rescheduleAuctionSession({
         username,
         language,
@@ -500,6 +703,77 @@ export const AuctionSessions: React.FC = () => {
     String(selectedSession.status || "").toUpperCase() === "PLANNED" &&
     !selectedSession.start_time
   );
+  const liveLaneRows = useMemo(
+    () => rows.filter((row) => deriveDisplayStatus(row, nowMs) === "LIVE"),
+    [rows, nowMs],
+  );
+
+  const handleOpenCreateLane = () => {
+    setCreateLaneError(null);
+    setCreateLaneForm({
+      session_code: "",
+      session_name: "",
+      lane_type: "COMMODITY_LANE",
+      commodity_group: "",
+      commodity_group_code: "",
+      hall_or_zone: "",
+      auctioneer_username: "",
+      method_code: "OPEN_OUTCRY",
+      rounds_enabled: ["ROUND1"],
+      closure_mode: "MANUAL_OR_AUTO",
+      scheduled_start_time: "",
+      scheduled_end_time: "",
+      is_overflow_lane: false,
+      max_queue_size: "",
+      display_order: "",
+      notes: "",
+    });
+    setOpenCreateLane(true);
+  };
+
+  const handleCreateLane = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    setCreateLaneLoading(true);
+    setCreateLaneError(null);
+    try {
+      const payload: Record<string, any> = {
+        org_code: filters.org_code || undefined,
+        mandi_code: filters.mandi_code || undefined,
+        method_code: createLaneForm.method_code,
+        rounds_enabled: createLaneForm.rounds_enabled,
+        status: "PLANNED",
+        closure_mode: createLaneForm.closure_mode,
+        session_code: createLaneForm.session_code || undefined,
+        session_name: createLaneForm.session_name,
+        lane_type: createLaneForm.lane_type,
+        commodity_group: createLaneForm.commodity_group || undefined,
+        commodity_group_code: createLaneForm.commodity_group_code || undefined,
+        hall_or_zone: createLaneForm.hall_or_zone || undefined,
+        auctioneer_username: createLaneForm.auctioneer_username || undefined,
+        is_overflow_lane: createLaneForm.is_overflow_lane,
+        max_queue_size: createLaneForm.max_queue_size || undefined,
+        display_order: createLaneForm.display_order || undefined,
+        notes: createLaneForm.notes || undefined,
+        scheduled_start_time: createLaneForm.scheduled_start_time ? new Date(createLaneForm.scheduled_start_time).toISOString() : undefined,
+        scheduled_end_time: createLaneForm.scheduled_end_time ? new Date(createLaneForm.scheduled_end_time).toISOString() : undefined,
+        allow_manual_close_when_auto_enabled: true,
+      };
+      const resp: any = await createAuctionSession({ username, language, payload });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setCreateLaneError(desc || "Failed to create auction lane.");
+        return;
+      }
+      setOpenCreateLane(false);
+      await loadData();
+    } catch (err: any) {
+      setCreateLaneError(err?.message || "Failed to create auction lane.");
+    } finally {
+      setCreateLaneLoading(false);
+    }
+  };
 
   return (
     <PageContainer>
@@ -507,7 +781,7 @@ export const AuctionSessions: React.FC = () => {
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionSessions", { defaultValue: "Auction Sessions" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Live/archived auction sessions overview (read-only).
+            Manage auction lanes by commodity, queue depth, and close readiness.
           </Typography>
           {!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN" && (
             <Typography variant="body2" color="text.secondary">
@@ -516,6 +790,11 @@ export const AuctionSessions: React.FC = () => {
           )}
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
+          {canCreateSessions && (
+            <Button variant="contained" onClick={handleOpenCreateLane}>
+              Create Lane
+            </Button>
+          )}
           <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
             <HelpOutlineIcon />
           </IconButton>
@@ -528,7 +807,7 @@ export const AuctionSessions: React.FC = () => {
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
           <Typography variant="subtitle2" color="text.secondary">
-            Filter Sessions
+            Filter Lanes
           </Typography>
         </Stack>
         <Box
@@ -586,17 +865,51 @@ export const AuctionSessions: React.FC = () => {
           </TextField>
 
           <TextField
+            label="Lane Type"
+            size="small"
+            value={filters.lane_type}
+            onChange={(e) => updateFilter("lane_type", e.target.value)}
+            select
+          >
+            <MenuItem value="">All</MenuItem>
+            {LANE_TYPE_OPTIONS.map((laneType) => (
+              <MenuItem key={laneType} value={laneType}>
+                {humanizeLaneType(laneType)}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label="Commodity Group"
+            size="small"
+            value={filters.commodity_group}
+            onChange={(e) => updateFilter("commodity_group", e.target.value)}
+          />
+
+          <TextField
+            select
+            label="Overflow"
+            size="small"
+            value={filters.overflow_only}
+            onChange={(e) => updateFilter("overflow_only", e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="true">Yes</MenuItem>
+            <MenuItem value="false">No</MenuItem>
+          </TextField>
+
+          <TextField
+            label="Auctioneer"
+            size="small"
+            value={filters.auctioneer_username}
+            onChange={(e) => updateFilter("auctioneer_username", e.target.value)}
+          />
+
+          <TextField
             label="Method"
             size="small"
             value={filters.method}
             onChange={(e) => updateFilter("method", e.target.value)}
-          />
-
-          <TextField
-            label="Round"
-            size="small"
-            value={filters.round}
-            onChange={(e) => updateFilter("round", e.target.value)}
           />
 
           <TextField
@@ -616,6 +929,59 @@ export const AuctionSessions: React.FC = () => {
             InputLabelProps={{ shrink: true }}
           />
         </Box>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Live Auction Lanes
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              One live lot per session lane. Ready-to-close means no active or queued lot remains.
+            </Typography>
+          </Stack>
+          {liveLaneRows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No live lanes for the selected filters.
+            </Typography>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))", xl: "repeat(3, minmax(280px, 1fr))" },
+                gap: 1.5,
+              }}
+            >
+              {liveLaneRows.map((lane) => (
+                <Paper key={lane.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "background.paper" }}>
+                  <Stack spacing={0.8}>
+                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          {displayValue(lane.session_name || lane.session_code)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {displayValue(lane.commodity_group)} · {humanizeLaneType(lane.lane_type)}
+                        </Typography>
+                      </Box>
+                      <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      Active lot: <strong>{displayValue(lane.active_lot_code)}</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Queue: <strong>{displayCount(lane.queued_count)}</strong> · Sold: <strong>{displayCount(lane.sold_count)}</strong> · Unsold: <strong>{displayCount(lane.unsold_count)}</strong>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Scheduled end: {displayValue(formatDate(lane.scheduled_end_time))}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Stack>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
@@ -678,6 +1044,12 @@ export const AuctionSessions: React.FC = () => {
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
                   <DetailField label="Session ID" value={displayValue(selectedSession.session_id)} />
                   <DetailField label="Session Code" value={displayValue(selectedSession.session_code)} />
+                  <DetailField label="Session Name" value={displayValue(selectedSession.session_name)} />
+                  <DetailField label="Lane Type" value={displayValue(humanizeLaneType(selectedSession.lane_type))} />
+                  <DetailField label="Commodity Group" value={displayValue(selectedSession.commodity_group)} />
+                  <DetailField label="Hall / Zone" value={displayValue(selectedSession.hall_or_zone)} />
+                  <DetailField label="Auctioneer" value={displayValue(selectedSession.auctioneer_username)} />
+                  <DetailField label="Overflow Lane" value={selectedSession.is_overflow_lane ? "Yes" : "No"} />
                   <DetailField label="Organisation" value={displayValue(selectedSession.org_code)} />
                   <DetailField label="Mandi" value={displayValue(selectedSession.mandi_code)} />
                   <DetailField label="Method" value={displayValue(selectedSession.method)} />
@@ -715,6 +1087,16 @@ export const AuctionSessions: React.FC = () => {
                 <Typography variant="subtitle2" sx={{ mb: 0.8, fontWeight: 700 }}>
                   Session Progress
                 </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5, mb: 1.5 }}>
+                  <DetailField label="Queued Lots" value={displayCount(selectedSession.queued_count)} />
+                  <DetailField label="Live Lots" value={displayCount(selectedSession.live_count)} />
+                  <DetailField label="Sold Lots" value={displayCount(selectedSession.sold_count)} />
+                  <DetailField label="Unsold Lots" value={displayCount(selectedSession.unsold_count)} />
+                  <DetailField label="Withdrawn Lots" value={displayCount(selectedSession.withdrawn_count)} />
+                  <DetailField label="Active Lot Code" value={displayValue(selectedSession.active_lot_code)} />
+                  <DetailField label="Next Queued Lot" value={displayValue(selectedSession.next_queued_lot_code)} />
+                  <DetailField label="Ready To Close" value={selectedSession.ready_to_close ? "Yes" : "No"} />
+                </Box>
                 <Typography variant="body2" color="text.secondary">
                   {sessionStatusHelperText(selectedSessionDisplayStatus)}
                 </Typography>
@@ -738,7 +1120,7 @@ export const AuctionSessions: React.FC = () => {
             </Button>
             {canRescheduleSelected && (
               <Button variant="outlined" onClick={handleOpenReschedule} disabled={detailLoading}>
-                Reschedule
+                Edit Lane
               </Button>
             )}
             {String(selectedSession.status || "").toUpperCase() === "PLANNED" && !isExpiredPlanned && (
@@ -794,17 +1176,60 @@ export const AuctionSessions: React.FC = () => {
 
       {openReschedule && selectedSession && (
         <Dialog open={openReschedule} onClose={() => setOpenReschedule(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Reschedule Session</DialogTitle>
+          <DialogTitle>Edit Auction Lane</DialogTitle>
           <DialogContent>
             <Stack spacing={1.5} mt={1}>
               <Typography variant="body2" color="text.secondary">
-                You can reschedule only before the auction session starts.
+                Update lane metadata and session timing before bidding begins.
               </Typography>
               {isExpiredPlanned && (
                 <Typography variant="body2" color="text.secondary">
                   This session missed its scheduled window. Reschedule it to make it startable again.
                 </Typography>
               )}
+              <TextField
+                label="Session Name"
+                value={rescheduleForm.session_name}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, session_name: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                select
+                label="Lane Type"
+                value={rescheduleForm.lane_type}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+                fullWidth
+              >
+                {LANE_TYPE_OPTIONS.map((laneType) => (
+                  <MenuItem key={laneType} value={laneType}>
+                    {humanizeLaneType(laneType)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Commodity Group"
+                value={rescheduleForm.commodity_group}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Commodity Group Code"
+                value={rescheduleForm.commodity_group_code}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Hall / Zone"
+                value={rescheduleForm.hall_or_zone}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Auctioneer Username"
+                value={rescheduleForm.auctioneer_username}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
+                fullWidth
+              />
               <TextField
                 label="Scheduled Start"
                 type="datetime-local"
@@ -821,6 +1246,38 @@ export const AuctionSessions: React.FC = () => {
                 InputLabelProps={{ shrink: true }}
                 fullWidth
               />
+              <TextField
+                select
+                label="Overflow Lane"
+                value={rescheduleForm.is_overflow_lane ? "true" : "false"}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))}
+                fullWidth
+              >
+                <MenuItem value="false">No</MenuItem>
+                <MenuItem value="true">Yes</MenuItem>
+              </TextField>
+              <TextField
+                label="Max Queue Size"
+                type="number"
+                value={rescheduleForm.max_queue_size}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Display Order"
+                type="number"
+                value={rescheduleForm.display_order}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, display_order: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Notes"
+                value={rescheduleForm.notes}
+                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, notes: e.target.value }))}
+                multiline
+                minRows={3}
+                fullWidth
+              />
               {rescheduleError && (
                 <Typography variant="body2" color="error">
                   {rescheduleError}
@@ -832,8 +1289,56 @@ export const AuctionSessions: React.FC = () => {
             <Button onClick={() => setOpenReschedule(false)} disabled={rescheduleLoading}>
               Close
             </Button>
-            <Button variant="contained" onClick={handleSubmitReschedule} disabled={rescheduleLoading || (!rescheduleForm.scheduled_start_time && !rescheduleForm.scheduled_end_time)}>
-              {rescheduleLoading ? "Saving..." : "Save Reschedule"}
+            <Button variant="contained" onClick={handleSubmitReschedule} disabled={rescheduleLoading || !rescheduleForm.session_name}>
+              {rescheduleLoading ? "Saving..." : "Save Lane"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+      {openCreateLane && (
+        <Dialog open={openCreateLane} onClose={() => setOpenCreateLane(false)} fullWidth maxWidth="md">
+          <DialogTitle>Create Auction Lane</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} mt={1}>
+              <Typography variant="body2" color="text.secondary">
+                Create a lane-aware auction session. Existing lifecycle behavior remains unchanged; this only adds business identity and queue metadata.
+              </Typography>
+              <TextField label="Organisation" value={filters.org_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
+              <TextField label="Mandi" value={filters.mandi_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
+              <TextField label="Session Code (optional override)" value={createLaneForm.session_code} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_code: e.target.value }))} fullWidth />
+              <TextField label="Session Name" value={createLaneForm.session_name} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_name: e.target.value }))} fullWidth />
+              <TextField select label="Lane Type" value={createLaneForm.lane_type} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_type: e.target.value }))} fullWidth>
+                {LANE_TYPE_OPTIONS.map((laneType) => (
+                  <MenuItem key={laneType} value={laneType}>
+                    {humanizeLaneType(laneType)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField label="Commodity Group" value={createLaneForm.commodity_group} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group: e.target.value }))} fullWidth />
+              <TextField label="Commodity Group Code" value={createLaneForm.commodity_group_code} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))} fullWidth />
+              <TextField label="Hall / Zone" value={createLaneForm.hall_or_zone} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))} fullWidth />
+              <TextField label="Auctioneer Username" value={createLaneForm.auctioneer_username} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))} fullWidth />
+              <TextField label="Scheduled Start" type="datetime-local" value={createLaneForm.scheduled_start_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField select label="Closure Mode" value={createLaneForm.closure_mode} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))} fullWidth>
+                <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
+                <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
+                <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+              </TextField>
+              <TextField select label="Overflow Lane" value={createLaneForm.is_overflow_lane ? "true" : "false"} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))} fullWidth>
+                <MenuItem value="false">No</MenuItem>
+                <MenuItem value="true">Yes</MenuItem>
+              </TextField>
+              <TextField label="Max Queue Size" type="number" value={createLaneForm.max_queue_size} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, max_queue_size: e.target.value }))} fullWidth />
+              <TextField label="Display Order" type="number" value={createLaneForm.display_order} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, display_order: e.target.value }))} fullWidth />
+              <TextField label="Notes" value={createLaneForm.notes} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, notes: e.target.value }))} multiline minRows={3} fullWidth />
+              {createLaneError && <Typography color="error">{createLaneError}</Typography>}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateLane(false)} disabled={createLaneLoading}>Close</Button>
+            <Button variant="contained" onClick={handleCreateLane} disabled={createLaneLoading || !createLaneForm.session_name || !filters.mandi_code || !filters.org_code}>
+              {createLaneLoading ? "Creating..." : "Create Lane"}
             </Button>
           </DialogActions>
         </Dialog>

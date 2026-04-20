@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -125,10 +126,13 @@ function displayCount(value?: number | null) {
   return Number.isFinite(Number(value)) ? String(Number(value)) : "0";
 }
 
-function humanizeLaneType(value?: string | null) {
-  const text = String(value || "").trim();
+function laneTypeOptionLabel(value?: string | null) {
+  const text = String(value || "").trim().toUpperCase();
   if (!text) return "—";
-  return text.replace(/_/g, " ");
+  return text
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
 }
 
 function closureModeLabel(mode?: string | null) {
@@ -294,7 +298,7 @@ export const AuctionSessions: React.FC = () => {
         field: "lane_type",
         headerName: "Lane Type",
         width: 170,
-        valueGetter: (_v, row) => humanizeLaneType(row.lane_type),
+        valueGetter: (_v, row) => laneTypeOptionLabel(row.lane_type),
       },
       {
         field: "active_lot_code",
@@ -874,7 +878,7 @@ export const AuctionSessions: React.FC = () => {
             <MenuItem value="">All</MenuItem>
             {LANE_TYPE_OPTIONS.map((laneType) => (
               <MenuItem key={laneType} value={laneType}>
-                {humanizeLaneType(laneType)}
+                {laneTypeOptionLabel(laneType)}
               </MenuItem>
             ))}
           </TextField>
@@ -962,7 +966,7 @@ export const AuctionSessions: React.FC = () => {
                           {displayValue(lane.session_name || lane.session_code)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {displayValue(lane.commodity_group)} · {humanizeLaneType(lane.lane_type)}
+                          {displayValue(lane.commodity_group)} · {laneTypeOptionLabel(lane.lane_type)}
                         </Typography>
                       </Box>
                       <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
@@ -1045,7 +1049,7 @@ export const AuctionSessions: React.FC = () => {
                   <DetailField label="Session ID" value={displayValue(selectedSession.session_id)} />
                   <DetailField label="Session Code" value={displayValue(selectedSession.session_code)} />
                   <DetailField label="Session Name" value={displayValue(selectedSession.session_name)} />
-                  <DetailField label="Lane Type" value={displayValue(humanizeLaneType(selectedSession.lane_type))} />
+                  <DetailField label="Lane Type" value={displayValue(laneTypeOptionLabel(selectedSession.lane_type))} />
                   <DetailField label="Commodity Group" value={displayValue(selectedSession.commodity_group)} />
                   <DetailField label="Hall / Zone" value={displayValue(selectedSession.hall_or_zone)} />
                   <DetailField label="Auctioneer" value={displayValue(selectedSession.auctioneer_username)} />
@@ -1187,89 +1191,150 @@ export const AuctionSessions: React.FC = () => {
                   This session missed its scheduled window. Reschedule it to make it startable again.
                 </Typography>
               )}
-              <TextField
-                label="Session Name"
-                value={rescheduleForm.session_name}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, session_name: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                select
-                label="Lane Type"
-                value={rescheduleForm.lane_type}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, lane_type: e.target.value }))}
-                fullWidth
-              >
-                {LANE_TYPE_OPTIONS.map((laneType) => (
-                  <MenuItem key={laneType} value={laneType}>
-                    {humanizeLaneType(laneType)}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Commodity Group"
-                value={rescheduleForm.commodity_group}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Commodity Group Code"
-                value={rescheduleForm.commodity_group_code}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Hall / Zone"
-                value={rescheduleForm.hall_or_zone}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Auctioneer Username"
-                value={rescheduleForm.auctioneer_username}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Scheduled Start"
-                type="datetime-local"
-                value={rescheduleForm.scheduled_start_time}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              <TextField
-                label="Scheduled End"
-                type="datetime-local"
-                value={rescheduleForm.scheduled_end_time}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              <TextField
-                select
-                label="Overflow Lane"
-                value={rescheduleForm.is_overflow_lane ? "true" : "false"}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))}
-                fullWidth
-              >
-                <MenuItem value="false">No</MenuItem>
-                <MenuItem value="true">Yes</MenuItem>
-              </TextField>
-              <TextField
-                label="Max Queue Size"
-                type="number"
-                value={rescheduleForm.max_queue_size}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="Display Order"
-                type="number"
-                value={rescheduleForm.display_order}
-                onChange={(e) => setRescheduleForm((prev) => ({ ...prev, display_order: e.target.value }))}
-                fullWidth
-              />
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                  Section B — Auction Lane Details
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Create one auction lane for a commodity or auction purpose. Example: Cereals Lane A, Pulses Lane A, Premium Dry Fruits Lane.
+                </Typography>
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Session Code"
+                    value={selectedSession.session_code || ""}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Lane Name"
+                    value={rescheduleForm.session_name}
+                    onChange={(e) => setRescheduleForm((prev) => ({ ...prev, session_name: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label="Lane Type"
+                    value={rescheduleForm.lane_type}
+                    onChange={(e) => setRescheduleForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+                    fullWidth
+                  >
+                    {LANE_TYPE_OPTIONS.map((laneType) => (
+                      <MenuItem key={laneType} value={laneType}>
+                        {laneTypeOptionLabel(laneType)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="Commodity Group"
+                    value={rescheduleForm.commodity_group}
+                    onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
+                    fullWidth
+                  />
+                </Stack>
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "#f6f1e8", mb: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                    Examples
+                  </Typography>
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 1: Lane Name: <strong>Cereals Lane A</strong> · Lane Type: <strong>Commodity Lane</strong> · Commodity Group: <strong>Cereals</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 2: Lane Name: <strong>Pulses Lane A</strong> · Lane Type: <strong>Commodity Lane</strong> · Commodity Group: <strong>Pulses</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 3: Lane Name: <strong>Premium Dry Fruits Lane</strong> · Lane Type: <strong>Premium Lane</strong> · Commodity Group: <strong>Dry Fruits</strong>
+                    </Typography>
+                  </Stack>
+                </Paper>
+                <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Advanced Lane Settings
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1.5}>
+                      <TextField
+                        label="Internal Commodity Code"
+                        value={rescheduleForm.commodity_group_code}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
+                        helperText="Optional internal code such as CEREALS or PULSES."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Hall / Zone"
+                        value={rescheduleForm.hall_or_zone}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))}
+                        helperText="Optional physical mandi area, such as Hall A or Yard 1."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Auctioneer / Operator Username"
+                        value={rescheduleForm.auctioneer_username}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
+                        fullWidth
+                      />
+                      <TextField
+                        select
+                        label="Is Overflow Lane?"
+                        value={rescheduleForm.is_overflow_lane ? "true" : "false"}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))}
+                        helperText="Use this only when opening an extra lane to reduce crowding in a busy commodity group."
+                        fullWidth
+                      >
+                        <MenuItem value="false">No</MenuItem>
+                        <MenuItem value="true">Yes</MenuItem>
+                      </TextField>
+                      <TextField
+                        label="Max Queue Size"
+                        type="number"
+                        value={rescheduleForm.max_queue_size}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
+                        helperText="Optional limit for how many lots should stay in this lane before opening another lane."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Screen Order"
+                        type="number"
+                        value={rescheduleForm.display_order}
+                        onChange={(e) => setRescheduleForm((prev) => ({ ...prev, display_order: e.target.value }))}
+                        helperText="Optional order for showing lanes on the screen."
+                        fullWidth
+                      />
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Section C — Closure Plan
+                </Typography>
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Closure Mode"
+                    value={closureModeLabel(selectedSession.closure_mode || "")}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Scheduled Start"
+                    type="datetime-local"
+                    value={rescheduleForm.scheduled_start_time}
+                    onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Scheduled End"
+                    type="datetime-local"
+                    value={rescheduleForm.scheduled_end_time}
+                    onChange={(e) => setRescheduleForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Stack>
+              </Paper>
               <TextField
                 label="Notes"
                 value={rescheduleForm.notes}
@@ -1305,32 +1370,135 @@ export const AuctionSessions: React.FC = () => {
               </Typography>
               <TextField label="Organisation" value={filters.org_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
               <TextField label="Mandi" value={filters.mandi_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Session Code (optional override)" value={createLaneForm.session_code} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_code: e.target.value }))} fullWidth />
-              <TextField label="Session Name" value={createLaneForm.session_name} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_name: e.target.value }))} fullWidth />
-              <TextField select label="Lane Type" value={createLaneForm.lane_type} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_type: e.target.value }))} fullWidth>
-                {LANE_TYPE_OPTIONS.map((laneType) => (
-                  <MenuItem key={laneType} value={laneType}>
-                    {humanizeLaneType(laneType)}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField label="Commodity Group" value={createLaneForm.commodity_group} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group: e.target.value }))} fullWidth />
-              <TextField label="Commodity Group Code" value={createLaneForm.commodity_group_code} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))} fullWidth />
-              <TextField label="Hall / Zone" value={createLaneForm.hall_or_zone} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))} fullWidth />
-              <TextField label="Auctioneer Username" value={createLaneForm.auctioneer_username} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))} fullWidth />
-              <TextField label="Scheduled Start" type="datetime-local" value={createLaneForm.scheduled_start_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
-              <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
-              <TextField select label="Closure Mode" value={createLaneForm.closure_mode} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))} fullWidth>
-                <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
-                <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
-                <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
-              </TextField>
-              <TextField select label="Overflow Lane" value={createLaneForm.is_overflow_lane ? "true" : "false"} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))} fullWidth>
-                <MenuItem value="false">No</MenuItem>
-                <MenuItem value="true">Yes</MenuItem>
-              </TextField>
-              <TextField label="Max Queue Size" type="number" value={createLaneForm.max_queue_size} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, max_queue_size: e.target.value }))} fullWidth />
-              <TextField label="Display Order" type="number" value={createLaneForm.display_order} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, display_order: e.target.value }))} fullWidth />
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                  Section B — Auction Lane Details
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Create one auction lane for a commodity or auction purpose. Example: Cereals Lane A, Pulses Lane A, Premium Dry Fruits Lane.
+                </Typography>
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Session Code"
+                    value={createLaneForm.session_code}
+                    InputProps={{ readOnly: true }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Lane Name"
+                    value={createLaneForm.session_name}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_name: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    select
+                    label="Lane Type"
+                    value={createLaneForm.lane_type}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+                    fullWidth
+                  >
+                    {LANE_TYPE_OPTIONS.map((laneType) => (
+                      <MenuItem key={laneType} value={laneType}>
+                        {laneTypeOptionLabel(laneType)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="Commodity Group"
+                    value={createLaneForm.commodity_group}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
+                    fullWidth
+                  />
+                </Stack>
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "#f6f1e8", mt: 1.5, mb: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                    Examples
+                  </Typography>
+                  <Stack spacing={1}>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 1: Lane Name: <strong>Cereals Lane A</strong> · Lane Type: <strong>Commodity Lane</strong> · Commodity Group: <strong>Cereals</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 2: Lane Name: <strong>Pulses Lane A</strong> · Lane Type: <strong>Commodity Lane</strong> · Commodity Group: <strong>Pulses</strong>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Example 3: Lane Name: <strong>Premium Dry Fruits Lane</strong> · Lane Type: <strong>Premium Lane</strong> · Commodity Group: <strong>Dry Fruits</strong>
+                    </Typography>
+                  </Stack>
+                </Paper>
+                <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, "&:before": { display: "none" } }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Advanced Lane Settings
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1.5}>
+                      <TextField
+                        label="Internal Commodity Code"
+                        value={createLaneForm.commodity_group_code}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
+                        helperText="Optional internal code such as CEREALS or PULSES."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Hall / Zone"
+                        value={createLaneForm.hall_or_zone}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, hall_or_zone: e.target.value }))}
+                        helperText="Optional physical mandi area, such as Hall A or Yard 1."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Auctioneer / Operator Username"
+                        value={createLaneForm.auctioneer_username}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
+                        fullWidth
+                      />
+                      <TextField
+                        select
+                        label="Is Overflow Lane?"
+                        value={createLaneForm.is_overflow_lane ? "true" : "false"}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "true" }))}
+                        helperText="Use this only when opening an extra lane to reduce crowding in a busy commodity group."
+                        fullWidth
+                      >
+                        <MenuItem value="false">No</MenuItem>
+                        <MenuItem value="true">Yes</MenuItem>
+                      </TextField>
+                      <TextField
+                        label="Max Queue Size"
+                        type="number"
+                        value={createLaneForm.max_queue_size}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
+                        helperText="Optional limit for how many lots should stay in this lane before opening another lane."
+                        fullWidth
+                      />
+                      <TextField
+                        label="Screen Order"
+                        type="number"
+                        value={createLaneForm.display_order}
+                        onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, display_order: e.target.value }))}
+                        helperText="Optional order for showing lanes on the screen."
+                        fullWidth
+                      />
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper" }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  Section C — Closure Plan
+                </Typography>
+                <Stack spacing={1.5}>
+                  <TextField select label="Closure Mode" value={createLaneForm.closure_mode} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))} fullWidth>
+                    <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
+                    <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                  </TextField>
+                  <TextField label="Scheduled Start" type="datetime-local" value={createLaneForm.scheduled_start_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+                  <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
+                </Stack>
+              </Paper>
               <TextField label="Notes" value={createLaneForm.notes} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, notes: e.target.value }))} multiline minRows={3} fullWidth />
               {createLaneError && <Typography color="error">{createLaneError}</Typography>}
             </Stack>

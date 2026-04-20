@@ -1522,8 +1522,12 @@ export const AuctionLots: React.FC = () => {
                 >
                   <MenuItem value="">Select</MenuItem>
                   {sessionOptions.map((s) => (
-                    <MenuItem key={s.value} value={s.value}>
-                      <Stack spacing={0.2} sx={{ py: 0.3 }}>
+                    <MenuItem
+                      key={s.value}
+                      value={s.value}
+                      sx={s.session?.suggested_for_selected_lot ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
+                    >
+                      <Stack spacing={0.35} sx={{ py: 0.3, width: "100%" }}>
                         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                           <Typography variant="body2" sx={{ fontWeight: 700 }}>
                             {s.session?.session_name || s.session?.session_code || s.label}
@@ -1536,14 +1540,14 @@ export const AuctionLots: React.FC = () => {
                           )}
                         </Stack>
                         <Typography variant="caption" color="text.secondary">
-                          {humanizeLaneType(s.session?.lane_type)} · {s.session?.commodity_group || "No commodity group"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "—"}
+                          Commodity Group: {s.session?.commodity_group || "-"} · Lane Type: {humanizeLaneType(s.session?.lane_type)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Queued: {s.session?.queued_count ?? 0} · Active Lot: {s.session?.active_lot_code || "—"}
+                          Queue: {s.session?.queued_count ?? 0} · Active: {s.session?.active_lot_code || "-"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "-"} · Overflow: {s.session?.is_overflow_lane ? "Yes" : "No"}
                         </Typography>
                         {s.session?.suggestion_reason && (
                           <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
-                            {s.session.suggested_for_selected_lot ? "Best match for selected lot" : s.session.suggestion_reason}
+                            {s.session.suggested_for_selected_lot ? `Best match for selected lot · ${s.session.suggestion_reason}` : s.session.suggestion_reason}
                           </Typography>
                         )}
                       </Stack>
@@ -1558,7 +1562,7 @@ export const AuctionLots: React.FC = () => {
                 {selectedLot && sessionOptions.length === 0 && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
-                      <Typography variant="body2">No usable auction lane is currently available for this mandi.</Typography>
+                      <Typography variant="body2">No active auction lane is available for this mandi. Please create a lane before mapping this lot.</Typography>
                       <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
                         Create Session
                       </Button>
@@ -1572,11 +1576,11 @@ export const AuctionLots: React.FC = () => {
                     </Typography>
                     <Stack spacing={0.6}>
                       <Typography variant="body2"><strong>Lane Name:</strong> {selectedCreateSession.session_name || selectedCreateSession.session_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Lane Type:</strong> {humanizeLaneType(selectedCreateSession.lane_type)}</Typography>
-                      <Typography variant="body2"><strong>Commodity Group:</strong> {selectedCreateSession.commodity_group || "—"}</Typography>
+                      <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(selectedCreateSession.lane_type)}</Typography>
+                      <Typography variant="body2"><strong>Commodity:</strong> {selectedCreateSession.commodity_group || "—"}</Typography>
                       <Typography variant="body2"><strong>Status:</strong> {selectedCreateSession.status_display || selectedCreateSession.derived_status || selectedCreateSession.status || "—"}</Typography>
-                      <Typography variant="body2"><strong>Active Lot:</strong> {selectedCreateSession.active_lot_code || "—"}</Typography>
                       <Typography variant="body2"><strong>Queued Count:</strong> {selectedCreateSession.queued_count ?? 0}</Typography>
+                      <Typography variant="body2"><strong>Active Lot:</strong> {selectedCreateSession.active_lot_code || "—"}</Typography>
                       <Typography variant="body2"><strong>Next Queued Lot:</strong> {selectedCreateSession.next_queued_lot_code || "—"}</Typography>
                       <Typography variant="body2"><strong>Ready to Close:</strong> {selectedCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
                     </Stack>

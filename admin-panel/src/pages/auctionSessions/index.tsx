@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -54,6 +54,35 @@ type SessionRow = {
   active_lot_code?: string | null;
   next_queued_lot_code?: string | null;
   ready_to_close?: boolean;
+  overloaded?: boolean;
+  overload_reason?: string | null;
+};
+
+type LaneCapacitySummary = {
+  live_session_count: number;
+  open_session_count: number;
+  total_queued_lots: number;
+  average_queue_per_lane: number;
+  overloaded_lane_count: number;
+  max_live_sessions_per_mandi: number;
+  max_total_open_sessions_per_mandi: number;
+  max_queue_per_lane: number;
+  can_create_new_lane: boolean;
+  can_start_new_live_lane: boolean;
+  auction_lanes_enabled: boolean;
+  show_capacity_guardrails: boolean;
+  current_live_sessions: number;
+  current_open_sessions: number;
+  current_total_queued_lots: number;
+  current_org_live_sessions: number;
+  current_org_open_sessions: number;
+  current_org_total_queued_lots: number;
+  effective_max_live_sessions: number;
+  effective_max_open_sessions: number;
+  effective_max_queue_per_lane: number;
+  effective_max_total_queued_lots: number;
+  capacity_guard_state: string;
+  blocking_reason?: string | null;
 };
 
 const LANE_TYPE_OPTIONS = [
@@ -234,6 +263,34 @@ export const AuctionSessions: React.FC = () => {
     display_order: "",
     notes: "",
   });
+  const [laneCapacitySummary, setLaneCapacitySummary] = useState<LaneCapacitySummary>({
+    live_session_count: 0,
+    open_session_count: 0,
+    total_queued_lots: 0,
+    average_queue_per_lane: 0,
+    overloaded_lane_count: 0,
+    max_live_sessions_per_mandi: 3,
+    max_total_open_sessions_per_mandi: 6,
+    max_queue_per_lane: 25,
+    can_create_new_lane: true,
+    can_start_new_live_lane: true,
+    auction_lanes_enabled: true,
+    show_capacity_guardrails: true,
+    current_live_sessions: 0,
+    current_open_sessions: 0,
+    current_total_queued_lots: 0,
+    current_org_live_sessions: 0,
+    current_org_open_sessions: 0,
+    current_org_total_queued_lots: 0,
+    effective_max_live_sessions: 3,
+    effective_max_open_sessions: 6,
+    effective_max_queue_per_lane: 25,
+    effective_max_total_queued_lots: 75,
+    capacity_guard_state: "GREEN",
+    blocking_reason: null,
+  });
+  const [helpRoute, setHelpRoute] = useState("/auction-sessions");
+  const [helpTitle, setHelpTitle] = useState("Help");
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -470,8 +527,39 @@ export const AuctionSessions: React.FC = () => {
         active_lot_code: item.active_lot_code || null,
         next_queued_lot_code: item.next_queued_lot_code || null,
         ready_to_close: Boolean(item.ready_to_close),
+        overloaded: Boolean(item.overloaded),
+        overload_reason: item.overload_reason || null,
       }));
       setRows(mapped);
+      const summary = resp?.data?.lane_capacity_summary || resp?.response?.data?.lane_capacity_summary || null;
+      if (summary) {
+        setLaneCapacitySummary({
+          live_session_count: Number(summary.live_session_count || 0),
+          open_session_count: Number(summary.open_session_count || 0),
+          total_queued_lots: Number(summary.total_queued_lots || 0),
+          average_queue_per_lane: Number(summary.average_queue_per_lane || 0),
+          overloaded_lane_count: Number(summary.overloaded_lane_count || 0),
+          max_live_sessions_per_mandi: Number(summary.max_live_sessions_per_mandi || 3),
+          max_total_open_sessions_per_mandi: Number(summary.max_total_open_sessions_per_mandi || 6),
+          max_queue_per_lane: Number(summary.max_queue_per_lane || 25),
+          can_create_new_lane: Boolean(summary.can_create_new_lane),
+          can_start_new_live_lane: Boolean(summary.can_start_new_live_lane ?? true),
+          auction_lanes_enabled: Boolean(summary.auction_lanes_enabled ?? true),
+          show_capacity_guardrails: Boolean(summary.show_capacity_guardrails ?? true),
+          current_live_sessions: Number(summary.current_live_sessions || summary.live_session_count || 0),
+          current_open_sessions: Number(summary.current_open_sessions || summary.open_session_count || 0),
+          current_total_queued_lots: Number(summary.current_total_queued_lots || summary.total_queued_lots || 0),
+          current_org_live_sessions: Number(summary.current_org_live_sessions || 0),
+          current_org_open_sessions: Number(summary.current_org_open_sessions || 0),
+          current_org_total_queued_lots: Number(summary.current_org_total_queued_lots || 0),
+          effective_max_live_sessions: Number(summary.effective_max_live_sessions || summary.max_live_sessions_per_mandi || 3),
+          effective_max_open_sessions: Number(summary.effective_max_open_sessions || summary.max_total_open_sessions_per_mandi || 6),
+          effective_max_queue_per_lane: Number(summary.effective_max_queue_per_lane || summary.max_queue_per_lane || 25),
+          effective_max_total_queued_lots: Number(summary.effective_max_total_queued_lots || 75),
+          capacity_guard_state: String(summary.capacity_guard_state || "GREEN").toUpperCase(),
+          blocking_reason: summary.blocking_reason || null,
+        });
+      }
       if (selectedSession) {
         const updated = mapped.find((r) => r.id === selectedSession.id || r.session_id === selectedSession.session_id);
         if (updated) setSelectedSession(updated);
@@ -801,11 +889,11 @@ export const AuctionSessions: React.FC = () => {
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           {canCreateSessions && (
-            <Button variant="contained" onClick={handleOpenCreateLane}>
+            <Button variant="contained" onClick={handleOpenCreateLane} disabled={!laneCapacitySummary.can_create_new_lane || !laneCapacitySummary.auction_lanes_enabled}>
               Create Lane
             </Button>
           )}
-          <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
+          <IconButton color="primary" onClick={() => { setHelpRoute("/auction-sessions"); setHelpTitle("Auction Sessions Help"); setOpenHelp(true); }} title="Help">
             <HelpOutlineIcon />
           </IconButton>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
@@ -941,6 +1029,39 @@ export const AuctionSessions: React.FC = () => {
         </Box>
       </Paper>
 
+      {laneCapacitySummary.show_capacity_guardrails && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Auction Capacity Summary
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(140px, 1fr))" },
+                gap: 1.25,
+              }}
+            >
+              <DetailField label="Live Lanes" value={displayCount(laneCapacitySummary.current_live_sessions)} />
+              <DetailField label="Open Lanes" value={displayCount(laneCapacitySummary.current_open_sessions)} />
+              <DetailField label="Allowed Live Lanes" value={displayCount(laneCapacitySummary.effective_max_live_sessions)} />
+              <DetailField label="Allowed Open Lanes" value={displayCount(laneCapacitySummary.effective_max_open_sessions)} />
+              <DetailField label="Total Queued Lots" value={displayCount(laneCapacitySummary.current_total_queued_lots)} />
+              <DetailField label="Allowed Queue Capacity" value={displayCount(laneCapacitySummary.effective_max_total_queued_lots)} />
+              <DetailField label="Average Queue per Lane" value={String(laneCapacitySummary.average_queue_per_lane || 0)} />
+              <DetailField label="Overloaded Lanes" value={displayCount(laneCapacitySummary.overloaded_lane_count)} />
+              <DetailField label="Can Create New Lane?" value={laneCapacitySummary.can_create_new_lane ? "Yes" : "No"} />
+              <DetailField label="Guard State" value={laneCapacitySummary.capacity_guard_state || "GREEN"} />
+            </Box>
+            {!laneCapacitySummary.can_create_new_lane && (
+              <Alert severity="warning">
+                {laneCapacitySummary.blocking_reason || "Lane creation is currently blocked by configured auction capacity limits."}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack spacing={1.5}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -975,7 +1096,11 @@ export const AuctionSessions: React.FC = () => {
                           {displayValue(lane.commodity_group)} · {laneTypeOptionLabel(lane.lane_type)}
                         </Typography>
                       </Box>
-                      <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
+                      <Stack direction="row" spacing={0.75} flexWrap="wrap" justifyContent="flex-end">
+                        {lane.is_overflow_lane && <Chip size="small" label="Overflow" color="warning" variant="outlined" />}
+                        {lane.overloaded && <Chip size="small" label="Overloaded" color="error" />}
+                        <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
+                      </Stack>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
                       Active lot: <strong>{displayValue(lane.active_lot_code)}</strong>
@@ -986,6 +1111,11 @@ export const AuctionSessions: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Queue: <strong>{displayCount(lane.queued_count)}</strong> · Sold: <strong>{displayCount(lane.sold_count)}</strong> · Unsold: <strong>{displayCount(lane.unsold_count)}</strong>
                     </Typography>
+                    {lane.overloaded && (
+                      <Typography variant="caption" sx={{ color: "error.main", fontWeight: 600 }}>
+                        {lane.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
+                      </Typography>
+                    )}
                     <Typography variant="caption" color="text.secondary">
                       Scheduled end: {displayValue(formatDate(lane.scheduled_end_time))}
                     </Typography>
@@ -1371,7 +1501,14 @@ export const AuctionSessions: React.FC = () => {
       )}
       {openCreateLane && (
         <Dialog open={openCreateLane} onClose={() => setOpenCreateLane(false)} fullWidth maxWidth="md">
-          <DialogTitle>Create Auction Lane</DialogTitle>
+          <DialogTitle>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">Create Auction Lane</Typography>
+              <IconButton size="small" onClick={() => { setHelpRoute("/auction-sessions"); setHelpTitle("Create Auction Lane Help"); setOpenHelp(true); }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </DialogTitle>
           <DialogContent>
             <Stack spacing={1.5} mt={1}>
               <Typography variant="body2" color="text.secondary">
@@ -1514,7 +1651,7 @@ export const AuctionSessions: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenCreateLane(false)} disabled={createLaneLoading}>Close</Button>
-            <Button variant="contained" onClick={handleCreateLane} disabled={createLaneLoading || !createLaneForm.session_name || !filters.mandi_code || !filters.org_code}>
+            <Button variant="contained" onClick={handleCreateLane} disabled={createLaneLoading || !createLaneForm.session_name || !filters.mandi_code || !filters.org_code || !laneCapacitySummary.can_create_new_lane}>
               {createLaneLoading ? "Creating..." : "Create Lane"}
             </Button>
           </DialogActions>
@@ -1523,8 +1660,9 @@ export const AuctionSessions: React.FC = () => {
       <ScreenHelpDrawer
         open={openHelp}
         onClose={() => setOpenHelp(false)}
-        route="/auction-sessions"
+        route={helpRoute}
         language={language}
+        title={helpTitle}
       />
     </PageContainer>
   );

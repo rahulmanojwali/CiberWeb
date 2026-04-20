@@ -80,6 +80,32 @@ type SessionOption = Option & {
   session: any;
 };
 type LotOption = { value: string; label: string; shortCode?: string; lot: any };
+type LaneCapacitySummary = {
+  live_session_count: number;
+  open_session_count: number;
+  total_queued_lots: number;
+  average_queue_per_lane: number;
+  overloaded_lane_count: number;
+  max_live_sessions_per_mandi: number;
+  max_total_open_sessions_per_mandi: number;
+  max_queue_per_lane: number;
+  can_create_new_lane: boolean;
+  can_start_new_live_lane: boolean;
+  auction_lanes_enabled: boolean;
+  show_capacity_guardrails: boolean;
+  current_live_sessions: number;
+  current_open_sessions: number;
+  current_total_queued_lots: number;
+  current_org_live_sessions: number;
+  current_org_open_sessions: number;
+  current_org_total_queued_lots: number;
+  effective_max_live_sessions: number;
+  effective_max_open_sessions: number;
+  effective_max_queue_per_lane: number;
+  effective_max_total_queued_lots: number;
+  capacity_guard_state: string;
+  blocking_reason?: string | null;
+};
 
 function currentUsername(): string | null {
   try {
@@ -322,9 +348,36 @@ export const AuctionLots: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [openHelp, setOpenHelp] = useState(false);
+  const [helpTitle, setHelpTitle] = useState("Help");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [laneCapacitySummary, setLaneCapacitySummary] = useState<LaneCapacitySummary>({
+    live_session_count: 0,
+    open_session_count: 0,
+    total_queued_lots: 0,
+    average_queue_per_lane: 0,
+    overloaded_lane_count: 0,
+    max_live_sessions_per_mandi: 3,
+    max_total_open_sessions_per_mandi: 6,
+    max_queue_per_lane: 25,
+    can_create_new_lane: true,
+    can_start_new_live_lane: true,
+    auction_lanes_enabled: true,
+    show_capacity_guardrails: true,
+    current_live_sessions: 0,
+    current_open_sessions: 0,
+    current_total_queued_lots: 0,
+    current_org_live_sessions: 0,
+    current_org_open_sessions: 0,
+    current_org_total_queued_lots: 0,
+    effective_max_live_sessions: 3,
+    effective_max_open_sessions: 6,
+    effective_max_queue_per_lane: 25,
+    effective_max_total_queued_lots: 75,
+    capacity_guard_state: "GREEN",
+    blocking_reason: null,
+  });
   const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || ""));
   const isSelectedSessionLive = selectedSessionStatus === "LIVE";
   const canStartSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "QUEUED");
@@ -768,6 +821,35 @@ export const AuctionLots: React.FC = () => {
         console.debug("[AUCTION_LOTS_DEBUG] sample_row", mapped[0]);
       }
       setRows(mapped);
+      const summary = resp?.data?.lane_capacity_summary || resp?.response?.data?.lane_capacity_summary || null;
+      if (summary) {
+        setLaneCapacitySummary({
+          live_session_count: Number(summary.live_session_count || 0),
+          open_session_count: Number(summary.open_session_count || 0),
+          total_queued_lots: Number(summary.total_queued_lots || 0),
+          average_queue_per_lane: Number(summary.average_queue_per_lane || 0),
+          overloaded_lane_count: Number(summary.overloaded_lane_count || 0),
+          max_live_sessions_per_mandi: Number(summary.max_live_sessions_per_mandi || 3),
+          max_total_open_sessions_per_mandi: Number(summary.max_total_open_sessions_per_mandi || 6),
+          max_queue_per_lane: Number(summary.max_queue_per_lane || 25),
+          can_create_new_lane: Boolean(summary.can_create_new_lane),
+          can_start_new_live_lane: Boolean(summary.can_start_new_live_lane ?? true),
+          auction_lanes_enabled: Boolean(summary.auction_lanes_enabled ?? true),
+          show_capacity_guardrails: Boolean(summary.show_capacity_guardrails ?? true),
+          current_live_sessions: Number(summary.current_live_sessions || summary.live_session_count || 0),
+          current_open_sessions: Number(summary.current_open_sessions || summary.open_session_count || 0),
+          current_total_queued_lots: Number(summary.current_total_queued_lots || summary.total_queued_lots || 0),
+          current_org_live_sessions: Number(summary.current_org_live_sessions || 0),
+          current_org_open_sessions: Number(summary.current_org_open_sessions || 0),
+          current_org_total_queued_lots: Number(summary.current_org_total_queued_lots || 0),
+          effective_max_live_sessions: Number(summary.effective_max_live_sessions || summary.max_live_sessions_per_mandi || 3),
+          effective_max_open_sessions: Number(summary.effective_max_open_sessions || summary.max_total_open_sessions_per_mandi || 6),
+          effective_max_queue_per_lane: Number(summary.effective_max_queue_per_lane || summary.max_queue_per_lane || 25),
+          effective_max_total_queued_lots: Number(summary.effective_max_total_queued_lots || 75),
+          capacity_guard_state: String(summary.capacity_guard_state || "GREEN").toUpperCase(),
+          blocking_reason: summary.blocking_reason || null,
+        });
+      }
       setSelectedRow((prev) => mapped.find((row) => row.id === prev?.id) || null);
     } finally {
       setLoading(false);
@@ -1273,11 +1355,44 @@ export const AuctionLots: React.FC = () => {
           <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
             Refresh
           </Button>
-          <IconButton color="primary" size="small" onClick={() => setOpenHelp(true)} title="Help">
+          <IconButton color="primary" size="small" onClick={() => { setHelpTitle("Auction Lot Mapping Help"); setOpenHelp(true); }} title="Help">
             <HelpOutlineIcon fontSize="small" />
           </IconButton>
         </Stack>
       </Stack>
+
+      {laneCapacitySummary.show_capacity_guardrails && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Auction Capacity Summary
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(140px, 1fr))" },
+                gap: 1.25,
+              }}
+            >
+              <Typography variant="body2"><strong>Live Lanes:</strong> {laneCapacitySummary.current_live_sessions}</Typography>
+              <Typography variant="body2"><strong>Open Lanes:</strong> {laneCapacitySummary.current_open_sessions}</Typography>
+              <Typography variant="body2"><strong>Allowed Live Lanes:</strong> {laneCapacitySummary.effective_max_live_sessions}</Typography>
+              <Typography variant="body2"><strong>Allowed Open Lanes:</strong> {laneCapacitySummary.effective_max_open_sessions}</Typography>
+              <Typography variant="body2"><strong>Total Queued Lots:</strong> {laneCapacitySummary.current_total_queued_lots}</Typography>
+              <Typography variant="body2"><strong>Allowed Queue Capacity:</strong> {laneCapacitySummary.effective_max_total_queued_lots}</Typography>
+              <Typography variant="body2"><strong>Average Queue per Lane:</strong> {laneCapacitySummary.average_queue_per_lane}</Typography>
+              <Typography variant="body2"><strong>Overloaded Lanes:</strong> {laneCapacitySummary.overloaded_lane_count}</Typography>
+              <Typography variant="body2"><strong>Can Create New Lane?:</strong> {laneCapacitySummary.can_create_new_lane ? "Yes" : "No"}</Typography>
+              <Typography variant="body2"><strong>Guard State:</strong> {laneCapacitySummary.capacity_guard_state || "GREEN"}</Typography>
+            </Box>
+            {!laneCapacitySummary.can_create_new_lane && (
+              <Alert severity="warning">
+                {laneCapacitySummary.blocking_reason || "Lane creation is currently blocked by configured auction capacity limits."}
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
@@ -1438,7 +1553,14 @@ export const AuctionLots: React.FC = () => {
 
       {openCreate && (
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="md">
-          <DialogTitle>Create Auction Lot</DialogTitle>
+          <DialogTitle>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">Create Auction Lot</Typography>
+              <IconButton size="small" onClick={() => { setHelpTitle("Create Auction Lot Help"); setOpenHelp(true); }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </DialogTitle>
           <DialogContent>
             {createOptionsLoading && <LinearProgress sx={{ mb: 2 }} />}
             <Stack spacing={2} mt={1}>
@@ -1563,7 +1685,7 @@ export const AuctionLots: React.FC = () => {
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
                       <Typography variant="body2">No active auction lane is available for this mandi. Please create a lane before mapping this lot.</Typography>
-                      <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)}>
+                      <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)} disabled={!laneCapacitySummary.can_create_new_lane}>
                         Create Session
                       </Button>
                     </Stack>
@@ -1584,6 +1706,11 @@ export const AuctionLots: React.FC = () => {
                       <Typography variant="body2"><strong>Next Queued Lot:</strong> {selectedCreateSession.next_queued_lot_code || "—"}</Typography>
                       <Typography variant="body2"><strong>Ready to Close:</strong> {selectedCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
                     </Stack>
+                    {selectedCreateSession.overloaded && (
+                      <Alert severity="warning" sx={{ mt: 1.25 }}>
+                        {selectedCreateSession.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
+                      </Alert>
+                    )}
                   </Paper>
                 )}
               </Paper>
@@ -1636,7 +1763,14 @@ export const AuctionLots: React.FC = () => {
 
       {openCreateSession && (
         <Dialog open={openCreateSession} onClose={() => setOpenCreateSession(false)} fullWidth maxWidth="md">
-          <DialogTitle>Create Session</DialogTitle>
+          <DialogTitle>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">Create Session</Typography>
+              <IconButton size="small" onClick={() => { setHelpTitle("Create Auction Lane Help"); setOpenHelp(true); }}>
+                <HelpOutlineIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </DialogTitle>
           <DialogContent>
             <Stack spacing={2} mt={1}>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -1702,7 +1836,7 @@ export const AuctionLots: React.FC = () => {
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  Section B — Lane Identity
+                  Section B — Auction Lane Details
                 </Typography>
                 <Box
                   sx={{
@@ -1719,7 +1853,7 @@ export const AuctionLots: React.FC = () => {
                     fullWidth
                   />
                   <TextField
-                    label="Session Name"
+                    label="Lane Name"
                     size="small"
                     value={createSessionForm.session_name}
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, session_name: e.target.value }))}
@@ -1733,12 +1867,12 @@ export const AuctionLots: React.FC = () => {
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, lane_type: e.target.value }))}
                     fullWidth
                   >
-                    <MenuItem value="COMMODITY_LANE">COMMODITY_LANE</MenuItem>
-                    <MenuItem value="PREMIUM_LANE">PREMIUM_LANE</MenuItem>
-                    <MenuItem value="FAST_TRACK_LANE">FAST_TRACK_LANE</MenuItem>
-                    <MenuItem value="BULK_LANE">BULK_LANE</MenuItem>
-                    <MenuItem value="OVERFLOW_LANE">OVERFLOW_LANE</MenuItem>
-                    <MenuItem value="SPECIAL_EVENT_LANE">SPECIAL_EVENT_LANE</MenuItem>
+                    <MenuItem value="COMMODITY_LANE">Commodity Lane</MenuItem>
+                    <MenuItem value="PREMIUM_LANE">Premium Lane</MenuItem>
+                    <MenuItem value="FAST_TRACK_LANE">Fast Track Lane</MenuItem>
+                    <MenuItem value="BULK_LANE">Bulk Lane</MenuItem>
+                    <MenuItem value="OVERFLOW_LANE">Overflow Lane</MenuItem>
+                    <MenuItem value="SPECIAL_EVENT_LANE">Special Event Lane</MenuItem>
                   </TextField>
                   <TextField
                     label="Commodity Group"
@@ -1748,7 +1882,7 @@ export const AuctionLots: React.FC = () => {
                     fullWidth
                   />
                   <TextField
-                    label="Commodity Group Code"
+                    label="Internal Commodity Code"
                     size="small"
                     value={createSessionForm.commodity_group_code}
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, commodity_group_code: e.target.value }))}
@@ -1762,7 +1896,7 @@ export const AuctionLots: React.FC = () => {
                     fullWidth
                   />
                   <TextField
-                    label="Auctioneer Username"
+                    label="Auctioneer / Operator Username"
                     size="small"
                     value={createSessionForm.auctioneer_username}
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, auctioneer_username: e.target.value }))}
@@ -1770,7 +1904,7 @@ export const AuctionLots: React.FC = () => {
                   />
                   <TextField
                     select
-                    label="Overflow Lane"
+                    label="Is Overflow Lane?"
                     size="small"
                     value={createSessionForm.is_overflow_lane ? "Y" : "N"}
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, is_overflow_lane: e.target.value === "Y" }))}
@@ -1788,7 +1922,7 @@ export const AuctionLots: React.FC = () => {
                     fullWidth
                   />
                   <TextField
-                    label="Display Order"
+                    label="Screen Order"
                     size="small"
                     type="number"
                     value={createSessionForm.display_order}
@@ -1877,13 +2011,18 @@ export const AuctionLots: React.FC = () => {
               </Paper>
 
               {createSessionError && <Alert severity="error">{createSessionError}</Alert>}
+              {!laneCapacitySummary.can_create_new_lane && (
+                <Alert severity="warning">
+                  Maximum open or live auction lanes have reached the configured mandi limit.
+                </Alert>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenCreateSession(false)} disabled={createSessionLoading}>
               Close
             </Button>
-            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading || !createSessionForm.session_name}>
+            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading || !createSessionForm.session_name || !laneCapacitySummary.can_create_new_lane}>
               {createSessionLoading ? "Creating..." : "Create Session"}
             </Button>
           </DialogActions>
@@ -1894,6 +2033,7 @@ export const AuctionLots: React.FC = () => {
         onClose={() => setOpenHelp(false)}
         route="/auction-lots"
         language={language}
+        title={helpTitle}
       />
     </PageContainer>
   );

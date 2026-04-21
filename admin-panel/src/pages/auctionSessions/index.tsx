@@ -1224,9 +1224,9 @@ export const AuctionSessions: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Queue: <strong>{displayCount(lane.queued_count)}</strong> · Sold: <strong>{displayCount(lane.sold_count)}</strong> · Unsold: <strong>{displayCount(lane.unsold_count)}</strong>
                     </Typography>
-                    {lane.overloaded && (
-                      <Typography variant="caption" sx={{ color: "error.main", fontWeight: 600 }}>
-                        {lane.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
+                    {lane.overload_reason && (
+                      <Typography variant="caption" sx={{ color: lane.overloaded ? "error.main" : "warning.main", fontWeight: 600 }}>
+                        {lane.overload_reason}
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary">
@@ -1356,6 +1356,11 @@ export const AuctionSessions: React.FC = () => {
                 <Typography variant="body2" color="text.secondary">
                   {sessionStatusHelperText(selectedSessionDisplayStatus)}
                 </Typography>
+                {selectedSessionDisplayStatus === "LIVE" && !selectedSession.has_active_lot && Boolean(selectedSession.next_queued_lot_code) && (
+                  <Alert severity="warning" sx={{ mt: 1 }}>
+                    Live lane has no active lot. Next queued lot could not be activated.
+                  </Alert>
+                )}
                 {isExpiredPlanned && (
                   <Typography variant="body2" sx={{ mt: 0.8 }} color="text.secondary">
                     This session has not started yet. Update the schedule to continue.

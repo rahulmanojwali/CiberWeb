@@ -94,6 +94,72 @@ const LANE_TYPE_OPTIONS = [
   "SPECIAL_EVENT_LANE",
 ];
 
+const COMMODITY_FAMILY_OPTIONS = [
+  "Vegetables",
+  "Fruits",
+  "Cereals",
+  "Pulses",
+  "Oilseeds",
+  "Dry Fruits",
+  "General / Other",
+] as const;
+
+type CommodityFamily = typeof COMMODITY_FAMILY_OPTIONS[number];
+
+type LaneTemplate = {
+  key: string;
+  label: string;
+  session_name: string;
+  lane_type: string;
+  commodity_group: string;
+  commodity_group_code?: string;
+  is_overflow_lane?: boolean;
+};
+
+const LANE_TEMPLATE_MAP: Record<CommodityFamily, LaneTemplate[]> = {
+  "Vegetables": [
+    { key: "veg-onion-garlic-ginger", label: "Onion / Garlic / Ginger Lane", session_name: "Onion / Garlic / Ginger Lane", lane_type: "COMMODITY_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES" },
+    { key: "veg-leafy", label: "Leafy Vegetables Lane", session_name: "Leafy Vegetables Lane", lane_type: "COMMODITY_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES" },
+    { key: "veg-root", label: "Root Vegetables Lane", session_name: "Root Vegetables Lane", lane_type: "COMMODITY_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES" },
+    { key: "veg-general", label: "General Vegetables Lane", session_name: "General Vegetables Lane", lane_type: "COMMODITY_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES" },
+    { key: "veg-premium", label: "Premium Vegetables Lane", session_name: "Premium Vegetables Lane", lane_type: "PREMIUM_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES" },
+    { key: "veg-overflow", label: "Overflow Vegetables Lane", session_name: "Overflow Vegetables Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Vegetables", commodity_group_code: "VEGETABLES", is_overflow_lane: true },
+  ],
+  "Fruits": [
+    { key: "fruit-general", label: "General Fruits Lane", session_name: "General Fruits Lane", lane_type: "COMMODITY_LANE", commodity_group: "Fruits", commodity_group_code: "FRUITS" },
+    { key: "fruit-premium", label: "Premium Fruits Lane", session_name: "Premium Fruits Lane", lane_type: "PREMIUM_LANE", commodity_group: "Fruits", commodity_group_code: "FRUITS" },
+    { key: "fruit-bulk", label: "Bulk Fruits Lane", session_name: "Bulk Fruits Lane", lane_type: "BULK_LANE", commodity_group: "Fruits", commodity_group_code: "FRUITS" },
+    { key: "fruit-overflow", label: "Overflow Fruits Lane", session_name: "Overflow Fruits Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Fruits", commodity_group_code: "FRUITS", is_overflow_lane: true },
+  ],
+  "Cereals": [
+    { key: "cereals-general", label: "General Cereals Lane", session_name: "General Cereals Lane", lane_type: "COMMODITY_LANE", commodity_group: "Cereals", commodity_group_code: "CEREALS" },
+    { key: "cereals-premium", label: "Premium Cereals Lane", session_name: "Premium Cereals Lane", lane_type: "PREMIUM_LANE", commodity_group: "Cereals", commodity_group_code: "CEREALS" },
+    { key: "cereals-bulk", label: "Bulk Cereals Lane", session_name: "Bulk Cereals Lane", lane_type: "BULK_LANE", commodity_group: "Cereals", commodity_group_code: "CEREALS" },
+    { key: "cereals-overflow", label: "Overflow Cereals Lane", session_name: "Overflow Cereals Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Cereals", commodity_group_code: "CEREALS", is_overflow_lane: true },
+  ],
+  "Pulses": [
+    { key: "pulses-general", label: "General Pulses Lane", session_name: "General Pulses Lane", lane_type: "COMMODITY_LANE", commodity_group: "Pulses", commodity_group_code: "PULSES" },
+    { key: "pulses-premium", label: "Premium Pulses Lane", session_name: "Premium Pulses Lane", lane_type: "PREMIUM_LANE", commodity_group: "Pulses", commodity_group_code: "PULSES" },
+    { key: "pulses-overflow", label: "Overflow Pulses Lane", session_name: "Overflow Pulses Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Pulses", commodity_group_code: "PULSES", is_overflow_lane: true },
+  ],
+  "Oilseeds": [
+    { key: "oilseeds-general", label: "General Oilseeds Lane", session_name: "General Oilseeds Lane", lane_type: "COMMODITY_LANE", commodity_group: "Oilseeds", commodity_group_code: "OILSEEDS" },
+    { key: "oilseeds-premium", label: "Premium Oilseeds Lane", session_name: "Premium Oilseeds Lane", lane_type: "PREMIUM_LANE", commodity_group: "Oilseeds", commodity_group_code: "OILSEEDS" },
+    { key: "oilseeds-overflow", label: "Overflow Oilseeds Lane", session_name: "Overflow Oilseeds Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Oilseeds", commodity_group_code: "OILSEEDS", is_overflow_lane: true },
+  ],
+  "Dry Fruits": [
+    { key: "dry-fruits-general", label: "General Dry Fruits Lane", session_name: "General Dry Fruits Lane", lane_type: "COMMODITY_LANE", commodity_group: "Dry Fruits", commodity_group_code: "DRY_FRUITS" },
+    { key: "dry-fruits-premium", label: "Premium Dry Fruits Lane", session_name: "Premium Dry Fruits Lane", lane_type: "PREMIUM_LANE", commodity_group: "Dry Fruits", commodity_group_code: "DRY_FRUITS" },
+    { key: "dry-fruits-overflow", label: "Overflow Dry Fruits Lane", session_name: "Overflow Dry Fruits Lane", lane_type: "OVERFLOW_LANE", commodity_group: "Dry Fruits", commodity_group_code: "DRY_FRUITS", is_overflow_lane: true },
+  ],
+  "General / Other": [
+    { key: "general-auction", label: "General Auction Lane", session_name: "General Auction Lane", lane_type: "COMMODITY_LANE", commodity_group: "General / Other", commodity_group_code: "GENERAL" },
+    { key: "premium-auction", label: "Premium Auction Lane", session_name: "Premium Auction Lane", lane_type: "PREMIUM_LANE", commodity_group: "General / Other", commodity_group_code: "GENERAL" },
+    { key: "bulk-auction", label: "Bulk Auction Lane", session_name: "Bulk Auction Lane", lane_type: "BULK_LANE", commodity_group: "General / Other", commodity_group_code: "GENERAL" },
+    { key: "overflow-auction", label: "Overflow Auction Lane", session_name: "Overflow Auction Lane", lane_type: "OVERFLOW_LANE", commodity_group: "General / Other", commodity_group_code: "GENERAL", is_overflow_lane: true },
+  ],
+};
+
 type Option = { value: string; label: string };
 type CloseSummary = {
   mappedCount: number;
@@ -149,6 +215,19 @@ function toDateTimeInputValue(value?: string | null) {
 function displayValue(value?: string | null) {
   const text = String(value || "").trim();
   return text || "—";
+}
+
+function getActionFailure(resp: any, fallbackMessage: string) {
+  const message = resp?.response?.description || resp?.description || fallbackMessage;
+  const guardState = String(
+    resp?.data?.capacity_guard_state ||
+    resp?.response?.data?.capacity_guard_state ||
+    ""
+  ).trim().toUpperCase();
+  return {
+    message,
+    severity: guardState === "RED" ? "error" as const : "warning" as const,
+  };
 }
 
 function displayCount(value?: number | null) {
@@ -219,6 +298,7 @@ export const AuctionSessions: React.FC = () => {
   const [openDetail, setOpenDetail] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailErrorSeverity, setDetailErrorSeverity] = useState<"error" | "warning">("error");
   const [detailLoading, setDetailLoading] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [openReschedule, setOpenReschedule] = useState(false);
@@ -245,8 +325,11 @@ export const AuctionSessions: React.FC = () => {
   const [openCreateLane, setOpenCreateLane] = useState(false);
   const [createLaneLoading, setCreateLaneLoading] = useState(false);
   const [createLaneError, setCreateLaneError] = useState<string | null>(null);
+  const [createLaneErrorSeverity, setCreateLaneErrorSeverity] = useState<"error" | "warning">("error");
   const [createLaneForm, setCreateLaneForm] = useState({
     session_code: "",
+    commodity_family: "" as string,
+    lane_template_key: "" as string,
     session_name: "",
     lane_type: "COMMODITY_LANE",
     commodity_group: "",
@@ -657,13 +740,16 @@ export const AuctionSessions: React.FC = () => {
         session_id: selectedSession.session_id,
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
-      const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
-        setDetailError(desc || "Failed to start session.");
+        const failure = getActionFailure(resp, "Failed to start session.");
+        setDetailErrorSeverity(failure.severity);
+        setDetailError(failure.message);
         return;
       }
+      setDetailError(null);
       await loadData();
     } catch (err: any) {
+      setDetailErrorSeverity("error");
       setDetailError(err?.message || "Failed to start session.");
     } finally {
       setDetailLoading(false);
@@ -682,14 +768,17 @@ export const AuctionSessions: React.FC = () => {
         session_id: selectedSession.session_id,
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
-      const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
-        setDetailError(desc || "Failed to close session.");
+        const failure = getActionFailure(resp, "Failed to close session.");
+        setDetailErrorSeverity(failure.severity);
+        setDetailError(failure.message);
         return false;
       }
+      setDetailError(null);
       await loadData();
       return true;
     } catch (err: any) {
+      setDetailErrorSeverity("error");
       setDetailError(err?.message || "Failed to close session.");
       return false;
     } finally {
@@ -805,11 +894,32 @@ export const AuctionSessions: React.FC = () => {
     () => rows.filter((row) => deriveDisplayStatus(row, nowMs) === "LIVE"),
     [rows, nowMs],
   );
+  const selectedCommodityFamily = createLaneForm.commodity_family as CommodityFamily | "";
+  const createLaneTemplateOptions = selectedCommodityFamily
+    ? (LANE_TEMPLATE_MAP[selectedCommodityFamily] || [])
+    : [];
+
+  const applyLaneTemplate = (templateKey: string, commodityFamily: CommodityFamily) => {
+    const template = (LANE_TEMPLATE_MAP[commodityFamily] || []).find((item) => item.key === templateKey);
+    if (!template) return;
+    setCreateLaneForm((prev) => ({
+      ...prev,
+      commodity_family: commodityFamily,
+      lane_template_key: template.key,
+      session_name: template.session_name,
+      lane_type: template.lane_type,
+      commodity_group: template.commodity_group,
+      commodity_group_code: template.commodity_group_code || prev.commodity_group_code,
+      is_overflow_lane: Boolean(template.is_overflow_lane),
+    }));
+  };
 
   const handleOpenCreateLane = () => {
     setCreateLaneError(null);
     setCreateLaneForm({
       session_code: "",
+      commodity_family: "",
+      lane_template_key: "",
       session_name: "",
       lane_type: "COMMODITY_LANE",
       commodity_group: "",
@@ -859,14 +969,17 @@ export const AuctionSessions: React.FC = () => {
       };
       const resp: any = await createAuctionSession({ username, language, payload });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
-      const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
-        setCreateLaneError(desc || "Failed to create auction lane.");
+        const failure = getActionFailure(resp, "Failed to create auction lane.");
+        setCreateLaneErrorSeverity(failure.severity);
+        setCreateLaneError(failure.message);
         return;
       }
+      setCreateLaneError(null);
       setOpenCreateLane(false);
       await loadData();
     } catch (err: any) {
+      setCreateLaneErrorSeverity("error");
       setCreateLaneError(err?.message || "Failed to create auction lane.");
     } finally {
       setCreateLaneLoading(false);
@@ -1160,7 +1273,7 @@ export const AuctionSessions: React.FC = () => {
       </Paper>
 
       {openDetail && selectedSession && (
-        <Dialog open={openDetail} onClose={() => setOpenDetail(false)} fullWidth maxWidth="md">
+        <Dialog open={openDetail} onClose={() => { setDetailError(null); setOpenDetail(false); }} fullWidth maxWidth="md">
           <DialogTitle sx={{ pb: 1.5 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
               <Stack spacing={0.4}>
@@ -1251,14 +1364,14 @@ export const AuctionSessions: React.FC = () => {
               </Box>
 
               {detailError && (
-                <Typography variant="body2" color="error">
+                <Alert severity={detailErrorSeverity}>
                   {detailError}
-                </Typography>
+                </Alert>
               )}
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 1.75 }}>
-            <Button onClick={() => setOpenDetail(false)} disabled={detailLoading} color="inherit">
+            <Button onClick={() => { setDetailError(null); setOpenDetail(false); }} disabled={detailLoading} color="inherit">
               Close
             </Button>
             {canRescheduleSelected && (
@@ -1281,7 +1394,7 @@ export const AuctionSessions: React.FC = () => {
       )}
 
       {openCloseConfirm && selectedSession && (
-        <Dialog open={openCloseConfirm} onClose={() => setOpenCloseConfirm(false)} fullWidth maxWidth="sm">
+        <Dialog open={openCloseConfirm} onClose={() => { setDetailError(null); setOpenCloseConfirm(false); }} fullWidth maxWidth="sm">
           <DialogTitle>Close Auction Session?</DialogTitle>
           <DialogContent>
             <Stack spacing={1.25} mt={0.5}>
@@ -1295,14 +1408,14 @@ export const AuctionSessions: React.FC = () => {
                 Closing this session will stop bidding. Mapped lots will be evaluated: lots with winning bids become SOLD and move to settlement pending, while lots without bids become UNSOLD. Results will be written to Auction Results.
               </Typography>
               {detailError && (
-                <Typography variant="body2" color="error">
+                <Alert severity={detailErrorSeverity}>
                   {detailError}
-                </Typography>
+                </Alert>
               )}
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenCloseConfirm(false)} disabled={detailLoading || closeConfirmLoading}>
+            <Button onClick={() => { setDetailError(null); setOpenCloseConfirm(false); }} disabled={detailLoading || closeConfirmLoading}>
               Cancel
             </Button>
             <Button
@@ -1500,7 +1613,7 @@ export const AuctionSessions: React.FC = () => {
         </Dialog>
       )}
       {openCreateLane && (
-        <Dialog open={openCreateLane} onClose={() => setOpenCreateLane(false)} fullWidth maxWidth="md">
+        <Dialog open={openCreateLane} onClose={() => { setCreateLaneError(null); setOpenCreateLane(false); }} fullWidth maxWidth="md">
           <DialogTitle>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="h6">Create Auction Lane</Typography>
@@ -1531,16 +1644,59 @@ export const AuctionSessions: React.FC = () => {
                     fullWidth
                   />
                   <TextField
+                    select
+                    label="Commodity Family"
+                    value={createLaneForm.commodity_family}
+                    onChange={(e) => {
+                      const family = e.target.value as CommodityFamily | "";
+                      setCreateLaneForm((prev) => ({
+                        ...prev,
+                        commodity_family: family,
+                        lane_template_key: "",
+                      }));
+                    }}
+                    helperText="Choose a commodity family first to reduce manual lane setup."
+                    fullWidth
+                  >
+                    {COMMODITY_FAMILY_OPTIONS.map((family) => (
+                      <MenuItem key={family} value={family}>
+                        {family}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Lane Template"
+                    value={createLaneForm.lane_template_key}
+                    onChange={(e) => {
+                      if (!selectedCommodityFamily) return;
+                      applyLaneTemplate(e.target.value, selectedCommodityFamily);
+                    }}
+                    helperText={
+                      selectedCommodityFamily
+                        ? "Selecting a template will auto-fill lane name, type, and commodity details."
+                        : "Select a commodity family to see lane templates."
+                    }
+                    disabled={!selectedCommodityFamily}
+                    fullWidth
+                  >
+                    {createLaneTemplateOptions.map((template) => (
+                      <MenuItem key={template.key} value={template.key}>
+                        {template.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
                     label="Lane Name"
                     value={createLaneForm.session_name}
-                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, session_name: e.target.value }))}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_template_key: "", session_name: e.target.value }))}
                     fullWidth
                   />
                   <TextField
                     select
                     label="Lane Type"
                     value={createLaneForm.lane_type}
-                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_template_key: "", lane_type: e.target.value }))}
                     fullWidth
                   >
                     {LANE_TYPE_OPTIONS.map((laneType) => (
@@ -1552,7 +1708,7 @@ export const AuctionSessions: React.FC = () => {
                   <TextField
                     label="Commodity Group"
                     value={createLaneForm.commodity_group}
-                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, commodity_group: e.target.value }))}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, lane_template_key: "", commodity_group: e.target.value }))}
                     fullWidth
                   />
                 </Stack>
@@ -1646,11 +1802,15 @@ export const AuctionSessions: React.FC = () => {
                 </Stack>
               </Paper>
               <TextField label="Notes" value={createLaneForm.notes} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, notes: e.target.value }))} multiline minRows={3} fullWidth />
-              {createLaneError && <Typography color="error">{createLaneError}</Typography>}
+              {createLaneError && (
+                <Alert severity={createLaneErrorSeverity}>
+                  {createLaneError}
+                </Alert>
+              )}
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenCreateLane(false)} disabled={createLaneLoading}>Close</Button>
+            <Button onClick={() => { setCreateLaneError(null); setOpenCreateLane(false); }} disabled={createLaneLoading}>Close</Button>
             <Button variant="contained" onClick={handleCreateLane} disabled={createLaneLoading || !createLaneForm.session_name || !filters.mandi_code || !filters.org_code || !laneCapacitySummary.can_create_new_lane}>
               {createLaneLoading ? "Creating..." : "Create Lane"}
             </Button>

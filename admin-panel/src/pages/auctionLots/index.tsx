@@ -96,6 +96,9 @@ type LaneCapacitySummary = {
   current_live_sessions: number;
   current_open_sessions: number;
   current_total_queued_lots: number;
+  current_system_live_sessions?: number;
+  current_system_open_sessions?: number;
+  current_system_total_queued_lots?: number;
   current_org_live_sessions: number;
   current_org_open_sessions: number;
   current_org_total_queued_lots: number;
@@ -103,6 +106,9 @@ type LaneCapacitySummary = {
   effective_max_open_sessions: number;
   effective_max_queue_per_lane: number;
   effective_max_total_queued_lots: number;
+  effective_system_max_live_sessions?: number;
+  effective_system_max_open_sessions?: number;
+  effective_system_max_total_queued_lots?: number;
   capacity_guard_state: string;
   blocking_reason?: string | null;
 };
@@ -1380,6 +1386,10 @@ export const AuctionLots: React.FC = () => {
               <Typography variant="body2"><strong>Allowed Open Lanes:</strong> {laneCapacitySummary.effective_max_open_sessions}</Typography>
               <Typography variant="body2"><strong>Total Queued Lots:</strong> {laneCapacitySummary.current_total_queued_lots}</Typography>
               <Typography variant="body2"><strong>Allowed Queue Capacity:</strong> {laneCapacitySummary.effective_max_total_queued_lots}</Typography>
+              <Typography variant="body2"><strong>Org Live / Open:</strong> {laneCapacitySummary.current_org_live_sessions} / {laneCapacitySummary.current_org_open_sessions}</Typography>
+              <Typography variant="body2"><strong>Org Queued Lots:</strong> {laneCapacitySummary.current_org_total_queued_lots}</Typography>
+              <Typography variant="body2"><strong>System Live / Open:</strong> {laneCapacitySummary.current_system_live_sessions ?? 0} / {laneCapacitySummary.current_system_open_sessions ?? 0}</Typography>
+              <Typography variant="body2"><strong>System Queued Lots:</strong> {laneCapacitySummary.current_system_total_queued_lots ?? 0}</Typography>
               <Typography variant="body2"><strong>Average Queue per Lane:</strong> {laneCapacitySummary.average_queue_per_lane}</Typography>
               <Typography variant="body2"><strong>Overloaded Lanes:</strong> {laneCapacitySummary.overloaded_lane_count}</Typography>
               <Typography variant="body2"><strong>Can Create New Lane?:</strong> {laneCapacitySummary.can_create_new_lane ? "Yes" : "No"}</Typography>

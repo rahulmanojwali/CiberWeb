@@ -74,6 +74,9 @@ type LaneCapacitySummary = {
   current_live_sessions: number;
   current_open_sessions: number;
   current_total_queued_lots: number;
+  current_system_live_sessions?: number;
+  current_system_open_sessions?: number;
+  current_system_total_queued_lots?: number;
   current_org_live_sessions: number;
   current_org_open_sessions: number;
   current_org_total_queued_lots: number;
@@ -81,6 +84,9 @@ type LaneCapacitySummary = {
   effective_max_open_sessions: number;
   effective_max_queue_per_lane: number;
   effective_max_total_queued_lots: number;
+  effective_system_max_live_sessions?: number;
+  effective_system_max_open_sessions?: number;
+  effective_system_max_total_queued_lots?: number;
   capacity_guard_state: string;
   blocking_reason?: string | null;
 };
@@ -1161,6 +1167,10 @@ export const AuctionSessions: React.FC = () => {
               <DetailField label="Allowed Open Lanes" value={displayCount(laneCapacitySummary.effective_max_open_sessions)} />
               <DetailField label="Total Queued Lots" value={displayCount(laneCapacitySummary.current_total_queued_lots)} />
               <DetailField label="Allowed Queue Capacity" value={displayCount(laneCapacitySummary.effective_max_total_queued_lots)} />
+              <DetailField label="Org Live / Open" value={`${displayCount(laneCapacitySummary.current_org_live_sessions)} / ${displayCount(laneCapacitySummary.current_org_open_sessions)}`} />
+              <DetailField label="Org Queued Lots" value={displayCount(laneCapacitySummary.current_org_total_queued_lots)} />
+              <DetailField label="System Live / Open" value={`${displayCount(laneCapacitySummary.current_system_live_sessions)} / ${displayCount(laneCapacitySummary.current_system_open_sessions)}`} />
+              <DetailField label="System Queued Lots" value={displayCount(laneCapacitySummary.current_system_total_queued_lots)} />
               <DetailField label="Average Queue per Lane" value={String(laneCapacitySummary.average_queue_per_lane || 0)} />
               <DetailField label="Overloaded Lanes" value={displayCount(laneCapacitySummary.overloaded_lane_count)} />
               <DetailField label="Can Create New Lane?" value={laneCapacitySummary.can_create_new_lane ? "Yes" : "No"} />

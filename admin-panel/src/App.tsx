@@ -43,6 +43,7 @@ import { OrgMandiMapping } from "./pages/orgMandiMapping";
 import TwoFactorSettings from "./pages/systemSecurity/twoFactor";
 import StepUpPoliciesPage from "./pages/systemSecurity/stepupPolicies";
 import SecuritySwitchesPage from "./pages/systemSecurity/securitySwitches";
+import SystemCapacityControlPage from "./pages/systemCapacityControl";
 import { Commodities } from "./pages/commodities";
 import { CommodityProducts } from "./pages/commodityProducts";
 import { MandiCommodityProductsMasters } from "./pages/mandiCommodityProductsMasters";
@@ -236,6 +237,7 @@ function App() {
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />
+                  <Route path="/system/capacity-control" element={<SystemCapacityControlPage />} />
                   <Route path="/system/workflow-policies" element={<WorkflowPolicies />} />
                   <Route path="/auction-sessions" element={<AuctionSessions />} />
                   <Route path="/auction-lots" element={<AuctionLots />} />

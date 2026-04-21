@@ -38,6 +38,15 @@ export const OrgSettings: React.FC = () => {
   const [autoApproveFarmers, setAutoApproveFarmers] = useState(false);
   const [autoApproveTraders, setAutoApproveTraders] = useState(false);
   const [lotCreationMode, setLotCreationMode] = useState("STRICT_ADMIN_ONLY");
+  const [tierCode, setTierCode] = useState("");
+  const [maxLiveSessions, setMaxLiveSessions] = useState("");
+  const [maxOpenSessions, setMaxOpenSessions] = useState("");
+  const [maxTotalQueuedLots, setMaxTotalQueuedLots] = useState("");
+  const [maxConcurrentBidders, setMaxConcurrentBidders] = useState("");
+  const [allowOverflowLanes, setAllowOverflowLanes] = useState(true);
+  const [allowSpecialEventLanes, setAllowSpecialEventLanes] = useState(false);
+  const [priorityWeight, setPriorityWeight] = useState("");
+  const [reservedCapacityEnabled, setReservedCapacityEnabled] = useState(false);
 
   const canView = useMemo(() => can("org_settings.menu", "VIEW"), [can]);
   const canEdit = useMemo(() => can("org_settings.edit", "UPDATE"), [can]);
@@ -68,6 +77,16 @@ export const OrgSettings: React.FC = () => {
       setAutoApproveTraders(String(data?.auto_approve_traders_on_registration || "N") === "Y");
       setDefaultMandis(Array.isArray(data?.default_mandi_ids_for_auto_approval) ? data.default_mandi_ids_for_auto_approval.map(String) : []);
       setLotCreationMode(String(data?.workflow_policies?.auction?.lot_creation_mode || data?.workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
+      const capacity = data?.workflow_policies?.auction?.capacity || {};
+      setTierCode(String(capacity?.tier_code || ""));
+      setMaxLiveSessions(capacity?.max_live_sessions?.toString?.() || "");
+      setMaxOpenSessions(capacity?.max_open_sessions?.toString?.() || "");
+      setMaxTotalQueuedLots(capacity?.max_total_queued_lots?.toString?.() || "");
+      setMaxConcurrentBidders(capacity?.max_concurrent_bidders?.toString?.() || "");
+      setAllowOverflowLanes(capacity?.allow_overflow_lanes !== false);
+      setAllowSpecialEventLanes(capacity?.allow_special_event_lanes === true);
+      setPriorityWeight(capacity?.priority_weight?.toString?.() || capacity?.capacity_weight?.toString?.() || "");
+      setReservedCapacityEnabled(Boolean(capacity?.reserved_capacity_enabled));
     } finally {
       setLoading(false);
     }
@@ -97,6 +116,17 @@ export const OrgSettings: React.FC = () => {
           lot_creation_mode: lotCreationMode,
           auction: {
             lot_creation_mode: lotCreationMode,
+            capacity: {
+              tier_code: tierCode || null,
+              max_live_sessions: maxLiveSessions ? Number(maxLiveSessions) : null,
+              max_open_sessions: maxOpenSessions ? Number(maxOpenSessions) : null,
+              max_total_queued_lots: maxTotalQueuedLots ? Number(maxTotalQueuedLots) : null,
+              max_concurrent_bidders: maxConcurrentBidders ? Number(maxConcurrentBidders) : null,
+              allow_overflow_lanes: allowOverflowLanes,
+              allow_special_event_lanes: allowSpecialEventLanes,
+              priority_weight: priorityWeight ? Number(priorityWeight) : null,
+              reserved_capacity_enabled: reservedCapacityEnabled,
+            },
           },
         },
       },
@@ -175,6 +205,50 @@ export const OrgSettings: React.FC = () => {
                 ))}
               </TextField>
             </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="subtitle1">Auction Capacity Allocation</Typography>
+            <Typography variant="body2" color="text.secondary">
+              These values set the organisation-level auction quota that mandi overrides must stay within.
+            </Typography>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                select
+                label="Tier Code"
+                value={tierCode}
+                onChange={(e) => setTierCode(e.target.value)}
+                fullWidth
+              >
+                <MenuItem value="">Custom</MenuItem>
+                {["STARTER", "STANDARD", "PREMIUM", "ENTERPRISE", "DEDICATED"].map((tier) => (
+                  <MenuItem key={tier} value={tier}>{tier}</MenuItem>
+                ))}
+              </TextField>
+              <TextField label="Max Live Lanes" type="number" value={maxLiveSessions} onChange={(e) => setMaxLiveSessions(e.target.value)} fullWidth />
+              <TextField label="Max Open Lanes" type="number" value={maxOpenSessions} onChange={(e) => setMaxOpenSessions(e.target.value)} fullWidth />
+            </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField label="Max Total Queued Lots" type="number" value={maxTotalQueuedLots} onChange={(e) => setMaxTotalQueuedLots(e.target.value)} fullWidth />
+              <TextField label="Max Concurrent Bidders" type="number" value={maxConcurrentBidders} onChange={(e) => setMaxConcurrentBidders(e.target.value)} fullWidth />
+              <TextField label="Priority Weight" type="number" value={priorityWeight} onChange={(e) => setPriorityWeight(e.target.value)} fullWidth />
+            </Stack>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Typography>Overflow Lanes Allowed</Typography>
+              <Switch checked={allowOverflowLanes} onChange={(e) => setAllowOverflowLanes(e.target.checked)} />
+            </Stack>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Typography>Special Event Lanes Allowed</Typography>
+              <Switch checked={allowSpecialEventLanes} onChange={(e) => setAllowSpecialEventLanes(e.target.checked)} />
+            </Stack>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Typography>Reserved Capacity Enabled</Typography>
+              <Switch checked={reservedCapacityEnabled} onChange={(e) => setReservedCapacityEnabled(e.target.checked)} />
+            </Stack>
           </Stack>
         </CardContent>
       </Card>

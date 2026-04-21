@@ -47,6 +47,11 @@ export const MandiSettings: React.FC = () => {
   const [lotCreationMode, setLotCreationMode] = useState("");
   const [effectiveLotCreationMode, setEffectiveLotCreationMode] = useState("STRICT_ADMIN_ONLY");
   const [effectiveLotCreationSource, setEffectiveLotCreationSource] = useState("DEFAULT");
+  const [maxLiveSessions, setMaxLiveSessions] = useState("");
+  const [maxOpenSessions, setMaxOpenSessions] = useState("");
+  const [maxQueuePerLane, setMaxQueuePerLane] = useState("");
+  const [maxTotalQueuedLots, setMaxTotalQueuedLots] = useState("");
+  const [allowOverflowLanes, setAllowOverflowLanes] = useState(true);
 
   const canView = useMemo(
     () => can("mandi_settings.menu", "VIEW"),
@@ -94,6 +99,12 @@ export const MandiSettings: React.FC = () => {
     setLotCreationMode(String(settings?.workflow_policies?.lot_creation_mode || "").toUpperCase());
     setEffectiveLotCreationMode(String(data?.effective_workflow_policies?.lot_creation_mode || "STRICT_ADMIN_ONLY").toUpperCase());
     setEffectiveLotCreationSource(String(data?.effective_workflow_policies?.source || "DEFAULT").toUpperCase());
+    const capacity = settings?.workflow_policies?.auction?.capacity || {};
+    setMaxLiveSessions(capacity?.max_live_sessions?.toString?.() || "");
+    setMaxOpenSessions(capacity?.max_open_sessions?.toString?.() || "");
+    setMaxQueuePerLane(capacity?.max_queue_per_lane?.toString?.() || "");
+    setMaxTotalQueuedLots(capacity?.max_total_queued_lots?.toString?.() || "");
+    setAllowOverflowLanes(capacity?.allow_overflow_lanes !== false);
   }, [language, selectedMandi, uiConfig.scope?.org_id]);
 
   useEffect(() => {
@@ -123,6 +134,15 @@ export const MandiSettings: React.FC = () => {
         },
         workflow_policies: {
           lot_creation_mode: lotCreationMode || null,
+          auction: {
+            capacity: {
+              max_live_sessions: maxLiveSessions ? Number(maxLiveSessions) : null,
+              max_open_sessions: maxOpenSessions ? Number(maxOpenSessions) : null,
+              max_queue_per_lane: maxQueuePerLane ? Number(maxQueuePerLane) : null,
+              max_total_queued_lots: maxTotalQueuedLots ? Number(maxTotalQueuedLots) : null,
+              allow_overflow_lanes: allowOverflowLanes,
+            },
+          },
         },
       },
     });
@@ -201,6 +221,40 @@ export const MandiSettings: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Effective value: {effectiveLotCreationMode} ({effectiveLotCreationSource})
           </Typography>
+          <Typography variant="subtitle2">Auction Capacity Override</Typography>
+          <Typography variant="body2" color="text.secondary">
+            These local mandi limits should stay within organisation allocation.
+          </Typography>
+          <TextField
+            label="Max Live Sessions"
+            type="number"
+            value={maxLiveSessions}
+            onChange={(e) => setMaxLiveSessions(e.target.value)}
+          />
+          <TextField
+            label="Max Open Sessions"
+            type="number"
+            value={maxOpenSessions}
+            onChange={(e) => setMaxOpenSessions(e.target.value)}
+          />
+          <TextField
+            label="Max Queue Per Lane"
+            type="number"
+            value={maxQueuePerLane}
+            onChange={(e) => setMaxQueuePerLane(e.target.value)}
+          />
+          <TextField
+            label="Max Total Queued Lots"
+            type="number"
+            value={maxTotalQueuedLots}
+            onChange={(e) => setMaxTotalQueuedLots(e.target.value)}
+          />
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Allow Overflow Lanes</Typography>
+            <Button variant="text" onClick={() => setAllowOverflowLanes((prev) => !prev)}>
+              {allowOverflowLanes ? "Yes" : "No"}
+            </Button>
+          </Stack>
           {canEdit ? (
             <Button variant="contained" onClick={onSave}>
               Save Settings

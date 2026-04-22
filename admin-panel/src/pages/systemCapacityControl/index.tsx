@@ -53,13 +53,91 @@ type OrgAllocation = {
   usage_percent?: number | null;
 };
 
-const TIER_PRESETS: Record<string, Partial<OrgAllocation>> = {
-  STARTER: { tier_code: "STARTER", allocated_max_live_lanes: 2, allocated_max_open_lanes: 4, allocated_max_queued_lots: 50, allocated_max_concurrent_bidders: 300, overflow_allowed: false, special_event_allowed: false, priority_weight: 50 },
-  STANDARD: { tier_code: "STANDARD", allocated_max_live_lanes: 4, allocated_max_open_lanes: 8, allocated_max_queued_lots: 120, allocated_max_concurrent_bidders: 800, overflow_allowed: true, special_event_allowed: false, priority_weight: 100 },
-  PREMIUM: { tier_code: "PREMIUM", allocated_max_live_lanes: 8, allocated_max_open_lanes: 16, allocated_max_queued_lots: 300, allocated_max_concurrent_bidders: 2000, overflow_allowed: true, special_event_allowed: true, priority_weight: 150 },
-  ENTERPRISE: { tier_code: "ENTERPRISE", allocated_max_live_lanes: 16, allocated_max_open_lanes: 32, allocated_max_queued_lots: 800, allocated_max_concurrent_bidders: 5000, overflow_allowed: true, special_event_allowed: true, priority_weight: 250 },
-  DEDICATED: { tier_code: "DEDICATED", allocated_max_live_lanes: 32, allocated_max_open_lanes: 64, allocated_max_queued_lots: 2000, allocated_max_concurrent_bidders: 12000, overflow_allowed: true, special_event_allowed: true, priority_weight: 500, reserved_capacity_enabled: true },
+type TierPreset = {
+  tier_code: string;
+  max_live_sessions: number;
+  max_open_sessions: number;
+  max_total_queued_lots: number;
+  max_concurrent_bidders: number;
+  allow_overflow_lanes: boolean;
+  allow_special_event_lanes: boolean;
+  reserved_capacity_enabled: boolean;
 };
+
+type DerivedSafeCapacity = {
+  derived_safe_max_live_lanes: number;
+  derived_safe_max_open_lanes: number;
+  derived_safe_max_total_queued_lots: number;
+  derived_safe_max_concurrent_bidders: number;
+  derived_safe_max_socket_mobile_connections: number;
+  derived_safe_max_bidders_per_lane: number;
+  derived_reserve_percent: number;
+  derived_warning_messages?: string[];
+};
+
+type RemainingAllocatablePool = {
+  total_allocated_live: number;
+  total_allocated_open: number;
+  total_allocated_queued: number;
+  total_allocated_bidders: number;
+  remaining_allocatable_live: number;
+  remaining_allocatable_open: number;
+  remaining_allocatable_queued: number;
+  remaining_allocatable_bidders: number;
+};
+
+const TIER_PRESET_FALLBACK: TierPreset[] = [
+  {
+    tier_code: "STARTER",
+    max_live_sessions: 1,
+    max_open_sessions: 2,
+    max_total_queued_lots: 25,
+    max_concurrent_bidders: 50,
+    allow_overflow_lanes: false,
+    allow_special_event_lanes: false,
+    reserved_capacity_enabled: false,
+  },
+  {
+    tier_code: "STANDARD",
+    max_live_sessions: 2,
+    max_open_sessions: 4,
+    max_total_queued_lots: 60,
+    max_concurrent_bidders: 120,
+    allow_overflow_lanes: false,
+    allow_special_event_lanes: false,
+    reserved_capacity_enabled: false,
+  },
+  {
+    tier_code: "PREMIUM",
+    max_live_sessions: 3,
+    max_open_sessions: 6,
+    max_total_queued_lots: 100,
+    max_concurrent_bidders: 200,
+    allow_overflow_lanes: true,
+    allow_special_event_lanes: false,
+    reserved_capacity_enabled: false,
+  },
+  {
+    tier_code: "ENTERPRISE",
+    max_live_sessions: 6,
+    max_open_sessions: 12,
+    max_total_queued_lots: 250,
+    max_concurrent_bidders: 500,
+    allow_overflow_lanes: true,
+    allow_special_event_lanes: true,
+    reserved_capacity_enabled: true,
+  },
+  {
+    tier_code: "DEDICATED",
+    max_live_sessions: 10,
+    max_open_sessions: 20,
+    max_total_queued_lots: 500,
+    max_concurrent_bidders: 1000,
+    allow_overflow_lanes: true,
+    allow_special_event_lanes: true,
+    reserved_capacity_enabled: true,
+  },
+];
 
 function currentUsername(): string | null {
   try {
@@ -92,7 +170,7 @@ const HeaderWithTooltip: React.FC<{ label: string; help: string }> = ({ label, h
   </Box>
 );
 
-const UsageMetric: React.FC<{ label: string; value: React.ReactNode; help: string }> = ({
+const MetricCard: React.FC<{ label: string; value: React.ReactNode; help: string }> = ({
   label,
   value,
   help,
@@ -110,6 +188,28 @@ const UsageMetric: React.FC<{ label: string; value: React.ReactNode; help: strin
   </Box>
 );
 
+function buildPresetMap(presets: TierPreset[]) {
+  return presets.reduce<Record<string, TierPreset>>((acc, preset) => {
+    acc[String(preset.tier_code || "").trim().toUpperCase()] = preset;
+    return acc;
+  }, {});
+}
+
+function applyPreset(row: OrgAllocation, preset?: TierPreset | null): OrgAllocation {
+  if (!preset) return row;
+  return {
+    ...row,
+    tier_code: preset.tier_code,
+    allocated_max_live_lanes: preset.max_live_sessions,
+    allocated_max_open_lanes: preset.max_open_sessions,
+    allocated_max_queued_lots: preset.max_total_queued_lots,
+    allocated_max_concurrent_bidders: preset.max_concurrent_bidders,
+    overflow_allowed: preset.allow_overflow_lanes,
+    special_event_allowed: preset.allow_special_event_lanes,
+    reserved_capacity_enabled: preset.reserved_capacity_enabled,
+  };
+}
+
 const SystemCapacityControlPage: React.FC = () => {
   const username = useMemo(() => currentUsername(), []);
   const { can } = usePermissions();
@@ -120,13 +220,19 @@ const SystemCapacityControlPage: React.FC = () => {
   const [savingOrgId, setSavingOrgId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     deployment_profile_name: "",
     auction_capacity: {},
     infra_profile: {},
   });
   const [platformUsage, setPlatformUsage] = useState<any>(null);
+  const [derivedSafeCapacity, setDerivedSafeCapacity] = useState<DerivedSafeCapacity | null>(null);
+  const [remainingPool, setRemainingPool] = useState<RemainingAllocatablePool | null>(null);
+  const [tierPresets, setTierPresets] = useState<TierPreset[]>(TIER_PRESET_FALLBACK);
   const [orgRows, setOrgRows] = useState<OrgAllocation[]>([]);
+
+  const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
 
   const loadData = async () => {
     if (!username) return;
@@ -142,6 +248,10 @@ const SystemCapacityControlPage: React.FC = () => {
       const data = resp?.data || {};
       setSystemConfig(data.system_capacity_config || { deployment_profile_name: "", auction_capacity: {}, infra_profile: {} });
       setPlatformUsage(data.platform_usage_summary || null);
+      setDerivedSafeCapacity(data.derived_safe_capacity || null);
+      setRemainingPool(data.remaining_allocatable_pool || null);
+      setTierPresets(Array.isArray(data.tier_presets) && data.tier_presets.length ? data.tier_presets : TIER_PRESET_FALLBACK);
+      setWarnings(Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : []);
       setOrgRows(Array.isArray(data.org_allocations) ? data.org_allocations : []);
     } catch (err: any) {
       setError(err?.message || "Failed to load system capacity control.");
@@ -178,10 +288,14 @@ const SystemCapacityControlPage: React.FC = () => {
     setOrgRows((prev) => prev.map((row) => (row.org_id === orgId ? { ...row, ...patch } : row)));
   };
 
-  const handleApplyPreset = (orgId: string, presetKey: string) => {
-    const preset = TIER_PRESETS[presetKey];
-    if (!preset) return;
-    updateOrgRow(orgId, preset);
+  const handleTierChange = (orgId: string, tierCode: string) => {
+    const normalizedTier = String(tierCode || "").trim().toUpperCase();
+    const preset = presetMap[normalizedTier] || null;
+    setOrgRows((prev) => prev.map((row) => {
+      if (row.org_id !== orgId) return row;
+      if (!preset) return { ...row, tier_code: normalizedTier || null };
+      return applyPreset(row, preset);
+    }));
   };
 
   const handleSaveSystem = async () => {
@@ -236,6 +350,7 @@ const SystemCapacityControlPage: React.FC = () => {
       });
       if (String(resp?.response?.responsecode || "") !== "0") {
         setError(resp?.response?.description || "Failed to save organisation allocation.");
+        setRemainingPool(resp?.data?.remaining_allocatable_pool || remainingPool);
         return;
       }
       setSuccess(resp?.response?.description || "Organisation auction capacity allocation saved successfully.");
@@ -248,6 +363,7 @@ const SystemCapacityControlPage: React.FC = () => {
   };
 
   const systemTotalsWarning = platformUsage?.allocation_warning || null;
+  const showDerivedCapacityWarning = warnings.length > 0;
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
@@ -289,6 +405,16 @@ const SystemCapacityControlPage: React.FC = () => {
             You do not have permission to edit Capacity Control.
           </Alert>
         )}
+        {showDerivedCapacityWarning && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography sx={{ fontWeight: 600, mb: 0.5 }}>
+              Configured platform values exceed infra-derived safe capacity.
+            </Typography>
+            {warnings.map((warning, idx) => (
+              <Typography key={`${warning}-${idx}`} variant="body2">{warning}</Typography>
+            ))}
+          </Alert>
+        )}
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -317,118 +443,142 @@ const SystemCapacityControlPage: React.FC = () => {
           </Box>
         </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Section B — Current Platform Usage
-        </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-          <UsageMetric label="Current Live Lanes" value={platformUsage?.current_live_lanes ?? 0} help="Number of lanes currently running live." />
-          <UsageMetric label="Current Open Lanes" value={platformUsage?.current_open_lanes ?? 0} help="Number of planned, open, or live lanes currently present." />
-          <UsageMetric label="Current Queued Lots" value={platformUsage?.current_queued_lots ?? 0} help="Number of lots currently waiting in lane queues." />
-          <UsageMetric label="Remaining Live Capacity" value={platformUsage?.remaining_live_capacity ?? 0} help="Platform live-lane balance still available." />
-          <UsageMetric label="Remaining Open Capacity" value={platformUsage?.remaining_open_capacity ?? 0} help="Platform open-lane balance still available." />
-          <UsageMetric label="Remaining Queue Capacity" value={platformUsage?.remaining_queue_capacity ?? 0} help="Platform queued-lot balance still available." />
-          <UsageMetric label="Guard State" value={platformUsage?.guard_state || "GREEN"} help="Health status based on configured capacity thresholds." />
-        </Box>
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Derived Safe Capacity
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+            <MetricCard label="Safe Live Lanes" value={derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0} help="Infra-derived safe live-lane ceiling after applying reserve and bottleneck checks." />
+            <MetricCard label="Safe Open Lanes" value={derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0} help="Infra-derived safe open-lane ceiling." />
+            <MetricCard label="Safe Queued Lots" value={derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0} help="Infra-derived safe queued-lot ceiling." />
+            <MetricCard label="Safe Concurrent Bidders" value={derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0} help="Infra-derived safe bidder concurrency ceiling." />
+          </Box>
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Section C — Optional Infra Profile Metadata
-        </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-          <TextField label="Cloud Provider / Deployment Type" helperText="Hosting provider or infra label, for example OCI, AWS, or On-Prem." placeholder="OCI / AWS / On-Prem" value={systemConfig.infra_profile?.cloud_provider || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Deployment Type" helperText="Shared, Dedicated, Hybrid, or another hosting arrangement." placeholder="Shared / Dedicated" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="App Server RAM (GB)" helperText="Application runtime memory capacity." type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="App Server vCPU" helperText="Application runtime compute capacity." type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="DB Server RAM (GB)" helperText="Database machine memory capacity." type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="DB Server vCPU" helperText="Database machine compute capacity." type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Web Server RAM (GB)" helperText="Web or admin frontend serving memory capacity." type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Web Server vCPU" helperText="Web or admin frontend serving compute capacity." type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Same Machine or Separate" helperText="Whether app, web, and database run on the same server or are split." placeholder="Same / Separate" value={systemConfig.infra_profile?.same_machine_or_separate || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Notes" helperText="Any infra-specific operational notes." value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
-        </Box>
-      </Paper>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Section B — Current Platform Usage
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+            <MetricCard label="Current Live Lanes" value={platformUsage?.current_live_lanes ?? 0} help="Number of lanes currently running live." />
+            <MetricCard label="Current Open Lanes" value={platformUsage?.current_open_lanes ?? 0} help="Number of planned, open, or live lanes currently present." />
+            <MetricCard label="Current Queued Lots" value={platformUsage?.current_queued_lots ?? 0} help="Number of lots currently waiting in lane queues." />
+            <MetricCard label="Remaining Live Capacity" value={platformUsage?.remaining_live_capacity ?? 0} help="Platform live-lane balance still available against configured capacity." />
+            <MetricCard label="Remaining Open Capacity" value={platformUsage?.remaining_open_capacity ?? 0} help="Platform open-lane balance still available against configured capacity." />
+            <MetricCard label="Remaining Queue Capacity" value={platformUsage?.remaining_queue_capacity ?? 0} help="Platform queued-lot balance still available against configured capacity." />
+            <MetricCard label="Guard State" value={platformUsage?.guard_state || "GREEN"} help="Health status based on configured capacity thresholds." />
+          </Box>
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Org Allocation Management
-        </Typography>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
-        </Alert>
-        <Box sx={{ overflowX: "auto" }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Org Name</TableCell>
-                <TableCell><HeaderWithTooltip label="Tier" help="Optional service or allocation profile for the org." /></TableCell>
-                <TableCell>Current Usage</TableCell>
-                <TableCell><HeaderWithTooltip label="Allocated Max Live" help="Maximum live lanes allowed for the org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Allocated Max Open" help="Maximum open lanes allowed for the org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Allocated Max Queued" help="Maximum queued lots allowed for the org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Concurrent Bidders" help="Maximum concurrent bidder load allocated to the org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Overflow" help="Whether overflow-type lanes are allowed for that org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Special Event" help="Whether special-event lanes are allowed for that org." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Priority" help="Relative weighting for capacity allocation priority." /></TableCell>
-                <TableCell><HeaderWithTooltip label="Reserved" help="Whether reserved capacity is enabled for the org." /></TableCell>
-                <TableCell>Preset</TableCell>
-                <TableCell>Usage %</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {orgRows.map((row) => (
-                <TableRow key={row.org_id}>
-                  <TableCell>
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.org_name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{row.org_code || "—"}</Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    <TextField select size="small" value={row.tier_code || ""} onChange={(e) => updateOrgRow(row.org_id, { tier_code: e.target.value })} sx={{ minWidth: 120 }} disabled={!canEditCapacityControl}>
-                      <MenuItem value="">Custom</MenuItem>
-                      {Object.keys(TIER_PRESETS).map((preset) => <MenuItem key={preset} value={preset}>{preset}</MenuItem>)}
-                    </TextField>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption" display="block">Live {row.current_live_lanes}</Typography>
-                    <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
-                    <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
-                  </TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.reserved_capacity_enabled)} onChange={(e) => updateOrgRow(row.org_id, { reserved_capacity_enabled: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
-                  <TableCell>
-                    <TextField select size="small" value="" onChange={(e) => handleApplyPreset(row.org_id, e.target.value)} sx={{ minWidth: 130 }} disabled={!canEditCapacityControl}>
-                      <MenuItem value="">Apply preset</MenuItem>
-                      {Object.keys(TIER_PRESETS).map((preset) => <MenuItem key={preset} value={preset}>{preset}</MenuItem>)}
-                    </TextField>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      color={Number(row.usage_percent || 0) >= 100 ? "error" : Number(row.usage_percent || 0) >= 80 ? "warning" : "success"}
-                      label={`${Number(row.usage_percent || 0).toFixed(0)}%`}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" variant="contained" onClick={() => handleSaveOrg(row)} disabled={!canEditCapacityControl || savingOrgId === row.org_id}>
-                      {savingOrgId === row.org_id ? "Saving..." : "Save"}
-                    </Button>
-                  </TableCell>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Section C — Optional Infra Profile Metadata
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
+            <TextField label="Cloud Provider / Deployment Type" helperText="Hosting provider or infra label, for example OCI, AWS, or On-Prem." placeholder="OCI / AWS / On-Prem" value={systemConfig.infra_profile?.cloud_provider || systemConfig.infra_profile?.provider_name || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Deployment Type" helperText="Shared, Dedicated, Hybrid, or another hosting arrangement." placeholder="Shared / Dedicated" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="App Server RAM (GB)" helperText="Application runtime memory capacity." type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="App Server vCPU" helperText="Application runtime compute capacity." type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="DB Server RAM (GB)" helperText="Database machine memory capacity." type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="DB Server vCPU" helperText="Database machine compute capacity." type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Web Server RAM (GB)" helperText="Web or admin frontend serving memory capacity." type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Web Server vCPU" helperText="Web or admin frontend serving compute capacity." type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Same Machine or Separate" helperText="Whether app, web, and database run on the same server or are split." placeholder="Same / Separate" value={systemConfig.infra_profile?.same_machine_or_separate || systemConfig.infra_profile?.same_machine || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Notes" helperText="Any infra-specific operational notes." value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
+          </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Remaining Allocatable Capacity
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+            <MetricCard label="Remaining Live" value={remainingPool?.remaining_allocatable_live ?? 0} help="Remaining platform live allocation available for org assignment." />
+            <MetricCard label="Remaining Open" value={remainingPool?.remaining_allocatable_open ?? 0} help="Remaining platform open allocation available for org assignment." />
+            <MetricCard label="Remaining Queued" value={remainingPool?.remaining_allocatable_queued ?? 0} help="Remaining platform queued-lot allocation available for org assignment." />
+            <MetricCard label="Remaining Bidders" value={remainingPool?.remaining_allocatable_bidders ?? 0} help="Remaining platform bidder allocation available for org assignment." />
+          </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Org Allocation Management
+          </Typography>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
+          </Alert>
+          <Box sx={{ overflowX: "auto" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Org Name</TableCell>
+                  <TableCell><HeaderWithTooltip label="Tier" help="Optional service or allocation profile for the org." /></TableCell>
+                  <TableCell>Current Usage</TableCell>
+                  <TableCell><HeaderWithTooltip label="Allocated Max Live" help="Maximum live lanes allowed for the org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Allocated Max Open" help="Maximum open lanes allowed for the org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Allocated Max Queued" help="Maximum queued lots allowed for the org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Concurrent Bidders" help="Maximum concurrent bidder load allocated to the org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Overflow" help="Whether overflow-type lanes are allowed for that org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Special Event" help="Whether special-event lanes are allowed for that org." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Priority" help="Relative weighting for capacity allocation priority." /></TableCell>
+                  <TableCell><HeaderWithTooltip label="Reserved" help="Whether reserved capacity is enabled for the org." /></TableCell>
+                  <TableCell>Usage %</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </Paper>
+              </TableHead>
+              <TableBody>
+                {orgRows.map((row) => (
+                  <TableRow key={row.org_id}>
+                    <TableCell>
+                      <Stack spacing={0.25}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.org_name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{row.org_code || "—"}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        select
+                        size="small"
+                        value={row.tier_code || ""}
+                        onChange={(e) => handleTierChange(row.org_id, e.target.value)}
+                        sx={{ minWidth: 120 }}
+                        disabled={!canEditCapacityControl}
+                      >
+                        <MenuItem value="">Custom</MenuItem>
+                        {tierPresets.map((preset) => <MenuItem key={preset.tier_code} value={preset.tier_code}>{preset.tier_code}</MenuItem>)}
+                      </TextField>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" display="block">Live {row.current_live_lanes}</Typography>
+                      <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
+                      <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
+                    </TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><Switch checked={Boolean(row.reserved_capacity_enabled)} onChange={(e) => updateOrgRow(row.org_id, { reserved_capacity_enabled: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={Number(row.usage_percent || 0) >= 100 ? "error" : Number(row.usage_percent || 0) >= 80 ? "warning" : "success"}
+                        label={`${Number(row.usage_percent || 0).toFixed(0)}%`}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" variant="contained" onClick={() => handleSaveOrg(row)} disabled={!canEditCapacityControl || savingOrgId === row.org_id}>
+                        {savingOrgId === row.org_id ? "Saving..." : "Save"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Paper>
       </PageContainer>
     </StepUpGuard>
   );

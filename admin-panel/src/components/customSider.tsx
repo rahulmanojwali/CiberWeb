@@ -48,15 +48,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const effectiveRole = (configRole as any) || storageRole;
   const { permissionsMap } = usePermissions();
 
-  console.log("[CustomSider] resolved role from cd_user:", storageRole, "config role:", configRole);
-
   const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const resourcesCount = menuResources?.length || 0;
-  const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
-
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
@@ -70,21 +66,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       }
       const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
       const builtCount = built.length;
-      console.log("[menu] setting dynamic menu", { resourcesCount, builtCount });
-      if (isDebug) {
-        const systemGroup = built.find((g) => g.key === "system");
-        console.log("[sider debug] system group", {
-          totalGroups: built.length,
-          systemChildCount: systemGroup?.children?.length || 0,
-          systemChildren: systemGroup?.children?.map((c) => ({
-            key: c.key,
-            label: (c as any).label || c.labelKey,
-            path: c.path,
-            resourceKey: c.resourceKey,
-          })),
-        });
-      }
-
       if (resourcesCount > 0 && builtCount === 0) {
         console.warn("[menu] built menu empty after pruning; showing empty state");
         setMenuError("No menu access assigned. Contact admin.");
@@ -99,10 +80,6 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       setMenuError("Menu failed to load.");
     }
   }, [effectiveRole, menuResources, resourcesCount, permissionsMap]);
-
-  useEffect(() => {
-    console.log("[CustomSider] render", { hasUiConfig: resourcesCount > 0, menuLen: navItems.length });
-  }, [resourcesCount, navItems.length]);
 
   const username = getCurrentAdminUsername();
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });

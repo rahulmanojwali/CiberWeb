@@ -14,8 +14,10 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { PageContainer } from "../../components/PageContainer";
 import { StepUpGuard } from "../../components/StepUpGuard";
@@ -73,6 +75,40 @@ function num(v: any): string {
   if (v === null || v === undefined || v === "") return "";
   return String(v);
 }
+
+const headerHelpIconSx = {
+  ml: 0.5,
+  fontSize: 16,
+  verticalAlign: "middle",
+  color: "text.secondary",
+};
+
+const HeaderWithTooltip: React.FC<{ label: string; help: string }> = ({ label, help }) => (
+  <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+    <span>{label}</span>
+    <Tooltip title={help} arrow>
+      <HelpOutlineIcon sx={headerHelpIconSx} />
+    </Tooltip>
+  </Box>
+);
+
+const UsageMetric: React.FC<{ label: string; value: React.ReactNode; help: string }> = ({
+  label,
+  value,
+  help,
+}) => (
+  <Box sx={{ p: 1.25, border: "1px solid", borderColor: "divider", borderRadius: 1.5, backgroundColor: "background.paper" }}>
+    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+      {label}
+    </Typography>
+    <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5 }}>
+      {value}
+    </Typography>
+    <Typography variant="caption" color="text.secondary">
+      {help}
+    </Typography>
+  </Box>
+);
 
 const SystemCapacityControlPage: React.FC = () => {
   const username = useMemo(() => currentUsername(), []);
@@ -259,25 +295,25 @@ const SystemCapacityControlPage: React.FC = () => {
             Section A — Platform Capacity Profile
           </Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-            <TextField label="Deployment / Profile Name" value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={!canEditCapacityControl} />
-            <TextField select label="Guard Enabled" value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={!canEditCapacityControl}>
+            <TextField label="Deployment / Profile Name" helperText="Friendly name of the current platform capacity profile." value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={!canEditCapacityControl} />
+            <TextField select label="Guard Enabled" helperText="Turns backend capacity enforcement on or off." value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={!canEditCapacityControl}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </TextField>
-            <TextField label="Max Total Live Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Max Total Open Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Max Total Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="CPU Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Memory Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Org Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Org Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Org Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Org Max Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Mandi Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Mandi Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Mandi Max Queue Per Lane" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Default Mandi Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Live Lanes" helperText="Maximum number of auction lanes that can be live across the platform." type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Open Lanes" helperText="Maximum number of lanes that can exist in open, planned, or live state across the platform." type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Queued Lots" helperText="Maximum number of queued lots allowed across all lanes." type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Concurrent Bidders" helperText="Maximum simultaneous bidder participation the platform should support." type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="CPU Warning Threshold %" helperText="Warning threshold for CPU usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Memory Warning Threshold %" helperText="Warning threshold for memory usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Live Lanes" helperText="Default live-lane quota assigned to a new org if no custom allocation is set." type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Open Lanes" helperText="Default open-lane quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Total Queued Lots" helperText="Default total queued-lot quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Concurrent Bidders" helperText="Default concurrent bidder quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Live Lanes" helperText="Default mandi live-lane limit when mandi override is not set." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Open Lanes" helperText="Default mandi open-lane limit when mandi override is not set." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Queue Per Lane" helperText="Default number of queued lots allowed in one mandi lane." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Total Queued Lots" helperText="Default total queued lots allowed for one mandi." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
           </Box>
         </Paper>
 
@@ -286,13 +322,13 @@ const SystemCapacityControlPage: React.FC = () => {
           Section B — Current Platform Usage
         </Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-          <Typography variant="body2"><strong>Current Live Lanes:</strong> {platformUsage?.current_live_lanes ?? 0}</Typography>
-          <Typography variant="body2"><strong>Current Open Lanes:</strong> {platformUsage?.current_open_lanes ?? 0}</Typography>
-          <Typography variant="body2"><strong>Current Queued Lots:</strong> {platformUsage?.current_queued_lots ?? 0}</Typography>
-          <Typography variant="body2"><strong>Remaining Live Capacity:</strong> {platformUsage?.remaining_live_capacity ?? 0}</Typography>
-          <Typography variant="body2"><strong>Remaining Open Capacity:</strong> {platformUsage?.remaining_open_capacity ?? 0}</Typography>
-          <Typography variant="body2"><strong>Remaining Queue Capacity:</strong> {platformUsage?.remaining_queue_capacity ?? 0}</Typography>
-          <Typography variant="body2"><strong>Guard State:</strong> {platformUsage?.guard_state || "GREEN"}</Typography>
+          <UsageMetric label="Current Live Lanes" value={platformUsage?.current_live_lanes ?? 0} help="Number of lanes currently running live." />
+          <UsageMetric label="Current Open Lanes" value={platformUsage?.current_open_lanes ?? 0} help="Number of planned, open, or live lanes currently present." />
+          <UsageMetric label="Current Queued Lots" value={platformUsage?.current_queued_lots ?? 0} help="Number of lots currently waiting in lane queues." />
+          <UsageMetric label="Remaining Live Capacity" value={platformUsage?.remaining_live_capacity ?? 0} help="Platform live-lane balance still available." />
+          <UsageMetric label="Remaining Open Capacity" value={platformUsage?.remaining_open_capacity ?? 0} help="Platform open-lane balance still available." />
+          <UsageMetric label="Remaining Queue Capacity" value={platformUsage?.remaining_queue_capacity ?? 0} help="Platform queued-lot balance still available." />
+          <UsageMetric label="Guard State" value={platformUsage?.guard_state || "GREEN"} help="Health status based on configured capacity thresholds." />
         </Box>
       </Paper>
 
@@ -301,16 +337,16 @@ const SystemCapacityControlPage: React.FC = () => {
           Section C — Optional Infra Profile Metadata
         </Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-          <TextField label="Cloud Provider / Deployment Type" value={systemConfig.infra_profile?.cloud_provider || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Deployment Type" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="App Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="App Server vCPU" type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="DB Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="DB Server vCPU" type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Web Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Web Server vCPU" type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Same Machine or Separate" value={systemConfig.infra_profile?.same_machine_or_separate || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-          <TextField label="Notes" value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
+          <TextField label="Cloud Provider / Deployment Type" helperText="Hosting provider or infra label, for example OCI, AWS, or On-Prem." placeholder="OCI / AWS / On-Prem" value={systemConfig.infra_profile?.cloud_provider || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Deployment Type" helperText="Shared, Dedicated, Hybrid, or another hosting arrangement." placeholder="Shared / Dedicated" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="App Server RAM (GB)" helperText="Application runtime memory capacity." type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="App Server vCPU" helperText="Application runtime compute capacity." type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="DB Server RAM (GB)" helperText="Database machine memory capacity." type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="DB Server vCPU" helperText="Database machine compute capacity." type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Web Server RAM (GB)" helperText="Web or admin frontend serving memory capacity." type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Web Server vCPU" helperText="Web or admin frontend serving compute capacity." type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Same Machine or Separate" helperText="Whether app, web, and database run on the same server or are split." placeholder="Same / Separate" value={systemConfig.infra_profile?.same_machine_or_separate || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Notes" helperText="Any infra-specific operational notes." value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
         </Box>
       </Paper>
 
@@ -318,21 +354,24 @@ const SystemCapacityControlPage: React.FC = () => {
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
           Org Allocation Management
         </Typography>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
+        </Alert>
         <Box sx={{ overflowX: "auto" }}>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Org Name</TableCell>
-                <TableCell>Tier</TableCell>
+                <TableCell><HeaderWithTooltip label="Tier" help="Optional service or allocation profile for the org." /></TableCell>
                 <TableCell>Current Usage</TableCell>
-                <TableCell>Allocated Max Live</TableCell>
-                <TableCell>Allocated Max Open</TableCell>
-                <TableCell>Allocated Max Queued</TableCell>
-                <TableCell>Concurrent Bidders</TableCell>
-                <TableCell>Overflow</TableCell>
-                <TableCell>Special Event</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Reserved</TableCell>
+                <TableCell><HeaderWithTooltip label="Allocated Max Live" help="Maximum live lanes allowed for the org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Allocated Max Open" help="Maximum open lanes allowed for the org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Allocated Max Queued" help="Maximum queued lots allowed for the org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Concurrent Bidders" help="Maximum concurrent bidder load allocated to the org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Overflow" help="Whether overflow-type lanes are allowed for that org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Special Event" help="Whether special-event lanes are allowed for that org." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Priority" help="Relative weighting for capacity allocation priority." /></TableCell>
+                <TableCell><HeaderWithTooltip label="Reserved" help="Whether reserved capacity is enabled for the org." /></TableCell>
                 <TableCell>Preset</TableCell>
                 <TableCell>Usage %</TableCell>
                 <TableCell align="right">Actions</TableCell>

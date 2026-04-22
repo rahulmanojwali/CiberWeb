@@ -938,9 +938,26 @@ export function filterMenuByRole(role: RoleSlug | null) {
 
 let sidebarDebugLogged = false;
 
+function findMenuItemByResourceKey(
+  items: AppMenuItem[],
+  targetResourceKey: string,
+): AppMenuItem | null {
+  const target = canonicalizeResourceKey(targetResourceKey);
+  for (const item of items) {
+    if (canonicalizeResourceKey(item.resourceKey) === target) {
+      return item;
+    }
+    if (item.children?.length) {
+      const childMatch = findMenuItemByResourceKey(item.children, targetResourceKey);
+      if (childMatch) return childMatch;
+    }
+  }
+  return null;
+}
+
 export function filterMenuByResources(
   resources: UiResource[] | undefined,
-  _fallbackRole: RoleSlug | null,
+  fallbackRole: RoleSlug | null,
   permissionsMap?: Record<string, Set<string>>,
 ) {
   try {
@@ -993,6 +1010,45 @@ export function filterMenuByResources(
         resource,
       });
     });
+
+    const systemCapacityControlItem = findMenuItemByResourceKey(APP_MENU, "capacity_control.menu");
+    const systemCapacityControlKey = canonicalizeResourceKey("capacity_control.menu");
+    const systemCapacityControlPermissionMatch = Boolean(
+      permissionsMap?.[systemCapacityControlKey]?.has("VIEW"),
+    );
+    const systemCapacityControlRoleMatch = Boolean(
+      !systemCapacityControlItem?.roles?.length ||
+        (fallbackRole && systemCapacityControlItem.roles.includes(fallbackRole as RoleSlug)),
+    );
+    const systemCapacityControlFreezeEntry = freezeItems.find(
+      (item) => canonicalizeResourceKey(item.resource_key) === systemCapacityControlKey,
+    );
+    const systemCapacityControlResource = byKey.get(systemCapacityControlKey);
+
+    if (
+      systemCapacityControlItem &&
+      systemCapacityControlPermissionMatch &&
+      systemCapacityControlRoleMatch &&
+      !items.some((item) => canonicalizeResourceKey(item.resourceKey) === systemCapacityControlKey)
+    ) {
+      items.push({
+        key: String(systemCapacityControlItem.key || systemCapacityControlKey),
+        labelKey: String(systemCapacityControlItem.labelKey),
+        labelOverride: systemCapacityControlItem.labelOverride,
+        path: systemCapacityControlItem.path,
+        icon: systemCapacityControlItem.icon,
+        resourceKey: "capacity_control.menu",
+        requiredAction: "VIEW",
+        order: typeof systemCapacityControlItem.order === "number" ? systemCapacityControlItem.order : 9999,
+        category: "System",
+        disabled: !systemCapacityControlItem.path,
+        resource: systemCapacityControlResource || {
+          resource_key: "capacity_control.menu",
+          ui_type: "MENU",
+          allowed_actions: ["VIEW"],
+        },
+      });
+    }
 
     const categories = new Map<string, { label: string; order: number; items: MenuItemRow[] }>();
     const categoryOrder = new Map<string, number>();
@@ -1047,6 +1103,18 @@ export function filterMenuByResources(
           label: it.labelOverride || it.labelKey,
           route: it.path,
         })),
+      });
+      // eslint-disable-next-line no-console
+      console.log("[menu debug systemCapacityControl]", {
+        route: systemCapacityControlItem?.path || null,
+        roleMatch: systemCapacityControlRoleMatch,
+        permissionMatch: systemCapacityControlPermissionMatch,
+        requiredAction: systemCapacityControlItem?.requiredAction || "VIEW",
+        labelKey: systemCapacityControlItem?.labelKey || null,
+        labelPresent: Boolean(systemCapacityControlItem?.labelKey || systemCapacityControlItem?.labelOverride),
+        freezeEntryPresent: Boolean(systemCapacityControlFreezeEntry),
+        uiResourcePresent: Boolean(systemCapacityControlResource),
+        finalRendered: items.some((item) => canonicalizeResourceKey(item.resourceKey) === systemCapacityControlKey),
       });
     }
 

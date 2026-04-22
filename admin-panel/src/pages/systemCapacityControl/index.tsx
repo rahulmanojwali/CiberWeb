@@ -230,6 +230,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const [derivedSafeCapacity, setDerivedSafeCapacity] = useState<DerivedSafeCapacity | null>(null);
   const [remainingPool, setRemainingPool] = useState<RemainingAllocatablePool | null>(null);
   const [tierPresets, setTierPresets] = useState<TierPreset[]>(TIER_PRESET_FALLBACK);
+  const [availableTiers, setAvailableTiers] = useState<string[]>(TIER_PRESET_FALLBACK.map((item) => item.tier_code));
   const [orgRows, setOrgRows] = useState<OrgAllocation[]>([]);
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
@@ -251,6 +252,13 @@ const SystemCapacityControlPage: React.FC = () => {
       setDerivedSafeCapacity(data.derived_safe_capacity || null);
       setRemainingPool(data.remaining_allocatable_pool || null);
       setTierPresets(Array.isArray(data.tier_presets) && data.tier_presets.length ? data.tier_presets : TIER_PRESET_FALLBACK);
+      setAvailableTiers(
+        Array.isArray(data.available_tiers) && data.available_tiers.length
+          ? data.available_tiers
+          : (Array.isArray(data.tier_presets) && data.tier_presets.length
+            ? data.tier_presets.map((preset: TierPreset) => preset.tier_code)
+            : TIER_PRESET_FALLBACK.map((item) => item.tier_code))
+      );
       setWarnings(Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : []);
       setOrgRows(Array.isArray(data.org_allocations) ? data.org_allocations : []);
     } catch (err: any) {
@@ -507,6 +515,9 @@ const SystemCapacityControlPage: React.FC = () => {
           <Alert severity="info" sx={{ mb: 2 }}>
             Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
           </Alert>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Tier values are auto-applied based on selection.
+          </Alert>
           <Box sx={{ overflowX: "auto" }}>
             <Table size="small">
               <TableHead>
@@ -545,7 +556,7 @@ const SystemCapacityControlPage: React.FC = () => {
                         disabled={!canEditCapacityControl}
                       >
                         <MenuItem value="">Custom</MenuItem>
-                        {tierPresets.map((preset) => <MenuItem key={preset.tier_code} value={preset.tier_code}>{preset.tier_code}</MenuItem>)}
+                        {availableTiers.map((tierCode) => <MenuItem key={tierCode} value={tierCode}>{tierCode}</MenuItem>)}
                       </TextField>
                     </TableCell>
                     <TableCell>
@@ -553,12 +564,12 @@ const SystemCapacityControlPage: React.FC = () => {
                       <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
                       <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
                     </TableCell>
-                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
-                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
-                    <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
-                    <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
+                    <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
+                    <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
+                    <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={!canEditCapacityControl || Boolean(row.tier_code)} /></TableCell>
                     <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={!canEditCapacityControl} /></TableCell>
                     <TableCell><Switch checked={Boolean(row.reserved_capacity_enabled)} onChange={(e) => updateOrgRow(row.org_id, { reserved_capacity_enabled: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
                     <TableCell>

@@ -77,7 +77,8 @@ function num(v: any): string {
 const SystemCapacityControlPage: React.FC = () => {
   const username = useMemo(() => currentUsername(), []);
   const { can } = usePermissions();
-  const canViewCapacityControl = can("resource_registry.menu", "VIEW");
+  const canViewCapacityControl = can("capacity_control.view", "VIEW");
+  const canEditCapacityControl = can("capacity_control.edit", "UPDATE");
   const [loading, setLoading] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
   const [savingOrgId, setSavingOrgId] = useState<string | null>(null);
@@ -225,7 +226,7 @@ const SystemCapacityControlPage: React.FC = () => {
   }
 
   return (
-    <StepUpGuard username={username} resourceKey="resource_registry.menu">
+    <StepUpGuard username={username} resourceKey="capacity_control.view">
       <PageContainer>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
           <Stack spacing={0.5}>
@@ -238,7 +239,7 @@ const SystemCapacityControlPage: React.FC = () => {
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
               Refresh
             </Button>
-            <Button variant="contained" onClick={handleSaveSystem} disabled={savingSystem || loading}>
+            <Button variant="contained" onClick={handleSaveSystem} disabled={!canEditCapacityControl || savingSystem || loading}>
               {savingSystem ? "Saving..." : "Save Platform Capacity"}
             </Button>
           </Stack>
@@ -247,31 +248,36 @@ const SystemCapacityControlPage: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
         {systemTotalsWarning && <Alert severity="warning" sx={{ mb: 2 }}>{systemTotalsWarning}</Alert>}
+        {!canEditCapacityControl && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            You do not have permission to edit Capacity Control.
+          </Alert>
+        )}
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section A — Platform Capacity Profile
           </Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-            <TextField label="Deployment / Profile Name" value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth />
-            <TextField select label="Guard Enabled" value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth>
+            <TextField label="Deployment / Profile Name" value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={!canEditCapacityControl} />
+            <TextField select label="Guard Enabled" value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={!canEditCapacityControl}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </TextField>
-            <TextField label="Max Total Live Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth />
-            <TextField label="Max Total Open Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth />
-            <TextField label="Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth />
-            <TextField label="Max Total Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth />
-            <TextField label="CPU Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth />
-            <TextField label="Memory Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth />
-            <TextField label="Default Org Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth />
-            <TextField label="Default Org Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth />
-            <TextField label="Default Org Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth />
-            <TextField label="Default Org Max Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth />
-            <TextField label="Default Mandi Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth />
-            <TextField label="Default Mandi Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth />
-            <TextField label="Default Mandi Max Queue Per Lane" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth />
-            <TextField label="Default Mandi Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth />
+            <TextField label="Max Total Live Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Open Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Max Total Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="CPU Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Memory Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Org Max Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Queue Per Lane" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField label="Default Mandi Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
           </Box>
         </Paper>
 
@@ -295,16 +301,16 @@ const SystemCapacityControlPage: React.FC = () => {
           Section C — Optional Infra Profile Metadata
         </Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-          <TextField label="Cloud Provider / Deployment Type" value={systemConfig.infra_profile?.cloud_provider || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth />
-          <TextField label="Deployment Type" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth />
-          <TextField label="App Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth />
-          <TextField label="App Server vCPU" type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth />
-          <TextField label="DB Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth />
-          <TextField label="DB Server vCPU" type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth />
-          <TextField label="Web Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth />
-          <TextField label="Web Server vCPU" type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth />
-          <TextField label="Same Machine or Separate" value={systemConfig.infra_profile?.same_machine_or_separate || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth />
-          <TextField label="Notes" value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} />
+          <TextField label="Cloud Provider / Deployment Type" value={systemConfig.infra_profile?.cloud_provider || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Deployment Type" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="App Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="App Server vCPU" type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="DB Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="DB Server vCPU" type="number" value={num(systemConfig.infra_profile?.db_server_vcpu)} onChange={(e) => setInfraField("db_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Web Server RAM (GB)" type="number" value={num(systemConfig.infra_profile?.web_server_ram_gb)} onChange={(e) => setInfraField("web_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Web Server vCPU" type="number" value={num(systemConfig.infra_profile?.web_server_vcpu)} onChange={(e) => setInfraField("web_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Same Machine or Separate" value={systemConfig.infra_profile?.same_machine_or_separate || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+          <TextField label="Notes" value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
         </Box>
       </Paper>
 
@@ -342,7 +348,7 @@ const SystemCapacityControlPage: React.FC = () => {
                     </Stack>
                   </TableCell>
                   <TableCell>
-                    <TextField select size="small" value={row.tier_code || ""} onChange={(e) => updateOrgRow(row.org_id, { tier_code: e.target.value })} sx={{ minWidth: 120 }}>
+                    <TextField select size="small" value={row.tier_code || ""} onChange={(e) => updateOrgRow(row.org_id, { tier_code: e.target.value })} sx={{ minWidth: 120 }} disabled={!canEditCapacityControl}>
                       <MenuItem value="">Custom</MenuItem>
                       {Object.keys(TIER_PRESETS).map((preset) => <MenuItem key={preset} value={preset}>{preset}</MenuItem>)}
                     </TextField>
@@ -352,16 +358,16 @@ const SystemCapacityControlPage: React.FC = () => {
                     <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
                     <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
                   </TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} /></TableCell>
-                  <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} /></TableCell>
-                  <TableCell><Switch checked={Boolean(row.reserved_capacity_enabled)} onChange={(e) => updateOrgRow(row.org_id, { reserved_capacity_enabled: e.target.checked })} /></TableCell>
+                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={!canEditCapacityControl} /></TableCell>
+                  <TableCell><Switch checked={Boolean(row.reserved_capacity_enabled)} onChange={(e) => updateOrgRow(row.org_id, { reserved_capacity_enabled: e.target.checked })} disabled={!canEditCapacityControl} /></TableCell>
                   <TableCell>
-                    <TextField select size="small" value="" onChange={(e) => handleApplyPreset(row.org_id, e.target.value)} sx={{ minWidth: 130 }}>
+                    <TextField select size="small" value="" onChange={(e) => handleApplyPreset(row.org_id, e.target.value)} sx={{ minWidth: 130 }} disabled={!canEditCapacityControl}>
                       <MenuItem value="">Apply preset</MenuItem>
                       {Object.keys(TIER_PRESETS).map((preset) => <MenuItem key={preset} value={preset}>{preset}</MenuItem>)}
                     </TextField>
@@ -374,7 +380,7 @@ const SystemCapacityControlPage: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Button size="small" variant="contained" onClick={() => handleSaveOrg(row)} disabled={savingOrgId === row.org_id}>
+                    <Button size="small" variant="contained" onClick={() => handleSaveOrg(row)} disabled={!canEditCapacityControl || savingOrgId === row.org_id}>
                       {savingOrgId === row.org_id ? "Saving..." : "Save"}
                     </Button>
                   </TableCell>

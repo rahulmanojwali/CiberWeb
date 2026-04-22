@@ -18,6 +18,8 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { PageContainer } from "../../components/PageContainer";
+import { StepUpGuard } from "../../components/StepUpGuard";
+import { usePermissions } from "../../authz/usePermissions";
 import {
   getAuctionCapacityControl,
   updateAuctionCapacityControl,
@@ -74,6 +76,8 @@ function num(v: any): string {
 
 const SystemCapacityControlPage: React.FC = () => {
   const username = useMemo(() => currentUsername(), []);
+  const { can } = usePermissions();
+  const canViewCapacityControl = can("resource_registry.menu", "VIEW");
   const [loading, setLoading] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
   const [savingOrgId, setSavingOrgId] = useState<string | null>(null);
@@ -208,55 +212,68 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const systemTotalsWarning = platformUsage?.allocation_warning || null;
 
+  if (!username) {
+    return <Typography>Please log in.</Typography>;
+  }
+
+  if (!canViewCapacityControl) {
+    return (
+      <Typography color="error">
+        You do not have permission to view Capacity Control.
+      </Typography>
+    );
+  }
+
   return (
-    <PageContainer>
-      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h5">System Capacity Control</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Configure platform auction ceilings, allocate org quotas, and monitor current shared capacity usage.
+    <StepUpGuard username={username} resourceKey="resource_registry.menu">
+      <PageContainer>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
+          <Stack spacing={0.5}>
+            <Typography variant="h5">System Capacity Control</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Configure platform auction ceilings, allocate org quotas, and monitor current shared capacity usage.
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
+              Refresh
+            </Button>
+            <Button variant="contained" onClick={handleSaveSystem} disabled={savingSystem || loading}>
+              {savingSystem ? "Saving..." : "Save Platform Capacity"}
+            </Button>
+          </Stack>
+        </Stack>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+        {systemTotalsWarning && <Alert severity="warning" sx={{ mb: 2 }}>{systemTotalsWarning}</Alert>}
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+            Section A — Platform Capacity Profile
           </Typography>
-        </Stack>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
-            Refresh
-          </Button>
-          <Button variant="contained" onClick={handleSaveSystem} disabled={savingSystem || loading}>
-            {savingSystem ? "Saving..." : "Save Platform Capacity"}
-          </Button>
-        </Stack>
-      </Stack>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      {systemTotalsWarning && <Alert severity="warning" sx={{ mb: 2 }}>{systemTotalsWarning}</Alert>}
-
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Section A — Platform Capacity Profile
-        </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-          <TextField label="Deployment / Profile Name" value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth />
-          <TextField select label="Guard Enabled" value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth>
-            <MenuItem value="true">Yes</MenuItem>
-            <MenuItem value="false">No</MenuItem>
-          </TextField>
-          <TextField label="Max Total Live Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth />
-          <TextField label="Max Total Open Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth />
-          <TextField label="Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth />
-          <TextField label="Max Total Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth />
-          <TextField label="CPU Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth />
-          <TextField label="Memory Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth />
-          <TextField label="Default Org Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth />
-          <TextField label="Default Org Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth />
-          <TextField label="Default Org Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth />
-          <TextField label="Default Org Max Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth />
-          <TextField label="Default Mandi Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth />
-          <TextField label="Default Mandi Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth />
-          <TextField label="Default Mandi Max Queue Per Lane" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth />
-          <TextField label="Default Mandi Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth />
-        </Box>
-      </Paper>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
+            <TextField label="Deployment / Profile Name" value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth />
+            <TextField select label="Guard Enabled" value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </TextField>
+            <TextField label="Max Total Live Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth />
+            <TextField label="Max Total Open Lanes" type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth />
+            <TextField label="Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth />
+            <TextField label="Max Total Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth />
+            <TextField label="CPU Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth />
+            <TextField label="Memory Warning Threshold %" type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth />
+            <TextField label="Default Org Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth />
+            <TextField label="Default Org Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth />
+            <TextField label="Default Org Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth />
+            <TextField label="Default Org Max Concurrent Bidders" type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth />
+            <TextField label="Default Mandi Max Live Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth />
+            <TextField label="Default Mandi Max Open Lanes" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth />
+            <TextField label="Default Mandi Max Queue Per Lane" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth />
+            <TextField label="Default Mandi Max Total Queued Lots" type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth />
+          </Box>
+        </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -367,7 +384,8 @@ const SystemCapacityControlPage: React.FC = () => {
           </Table>
         </Box>
       </Paper>
-    </PageContainer>
+      </PageContainer>
+    </StepUpGuard>
   );
 };
 

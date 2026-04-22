@@ -213,6 +213,8 @@ export const APP_MENU: AppMenuItem[] = [
         labelKey: "menu.systemCapacityControl",
         path: "/system/capacity-control",
         icon: React.createElement(SettingsOutlinedIcon),
+        resourceKey: "resource_registry.menu",
+        requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
       },
     ],

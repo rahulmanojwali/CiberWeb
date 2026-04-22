@@ -936,8 +936,6 @@ export function filterMenuByRole(role: RoleSlug | null) {
   });
 }
 
-let sidebarDebugLogged = false;
-
 function findMenuItemByResourceKey(
   items: AppMenuItem[],
   targetResourceKey: string,
@@ -1020,9 +1018,6 @@ export function filterMenuByResources(
       !systemCapacityControlItem?.roles?.length ||
         (fallbackRole && systemCapacityControlItem.roles.includes(fallbackRole as RoleSlug)),
     );
-    const systemCapacityControlFreezeEntry = freezeItems.find(
-      (item) => canonicalizeResourceKey(item.resource_key) === systemCapacityControlKey,
-    );
     const systemCapacityControlResource = byKey.get(systemCapacityControlKey);
 
     if (
@@ -1092,31 +1087,6 @@ export function filterMenuByResources(
       .filter((group) => group.children.length > 0)
       .sort((a, b) => a.order - b.order)
       .map(({ order, ...rest }) => rest);
-
-    if (!sidebarDebugLogged && typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
-      sidebarDebugLogged = true;
-      // eslint-disable-next-line no-console
-      console.log("[sidebar] allowed menus", {
-        count: items.length,
-        sample: items.slice(0, 10).map((it) => ({
-          resource_key: it.resourceKey,
-          label: it.labelOverride || it.labelKey,
-          route: it.path,
-        })),
-      });
-      // eslint-disable-next-line no-console
-      console.log("[menu debug systemCapacityControl]", {
-        route: systemCapacityControlItem?.path || null,
-        roleMatch: systemCapacityControlRoleMatch,
-        permissionMatch: systemCapacityControlPermissionMatch,
-        requiredAction: systemCapacityControlItem?.requiredAction || "VIEW",
-        labelKey: systemCapacityControlItem?.labelKey || null,
-        labelPresent: Boolean(systemCapacityControlItem?.labelKey || systemCapacityControlItem?.labelOverride),
-        freezeEntryPresent: Boolean(systemCapacityControlFreezeEntry),
-        uiResourcePresent: Boolean(systemCapacityControlResource),
-        finalRendered: items.some((item) => canonicalizeResourceKey(item.resourceKey) === systemCapacityControlKey),
-      });
-    }
 
     return grouped as AppMenuItem[];
   } catch (e) {

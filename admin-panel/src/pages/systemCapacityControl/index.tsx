@@ -141,6 +141,12 @@ function num(v: any): string {
   return String(v);
 }
 
+function toNumberOrNull(v: any): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const parsed = Number(v);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 const headerHelpIconSx = {
   ml: 0.5,
   fontSize: 16,
@@ -295,6 +301,76 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
   const infraFormReady = useMemo(() => isInfraFormReady(systemConfig.infra_profile || {}), [systemConfig.infra_profile]);
+  const safeMaxLive = Number(derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0);
+  const safeMaxOpen = Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0);
+  const safeMaxQueued = Number(derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0);
+  const safeMaxBidders = Number(derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0);
+
+  const sectionCFieldErrors = useMemo<Record<string, string>>(() => {
+    const auction = systemConfig.auction_capacity || {};
+    const errors: Record<string, string> = {};
+
+    const maxTotalLive = toNumberOrNull(auction.max_total_live_lanes);
+    const maxTotalOpen = toNumberOrNull(auction.max_total_open_lanes);
+    const maxTotalQueued = toNumberOrNull(auction.max_total_queued_lots);
+    const maxTotalBidders = toNumberOrNull(auction.max_total_concurrent_bidders);
+    const defaultOrgLive = toNumberOrNull(auction.default_org_max_live_lanes);
+    const defaultOrgOpen = toNumberOrNull(auction.default_org_max_open_lanes);
+    const defaultOrgQueued = toNumberOrNull(auction.default_org_max_total_queued_lots);
+    const defaultOrgBidders = toNumberOrNull(auction.default_org_max_concurrent_bidders);
+    const defaultMandiLive = toNumberOrNull(auction.default_mandi_max_live_lanes);
+    const defaultMandiOpen = toNumberOrNull(auction.default_mandi_max_open_lanes);
+    const defaultMandiTotalQueued = toNumberOrNull(auction.default_mandi_max_total_queued_lots);
+    const defaultMandiQueuePerLane = toNumberOrNull(auction.default_mandi_max_queue_per_lane);
+
+    if (maxTotalLive !== null && maxTotalLive > safeMaxLive) {
+      errors.max_total_live_lanes = `Live lanes cannot exceed safe maximum ${safeMaxLive}.`;
+    }
+    if (maxTotalOpen !== null && maxTotalOpen > safeMaxOpen) {
+      errors.max_total_open_lanes = `Open lanes cannot exceed safe maximum ${safeMaxOpen}.`;
+    }
+    if (maxTotalQueued !== null && maxTotalQueued > safeMaxQueued) {
+      errors.max_total_queued_lots = `Queued lots cannot exceed safe maximum ${safeMaxQueued}.`;
+    }
+    if (maxTotalBidders !== null && maxTotalBidders > safeMaxBidders) {
+      errors.max_total_concurrent_bidders = `Concurrent bidders cannot exceed safe maximum ${safeMaxBidders}.`;
+    }
+
+    if (defaultOrgLive !== null && maxTotalLive !== null && defaultOrgLive > maxTotalLive) {
+      errors.default_org_max_live_lanes = "Default org live lanes must be less than or equal to Max Total Live Lanes.";
+    }
+    if (defaultOrgOpen !== null && maxTotalOpen !== null && defaultOrgOpen > maxTotalOpen) {
+      errors.default_org_max_open_lanes = "Default org open lanes must be less than or equal to Max Total Open Lanes.";
+    }
+    if (defaultOrgQueued !== null && maxTotalQueued !== null && defaultOrgQueued > maxTotalQueued) {
+      errors.default_org_max_total_queued_lots = "Default org queued lots must be less than or equal to Max Total Queued Lots.";
+    }
+    if (defaultOrgBidders !== null && maxTotalBidders !== null && defaultOrgBidders > maxTotalBidders) {
+      errors.default_org_max_concurrent_bidders = "Default org concurrent bidders must be less than or equal to Max Total Concurrent Bidders.";
+    }
+
+    if (defaultMandiLive !== null && defaultOrgLive !== null && defaultMandiLive > defaultOrgLive) {
+      errors.default_mandi_max_live_lanes = "Default mandi live lanes must be less than or equal to Default Org Max Live Lanes.";
+    }
+    if (defaultMandiOpen !== null && defaultOrgOpen !== null && defaultMandiOpen > defaultOrgOpen) {
+      errors.default_mandi_max_open_lanes = "Default mandi open lanes must be less than or equal to Default Org Max Open Lanes.";
+    }
+    if (defaultMandiTotalQueued !== null && defaultOrgQueued !== null && defaultMandiTotalQueued > defaultOrgQueued) {
+      errors.default_mandi_max_total_queued_lots = "Default mandi total queued lots must be less than or equal to Default Org Max Total Queued Lots.";
+    }
+    if (defaultMandiQueuePerLane !== null && defaultMandiTotalQueued !== null && defaultMandiQueuePerLane > defaultMandiTotalQueued) {
+      errors.default_mandi_max_queue_per_lane = "Default mandi queue per lane must be less than or equal to Default Mandi Max Total Queued Lots.";
+    }
+
+    return errors;
+  }, [
+    systemConfig.auction_capacity,
+    safeMaxLive,
+    safeMaxOpen,
+    safeMaxQueued,
+    safeMaxBidders,
+  ]);
+  const hasSectionCErrors = Object.keys(sectionCFieldErrors).length > 0;
 
   const loadData = async () => {
     if (!username) return;
@@ -402,6 +478,10 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const handleSaveSystem = async () => {
     if (!username || !infraFormReady || infraDirty) return;
+    if (hasSectionCErrors) {
+      setPlatformSaveError("Please resolve Section C validation errors before saving.");
+      return;
+    }
     setSavingSystem(true);
     setPlatformSaveError(null);
     setPlatformSaveSuccess(null);
@@ -738,23 +818,63 @@ const SystemCapacityControlPage: React.FC = () => {
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </TextField>
-            <TextField label="Max Total Live Lanes" helperText="Maximum number of auction lanes that can be live across the platform." type="number" value={num(systemConfig.auction_capacity?.max_total_live_lanes)} onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Max Total Open Lanes" helperText="Maximum number of lanes that can exist in open, planned, or live state across the platform." type="number" value={num(systemConfig.auction_capacity?.max_total_open_lanes)} onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Max Total Queued Lots" helperText="Maximum number of queued lots allowed across all lanes." type="number" value={num(systemConfig.auction_capacity?.max_total_queued_lots)} onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Max Total Concurrent Bidders" helperText="Maximum simultaneous bidder participation the platform should support." type="number" value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)} onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)} fullWidth disabled={platformSectionDisabled} />
+            <TextField
+              label="Max Total Live Lanes"
+              helperText={sectionCFieldErrors.max_total_live_lanes || `Safe maximum from infrastructure: ${safeMaxLive}`}
+              type="number"
+              value={num(systemConfig.auction_capacity?.max_total_live_lanes)}
+              onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)}
+              fullWidth
+              disabled={platformSectionDisabled}
+              error={Boolean(sectionCFieldErrors.max_total_live_lanes)}
+              inputProps={{ min: 0, max: safeMaxLive }}
+            />
+            <TextField
+              label="Max Total Open Lanes"
+              helperText={sectionCFieldErrors.max_total_open_lanes || `Safe maximum from infrastructure: ${safeMaxOpen}`}
+              type="number"
+              value={num(systemConfig.auction_capacity?.max_total_open_lanes)}
+              onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)}
+              fullWidth
+              disabled={platformSectionDisabled}
+              error={Boolean(sectionCFieldErrors.max_total_open_lanes)}
+              inputProps={{ min: 0, max: safeMaxOpen }}
+            />
+            <TextField
+              label="Max Total Queued Lots"
+              helperText={sectionCFieldErrors.max_total_queued_lots || `Safe maximum from infrastructure: ${safeMaxQueued}`}
+              type="number"
+              value={num(systemConfig.auction_capacity?.max_total_queued_lots)}
+              onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)}
+              fullWidth
+              disabled={platformSectionDisabled}
+              error={Boolean(sectionCFieldErrors.max_total_queued_lots)}
+              inputProps={{ min: 0, max: safeMaxQueued }}
+            />
+            <TextField
+              label="Max Total Concurrent Bidders"
+              helperText={sectionCFieldErrors.max_total_concurrent_bidders || `Safe maximum from infrastructure: ${safeMaxBidders}`}
+              type="number"
+              value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)}
+              onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)}
+              fullWidth
+              disabled={platformSectionDisabled}
+              error={Boolean(sectionCFieldErrors.max_total_concurrent_bidders)}
+              inputProps={{ min: 0, max: safeMaxBidders }}
+            />
             <TextField label="CPU Warning Threshold %" helperText="Warning threshold for CPU usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
             <TextField label="Memory Warning Threshold %" helperText="Warning threshold for memory usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Org Max Live Lanes" helperText="Default live-lane quota assigned to a new org if no custom allocation is set." type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Org Max Open Lanes" helperText="Default open-lane quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Org Max Total Queued Lots" helperText="Default total queued-lot quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Org Max Concurrent Bidders" helperText="Default concurrent bidder quota assigned to a new org." type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Mandi Max Live Lanes" helperText="Default mandi live-lane limit when mandi override is not set." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Mandi Max Open Lanes" helperText="Default mandi open-lane limit when mandi override is not set." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Mandi Max Queue Per Lane" helperText="Default number of queued lots allowed in one mandi lane." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label="Default Mandi Max Total Queued Lots" helperText="Default total queued lots allowed for one mandi." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} />
+            <TextField label="Default Org Max Live Lanes" helperText={sectionCFieldErrors.default_org_max_live_lanes || "Default live-lane quota assigned to a new org if no custom allocation is set."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_live_lanes)} />
+            <TextField label="Default Org Max Open Lanes" helperText={sectionCFieldErrors.default_org_max_open_lanes || "Default open-lane quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_open_lanes)} />
+            <TextField label="Default Org Max Total Queued Lots" helperText={sectionCFieldErrors.default_org_max_total_queued_lots || "Default total queued-lot quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_total_queued_lots)} />
+            <TextField label="Default Org Max Concurrent Bidders" helperText={sectionCFieldErrors.default_org_max_concurrent_bidders || "Default concurrent bidder quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_concurrent_bidders)} />
+            <TextField label="Default Mandi Max Live Lanes" helperText={sectionCFieldErrors.default_mandi_max_live_lanes || "Default mandi live-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_live_lanes)} />
+            <TextField label="Default Mandi Max Open Lanes" helperText={sectionCFieldErrors.default_mandi_max_open_lanes || "Default mandi open-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_open_lanes)} />
+            <TextField label="Default Mandi Max Queue Per Lane" helperText={sectionCFieldErrors.default_mandi_max_queue_per_lane || "Default number of queued lots allowed in one mandi lane."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_queue_per_lane)} />
+            <TextField label="Default Mandi Max Total Queued Lots" helperText={sectionCFieldErrors.default_mandi_max_total_queued_lots || "Default total queued lots allowed for one mandi."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_total_queued_lots)} />
           </Box>
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
-            <Button variant="contained" onClick={handleSaveSystem} disabled={platformSectionDisabled || savingSystem || loading}>
+            <Button variant="contained" onClick={handleSaveSystem} disabled={platformSectionDisabled || savingSystem || loading || hasSectionCErrors}>
               {savingSystem ? "Saving..." : "Save Platform Capacity"}
             </Button>
           </Stack>
@@ -783,6 +903,12 @@ const SystemCapacityControlPage: React.FC = () => {
             <Alert severity="info" sx={{ mb: upgradeAlerts.length ? 2 : 0 }}>
               Health cannot be evaluated until physical infrastructure is configured.
             </Alert>
+          ) : !stateFlags.platform_configured ? (
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} mb={upgradeAlerts.length ? 2 : 0}>
+              <Chip color="default" label="Live Lanes: NOT CONFIGURED" />
+              <Chip color="default" label="Bidders: NOT CONFIGURED" />
+              <Chip color="default" label="Queue: NOT CONFIGURED" />
+            </Stack>
           ) : (
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} mb={upgradeAlerts.length ? 2 : 0}>
               <Chip color={healthColor(capacityHealth?.live_lanes_state)} label={`Live Lanes: ${capacityHealth?.live_lanes_state || "RED"}`} />

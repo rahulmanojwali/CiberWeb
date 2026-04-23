@@ -148,6 +148,24 @@ const headerHelpIconSx = {
   color: "text.secondary",
 };
 
+const CLOUD_PROVIDER_OPTIONS = ["OCI", "AWS", "AZURE", "GCP", "ON_PREM", "HYBRID", "OTHER"] as const;
+const DEPLOYMENT_TYPE_OPTIONS = ["SHARED", "DEDICATED", "HYBRID"] as const;
+const SAME_MACHINE_OPTIONS = ["SAME", "SEPARATE"] as const;
+const WEBSOCKET_MODE_OPTIONS = ["SHARED", "SEPARATE"] as const;
+
+function normalizeSelectValue(
+  value: any,
+  allowed: readonly string[],
+  fallback = "",
+  mapUnknownToOther = false,
+) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return fallback;
+  if (allowed.includes(normalized)) return normalized;
+  if (mapUnknownToOther && allowed.includes("OTHER")) return "OTHER";
+  return fallback;
+}
+
 const HeaderWithTooltip: React.FC<{ label: string; help: string }> = ({ label, help }) => (
   <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
     <span>{label}</span>
@@ -213,10 +231,21 @@ function isInfraFormReady(infraProfile: Record<string, any> = {}) {
     infraProfile?.web_server_ram_gb,
     infraProfile?.web_server_vcpu,
   ];
+  const cloudProvider = normalizeSelectValue(
+    infraProfile?.cloud_provider || infraProfile?.provider_name || "",
+    CLOUD_PROVIDER_OPTIONS,
+    "",
+    true,
+  );
+  const deploymentType = normalizeSelectValue(
+    infraProfile?.deployment_type || "",
+    DEPLOYMENT_TYPE_OPTIONS,
+    "",
+  );
   const sameMachine = String(
     infraProfile?.same_machine_or_separate || infraProfile?.same_machine || "",
   ).trim();
-  return required.every((value) => Number(value) > 0) && Boolean(sameMachine);
+  return required.every((value) => Number(value) > 0) && Boolean(sameMachine) && Boolean(cloudProvider) && Boolean(deploymentType);
 }
 
 function emptyStateFlags(): StateFlags {
@@ -554,9 +583,63 @@ const SystemCapacityControlPage: React.FC = () => {
           {infraSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{infraSaveError}</Alert>}
           {infraSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{infraSaveSuccess}</Alert>}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-            <TextField label="Cloud Provider / Deployment Type" helperText="Hosting provider or infra label, for example OCI, AWS, or On-Prem." placeholder="OCI / AWS / On-Prem" value={systemConfig.infra_profile?.cloud_provider || systemConfig.infra_profile?.provider_name || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Deployment Type" helperText="Shared, Dedicated, Hybrid, or another hosting arrangement." placeholder="Shared / Dedicated" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="Same Machine or Separate" helperText="Whether app, web, and database run on the same server or are split." placeholder="Same / Separate" value={systemConfig.infra_profile?.same_machine_or_separate || systemConfig.infra_profile?.same_machine || ""} onChange={(e) => setInfraField("same_machine_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField
+              select
+              label="Cloud Provider / Deployment Type"
+              helperText="Hosting provider or infra label."
+              value={normalizeSelectValue(
+                systemConfig.infra_profile?.cloud_provider || systemConfig.infra_profile?.provider_name || "",
+                CLOUD_PROVIDER_OPTIONS,
+                "",
+                true,
+              )}
+              onChange={(e) => setInfraField("cloud_provider", String(e.target.value || "").toUpperCase())}
+              fullWidth
+              disabled={!canEditCapacityControl}
+              required
+              SelectProps={{ displayEmpty: true }}
+            >
+              <MenuItem value="">Select</MenuItem>
+              {CLOUD_PROVIDER_OPTIONS.map((option) => (
+                <MenuItem key={option} value={option}>{option}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Deployment Type"
+              helperText="Shared, Dedicated, or Hybrid hosting arrangement."
+              value={normalizeSelectValue(systemConfig.infra_profile?.deployment_type || "", DEPLOYMENT_TYPE_OPTIONS, "")}
+              onChange={(e) => setInfraField("deployment_type", String(e.target.value || "").toUpperCase())}
+              fullWidth
+              disabled={!canEditCapacityControl}
+              required
+              SelectProps={{ displayEmpty: true }}
+            >
+              <MenuItem value="">Select</MenuItem>
+              {DEPLOYMENT_TYPE_OPTIONS.map((option) => (
+                <MenuItem key={option} value={option}>{option}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Same Machine or Separate"
+              helperText="Whether app, web, and database run on the same server or are split."
+              value={normalizeSelectValue(
+                systemConfig.infra_profile?.same_machine_or_separate || systemConfig.infra_profile?.same_machine || "",
+                SAME_MACHINE_OPTIONS,
+                "",
+              )}
+              onChange={(e) => setInfraField("same_machine_or_separate", String(e.target.value || "").toUpperCase())}
+              fullWidth
+              disabled={!canEditCapacityControl}
+              required
+              SelectProps={{ displayEmpty: true }}
+            >
+              <MenuItem value="">Select</MenuItem>
+              {SAME_MACHINE_OPTIONS.map((option) => (
+                <MenuItem key={option} value={option}>{option}</MenuItem>
+              ))}
+            </TextField>
             <TextField label="App Server RAM (GB)" helperText="Required physical memory for the application tier." type="number" value={num(systemConfig.infra_profile?.app_server_ram_gb)} onChange={(e) => setInfraField("app_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} required />
             <TextField label="App Server vCPU" helperText="Required compute capacity for the application tier." type="number" value={num(systemConfig.infra_profile?.app_server_vcpu)} onChange={(e) => setInfraField("app_server_vcpu", e.target.value)} fullWidth disabled={!canEditCapacityControl} required />
             <TextField label="DB Server RAM (GB)" helperText="Required memory capacity for the database tier." type="number" value={num(systemConfig.infra_profile?.db_server_ram_gb)} onChange={(e) => setInfraField("db_server_ram_gb", e.target.value)} fullWidth disabled={!canEditCapacityControl} required />
@@ -566,7 +649,21 @@ const SystemCapacityControlPage: React.FC = () => {
             <TextField label="OS Reserve %" helperText="Capacity reserved for operating system overhead." type="number" value={num(systemConfig.infra_profile?.os_reserve_percent)} onChange={(e) => setInfraField("os_reserve_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
             <TextField label="System Reserve %" helperText="Additional platform reserve kept outside allocatable auction load." type="number" value={num(systemConfig.infra_profile?.system_reserve_percent)} onChange={(e) => setInfraField("system_reserve_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
             <TextField label="Web/Admin Reserve %" helperText="Reserved capacity for admin and web traffic not directly tied to auction lanes." type="number" value={num(systemConfig.infra_profile?.web_admin_reserve_percent)} onChange={(e) => setInfraField("web_admin_reserve_percent", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
-            <TextField label="WebSocket Shared or Separate" helperText="Whether websocket load is shared with app servers or isolated." value={systemConfig.infra_profile?.websocket_shared_or_separate || "SHARED"} onChange={(e) => setInfraField("websocket_shared_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
+            <TextField
+              select
+              label="WebSocket Shared or Separate"
+              helperText="Whether websocket load is shared with app servers or isolated."
+              value={normalizeSelectValue(systemConfig.infra_profile?.websocket_shared_or_separate, WEBSOCKET_MODE_OPTIONS, "SHARED")}
+              onChange={(e) => setInfraField("websocket_shared_or_separate", String(e.target.value || "").toUpperCase())}
+              fullWidth
+              disabled={!canEditCapacityControl}
+              SelectProps={{ displayEmpty: true }}
+            >
+              <MenuItem value="">Select</MenuItem>
+              {WEBSOCKET_MODE_OPTIONS.map((option) => (
+                <MenuItem key={option} value={option}>{option}</MenuItem>
+              ))}
+            </TextField>
             <TextField label="Notes" helperText="Any infra-specific operational notes." value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
           </Box>
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>

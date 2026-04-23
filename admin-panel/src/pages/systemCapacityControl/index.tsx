@@ -67,6 +67,23 @@ type TierPreset = {
 
 type DerivedSafeCapacity = {
   infra_ready?: boolean;
+  usable_api_ram_gb?: number;
+  usable_api_vcpu?: number;
+  usable_db_ram_gb?: number;
+  usable_db_vcpu?: number;
+  usable_web_ram_gb?: number;
+  usable_web_vcpu?: number;
+  api_safe_max_live_lanes?: number;
+  api_safe_max_open_lanes?: number;
+  api_safe_max_concurrent_bidders?: number;
+  api_safe_max_socket_connections?: number;
+  db_safe_max_total_queued_lots?: number;
+  db_safe_support_bidders?: number;
+  final_safe_max_live_lanes?: number;
+  final_safe_max_open_lanes?: number;
+  final_safe_max_total_queued_lots?: number;
+  final_safe_max_concurrent_bidders?: number;
+  final_bottleneck_label?: string;
   derived_safe_max_live_lanes: number;
   derived_safe_max_open_lanes: number;
   derived_safe_max_total_queued_lots: number;
@@ -434,10 +451,10 @@ const SystemCapacityControlPage: React.FC = () => {
   const isHealthBlockedByInfra = !derivedSafeCapacity?.infra_ready
     && Number(derivedSafeCapacity?.derived_safe_max_live_lanes || 0) === 0;
   const platformValid = (
-    Number(systemConfig?.auction_capacity?.max_total_live_lanes || 0) <= Number(derivedSafeCapacity?.derived_safe_max_live_lanes || 0)
-    && Number(systemConfig?.auction_capacity?.max_total_open_lanes || 0) <= Number(derivedSafeCapacity?.derived_safe_max_open_lanes || 0)
-    && Number(systemConfig?.auction_capacity?.max_total_queued_lots || 0) <= Number(derivedSafeCapacity?.derived_safe_max_total_queued_lots || 0)
-    && Number(systemConfig?.auction_capacity?.max_total_concurrent_bidders || 0) <= Number(derivedSafeCapacity?.derived_safe_max_concurrent_bidders || 0)
+    Number(systemConfig?.auction_capacity?.max_total_live_lanes || 0) <= Number(derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0)
+    && Number(systemConfig?.auction_capacity?.max_total_open_lanes || 0) <= Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0)
+    && Number(systemConfig?.auction_capacity?.max_total_queued_lots || 0) <= Number(derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0)
+    && Number(systemConfig?.auction_capacity?.max_total_concurrent_bidders || 0) <= Number(derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0)
   );
   const allocationValid = (
     Number(remainingPool?.remaining_allocatable_live ?? 0) >= 0
@@ -535,15 +552,42 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section B — Derived Safe Capacity
           </Typography>
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            Auction safe capacity is derived from the strictest required infrastructure component, not by summing all server RAM/CPU.
+          </Alert>
+          <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Infrastructure Breakdown
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(180px, 1fr))" }, gap: 1.25 }}>
+              <MetricCard label="API Usable RAM (GB)" value={derivedSafeCapacity?.usable_api_ram_gb ?? 0} help="API/App usable RAM after reserve deductions." />
+              <MetricCard label="API Usable vCPU" value={derivedSafeCapacity?.usable_api_vcpu ?? 0} help="API/App usable CPU after reserve deductions." />
+              <MetricCard label="API Safe Live Lanes" value={derivedSafeCapacity?.api_safe_max_live_lanes ?? 0} help="API-governed safe live lane limit." />
+              <MetricCard label="DB Usable RAM (GB)" value={derivedSafeCapacity?.usable_db_ram_gb ?? 0} help="DB usable RAM after reserve deductions." />
+              <MetricCard label="DB Usable vCPU" value={derivedSafeCapacity?.usable_db_vcpu ?? 0} help="DB usable CPU after reserve deductions." />
+              <MetricCard label="DB Safe Queued Lots" value={derivedSafeCapacity?.db_safe_max_total_queued_lots ?? 0} help="DB-governed safe queued lot limit." />
+              <MetricCard label="Web Usable RAM (GB)" value={derivedSafeCapacity?.usable_web_ram_gb ?? 0} help="Web/Admin usable RAM after reserve deductions." />
+              <MetricCard label="Web Usable vCPU" value={derivedSafeCapacity?.usable_web_vcpu ?? 0} help="Web/Admin usable CPU after reserve deductions." />
+              <MetricCard label="DB Support Bidders" value={derivedSafeCapacity?.db_safe_support_bidders ?? 0} help="DB-backed bidder throughput support limit." />
+            </Box>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, mb: 1.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              Final Governing Bottleneck
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {derivedSafeCapacity?.final_bottleneck_label || "N/A"}
+            </Typography>
+          </Paper>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-            <MetricCard label="Safe Live Lanes" value={derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0} help="Infra-derived safe live-lane ceiling after applying reserve and bottleneck checks." />
-            <MetricCard label="Safe Open Lanes" value={derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0} help="Infra-derived safe open-lane ceiling using the stricter RAM/CPU result." />
-            <MetricCard label="Safe Queued Lots" value={derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0} help="Infra-derived safe queued-lot ceiling." />
-            <MetricCard label="Safe Concurrent Bidders" value={derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0} help="Infra-derived safe bidder concurrency ceiling." />
+            <MetricCard label="Final Safe Live Lanes" value={derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0} help="Final safe live-lane ceiling after API/DB bottleneck checks." />
+            <MetricCard label="Final Safe Open Lanes" value={derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0} help="Final safe open-lane ceiling." />
+            <MetricCard label="Final Safe Queued Lots" value={derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0} help="Final safe queued-lot ceiling (DB-governed)." />
+            <MetricCard label="Final Safe Concurrent Bidders" value={derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0} help="Final safe bidder concurrency ceiling (API/DB bottleneck)." />
             <MetricCard label="Safe Socket Connections" value={derivedSafeCapacity?.derived_safe_max_socket_mobile_connections ?? 0} help="Infra-derived safe realtime connection ceiling." />
             <MetricCard label="Safe Bidders per Lane" value={derivedSafeCapacity?.derived_safe_max_bidders_per_lane ?? 0} help="Safe bidder concurrency per live lane." />
             <MetricCard label="Safe Queue per Lane" value={derivedSafeCapacity?.derived_safe_max_queue_per_lane ?? 0} help="Safe queued-lot count per live lane." />
-            <MetricCard label="Total Reserve %" value={derivedSafeCapacity?.derived_reserve_percent ?? 0} help="Combined reserve deducted before deriving safe capacity." />
+            <MetricCard label="Reserve %" value={derivedSafeCapacity?.derived_reserve_percent ?? 0} help="Base reserve input used in component-level deductions." />
           </Box>
         </Paper>
 

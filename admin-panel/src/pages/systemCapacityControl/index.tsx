@@ -198,11 +198,17 @@ const SystemCapacityControlPage: React.FC = () => {
   const [savingSystem, setSavingSystem] = useState(false);
   const [savingOrgId, setSavingOrgId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [infraSaveError, setInfraSaveError] = useState<string | null>(null);
+  const [infraSaveSuccess, setInfraSaveSuccess] = useState<string | null>(null);
+  const [platformSaveError, setPlatformSaveError] = useState<string | null>(null);
+  const [platformSaveSuccess, setPlatformSaveSuccess] = useState<string | null>(null);
+  const [orgSaveError, setOrgSaveError] = useState<string | null>(null);
+  const [orgSaveSuccess, setOrgSaveSuccess] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [orgAllocationAllowed, setOrgAllocationAllowed] = useState(false);
   const [capacityHealth, setCapacityHealth] = useState<CapacityHealth | null>(null);
   const [upgradeAlerts, setUpgradeAlerts] = useState<string[]>([]);
+  const [infraDirty, setInfraDirty] = useState(false);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     deployment_profile_name: "",
     auction_capacity: {},
@@ -241,6 +247,7 @@ const SystemCapacityControlPage: React.FC = () => {
       setCapacityHealth(data.capacity_health || null);
       setUpgradeAlerts(Array.isArray(data.upgrade_alerts) ? data.upgrade_alerts.filter(Boolean) : []);
       setOrgRows(Array.isArray(data.org_allocations) ? data.org_allocations : []);
+      setInfraDirty(false);
     } catch (err: any) {
       setError(err?.message || "Failed to load system capacity control.");
     } finally {
@@ -270,6 +277,7 @@ const SystemCapacityControlPage: React.FC = () => {
         [key]: value,
       },
     }));
+    setInfraDirty(true);
   };
 
   const updateOrgRow = (orgId: string, patch: Partial<OrgAllocation>) => {
@@ -288,11 +296,11 @@ const SystemCapacityControlPage: React.FC = () => {
     }));
   };
 
-  const handleSaveSystem = async () => {
+  const handleSaveInfra = async () => {
     if (!username || !infraFormReady) return;
     setSavingSystem(true);
-    setError(null);
-    setSuccess(null);
+    setInfraSaveError(null);
+    setInfraSaveSuccess(null);
     try {
       const resp: any = await updateAuctionCapacityControl({
         username,
@@ -303,23 +311,50 @@ const SystemCapacityControlPage: React.FC = () => {
         },
       });
       if (String(resp?.response?.responsecode || "") !== "0") {
-        setError(resp?.response?.description || "Failed to save platform capacity.");
+        setInfraSaveError(resp?.response?.description || "Failed to save physical infrastructure.");
         return;
       }
-      setSuccess(resp?.response?.description || "Platform auction capacity saved successfully.");
+      await loadData();
+      setInfraSaveSuccess("Physical infrastructure saved. Derived capacity refreshed.");
+    } catch (err: any) {
+      setInfraSaveError(err?.message || "Failed to save physical infrastructure.");
+    } finally {
+      setSavingSystem(false);
+    }
+  };
+
+  const handleSaveSystem = async () => {
+    if (!username || !infraFormReady || infraDirty) return;
+    setSavingSystem(true);
+    setPlatformSaveError(null);
+    setPlatformSaveSuccess(null);
+    try {
+      const resp: any = await updateAuctionCapacityControl({
+        username,
+        payload: {
+          deployment_profile_name: systemConfig.deployment_profile_name,
+          auction_capacity: systemConfig.auction_capacity,
+          infra_profile: systemConfig.infra_profile,
+        },
+      });
+      if (String(resp?.response?.responsecode || "") !== "0") {
+        setPlatformSaveError(resp?.response?.description || "Failed to save platform capacity.");
+        return;
+      }
+      setPlatformSaveSuccess(resp?.response?.description || "Platform auction capacity saved successfully.");
       await loadData();
     } catch (err: any) {
-      setError(err?.message || "Failed to save platform capacity.");
+      setPlatformSaveError(err?.message || "Failed to save platform capacity.");
     } finally {
       setSavingSystem(false);
     }
   };
 
   const handleSaveOrg = async (row: OrgAllocation) => {
-    if (!username || !orgAllocationAllowed) return;
+    if (!username || !orgAllocationAllowed || !infraFormReady || infraDirty) return;
     setSavingOrgId(row.org_id);
-    setError(null);
-    setSuccess(null);
+    setOrgSaveError(null);
+    setOrgSaveSuccess(null);
     try {
       const resp: any = await updateOrgAuctionCapacityAllocation({
         username,
@@ -339,22 +374,77 @@ const SystemCapacityControlPage: React.FC = () => {
         },
       });
       if (String(resp?.response?.responsecode || "") !== "0") {
-        setError(resp?.response?.description || "Failed to save organisation allocation.");
+        setOrgSaveError(resp?.response?.description || "Failed to save organisation allocation.");
         setRemainingPool(resp?.data?.remaining_allocatable_pool || remainingPool);
         return;
       }
-      setSuccess(resp?.response?.description || "Organisation auction capacity allocation saved successfully.");
+      setOrgSaveSuccess(resp?.response?.description || "Organisation auction capacity allocation saved successfully.");
       await loadData();
     } catch (err: any) {
-      setError(err?.message || "Failed to save organisation allocation.");
+      setOrgSaveError(err?.message || "Failed to save organisation allocation.");
+    } finally {
+      setSavingOrgId(null);
+    }
+  };
+
+  const handleSaveAllOrg = async () => {
+    if (!username || !orgAllocationAllowed || !infraFormReady || infraDirty) return;
+    setSavingOrgId("__ALL__");
+    setOrgSaveError(null);
+    setOrgSaveSuccess(null);
+    try {
+      for (const row of orgRows) {
+        const resp: any = await updateOrgAuctionCapacityAllocation({
+          username,
+          payload: {
+            org_id: row.org_id,
+            capacity: {
+              tier_code: row.tier_code,
+              max_live_sessions: row.allocated_max_live_lanes,
+              max_open_sessions: row.allocated_max_open_lanes,
+              max_total_queued_lots: row.allocated_max_queued_lots,
+              max_concurrent_bidders: row.allocated_max_concurrent_bidders,
+              allow_overflow_lanes: row.overflow_allowed,
+              allow_special_event_lanes: row.special_event_allowed,
+              priority_weight: row.priority_weight,
+              reserved_capacity_enabled: row.reserved_capacity_enabled,
+            },
+          },
+        });
+        if (String(resp?.response?.responsecode || "") !== "0") {
+          setOrgSaveError(`${row.org_name}: ${resp?.response?.description || "Failed to save organisation allocation."}`);
+          setRemainingPool(resp?.data?.remaining_allocatable_pool || remainingPool);
+          return;
+        }
+      }
+      await loadData();
+      setOrgSaveSuccess("Organisation auction capacity allocation saved successfully.");
+    } catch (err: any) {
+      setOrgSaveError(err?.message || "Failed to save organisation allocation.");
     } finally {
       setSavingOrgId(null);
     }
   };
 
   const systemTotalsWarning = platformUsage?.allocation_warning || null;
-  const platformSectionDisabled = !canEditCapacityControl || !infraFormReady;
-  const orgSectionDisabled = !canEditCapacityControl || !orgAllocationAllowed;
+  const sectionAReadyToContinue = infraFormReady && !infraDirty;
+  const platformSectionDisabled = !canEditCapacityControl || !sectionAReadyToContinue;
+  const orgSectionDisabled = !canEditCapacityControl || !orgAllocationAllowed || !sectionAReadyToContinue;
+  const usageSectionsLocked = !sectionAReadyToContinue;
+  const isHealthBlockedByInfra = !derivedSafeCapacity?.infra_ready
+    && Number(derivedSafeCapacity?.derived_safe_max_live_lanes || 0) === 0;
+  const platformValid = (
+    Number(systemConfig?.auction_capacity?.max_total_live_lanes || 0) <= Number(derivedSafeCapacity?.derived_safe_max_live_lanes || 0)
+    && Number(systemConfig?.auction_capacity?.max_total_open_lanes || 0) <= Number(derivedSafeCapacity?.derived_safe_max_open_lanes || 0)
+    && Number(systemConfig?.auction_capacity?.max_total_queued_lots || 0) <= Number(derivedSafeCapacity?.derived_safe_max_total_queued_lots || 0)
+    && Number(systemConfig?.auction_capacity?.max_total_concurrent_bidders || 0) <= Number(derivedSafeCapacity?.derived_safe_max_concurrent_bidders || 0)
+  );
+  const allocationValid = (
+    Number(remainingPool?.remaining_allocatable_live ?? 0) >= 0
+    && Number(remainingPool?.remaining_allocatable_open ?? 0) >= 0
+    && Number(remainingPool?.remaining_allocatable_queued ?? 0) >= 0
+    && Number(remainingPool?.remaining_allocatable_bidders ?? 0) >= 0
+  );
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
@@ -382,19 +472,26 @@ const SystemCapacityControlPage: React.FC = () => {
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
               Refresh
             </Button>
-            <Button variant="contained" onClick={handleSaveSystem} disabled={!canEditCapacityControl || !infraFormReady || savingSystem || loading}>
+            <Button variant="outlined" onClick={handleSaveSystem} disabled={!canEditCapacityControl || !sectionAReadyToContinue || savingSystem || loading}>
               {savingSystem ? "Saving..." : "Save Platform Capacity"}
             </Button>
           </Stack>
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 0.5, md: 2 }}>
+            <Typography variant="caption">Infra Ready: {infraFormReady ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Derived Capacity: {infraDirty ? "Stale" : "Fresh"}</Typography>
+            <Typography variant="caption">Platform Valid: {platformValid ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Allocation Valid: {allocationValid ? "Yes" : "No"}</Typography>
+          </Stack>
+        </Paper>
         {systemTotalsWarning && <Alert severity="warning" sx={{ mb: 2 }}>{systemTotalsWarning}</Alert>}
         {!canEditCapacityControl && <Alert severity="info" sx={{ mb: 2 }}>You do not have permission to edit Capacity Control.</Alert>}
-        {!infraFormReady && (
+        {(!infraFormReady || infraDirty) && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Physical infrastructure must be configured first.
+            Complete and save Section A to continue.
           </Alert>
         )}
         {warnings.length > 0 && (
@@ -409,6 +506,8 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section A — Physical Infrastructure Capacity (Mandatory)
           </Typography>
+          {infraSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{infraSaveError}</Alert>}
+          {infraSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{infraSaveSuccess}</Alert>}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
             <TextField label="Cloud Provider / Deployment Type" helperText="Hosting provider or infra label, for example OCI, AWS, or On-Prem." placeholder="OCI / AWS / On-Prem" value={systemConfig.infra_profile?.cloud_provider || systemConfig.infra_profile?.provider_name || ""} onChange={(e) => setInfraField("cloud_provider", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
             <TextField label="Deployment Type" helperText="Shared, Dedicated, Hybrid, or another hosting arrangement." placeholder="Shared / Dedicated" value={systemConfig.infra_profile?.deployment_type || ""} onChange={(e) => setInfraField("deployment_type", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
@@ -425,6 +524,11 @@ const SystemCapacityControlPage: React.FC = () => {
             <TextField label="WebSocket Shared or Separate" helperText="Whether websocket load is shared with app servers or isolated." value={systemConfig.infra_profile?.websocket_shared_or_separate || "SHARED"} onChange={(e) => setInfraField("websocket_shared_or_separate", e.target.value)} fullWidth disabled={!canEditCapacityControl} />
             <TextField label="Notes" helperText="Any infra-specific operational notes." value={systemConfig.infra_profile?.notes || ""} onChange={(e) => setInfraField("notes", e.target.value)} multiline minRows={3} fullWidth sx={{ gridColumn: { md: "1 / -1" } }} disabled={!canEditCapacityControl} />
           </Box>
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
+            <Button variant="contained" onClick={handleSaveInfra} disabled={!canEditCapacityControl || !infraFormReady || savingSystem || loading}>
+              {savingSystem ? "Saving..." : "Save Physical Infrastructure"}
+            </Button>
+          </Stack>
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
@@ -447,6 +551,13 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section C — Platform Capacity Profile
           </Typography>
+          {platformSectionDisabled && (
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Complete and save Section A to continue.
+            </Alert>
+          )}
+          {platformSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{platformSaveError}</Alert>}
+          {platformSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{platformSaveSuccess}</Alert>}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
             <TextField label="Deployment / Profile Name" helperText="Friendly name of the current platform capacity profile." value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={platformSectionDisabled} />
             <TextField select label="Guard Enabled" helperText="Turns backend capacity enforcement on or off." value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={platformSectionDisabled}>
@@ -468,13 +579,23 @@ const SystemCapacityControlPage: React.FC = () => {
             <TextField label="Default Mandi Max Queue Per Lane" helperText="Default number of queued lots allowed in one mandi lane." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={platformSectionDisabled} />
             <TextField label="Default Mandi Max Total Queued Lots" helperText="Default total queued lots allowed for one mandi." type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} />
           </Box>
+          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
+            <Button variant="contained" onClick={handleSaveSystem} disabled={platformSectionDisabled || savingSystem || loading}>
+              {savingSystem ? "Saving..." : "Save Platform Capacity"}
+            </Button>
+          </Stack>
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section D — Current Platform Usage / Health
           </Typography>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 2 }}>
+          {usageSectionsLocked && (
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Complete and save Section A to continue.
+            </Alert>
+          )}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 2, opacity: usageSectionsLocked ? 0.65 : 1, pointerEvents: usageSectionsLocked ? "none" : "auto" }}>
             <MetricCard label="Current Live Lanes" value={platformUsage?.current_live_lanes ?? 0} help="Number of lanes currently running live." />
             <MetricCard label="Current Open Lanes" value={platformUsage?.current_open_lanes ?? 0} help="Number of planned, open, or live lanes currently present." />
             <MetricCard label="Current Queued Lots" value={platformUsage?.current_queued_lots ?? 0} help="Number of lots currently waiting in lane queues." />
@@ -484,11 +605,17 @@ const SystemCapacityControlPage: React.FC = () => {
             <MetricCard label="Remaining Open Capacity" value={platformUsage?.remaining_open_capacity ?? 0} help="Configured platform open capacity still available." />
             <MetricCard label="Remaining Queue Capacity" value={platformUsage?.remaining_queue_capacity ?? 0} help="Configured platform queued capacity still available." />
           </Box>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} mb={upgradeAlerts.length ? 2 : 0}>
-            <Chip color={healthColor(capacityHealth?.live_lanes_state)} label={`Live Lanes: ${capacityHealth?.live_lanes_state || "RED"}`} />
-            <Chip color={healthColor(capacityHealth?.bidders_state)} label={`Bidders: ${capacityHealth?.bidders_state || "RED"}`} />
-            <Chip color={healthColor(capacityHealth?.queue_state)} label={`Queue: ${capacityHealth?.queue_state || "RED"}`} />
-          </Stack>
+          {isHealthBlockedByInfra ? (
+            <Alert severity="info" sx={{ mb: upgradeAlerts.length ? 2 : 0 }}>
+              Health cannot be evaluated until physical infrastructure is configured.
+            </Alert>
+          ) : (
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} mb={upgradeAlerts.length ? 2 : 0}>
+              <Chip color={healthColor(capacityHealth?.live_lanes_state)} label={`Live Lanes: ${capacityHealth?.live_lanes_state || "RED"}`} />
+              <Chip color={healthColor(capacityHealth?.bidders_state)} label={`Bidders: ${capacityHealth?.bidders_state || "RED"}`} />
+              <Chip color={healthColor(capacityHealth?.queue_state)} label={`Queue: ${capacityHealth?.queue_state || "RED"}`} />
+            </Stack>
+          )}
           {upgradeAlerts.length > 0 && (
             <Alert severity="warning">
               {upgradeAlerts.map((alert, idx) => (
@@ -502,7 +629,12 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section E — Remaining Allocatable Capacity
           </Typography>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+          {usageSectionsLocked && (
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Complete and save Section A to continue.
+            </Alert>
+          )}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, opacity: usageSectionsLocked ? 0.65 : 1, pointerEvents: usageSectionsLocked ? "none" : "auto" }}>
             <MetricCard label="Remaining Live" value={remainingPool?.remaining_allocatable_live ?? 0} help="Remaining platform live allocation available for org assignment." />
             <MetricCard label="Remaining Open" value={remainingPool?.remaining_allocatable_open ?? 0} help="Remaining platform open allocation available for org assignment." />
             <MetricCard label="Remaining Queued" value={remainingPool?.remaining_allocatable_queued ?? 0} help="Remaining platform queued-lot allocation available for org assignment." />
@@ -518,12 +650,24 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section F — Org Allocation Management
           </Typography>
+          {orgSectionDisabled && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Complete and save Section A to continue.
+            </Alert>
+          )}
+          {orgSaveError && <Alert severity="error" sx={{ mb: 2 }}>{orgSaveError}</Alert>}
+          {orgSaveSuccess && <Alert severity="success" sx={{ mb: 2 }}>{orgSaveSuccess}</Alert>}
           <Alert severity="info" sx={{ mb: 2 }}>
             Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
           </Alert>
           <Alert severity="info" sx={{ mb: 2 }}>
             Tier values are auto-applied based on selection.
           </Alert>
+          <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1.5 }}>
+            <Button variant="contained" onClick={handleSaveAllOrg} disabled={orgSectionDisabled || savingOrgId === "__ALL__"}>
+              {savingOrgId === "__ALL__" ? "Saving..." : "Save Org Allocation"}
+            </Button>
+          </Stack>
           <Box sx={{ overflowX: "auto", opacity: orgSectionDisabled ? 0.65 : 1, pointerEvents: orgSectionDisabled ? "none" : "auto" }}>
             <Table size="small">
               <TableHead>
@@ -594,7 +738,7 @@ const SystemCapacityControlPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="contained" onClick={() => handleSaveOrg(row)} disabled={orgSectionDisabled || savingOrgId === row.org_id}>
+                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSectionDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__"}>
                           {savingOrgId === row.org_id ? "Saving..." : "Save"}
                         </Button>
                       </TableCell>

@@ -827,67 +827,110 @@ const SystemCapacityControlPage: React.FC = () => {
           )}
           {platformSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{platformSaveError}</Alert>}
           {platformSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{platformSaveSuccess}</Alert>}
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
-            <TextField label={<FormLabelWithTooltip label="Deployment / Profile Name" help="Name this configuration (e.g., Production, Testing)." />} helperText="Friendly name of the current platform capacity profile." value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={platformSectionDisabled} />
-            <TextField select label={<FormLabelWithTooltip label="Guard Enabled" help="Enables capacity enforcement. Recommended: Yes." />} helperText="Turns backend capacity enforcement on or off." value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={platformSectionDisabled}>
-              <MenuItem value="true">Yes</MenuItem>
-              <MenuItem value="false">No</MenuItem>
-            </TextField>
-            <TextField
-              label={<FormLabelWithTooltip label="Max Total Live Lanes" help="Maximum number of auctions running LIVE simultaneously." />}
-              helperText={sectionCFieldErrors.max_total_live_lanes || `Safe maximum from infrastructure: ${safeMaxLive}`}
-              type="number"
-              value={num(systemConfig.auction_capacity?.max_total_live_lanes)}
-              onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)}
-              fullWidth
-              disabled={platformSectionDisabled}
-              error={Boolean(sectionCFieldErrors.max_total_live_lanes)}
-              inputProps={{ min: 0, max: safeMaxLive }}
-            />
-            <TextField
-              label={<FormLabelWithTooltip label="Max Total Open Lanes" help="Total auctions allowed (LIVE + PLANNED)." />}
-              helperText={sectionCFieldErrors.max_total_open_lanes || `Safe maximum from infrastructure: ${safeMaxOpen}`}
-              type="number"
-              value={num(systemConfig.auction_capacity?.max_total_open_lanes)}
-              onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)}
-              fullWidth
-              disabled={platformSectionDisabled}
-              error={Boolean(sectionCFieldErrors.max_total_open_lanes)}
-              inputProps={{ min: 0, max: safeMaxOpen }}
-            />
-            <TextField
-              label={<FormLabelWithTooltip label="Max Total Queued Lots" help="Maximum lots waiting in auction queues." />}
-              helperText={sectionCFieldErrors.max_total_queued_lots || `Safe maximum from infrastructure: ${safeMaxQueued}`}
-              type="number"
-              value={num(systemConfig.auction_capacity?.max_total_queued_lots)}
-              onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)}
-              fullWidth
-              disabled={platformSectionDisabled}
-              error={Boolean(sectionCFieldErrors.max_total_queued_lots)}
-              inputProps={{ min: 0, max: safeMaxQueued }}
-            />
-            <TextField
-              label={<FormLabelWithTooltip label="Max Total Concurrent Bidders" help="Maximum bidders allowed simultaneously." />}
-              helperText={sectionCFieldErrors.max_total_concurrent_bidders || `Safe maximum from infrastructure: ${safeMaxBidders}`}
-              type="number"
-              value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)}
-              onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)}
-              fullWidth
-              disabled={platformSectionDisabled}
-              error={Boolean(sectionCFieldErrors.max_total_concurrent_bidders)}
-              inputProps={{ min: 0, max: safeMaxBidders }}
-            />
-            <TextField label={<FormLabelWithTooltip label="CPU Warning Threshold %" help="CPU usage alert threshold." />} helperText="Warning threshold for CPU usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label={<FormLabelWithTooltip label="Memory Warning Threshold %" help="Memory usage alert threshold." />} helperText="Warning threshold for memory usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
-            <TextField label={<FormLabelWithTooltip label="Default Org Max Live Lanes" help="Default live auction limit per organization." />} helperText={sectionCFieldErrors.default_org_max_live_lanes || "Default live-lane quota assigned to a new org if no custom allocation is set."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_live_lanes)} />
-            <TextField label={<FormLabelWithTooltip label="Default Org Max Open Lanes" help="Default total auctions per organization." />} helperText={sectionCFieldErrors.default_org_max_open_lanes || "Default open-lane quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_open_lanes)} />
-            <TextField label={<FormLabelWithTooltip label="Default Org Max Total Queued Lots" help="Default queue limit per organization." />} helperText={sectionCFieldErrors.default_org_max_total_queued_lots || "Default total queued-lot quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_total_queued_lots)} />
-            <TextField label={<FormLabelWithTooltip label="Default Org Max Concurrent Bidders" help="Default bidder limit per organization." />} helperText={sectionCFieldErrors.default_org_max_concurrent_bidders || "Default concurrent bidder quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_concurrent_bidders)} />
-            <TextField label={<FormLabelWithTooltip label="Default Mandi Max Live Lanes" help="Default live auctions per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_live_lanes || "Default mandi live-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_live_lanes)} />
-            <TextField label={<FormLabelWithTooltip label="Default Mandi Max Open Lanes" help="Default auctions per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_open_lanes || "Default mandi open-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_open_lanes)} />
-            <TextField label={<FormLabelWithTooltip label="Default Mandi Max Queue Per Lane" help="Max lots allowed in a single lane." />} helperText={sectionCFieldErrors.default_mandi_max_queue_per_lane || "Default number of queued lots allowed in one mandi lane."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_queue_per_lane)} />
-            <TextField label={<FormLabelWithTooltip label="Default Mandi Max Total Queued Lots" help="Total queue capacity per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_total_queued_lots || "Default total queued lots allowed for one mandi."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_total_queued_lots)} />
-          </Box>
+          <Stack spacing={1.5}>
+            <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                C1. Platform Control
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                These values define the maximum total auction load allowed across the full platform.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
+                <TextField label={<FormLabelWithTooltip label="Deployment / Profile Name" help="Name this configuration (e.g., Production, Testing)." />} helperText="Friendly name of the current platform capacity profile." value={systemConfig.deployment_profile_name || ""} onChange={(e) => setSystemConfig((prev) => ({ ...prev, deployment_profile_name: e.target.value }))} fullWidth disabled={platformSectionDisabled} />
+                <TextField select label={<FormLabelWithTooltip label="Guard Enabled" help="Enables capacity enforcement. Recommended: Yes." />} helperText="Turns backend capacity enforcement on or off." value={systemConfig.auction_capacity?.guard_enabled ? "true" : "false"} onChange={(e) => setAuctionField("guard_enabled", e.target.value === "true")} fullWidth disabled={platformSectionDisabled}>
+                  <MenuItem value="true">Yes</MenuItem>
+                  <MenuItem value="false">No</MenuItem>
+                </TextField>
+                <TextField
+                  label={<FormLabelWithTooltip label="Max Total Live Lanes" help="Maximum number of auctions running LIVE simultaneously." />}
+                  helperText={sectionCFieldErrors.max_total_live_lanes || `Safe maximum from infrastructure: ${safeMaxLive}`}
+                  type="number"
+                  value={num(systemConfig.auction_capacity?.max_total_live_lanes)}
+                  onChange={(e) => setAuctionField("max_total_live_lanes", e.target.value)}
+                  fullWidth
+                  disabled={platformSectionDisabled}
+                  error={Boolean(sectionCFieldErrors.max_total_live_lanes)}
+                  inputProps={{ min: 0, max: safeMaxLive }}
+                />
+                <TextField
+                  label={<FormLabelWithTooltip label="Max Total Open Lanes" help="Total auctions allowed (LIVE + PLANNED)." />}
+                  helperText={sectionCFieldErrors.max_total_open_lanes || `Safe maximum from infrastructure: ${safeMaxOpen}`}
+                  type="number"
+                  value={num(systemConfig.auction_capacity?.max_total_open_lanes)}
+                  onChange={(e) => setAuctionField("max_total_open_lanes", e.target.value)}
+                  fullWidth
+                  disabled={platformSectionDisabled}
+                  error={Boolean(sectionCFieldErrors.max_total_open_lanes)}
+                  inputProps={{ min: 0, max: safeMaxOpen }}
+                />
+                <TextField
+                  label={<FormLabelWithTooltip label="Max Total Queued Lots" help="Maximum lots waiting in auction queues." />}
+                  helperText={sectionCFieldErrors.max_total_queued_lots || `Safe maximum from infrastructure: ${safeMaxQueued}`}
+                  type="number"
+                  value={num(systemConfig.auction_capacity?.max_total_queued_lots)}
+                  onChange={(e) => setAuctionField("max_total_queued_lots", e.target.value)}
+                  fullWidth
+                  disabled={platformSectionDisabled}
+                  error={Boolean(sectionCFieldErrors.max_total_queued_lots)}
+                  inputProps={{ min: 0, max: safeMaxQueued }}
+                />
+                <TextField
+                  label={<FormLabelWithTooltip label="Max Total Concurrent Bidders" help="Maximum bidders allowed simultaneously." />}
+                  helperText={sectionCFieldErrors.max_total_concurrent_bidders || `Safe maximum from infrastructure: ${safeMaxBidders}`}
+                  type="number"
+                  value={num(systemConfig.auction_capacity?.max_total_concurrent_bidders)}
+                  onChange={(e) => setAuctionField("max_total_concurrent_bidders", e.target.value)}
+                  fullWidth
+                  disabled={platformSectionDisabled}
+                  error={Boolean(sectionCFieldErrors.max_total_concurrent_bidders)}
+                  inputProps={{ min: 0, max: safeMaxBidders }}
+                />
+              </Box>
+            </Box>
+
+            <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                C2. Warning Thresholds
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                These values do not block usage. They only warn when platform resource usage becomes risky.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(220px, 1fr))" }, gap: 1.5 }}>
+                <TextField label={<FormLabelWithTooltip label="CPU Warning Threshold %" help="CPU usage alert threshold." />} helperText="Warning threshold for CPU usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.cpu_warning_threshold_percent)} onChange={(e) => setAuctionField("cpu_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
+                <TextField label={<FormLabelWithTooltip label="Memory Warning Threshold %" help="Memory usage alert threshold." />} helperText="Warning threshold for memory usage before the platform should be treated as stressed." type="number" value={num(systemConfig.auction_capacity?.memory_warning_threshold_percent)} onChange={(e) => setAuctionField("memory_warning_threshold_percent", e.target.value)} fullWidth disabled={platformSectionDisabled} />
+              </Box>
+            </Box>
+
+            <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                C3. Default Organisation Limits
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                These are the default limits assigned to each organisation unless customised later.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(220px, 1fr))" }, gap: 1.5 }}>
+                <TextField label={<FormLabelWithTooltip label="Default Org Max Live Lanes" help="Default live auction limit per organization." />} helperText={sectionCFieldErrors.default_org_max_live_lanes || "Default live-lane quota assigned to a new org if no custom allocation is set."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_live_lanes)} onChange={(e) => setAuctionField("default_org_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_live_lanes)} />
+                <TextField label={<FormLabelWithTooltip label="Default Org Max Open Lanes" help="Default total auctions per organization." />} helperText={sectionCFieldErrors.default_org_max_open_lanes || "Default open-lane quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_open_lanes)} onChange={(e) => setAuctionField("default_org_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_open_lanes)} />
+                <TextField label={<FormLabelWithTooltip label="Default Org Max Total Queued Lots" help="Default queue limit per organization." />} helperText={sectionCFieldErrors.default_org_max_total_queued_lots || "Default total queued-lot quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_total_queued_lots)} onChange={(e) => setAuctionField("default_org_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_total_queued_lots)} />
+                <TextField label={<FormLabelWithTooltip label="Default Org Max Concurrent Bidders" help="Default bidder limit per organization." />} helperText={sectionCFieldErrors.default_org_max_concurrent_bidders || "Default concurrent bidder quota assigned to a new org."} type="number" value={num(systemConfig.auction_capacity?.default_org_max_concurrent_bidders)} onChange={(e) => setAuctionField("default_org_max_concurrent_bidders", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_org_max_concurrent_bidders)} />
+              </Box>
+            </Box>
+
+            <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                C4. Default Mandi Limits
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                These are the default limits assigned to each mandi under an organisation unless overridden later.
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(220px, 1fr))" }, gap: 1.5 }}>
+                <TextField label={<FormLabelWithTooltip label="Default Mandi Max Live Lanes" help="Default live auctions per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_live_lanes || "Default mandi live-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_live_lanes)} onChange={(e) => setAuctionField("default_mandi_max_live_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_live_lanes)} />
+                <TextField label={<FormLabelWithTooltip label="Default Mandi Max Open Lanes" help="Default auctions per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_open_lanes || "Default mandi open-lane limit when mandi override is not set."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_open_lanes)} onChange={(e) => setAuctionField("default_mandi_max_open_lanes", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_open_lanes)} />
+                <TextField label={<FormLabelWithTooltip label="Default Mandi Max Queue Per Lane" help="Max lots allowed in a single lane." />} helperText={sectionCFieldErrors.default_mandi_max_queue_per_lane || "Default number of queued lots allowed in one mandi lane."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_queue_per_lane)} onChange={(e) => setAuctionField("default_mandi_max_queue_per_lane", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_queue_per_lane)} />
+                <TextField label={<FormLabelWithTooltip label="Default Mandi Max Total Queued Lots" help="Total queue capacity per mandi." />} helperText={sectionCFieldErrors.default_mandi_max_total_queued_lots || "Default total queued lots allowed for one mandi."} type="number" value={num(systemConfig.auction_capacity?.default_mandi_max_total_queued_lots)} onChange={(e) => setAuctionField("default_mandi_max_total_queued_lots", e.target.value)} fullWidth disabled={platformSectionDisabled} error={Boolean(sectionCFieldErrors.default_mandi_max_total_queued_lots)} />
+              </Box>
+            </Box>
+          </Stack>
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
             <Button variant="contained" onClick={handleSaveSystem} disabled={platformSectionDisabled || savingSystem || loading || hasSectionCErrors}>
               {savingSystem ? "Saving..." : "Save Platform Capacity"}

@@ -24,7 +24,8 @@ import { StepUpGuard } from "../../components/StepUpGuard";
 import { usePermissions } from "../../authz/usePermissions";
 import {
   getAuctionCapacityControl,
-  updateAuctionCapacityControl,
+  updatePhysicalInfrastructureCapacity,
+  updatePlatformAuctionCapacity,
   updateOrgAuctionCapacityAllocation,
 } from "../../services/systemCapacityControlApi";
 
@@ -51,6 +52,8 @@ type OrgAllocation = {
   priority_weight?: number | null;
   reserved_capacity_enabled?: boolean | null;
   usage_percent?: number | null;
+  allocation_invalid?: boolean;
+  allocation_warning?: string | null;
 };
 
 type TierPreset = {
@@ -111,6 +114,16 @@ type CapacityHealth = {
   live_lanes_state: "GREEN" | "AMBER" | "RED";
   bidders_state: "GREEN" | "AMBER" | "RED";
   queue_state: "GREEN" | "AMBER" | "RED";
+};
+
+type StateFlags = {
+  infra_ready: boolean;
+  derived_ready: boolean;
+  platform_configured: boolean;
+  platform_valid: boolean;
+  allocation_valid: boolean;
+  org_allocation_allowed: boolean;
+  usage_sections_allowed: boolean;
 };
 
 function currentUsername(): string | null {
@@ -206,6 +219,18 @@ function isInfraFormReady(infraProfile: Record<string, any> = {}) {
   return required.every((value) => Number(value) > 0) && Boolean(sameMachine);
 }
 
+function emptyStateFlags(): StateFlags {
+  return {
+    infra_ready: false,
+    derived_ready: false,
+    platform_configured: false,
+    platform_valid: false,
+    allocation_valid: false,
+    org_allocation_allowed: false,
+    usage_sections_allowed: false,
+  };
+}
+
 const SystemCapacityControlPage: React.FC = () => {
   const username = useMemo(() => currentUsername(), []);
   const { can } = usePermissions();
@@ -223,6 +248,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const [orgSaveSuccess, setOrgSaveSuccess] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [orgAllocationAllowed, setOrgAllocationAllowed] = useState(false);
+  const [stateFlags, setStateFlags] = useState<StateFlags>(emptyStateFlags());
   const [capacityHealth, setCapacityHealth] = useState<CapacityHealth | null>(null);
   const [upgradeAlerts, setUpgradeAlerts] = useState<string[]>([]);
   const [infraDirty, setInfraDirty] = useState(false);
@@ -254,7 +280,12 @@ const SystemCapacityControlPage: React.FC = () => {
       }
       const data = resp?.data || {};
       setSystemConfig(data.system_capacity_config || { deployment_profile_name: "", auction_capacity: {}, infra_profile: {} });
-      setOrgAllocationAllowed(Boolean(data.org_allocation_allowed));
+      const backendFlags: StateFlags = {
+        ...emptyStateFlags(),
+        ...(data.state_flags || {}),
+      };
+      setStateFlags(backendFlags);
+      setOrgAllocationAllowed(Boolean(data.org_allocation_allowed ?? backendFlags.org_allocation_allowed));
       setPlatformUsage(data.platform_usage_summary || null);
       setDerivedSafeCapacity(data.derived_safe_capacity || null);
       setRemainingPool(data.remaining_allocatable_pool || null);
@@ -267,6 +298,7 @@ const SystemCapacityControlPage: React.FC = () => {
       setInfraDirty(false);
     } catch (err: any) {
       setError(err?.message || "Failed to load system capacity control.");
+      setStateFlags(emptyStateFlags());
     } finally {
       setLoading(false);
     }
@@ -319,11 +351,10 @@ const SystemCapacityControlPage: React.FC = () => {
     setInfraSaveError(null);
     setInfraSaveSuccess(null);
     try {
-      const resp: any = await updateAuctionCapacityControl({
+      const resp: any = await updatePhysicalInfrastructureCapacity({
         username,
         payload: {
           deployment_profile_name: systemConfig.deployment_profile_name,
-          auction_capacity: systemConfig.auction_capacity,
           infra_profile: systemConfig.infra_profile,
         },
       });
@@ -346,12 +377,11 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlatformSaveError(null);
     setPlatformSaveSuccess(null);
     try {
-      const resp: any = await updateAuctionCapacityControl({
+      const resp: any = await updatePlatformAuctionCapacity({
         username,
         payload: {
           deployment_profile_name: systemConfig.deployment_profile_name,
           auction_capacity: systemConfig.auction_capacity,
-          infra_profile: systemConfig.infra_profile,
         },
       });
       if (String(resp?.response?.responsecode || "") !== "0") {
@@ -444,24 +474,16 @@ const SystemCapacityControlPage: React.FC = () => {
   };
 
   const systemTotalsWarning = platformUsage?.allocation_warning || null;
-  const sectionAReadyToContinue = infraFormReady && !infraDirty;
+  const sectionAReadyToContinue = stateFlags.infra_ready && !infraDirty;
   const platformSectionDisabled = !canEditCapacityControl || !sectionAReadyToContinue;
-  const orgSectionDisabled = !canEditCapacityControl || !orgAllocationAllowed || !sectionAReadyToContinue;
-  const usageSectionsLocked = !sectionAReadyToContinue;
-  const isHealthBlockedByInfra = !derivedSafeCapacity?.infra_ready
+  const usageSectionsLocked = !stateFlags.usage_sections_allowed || infraDirty;
+  const orgSectionDisabled = !canEditCapacityControl || !orgAllocationAllowed || usageSectionsLocked;
+  const isHealthBlockedByInfra = !stateFlags.infra_ready
     && Number(derivedSafeCapacity?.derived_safe_max_live_lanes || 0) === 0;
-  const platformValid = (
-    Number(systemConfig?.auction_capacity?.max_total_live_lanes || 0) <= Number(derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0)
-    && Number(systemConfig?.auction_capacity?.max_total_open_lanes || 0) <= Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0)
-    && Number(systemConfig?.auction_capacity?.max_total_queued_lots || 0) <= Number(derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0)
-    && Number(systemConfig?.auction_capacity?.max_total_concurrent_bidders || 0) <= Number(derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0)
-  );
-  const allocationValid = (
-    Number(remainingPool?.remaining_allocatable_live ?? 0) >= 0
-    && Number(remainingPool?.remaining_allocatable_open ?? 0) >= 0
-    && Number(remainingPool?.remaining_allocatable_queued ?? 0) >= 0
-    && Number(remainingPool?.remaining_allocatable_bidders ?? 0) >= 0
-  );
+  const usageBlockMessage = (!stateFlags.infra_ready || infraDirty)
+    ? "Complete and save Section A to continue."
+    : "Complete and save Section C to continue.";
+  const hasInvalidOrgRows = orgRows.some((row) => Boolean(row.allocation_invalid));
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
@@ -498,12 +520,18 @@ const SystemCapacityControlPage: React.FC = () => {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, mb: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 0.5, md: 2 }}>
-            <Typography variant="caption">Infra Ready: {infraFormReady ? "Yes" : "No"}</Typography>
-            <Typography variant="caption">Derived Capacity: {infraDirty ? "Stale" : "Fresh"}</Typography>
-            <Typography variant="caption">Platform Valid: {platformValid ? "Yes" : "No"}</Typography>
-            <Typography variant="caption">Allocation Valid: {allocationValid ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Infra Ready: {stateFlags.infra_ready ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Derived Ready: {stateFlags.derived_ready ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Platform Configured: {stateFlags.platform_configured ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Platform Valid: {stateFlags.platform_valid ? "Yes" : "No"}</Typography>
+            <Typography variant="caption">Allocation Valid: {stateFlags.allocation_valid ? "Yes" : "No"}</Typography>
           </Stack>
         </Paper>
+        {infraDirty && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Section A has unsaved changes. Derived values shown below are from the last saved infrastructure profile.
+          </Alert>
+        )}
         {systemTotalsWarning && <Alert severity="warning" sx={{ mb: 2 }}>{systemTotalsWarning}</Alert>}
         {!canEditCapacityControl && <Alert severity="info" sx={{ mb: 2 }}>You do not have permission to edit Capacity Control.</Alert>}
         {(!infraFormReady || infraDirty) && (
@@ -552,6 +580,11 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section B — Derived Safe Capacity
           </Typography>
+          {!stateFlags.infra_ready && (
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Save Physical Infrastructure to calculate derived safe capacity.
+            </Alert>
+          )}
           <Alert severity="info" sx={{ mb: 1.5 }}>
             Auction safe capacity is derived from the strictest required infrastructure component, not by summing all server RAM/CPU.
           </Alert>
@@ -636,7 +669,7 @@ const SystemCapacityControlPage: React.FC = () => {
           </Typography>
           {usageSectionsLocked && (
             <Alert severity="info" sx={{ mb: 1.5 }}>
-              Complete and save Section A to continue.
+              {usageBlockMessage}
             </Alert>
           )}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 2, opacity: usageSectionsLocked ? 0.65 : 1, pointerEvents: usageSectionsLocked ? "none" : "auto" }}>
@@ -675,7 +708,7 @@ const SystemCapacityControlPage: React.FC = () => {
           </Typography>
           {usageSectionsLocked && (
             <Alert severity="info" sx={{ mb: 1.5 }}>
-              Complete and save Section A to continue.
+              {usageBlockMessage}
             </Alert>
           )}
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, opacity: usageSectionsLocked ? 0.65 : 1, pointerEvents: usageSectionsLocked ? "none" : "auto" }}>
@@ -696,11 +729,16 @@ const SystemCapacityControlPage: React.FC = () => {
           </Typography>
           {orgSectionDisabled && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Complete and save Section A to continue.
+              {usageBlockMessage}
             </Alert>
           )}
           {orgSaveError && <Alert severity="error" sx={{ mb: 2 }}>{orgSaveError}</Alert>}
           {orgSaveSuccess && <Alert severity="success" sx={{ mb: 2 }}>{orgSaveSuccess}</Alert>}
+          {hasInvalidOrgRows && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              One or more org allocations exceed current effective platform capacity. Correct them before saving.
+            </Alert>
+          )}
           <Alert severity="info" sx={{ mb: 2 }}>
             Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
           </Alert>
@@ -708,7 +746,7 @@ const SystemCapacityControlPage: React.FC = () => {
             Tier values are auto-applied based on selection.
           </Alert>
           <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1.5 }}>
-            <Button variant="contained" onClick={handleSaveAllOrg} disabled={orgSectionDisabled || savingOrgId === "__ALL__"}>
+            <Button variant="contained" onClick={handleSaveAllOrg} disabled={orgSectionDisabled || savingOrgId === "__ALL__" || hasInvalidOrgRows}>
               {savingOrgId === "__ALL__" ? "Saving..." : "Save Org Allocation"}
             </Button>
           </Stack>
@@ -741,6 +779,9 @@ const SystemCapacityControlPage: React.FC = () => {
                         <Stack spacing={0.25}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.org_name}</Typography>
                           <Typography variant="caption" color="text.secondary">{row.org_code || "—"}</Typography>
+                          {row.allocation_invalid && row.allocation_warning ? (
+                            <Typography variant="caption" color="warning.main">{row.allocation_warning}</Typography>
+                          ) : null}
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -782,7 +823,7 @@ const SystemCapacityControlPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSectionDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__"}>
+                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSectionDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__" || Boolean(row.allocation_invalid)}>
                           {savingOrgId === row.org_id ? "Saving..." : "Save"}
                         </Button>
                       </TableCell>

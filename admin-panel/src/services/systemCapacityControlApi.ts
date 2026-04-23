@@ -30,6 +30,38 @@ export const updateAuctionCapacityControl = async ({
     ...payload,
   });
 
+export const updatePhysicalInfrastructureCapacity = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted("/admin/system/updatePhysicalInfrastructureCapacity", {
+    api: API_TAGS.SYSTEM_CAPACITY_CONTROL.update,
+    username,
+    language,
+    ...payload,
+  });
+
+export const updatePlatformAuctionCapacity = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted("/admin/system/updatePlatformAuctionCapacity", {
+    api: API_TAGS.SYSTEM_CAPACITY_CONTROL.update,
+    username,
+    language,
+    ...payload,
+  });
+
 export const updateOrgAuctionCapacityAllocation = async ({
   username,
   language = DEFAULT_LANGUAGE,

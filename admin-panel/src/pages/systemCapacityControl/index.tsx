@@ -126,6 +126,8 @@ type StateFlags = {
   usage_sections_allowed: boolean;
 };
 
+type CapacityPlanningMode = "MANUAL" | "AUTO_FROM_SAFE_CAPACITY";
+
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -313,6 +315,8 @@ const SystemCapacityControlPage: React.FC = () => {
   const [tierPresets, setTierPresets] = useState<TierPreset[]>([]);
   const [availableTiers, setAvailableTiers] = useState<string[]>([]);
   const [orgRows, setOrgRows] = useState<OrgAllocation[]>([]);
+  const [capacityPlanningMode, setCapacityPlanningMode] = useState<CapacityPlanningMode>("MANUAL");
+  const [bufferPercent, setBufferPercent] = useState<number>(20);
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
   const infraFormReady = useMemo(() => isInfraFormReady(systemConfig.infra_profile || {}), [systemConfig.infra_profile]);
@@ -320,6 +324,46 @@ const SystemCapacityControlPage: React.FC = () => {
   const safeMaxOpen = Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0);
   const safeMaxQueued = Number(derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0);
   const safeMaxBidders = Number(derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0);
+  const platformMaxLive = Number(systemConfig.auction_capacity?.max_total_live_lanes || 0);
+  const platformMaxOpen = Number(systemConfig.auction_capacity?.max_total_open_lanes || 0);
+  const platformMaxQueued = Number(systemConfig.auction_capacity?.max_total_queued_lots || 0);
+  const platformMaxBidders = Number(systemConfig.auction_capacity?.max_total_concurrent_bidders || 0);
+
+  const orgAllocationSummary = useMemo(() => {
+    const allocatedLive = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_live_lanes || 0), 0);
+    const allocatedOpen = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_open_lanes || 0), 0);
+    const allocatedQueued = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_queued_lots || 0), 0);
+    const allocatedBidders = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_concurrent_bidders || 0), 0);
+    const exceeded = {
+      live: allocatedLive > platformMaxLive,
+      open: allocatedOpen > platformMaxOpen,
+      queued: allocatedQueued > platformMaxQueued,
+      bidders: allocatedBidders > platformMaxBidders,
+    };
+    const messages: string[] = [];
+    if (exceeded.live) messages.push(`Allocated live lanes exceed platform limit. Allocated: ${allocatedLive}, Allowed: ${platformMaxLive}.`);
+    if (exceeded.open) messages.push(`Allocated open lanes exceed platform limit. Allocated: ${allocatedOpen}, Allowed: ${platformMaxOpen}.`);
+    if (exceeded.queued) messages.push(`Allocated queued lots exceed platform limit. Allocated: ${allocatedQueued}, Allowed: ${platformMaxQueued}.`);
+    if (exceeded.bidders) messages.push(`Allocated bidders exceed platform limit. Allocated: ${allocatedBidders}, Allowed: ${platformMaxBidders}.`);
+    return {
+      allocatedLive,
+      allocatedOpen,
+      allocatedQueued,
+      allocatedBidders,
+      exceeded,
+      messages,
+      hasExceeded: messages.length > 0,
+    };
+  }, [orgRows, platformMaxLive, platformMaxOpen, platformMaxQueued, platformMaxBidders]);
+
+  const hasOrgNumericErrors = useMemo(() => (
+    orgRows.some((row) => (
+      Number(row.allocated_max_live_lanes || 0) < 0
+      || Number(row.allocated_max_open_lanes || 0) < 0
+      || Number(row.allocated_max_queued_lots || 0) < 0
+      || Number(row.allocated_max_concurrent_bidders || 0) < 0
+    ))
+  ), [orgRows]);
 
   const sectionCFieldErrors = useMemo<Record<string, string>>(() => {
     const auction = systemConfig.auction_capacity || {};
@@ -438,6 +482,54 @@ const SystemCapacityControlPage: React.FC = () => {
     }));
   };
 
+  const clampedBufferPercent = Math.min(90, Math.max(0, Number(bufferPercent || 0)));
+
+  const generateFromSafe = (safeValue: number) => {
+    const generated = Math.floor(Number(safeValue || 0) * ((100 - clampedBufferPercent) / 100));
+    return Math.max(0, Math.min(Number(safeValue || 0), generated));
+  };
+
+  const handleGeneratePlatformLimits = () => {
+    if (capacityPlanningMode !== "AUTO_FROM_SAFE_CAPACITY") return;
+
+    const generatedLive = generateFromSafe(safeMaxLive);
+    const generatedOpen = generateFromSafe(safeMaxOpen);
+    const generatedQueued = generateFromSafe(safeMaxQueued);
+    const generatedBidders = generateFromSafe(safeMaxBidders);
+
+    const suggestedOrgLive = Math.max(0, Math.floor(generatedLive * 0.4));
+    const suggestedOrgOpen = Math.max(0, Math.floor(generatedOpen * 0.4));
+    const suggestedOrgQueued = Math.max(0, Math.floor(generatedQueued * 0.35));
+    const suggestedOrgBidders = Math.max(0, Math.floor(generatedBidders * 0.35));
+    const suggestedMandiLive = Math.max(0, Math.floor(suggestedOrgLive * 0.5));
+    const suggestedMandiOpen = Math.max(0, Math.floor(suggestedOrgOpen * 0.5));
+    const suggestedMandiQueued = Math.max(0, Math.floor(suggestedOrgQueued * 0.5));
+    const suggestedMandiQueuePerLane = suggestedMandiQueued > 0
+      ? Math.max(0, Math.floor(suggestedMandiQueued / Math.max(1, suggestedMandiLive || 1)))
+      : 0;
+
+    setSystemConfig((prev) => ({
+      ...prev,
+      auction_capacity: {
+        ...(prev.auction_capacity || {}),
+        max_total_live_lanes: generatedLive,
+        max_total_open_lanes: generatedOpen,
+        max_total_queued_lots: generatedQueued,
+        max_total_concurrent_bidders: generatedBidders,
+        default_org_max_live_lanes: suggestedOrgLive,
+        default_org_max_open_lanes: suggestedOrgOpen,
+        default_org_max_total_queued_lots: suggestedOrgQueued,
+        default_org_max_concurrent_bidders: suggestedOrgBidders,
+        default_mandi_max_live_lanes: suggestedMandiLive,
+        default_mandi_max_open_lanes: suggestedMandiOpen,
+        default_mandi_max_total_queued_lots: suggestedMandiQueued,
+        default_mandi_max_queue_per_lane: Math.min(suggestedMandiQueuePerLane, suggestedMandiQueued),
+      },
+    }));
+    setPlatformSaveError(null);
+    setPlatformSaveSuccess("Platform limits generated from derived safe capacity. Review and save Section C.");
+  };
+
   const setInfraField = (key: string, value: any) => {
     setSystemConfig((prev) => ({
       ...prev,
@@ -523,6 +615,18 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const handleSaveOrg = async (row: OrgAllocation) => {
     if (!username || !orgAllocationAllowed || !infraFormReady || infraDirty) return;
+    if (!stateFlags.platform_configured) {
+      setOrgSaveError("Complete and save Section C to continue.");
+      return;
+    }
+    if (hasOrgNumericErrors) {
+      setOrgSaveError("One or more org allocation values are invalid. Ensure all values are zero or positive.");
+      return;
+    }
+    if (orgAllocationSummary.hasExceeded) {
+      setOrgSaveError(orgAllocationSummary.messages[0] || "Allocated org totals exceed platform limits.");
+      return;
+    }
     setSavingOrgId(row.org_id);
     setOrgSaveError(null);
     setOrgSaveSuccess(null);
@@ -560,6 +664,18 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const handleSaveAllOrg = async () => {
     if (!username || !orgAllocationAllowed || !infraFormReady || infraDirty) return;
+    if (!stateFlags.platform_configured) {
+      setOrgSaveError("Complete and save Section C to continue.");
+      return;
+    }
+    if (hasOrgNumericErrors) {
+      setOrgSaveError("One or more org allocation values are invalid. Ensure all values are zero or positive.");
+      return;
+    }
+    if (orgAllocationSummary.hasExceeded) {
+      setOrgSaveError(orgAllocationSummary.messages[0] || "Allocated org totals exceed platform limits.");
+      return;
+    }
     setSavingOrgId("__ALL__");
     setOrgSaveError(null);
     setOrgSaveSuccess(null);
@@ -608,6 +724,11 @@ const SystemCapacityControlPage: React.FC = () => {
     ? "Complete and save Section A to continue."
     : "Complete and save Section C to continue.";
   const hasInvalidOrgRows = orgRows.some((row) => Boolean(row.allocation_invalid));
+  const orgSaveDisabled = orgSectionDisabled
+    || hasInvalidOrgRows
+    || hasOrgNumericErrors
+    || orgAllocationSummary.hasExceeded
+    || !stateFlags.platform_configured;
 
   if (!username) {
     return <Typography>Please log in.</Typography>;
@@ -827,6 +948,44 @@ const SystemCapacityControlPage: React.FC = () => {
           )}
           {platformSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{platformSaveError}</Alert>}
           {platformSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{platformSaveSuccess}</Alert>}
+          <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5, mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+              Capacity Planning
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5 }}>
+              <TextField
+                select
+                label="Capacity Planning Mode"
+                value={capacityPlanningMode}
+                onChange={(e) => setCapacityPlanningMode(e.target.value as CapacityPlanningMode)}
+                fullWidth
+                disabled={platformSectionDisabled}
+              >
+                <MenuItem value="MANUAL">MANUAL</MenuItem>
+                <MenuItem value="AUTO_FROM_SAFE_CAPACITY">AUTO_FROM_SAFE_CAPACITY</MenuItem>
+              </TextField>
+              <TextField
+                label="Buffer Percent"
+                type="number"
+                value={bufferPercent}
+                onChange={(e) => setBufferPercent(Math.min(90, Math.max(0, Number(e.target.value || 0))))}
+                fullWidth
+                disabled={platformSectionDisabled}
+                inputProps={{ min: 0, max: 90 }}
+                helperText="Default: 20"
+              />
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={handleGeneratePlatformLimits}
+                  disabled={platformSectionDisabled || capacityPlanningMode !== "AUTO_FROM_SAFE_CAPACITY" || !stateFlags.derived_ready}
+                >
+                  Generate Platform Limits
+                </Button>
+              </Box>
+            </Box>
+          </Box>
           <Stack spacing={1.5}>
             <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -1020,6 +1179,27 @@ const SystemCapacityControlPage: React.FC = () => {
               One or more org allocations exceed current effective platform capacity. Correct them before saving.
             </Alert>
           )}
+          {hasOrgNumericErrors && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              One or more org allocation values are invalid. Ensure all values are zero or positive.
+            </Alert>
+          )}
+          {orgAllocationSummary.messages.map((message) => (
+            <Alert key={message} severity="error" sx={{ mb: 2 }}>
+              {message}
+            </Alert>
+          ))}
+          <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Allocation Summary
+            </Typography>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+              <Chip color={orgAllocationSummary.exceeded.live ? "error" : "success"} label={`Live: ${orgAllocationSummary.allocatedLive} / ${platformMaxLive}`} />
+              <Chip color={orgAllocationSummary.exceeded.open ? "error" : "success"} label={`Open: ${orgAllocationSummary.allocatedOpen} / ${platformMaxOpen}`} />
+              <Chip color={orgAllocationSummary.exceeded.queued ? "error" : "success"} label={`Queued: ${orgAllocationSummary.allocatedQueued} / ${platformMaxQueued}`} />
+              <Chip color={orgAllocationSummary.exceeded.bidders ? "error" : "success"} label={`Bidders: ${orgAllocationSummary.allocatedBidders} / ${platformMaxBidders}`} />
+            </Stack>
+          </Paper>
           <Alert severity="info" sx={{ mb: 2 }}>
             Org values cannot exceed platform limits. Effective mandi limits cascade below org allocation.
           </Alert>
@@ -1027,7 +1207,7 @@ const SystemCapacityControlPage: React.FC = () => {
             Tier values are auto-applied based on selection.
           </Alert>
           <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1.5 }}>
-            <Button variant="contained" onClick={handleSaveAllOrg} disabled={orgSectionDisabled || savingOrgId === "__ALL__" || hasInvalidOrgRows}>
+            <Button variant="contained" onClick={handleSaveAllOrg} disabled={orgSaveDisabled || savingOrgId === "__ALL__"}>
               {savingOrgId === "__ALL__" ? "Saving..." : "Save Org Allocation"}
             </Button>
           </Stack>
@@ -1088,10 +1268,10 @@ const SystemCapacityControlPage: React.FC = () => {
                         <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
                         <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
                       </TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.live} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.open} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.queued} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.bidders} /></TableCell>
                       <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={orgSectionDisabled || tierSelected} /></TableCell>
                       <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={orgSectionDisabled || tierSelected} /></TableCell>
                       <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={orgSectionDisabled} /></TableCell>
@@ -1104,7 +1284,7 @@ const SystemCapacityControlPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSectionDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__" || Boolean(row.allocation_invalid)}>
+                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSaveDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__" || Boolean(row.allocation_invalid)}>
                           {savingOrgId === row.org_id ? "Saving..." : "Save"}
                         </Button>
                       </TableCell>

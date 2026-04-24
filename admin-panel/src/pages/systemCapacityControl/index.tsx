@@ -132,17 +132,16 @@ type StateFlags = {
 
 type CapacityPlanningMode = "MANUAL" | "AUTO_FROM_SAFE_CAPACITY";
 type PlannerState = {
+  selected_org_id: string;
+  number_of_mandis: number;
   expected_farmers: number;
   expected_traders: number;
-  expected_concurrent_bidders: number;
-  expected_live_auction_lanes: number;
-  expected_open_auction_lanes: number;
-  expected_queued_lots: number;
+  peak_active_traders: number;
   expected_lots_per_day: number;
-  buffer_percent: number;
-  deployment_type: "SHARED" | "DEDICATED" | "HYBRID";
-  same_machine_or_separate: "SAME" | "SEPARATE";
-  websocket_shared_or_separate: "SHARED" | "SEPARATE";
+  expected_peak_queued_lots: number;
+  expected_concurrent_auctions: number;
+  growth_buffer_percent: number;
+  usage_profile: "TESTING" | "SMALL" | "NORMAL" | "HEAVY" | "PEAK_SEASON";
 };
 
 function currentUsername(): string | null {
@@ -172,17 +171,6 @@ function toNonNegativeNumber(value: any): number {
   return Math.max(0, parsed);
 }
 
-function roundUpRam(value: number): number {
-  const nonNegative = Math.max(0, Number(value || 0));
-  if (nonNegative <= 0) return 1;
-  return Math.max(1, Math.ceil(nonNegative * 2) / 2);
-}
-
-function roundUpCpu(value: number): number {
-  const nonNegative = Math.max(0, Number(value || 0));
-  return Math.max(1, Math.ceil(nonNegative));
-}
-
 const headerHelpIconSx = {
   ml: 0.5,
   fontSize: 16,
@@ -195,15 +183,6 @@ const DEPLOYMENT_TYPE_OPTIONS = ["SHARED", "DEDICATED", "HYBRID"] as const;
 const SAME_MACHINE_OPTIONS = ["SAME", "SEPARATE"] as const;
 const WEBSOCKET_MODE_OPTIONS = ["SHARED", "SEPARATE"] as const;
 const SECTION_F_TIER_OPTIONS = ["STARTER", "STANDARD", "PREMIUM", "ENTERPRISE", "DEDICATED", "CUSTOM"] as const;
-const CAPACITY_ENGINE_ASSUMPTIONS = {
-  ram_per_live_lane_gb: 0.2,
-  cpu_per_live_lane: 0.2,
-  ram_per_open_lane_gb: 0.05,
-  ram_per_100_queued_lots_gb: 0.1,
-  cpu_per_100_queued_lots: 0.1,
-  ram_per_100_bidders_gb: 0.15,
-  cpu_per_100_bidders: 0.1,
-};
 
 function normalizeSelectValue(
   value: any,
@@ -363,17 +342,16 @@ const SystemCapacityControlPage: React.FC = () => {
   const [bufferPercent, setBufferPercent] = useState<number>(20);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [planner, setPlanner] = useState<PlannerState>({
+    selected_org_id: "",
+    number_of_mandis: 1,
     expected_farmers: 0,
     expected_traders: 0,
-    expected_concurrent_bidders: 0,
-    expected_live_auction_lanes: 0,
-    expected_open_auction_lanes: 0,
-    expected_queued_lots: 0,
+    peak_active_traders: 0,
     expected_lots_per_day: 0,
-    buffer_percent: 20,
-    deployment_type: "SHARED",
-    same_machine_or_separate: "SEPARATE",
-    websocket_shared_or_separate: "SHARED",
+    expected_peak_queued_lots: 0,
+    expected_concurrent_auctions: 1,
+    growth_buffer_percent: 20,
+    usage_profile: "NORMAL",
   });
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
@@ -423,93 +401,98 @@ const SystemCapacityControlPage: React.FC = () => {
     ))
   ), [orgRows]);
 
-  const plannerBufferPercent = Math.min(90, Math.max(0, Number(planner.buffer_percent || 0)));
-  const plannerOutputs = useMemo(() => {
-    const utilization = Math.max(0.1, (100 - plannerBufferPercent) / 100);
-    const liveLanes = toNonNegativeNumber(planner.expected_live_auction_lanes);
-    const openLanes = toNonNegativeNumber(planner.expected_open_auction_lanes);
-    const queuedLots = toNonNegativeNumber(planner.expected_queued_lots);
-    const bidders = toNonNegativeNumber(planner.expected_concurrent_bidders);
-    const farmers = toNonNegativeNumber(planner.expected_farmers);
-    const traders = toNonNegativeNumber(planner.expected_traders);
-    const lotsPerDay = toNonNegativeNumber(planner.expected_lots_per_day);
+  const plannerGrowthBufferPercent = Math.min(90, Math.max(0, Number(planner.growth_buffer_percent || 0)));
+  const plannerSelectedRow = useMemo(
+    () => orgRows.find((row) => String(row.org_id) === String(planner.selected_org_id)) || null,
+    [orgRows, planner.selected_org_id],
+  );
+  const plannerSuggestion = useMemo(() => {
+    const usageProfileMultiplierMap: Record<PlannerState["usage_profile"], number> = {
+      TESTING: 0.7,
+      SMALL: 0.85,
+      NORMAL: 1,
+      HEAVY: 1.2,
+      PEAK_SEASON: 1.4,
+    };
+    const usageMultiplier = usageProfileMultiplierMap[planner.usage_profile] || 1;
+    const growthMultiplier = 1 + (plannerGrowthBufferPercent / 100);
 
-    const apiRamBase = (liveLanes * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_live_lane_gb)
-      + (openLanes * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb)
-      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb);
-    const apiCpuBase = (liveLanes * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane)
-      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders);
-    const dbRamBase = ((queuedLots / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb)
-      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb);
-    const dbCpuBase = ((queuedLots / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots)
-      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders);
+    const concurrentAuctions = toNonNegativeNumber(planner.expected_concurrent_auctions);
+    const expectedLotsPerDay = toNonNegativeNumber(planner.expected_lots_per_day);
+    const peakQueuedLots = toNonNegativeNumber(planner.expected_peak_queued_lots);
+    const peakActiveTraders = toNonNegativeNumber(planner.peak_active_traders);
+    const expectedTraders = toNonNegativeNumber(planner.expected_traders);
 
-    const webTrafficBase = Math.max(openLanes, (farmers + traders) / 250);
-    const webRamBase = (webTrafficBase * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb)
-      + ((bidders / 200) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb)
-      + ((lotsPerDay / 5000) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb);
-    const webCpuBase = (webTrafficBase * (CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane / 2))
-      + ((bidders / 200) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders)
-      + ((lotsPerDay / 5000) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots);
+    const baseLive = Math.max(1, concurrentAuctions);
+    const baseOpen = Math.max(baseLive, Math.ceil(baseLive * 2));
+    const baseQueued = Math.max(peakQueuedLots, Math.ceil(expectedLotsPerDay * 0.25));
+    const baseBidders = Math.max(peakActiveTraders, Math.ceil(expectedTraders * 0.25));
 
-    const requiredAppRam = roundUpRam(apiRamBase / utilization);
-    const requiredAppCpu = roundUpCpu(apiCpuBase / utilization);
-    const requiredDbRam = roundUpRam(dbRamBase / utilization);
-    const requiredDbCpu = roundUpCpu(dbCpuBase / utilization);
-    const requiredWebRam = roundUpRam(webRamBase / utilization);
-    const requiredWebCpu = roundUpCpu(webCpuBase / utilization);
+    const bufferedLive = Math.ceil(Math.ceil(baseLive * usageMultiplier) * growthMultiplier);
+    const bufferedOpen = Math.ceil(Math.ceil(baseOpen * usageMultiplier) * growthMultiplier);
+    const bufferedQueued = Math.ceil(Math.ceil(baseQueued * usageMultiplier) * growthMultiplier);
+    const bufferedBidders = Math.ceil(Math.ceil(baseBidders * usageMultiplier) * growthMultiplier);
 
-    const osReserve = 10;
-    const systemReserve = 10;
-    const webReserve = 10;
-    const apiMultiplier = Math.max(0.1, 1 - ((osReserve + systemReserve) / 100));
-    const dbMultiplier = Math.max(0.1, 1 - ((osReserve + systemReserve) / 100));
-    const webMultiplier = Math.max(0.1, 1 - ((osReserve + webReserve) / 100));
-    const usableApiRam = requiredAppRam * apiMultiplier;
-    const usableApiCpu = requiredAppCpu * apiMultiplier;
-    const usableDbRam = requiredDbRam * dbMultiplier;
-    const usableDbCpu = requiredDbCpu * dbMultiplier;
+    const selectedOrgCurrentLive = Number(plannerSelectedRow?.allocated_max_live_lanes || 0);
+    const selectedOrgCurrentOpen = Number(plannerSelectedRow?.allocated_max_open_lanes || 0);
+    const selectedOrgCurrentQueued = Number(plannerSelectedRow?.allocated_max_queued_lots || 0);
+    const selectedOrgCurrentBidders = Number(plannerSelectedRow?.allocated_max_concurrent_bidders || 0);
 
-    const apiSafeLive = Math.floor(Math.min(
-      usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_live_lane_gb,
-      usableApiCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane,
-    ));
-    const apiSafeOpen = Math.floor(Math.max(
-      apiSafeLive,
-      Math.min(
-        usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb,
-        usableApiCpu / Math.max(CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane / 2, 0.01),
-      ),
-    ));
-    const dbSafeQueued = Math.floor(Math.min(
-      (usableDbRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb) * 100,
-      (usableDbCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots) * 100,
-    ));
-    const apiSafeBidders = Math.floor(Math.min(
-      (usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb) * 100,
-      (usableApiCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders) * 100,
-    ));
-    const dbSafeBidders = Math.floor(Math.min(
-      (usableDbRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb) * 100,
-      (usableDbCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders) * 100,
-    ));
+    const remainingLiveBeforeApply = Math.max(0, platformMaxLive - (orgAllocationSummary.allocatedLive - selectedOrgCurrentLive));
+    const remainingOpenBeforeApply = Math.max(0, platformMaxOpen - (orgAllocationSummary.allocatedOpen - selectedOrgCurrentOpen));
+    const remainingQueuedBeforeApply = Math.max(0, platformMaxQueued - (orgAllocationSummary.allocatedQueued - selectedOrgCurrentQueued));
+    const remainingBiddersBeforeApply = Math.max(0, platformMaxBidders - (orgAllocationSummary.allocatedBidders - selectedOrgCurrentBidders));
+
+    const suggestedLive = Math.max(0, Math.min(bufferedLive, remainingLiveBeforeApply));
+    const suggestedOpen = Math.max(0, Math.min(bufferedOpen, remainingOpenBeforeApply));
+    const suggestedQueued = Math.max(0, Math.min(bufferedQueued, remainingQueuedBeforeApply));
+    const suggestedBidders = Math.max(0, Math.min(bufferedBidders, remainingBiddersBeforeApply));
+
+    const warnings: string[] = [];
+    if (bufferedLive > remainingLiveBeforeApply) warnings.push(`Live lanes clamped by remaining platform capacity (${remainingLiveBeforeApply}).`);
+    if (bufferedOpen > remainingOpenBeforeApply) warnings.push(`Open lanes clamped by remaining platform capacity (${remainingOpenBeforeApply}).`);
+    if (bufferedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots clamped by remaining platform capacity (${remainingQueuedBeforeApply}).`);
+    if (bufferedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders clamped by remaining platform capacity (${remainingBiddersBeforeApply}).`);
+
+    const fittingTier = SECTION_F_TIER_OPTIONS
+      .filter((tierCode) => tierCode !== "CUSTOM")
+      .map((tierCode) => presetMap[tierCode])
+      .filter(Boolean)
+      .find((preset) => (
+        Number(preset?.max_live_sessions || 0) >= suggestedLive
+        && Number(preset?.max_open_sessions || 0) >= suggestedOpen
+        && Number(preset?.max_total_queued_lots || 0) >= suggestedQueued
+        && Number(preset?.max_concurrent_bidders || 0) >= suggestedBidders
+      ));
+
+    const suggestedTierCode = fittingTier?.tier_code || "CUSTOM";
+    const remainingAfterApply = {
+      live: Math.max(0, remainingLiveBeforeApply - suggestedLive),
+      open: Math.max(0, remainingOpenBeforeApply - suggestedOpen),
+      queued: Math.max(0, remainingQueuedBeforeApply - suggestedQueued),
+      bidders: Math.max(0, remainingBiddersBeforeApply - suggestedBidders),
+    };
 
     return {
-      required_app_server_ram_gb: requiredAppRam,
-      required_app_server_vcpu: requiredAppCpu,
-      required_db_server_ram_gb: requiredDbRam,
-      required_db_server_vcpu: requiredDbCpu,
-      required_web_server_ram_gb: requiredWebRam,
-      required_web_server_vcpu: requiredWebCpu,
-      recommended_os_reserve_percent: osReserve,
-      recommended_system_reserve_percent: systemReserve,
-      recommended_web_admin_reserve_percent: webReserve,
-      estimated_safe_live_lanes: Math.max(0, apiSafeLive),
-      estimated_safe_open_lanes: Math.max(0, apiSafeOpen),
-      estimated_safe_queued_lots: Math.max(0, dbSafeQueued),
-      estimated_safe_concurrent_bidders: Math.max(0, Math.min(apiSafeBidders, dbSafeBidders)),
+      suggested_live_lanes: suggestedLive,
+      suggested_open_lanes: suggestedOpen,
+      suggested_queued_lots: suggestedQueued,
+      suggested_concurrent_bidders: suggestedBidders,
+      suggested_tier_code: suggestedTierCode,
+      remaining_platform_capacity_after_apply: remainingAfterApply,
+      warnings,
     };
-  }, [planner, plannerBufferPercent]);
+  }, [
+    planner,
+    plannerGrowthBufferPercent,
+    plannerSelectedRow,
+    platformMaxLive,
+    platformMaxOpen,
+    platformMaxQueued,
+    platformMaxBidders,
+    orgAllocationSummary,
+    presetMap,
+  ]);
 
   const sectionCFieldErrors = useMemo<Record<string, string>>(() => {
     const auction = systemConfig.auction_capacity || {};
@@ -617,6 +600,12 @@ const SystemCapacityControlPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!planner.selected_org_id && orgRows.length > 0) {
+      setPlanner((prev) => ({ ...prev, selected_org_id: String(orgRows[0].org_id || "") }));
+    }
+  }, [orgRows, planner.selected_org_id]);
 
   const setAuctionField = (key: string, value: any) => {
     setSystemConfig((prev) => ({
@@ -733,26 +722,20 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
   };
 
-  const applyPlannerToSectionA = () => {
-    setSystemConfig((prev) => ({
-      ...prev,
-      infra_profile: {
-        ...(prev.infra_profile || {}),
-        app_server_ram_gb: plannerOutputs.required_app_server_ram_gb,
-        app_server_vcpu: plannerOutputs.required_app_server_vcpu,
-        db_server_ram_gb: plannerOutputs.required_db_server_ram_gb,
-        db_server_vcpu: plannerOutputs.required_db_server_vcpu,
-        web_server_ram_gb: plannerOutputs.required_web_server_ram_gb,
-        web_server_vcpu: plannerOutputs.required_web_server_vcpu,
-        os_reserve_percent: plannerOutputs.recommended_os_reserve_percent,
-        system_reserve_percent: plannerOutputs.recommended_system_reserve_percent,
-        web_admin_reserve_percent: plannerOutputs.recommended_web_admin_reserve_percent,
-        deployment_type: planner.deployment_type,
-        same_machine_or_separate: planner.same_machine_or_separate,
-        websocket_shared_or_separate: planner.websocket_shared_or_separate,
-      },
+  const applyPlannerToSelectedOrg = () => {
+    if (!planner.selected_org_id) return;
+    setOrgRows((prev) => prev.map((row) => {
+      if (String(row.org_id) !== String(planner.selected_org_id)) return row;
+      return {
+        ...row,
+        tier_code: plannerSuggestion.suggested_tier_code || "CUSTOM",
+        allocated_max_live_lanes: plannerSuggestion.suggested_live_lanes,
+        allocated_max_open_lanes: plannerSuggestion.suggested_open_lanes,
+        allocated_max_queued_lots: plannerSuggestion.suggested_queued_lots,
+        allocated_max_concurrent_bidders: plannerSuggestion.suggested_concurrent_bidders,
+      };
     }));
-    setInfraDirty(true);
+    setOrgSaveError(null);
     setPlannerOpen(false);
   };
 
@@ -778,7 +761,16 @@ const SystemCapacityControlPage: React.FC = () => {
     setOrgRows((prev) => prev.map((row) => {
       if (row.org_id !== orgId) return row;
       if (!normalizedTier) {
-        return { ...row, tier_code: null };
+        return {
+          ...row,
+          tier_code: null,
+          allocated_max_live_lanes: null,
+          allocated_max_open_lanes: null,
+          allocated_max_queued_lots: null,
+          allocated_max_concurrent_bidders: null,
+          overflow_allowed: false,
+          special_event_allowed: false,
+        };
       }
       if (normalizedTier === "CUSTOM") {
         return { ...row, tier_code: "CUSTOM" };
@@ -1542,52 +1534,68 @@ const SystemCapacityControlPage: React.FC = () => {
           <DialogTitle>Capacity Planner</DialogTitle>
           <DialogContent dividers>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Reverse planning tool: expected load to required infrastructure. This does not save automatically.
+              This planner estimates organisation allocation from business numbers. It does not change physical server capacity.
             </Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5, mb: 2 }}>
-              <TextField label="Expected Farmers" type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Traders" type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Concurrent Bidders" type="number" value={planner.expected_concurrent_bidders} onChange={(e) => setPlannerField("expected_concurrent_bidders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Live Auction Lanes" type="number" value={planner.expected_live_auction_lanes} onChange={(e) => setPlannerField("expected_live_auction_lanes", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Open Auction Lanes" type="number" value={planner.expected_open_auction_lanes} onChange={(e) => setPlannerField("expected_open_auction_lanes", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Queued Lots" type="number" value={planner.expected_queued_lots} onChange={(e) => setPlannerField("expected_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected Lots Per Day" type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Buffer Percent" type="number" inputProps={{ min: 0, max: 90 }} value={planner.buffer_percent} onChange={(e) => setPlannerField("buffer_percent", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField select label="Deployment Type" value={planner.deployment_type} onChange={(e) => setPlannerField("deployment_type", e.target.value as PlannerState["deployment_type"])} fullWidth>
-                {DEPLOYMENT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              <TextField
+                select
+                label="Select Organisation"
+                value={planner.selected_org_id}
+                onChange={(e) => setPlannerField("selected_org_id", String(e.target.value || ""))}
+                fullWidth
+              >
+                {orgRows.map((row) => (
+                  <MenuItem key={row.org_id} value={row.org_id}>
+                    {row.org_name}
+                  </MenuItem>
+                ))}
               </TextField>
-              <TextField select label="Same Machine or Separate" value={planner.same_machine_or_separate} onChange={(e) => setPlannerField("same_machine_or_separate", e.target.value as PlannerState["same_machine_or_separate"])} fullWidth>
-                {SAME_MACHINE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-              </TextField>
-              <TextField select label="WebSocket Shared or Separate" value={planner.websocket_shared_or_separate} onChange={(e) => setPlannerField("websocket_shared_or_separate", e.target.value as PlannerState["websocket_shared_or_separate"])} fullWidth>
-                {WEBSOCKET_MODE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              <TextField label="How many mandis are expected?" type="number" value={planner.number_of_mandis} onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="How many farmers are expected?" type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="How many traders are registered?" type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="How many traders may bid at the same time?" type="number" value={planner.peak_active_traders} onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="How many lots may wait in queue on a busy day?" type="number" value={planner.expected_peak_queued_lots} onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected lots per day" type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected concurrent auctions" type="number" value={planner.expected_concurrent_auctions} onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Growth buffer (%)" type="number" inputProps={{ min: 0, max: 90 }} value={planner.growth_buffer_percent} onChange={(e) => setPlannerField("growth_buffer_percent", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField
+                select
+                label="Usage Profile"
+                value={planner.usage_profile}
+                onChange={(e) => setPlannerField("usage_profile", e.target.value as PlannerState["usage_profile"])}
+                fullWidth
+              >
+                {["TESTING", "SMALL", "NORMAL", "HEAVY", "PEAK_SEASON"].map((profile) => (
+                  <MenuItem key={profile} value={profile}>{profile}</MenuItem>
+                ))}
               </TextField>
             </Box>
+            {plannerSuggestion.warnings.map((warning) => (
+              <Alert key={warning} severity="warning" sx={{ mb: 1.5 }}>
+                {warning}
+              </Alert>
+            ))}
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                 Planner Output
               </Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                <MetricCard label="Required App Server RAM (GB)" value={plannerOutputs.required_app_server_ram_gb} help="required_app_server_ram_gb" />
-                <MetricCard label="Required App Server vCPU" value={plannerOutputs.required_app_server_vcpu} help="required_app_server_vcpu" />
-                <MetricCard label="Required DB Server RAM (GB)" value={plannerOutputs.required_db_server_ram_gb} help="required_db_server_ram_gb" />
-                <MetricCard label="Required DB Server vCPU" value={plannerOutputs.required_db_server_vcpu} help="required_db_server_vcpu" />
-                <MetricCard label="Required Web Server RAM (GB)" value={plannerOutputs.required_web_server_ram_gb} help="required_web_server_ram_gb" />
-                <MetricCard label="Required Web Server vCPU" value={plannerOutputs.required_web_server_vcpu} help="required_web_server_vcpu" />
-                <MetricCard label="Recommended OS Reserve %" value={plannerOutputs.recommended_os_reserve_percent} help="recommended_os_reserve_percent" />
-                <MetricCard label="Recommended System Reserve %" value={plannerOutputs.recommended_system_reserve_percent} help="recommended_system_reserve_percent" />
-                <MetricCard label="Recommended Web/Admin Reserve %" value={plannerOutputs.recommended_web_admin_reserve_percent} help="recommended_web_admin_reserve_percent" />
-                <MetricCard label="Estimated Safe Live Lanes" value={plannerOutputs.estimated_safe_live_lanes} help="estimated_safe_live_lanes" />
-                <MetricCard label="Estimated Safe Open Lanes" value={plannerOutputs.estimated_safe_open_lanes} help="estimated_safe_open_lanes" />
-                <MetricCard label="Estimated Safe Queued Lots" value={plannerOutputs.estimated_safe_queued_lots} help="estimated_safe_queued_lots" />
-                <MetricCard label="Estimated Safe Concurrent Bidders" value={plannerOutputs.estimated_safe_concurrent_bidders} help="estimated_safe_concurrent_bidders" />
+                <MetricCard label="Suggested Live Lanes" value={plannerSuggestion.suggested_live_lanes} help="suggested_live_lanes" />
+                <MetricCard label="Suggested Open Lanes" value={plannerSuggestion.suggested_open_lanes} help="suggested_open_lanes" />
+                <MetricCard label="Suggested Queued Lots" value={plannerSuggestion.suggested_queued_lots} help="suggested_queued_lots" />
+                <MetricCard label="Suggested Concurrent Bidders" value={plannerSuggestion.suggested_concurrent_bidders} help="suggested_concurrent_bidders" />
+                <MetricCard label="Suggested Tier Code" value={plannerSuggestion.suggested_tier_code} help="suggested_tier_code" />
+                <MetricCard label="Remaining Live After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.live} help="remaining_platform_capacity_after_apply.live" />
+                <MetricCard label="Remaining Open After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.open} help="remaining_platform_capacity_after_apply.open" />
+                <MetricCard label="Remaining Queued After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.queued} help="remaining_platform_capacity_after_apply.queued" />
+                <MetricCard label="Remaining Bidders After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.bidders} help="remaining_platform_capacity_after_apply.bidders" />
               </Box>
             </Paper>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPlannerOpen(false)}>Close</Button>
-            <Button variant="contained" onClick={applyPlannerToSectionA} disabled={!canEditCapacityControl}>
-              Apply to Section A
+            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id}>
+              Apply to Selected Organisation
             </Button>
           </DialogActions>
         </Dialog>

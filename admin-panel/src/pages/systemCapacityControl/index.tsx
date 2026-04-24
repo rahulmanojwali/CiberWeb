@@ -144,6 +144,10 @@ type PlannerState = {
   usage_profile: "TESTING" | "SMALL" | "NORMAL" | "HEAVY" | "PEAK_SEASON";
 };
 type PlannerSuggestion = {
+  raw_suggested_live_lanes: number;
+  raw_suggested_open_lanes: number;
+  raw_suggested_queued_lots: number;
+  raw_suggested_concurrent_bidders: number;
   suggested_live_lanes: number;
   suggested_open_lanes: number;
   suggested_queued_lots: number;
@@ -368,6 +372,9 @@ const SystemCapacityControlPage: React.FC = () => {
   const [bufferPercent, setBufferPercent] = useState<number>(20);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [plannerValidationError, setPlannerValidationError] = useState<string | null>(null);
+  const [plannerFieldErrors, setPlannerFieldErrors] = useState<Partial<Record<keyof PlannerState, string>>>({});
+  const [plannerTopErrors, setPlannerTopErrors] = useState<string[]>([]);
+  const [plannerNeedsRecalculation, setPlannerNeedsRecalculation] = useState(false);
   const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
@@ -429,11 +436,30 @@ const SystemCapacityControlPage: React.FC = () => {
     ))
   ), [orgRows]);
 
-  const plannerGrowthBufferPercent = Math.min(90, Math.max(0, Number(planner.growth_buffer_percent || 0)));
+  const plannerGrowthBufferPercent = Math.min(100, Math.max(0, Number(planner.growth_buffer_percent || 0)));
   const plannerSelectedRow = useMemo(
     () => orgRows.find((row) => String(row.org_id) === String(planner.selected_org_id)) || null,
     [orgRows, planner.selected_org_id],
   );
+  const findExactMatchingTierCode = (
+    live: number,
+    open: number,
+    queued: number,
+    bidders: number,
+  ): string | null => {
+    const exactMatch = SECTION_F_TIER_OPTIONS
+      .filter((tierCode) => tierCode !== "CUSTOM")
+      .map((tierCode) => presetMap[tierCode])
+      .filter(Boolean)
+      .find((preset) => (
+        Number(preset?.max_live_sessions || 0) === Number(live || 0)
+        && Number(preset?.max_open_sessions || 0) === Number(open || 0)
+        && Number(preset?.max_total_queued_lots || 0) === Number(queued || 0)
+        && Number(preset?.max_concurrent_bidders || 0) === Number(bidders || 0)
+      ));
+    return exactMatch?.tier_code || null;
+  };
+
   const plannerSuggestion = useMemo<PlannerSuggestion>(() => {
     const usageProfileMultiplierMap: Record<PlannerState["usage_profile"], number> = {
       TESTING: 0.7,
@@ -471,10 +497,10 @@ const SystemCapacityControlPage: React.FC = () => {
     const remainingQueuedBeforeApply = Math.max(0, platformMaxQueued - (orgAllocationSummary.allocatedQueued - selectedOrgCurrentQueued));
     const remainingBiddersBeforeApply = Math.max(0, platformMaxBidders - (orgAllocationSummary.allocatedBidders - selectedOrgCurrentBidders));
 
-    const suggestedLive = Math.max(0, Math.min(bufferedLive, remainingLiveBeforeApply));
-    const suggestedOpen = Math.max(0, Math.min(bufferedOpen, remainingOpenBeforeApply));
-    const suggestedQueued = Math.max(0, Math.min(bufferedQueued, remainingQueuedBeforeApply));
-    const suggestedBidders = Math.max(0, Math.min(bufferedBidders, remainingBiddersBeforeApply));
+    const appliedLive = Math.max(0, Math.min(bufferedLive, remainingLiveBeforeApply));
+    const appliedOpen = Math.max(0, Math.min(bufferedOpen, remainingOpenBeforeApply));
+    const appliedQueued = Math.max(0, Math.min(bufferedQueued, remainingQueuedBeforeApply));
+    const appliedBidders = Math.max(0, Math.min(bufferedBidders, remainingBiddersBeforeApply));
 
     const warnings: string[] = [];
     if (bufferedLive > remainingLiveBeforeApply) warnings.push(`Live lanes clamped by remaining platform capacity (${remainingLiveBeforeApply}).`);
@@ -482,31 +508,25 @@ const SystemCapacityControlPage: React.FC = () => {
     if (bufferedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots clamped by remaining platform capacity (${remainingQueuedBeforeApply}).`);
     if (bufferedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders clamped by remaining platform capacity (${remainingBiddersBeforeApply}).`);
 
-    const fittingTier = SECTION_F_TIER_OPTIONS
-      .filter((tierCode) => tierCode !== "CUSTOM")
-      .map((tierCode) => presetMap[tierCode])
-      .filter(Boolean)
-      .find((preset) => (
-        Number(preset?.max_live_sessions || 0) >= suggestedLive
-        && Number(preset?.max_open_sessions || 0) >= suggestedOpen
-        && Number(preset?.max_total_queued_lots || 0) >= suggestedQueued
-        && Number(preset?.max_concurrent_bidders || 0) >= suggestedBidders
-      ));
-
-    const hasSuggestedValues = suggestedLive > 0 || suggestedOpen > 0 || suggestedQueued > 0 || suggestedBidders > 0;
-    const suggestedTierCode = hasSuggestedValues ? (fittingTier?.tier_code || "CUSTOM") : null;
+    const hasSuggestedValues = appliedLive > 0 || appliedOpen > 0 || appliedQueued > 0 || appliedBidders > 0;
+    const exactTierCode = findExactMatchingTierCode(appliedLive, appliedOpen, appliedQueued, appliedBidders);
+    const suggestedTierCode = hasSuggestedValues ? (exactTierCode || "CUSTOM") : null;
     const remainingAfterApply = {
-      live: Math.max(0, remainingLiveBeforeApply - suggestedLive),
-      open: Math.max(0, remainingOpenBeforeApply - suggestedOpen),
-      queued: Math.max(0, remainingQueuedBeforeApply - suggestedQueued),
-      bidders: Math.max(0, remainingBiddersBeforeApply - suggestedBidders),
+      live: Math.max(0, remainingLiveBeforeApply - appliedLive),
+      open: Math.max(0, remainingOpenBeforeApply - appliedOpen),
+      queued: Math.max(0, remainingQueuedBeforeApply - appliedQueued),
+      bidders: Math.max(0, remainingBiddersBeforeApply - appliedBidders),
     };
 
     return {
-      suggested_live_lanes: suggestedLive,
-      suggested_open_lanes: suggestedOpen,
-      suggested_queued_lots: suggestedQueued,
-      suggested_concurrent_bidders: suggestedBidders,
+      raw_suggested_live_lanes: bufferedLive,
+      raw_suggested_open_lanes: bufferedOpen,
+      raw_suggested_queued_lots: bufferedQueued,
+      raw_suggested_concurrent_bidders: bufferedBidders,
+      suggested_live_lanes: appliedLive,
+      suggested_open_lanes: appliedOpen,
+      suggested_queued_lots: appliedQueued,
+      suggested_concurrent_bidders: appliedBidders,
       suggested_tier_code: suggestedTierCode,
       remaining_platform_capacity_after_apply: remainingAfterApply,
       warnings,
@@ -751,17 +771,32 @@ const SystemCapacityControlPage: React.FC = () => {
   const setPlannerField = <K extends keyof PlannerState>(key: K, value: PlannerState[K]) => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
     setPlannerValidationError(null);
+    setPlannerFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setPlannerTopErrors([]);
+    if (plannerResult) {
+      setPlannerNeedsRecalculation(true);
+    }
     setPlannerResult(null);
   };
 
   const applyPlannerToSelectedOrg = () => {
-    if (!plannerResult) return;
+    if (!plannerResult || plannerNeedsRecalculation) return;
     if (!planner.selected_org_id) return;
+    const finalTierCode = findExactMatchingTierCode(
+      plannerResult.suggested_live_lanes,
+      plannerResult.suggested_open_lanes,
+      plannerResult.suggested_queued_lots,
+      plannerResult.suggested_concurrent_bidders,
+    ) || "CUSTOM";
     setOrgRows((prev) => prev.map((row) => {
       if (String(row.org_id) !== String(planner.selected_org_id)) return row;
       return {
         ...row,
-        tier_code: plannerResult.suggested_tier_code || "CUSTOM",
+        tier_code: finalTierCode,
         allocated_max_live_lanes: plannerResult.suggested_live_lanes,
         allocated_max_open_lanes: plannerResult.suggested_open_lanes,
         allocated_max_queued_lots: plannerResult.suggested_queued_lots,
@@ -769,6 +804,7 @@ const SystemCapacityControlPage: React.FC = () => {
       };
     }));
     setOrgSaveError(null);
+    setOrgSaveSuccess("Suggested allocation applied. Please click Save Org Allocation to persist.");
     setPlannerOpen(false);
   };
 
@@ -821,36 +857,64 @@ const SystemCapacityControlPage: React.FC = () => {
   };
 
   const handleCalculatePlanner = () => {
-    const hasBusinessValues = [
-      planner.expected_farmers,
-      planner.expected_traders,
-      planner.expected_lots_per_day,
-      planner.expected_peak_queued_lots,
-      planner.peak_active_traders,
-    ].some((value) => Number(value) > 0);
+    const nextFieldErrors: Partial<Record<keyof PlannerState, string>> = {};
+    const nextTopErrors: string[] = [];
+    const farmers = Number(planner.expected_farmers || 0);
+    const traders = Number(planner.expected_traders || 0);
+    const peakTraders = Number(planner.peak_active_traders || 0);
+    const lotsPerDay = Number(planner.expected_lots_per_day || 0);
+    const peakQueued = Number(planner.expected_peak_queued_lots || 0);
+    const mandis = Number(planner.number_of_mandis || 0);
+    const concurrentAuctions = Number(planner.expected_concurrent_auctions || 0);
+    const growthBuffer = Number(planner.growth_buffer_percent || 0);
 
     if (!planner.selected_org_id) {
-      setPlannerValidationError("Please select an organisation.");
-      setPlannerResult(null);
-      return;
+      nextFieldErrors.selected_org_id = "Select an organisation.";
+      nextTopErrors.push("Select an organisation.");
     }
-    if (Number(planner.number_of_mandis || 0) <= 0) {
-      setPlannerValidationError("Number of mandis must be greater than 0.");
-      setPlannerResult(null);
-      return;
+    if (!(mandis > 0)) {
+      nextFieldErrors.number_of_mandis = "Number of mandis must be greater than 0.";
+      nextTopErrors.push("Number of mandis must be greater than 0.");
     }
-    if (Number(planner.expected_concurrent_auctions || 0) <= 0) {
-      setPlannerValidationError("Peak concurrent auctions in this organisation must be greater than 0.");
-      setPlannerResult(null);
-      return;
+    if (farmers < 0) nextFieldErrors.expected_farmers = "Total farmers must be zero or greater.";
+    if (traders < 0) nextFieldErrors.expected_traders = "Total registered traders must be zero or greater.";
+    if (peakTraders < 0) nextFieldErrors.peak_active_traders = "Peak traders must be zero or greater.";
+    if (lotsPerDay < 0) nextFieldErrors.expected_lots_per_day = "Total lots per day must be zero or greater.";
+    if (peakQueued < 0) nextFieldErrors.expected_peak_queued_lots = "Peak queued lots must be zero or greater.";
+    if (!(concurrentAuctions > 0)) {
+      nextFieldErrors.expected_concurrent_auctions = "Peak concurrent auctions in this organisation must be greater than 0.";
+      nextTopErrors.push("Peak concurrent auctions in this organisation must be greater than 0.");
     }
+    if (growthBuffer < 0 || growthBuffer > 100) {
+      nextFieldErrors.growth_buffer_percent = "Growth buffer (%) must be between 0 and 100.";
+      nextTopErrors.push("Growth buffer (%) must be between 0 and 100.");
+    }
+    if (peakTraders > traders) {
+      nextFieldErrors.peak_active_traders = "Peak traders bidding at the same time cannot exceed total registered traders.";
+      nextTopErrors.push("Peak traders bidding at the same time cannot exceed total registered traders.");
+    }
+    if (lotsPerDay > 0 && peakQueued > lotsPerDay) {
+      nextFieldErrors.expected_peak_queued_lots = "Peak queued lots cannot exceed total lots per day.";
+      nextTopErrors.push("Peak queued lots cannot exceed total lots per day.");
+    }
+    const hasBusinessValues = [farmers, traders, peakTraders, lotsPerDay, peakQueued].some((value) => value > 0);
     if (!hasBusinessValues) {
-      setPlannerValidationError("Enter expected farmers, traders, or lots before calculating.");
+      nextTopErrors.push("Enter expected farmers, traders, or lots before calculating.");
+    }
+    if (Object.keys(nextFieldErrors).length > 0 || nextTopErrors.length > 0) {
+      const combinedErrors = Array.from(new Set([...nextTopErrors, ...Object.values(nextFieldErrors)]));
+      setPlannerFieldErrors(nextFieldErrors);
+      setPlannerTopErrors(combinedErrors);
+      setPlannerValidationError(combinedErrors[0] || "Please correct planner inputs.");
       setPlannerResult(null);
+      setPlannerNeedsRecalculation(false);
       return;
     }
 
     setPlannerValidationError(null);
+    setPlannerFieldErrors({});
+    setPlannerTopErrors([]);
+    setPlannerNeedsRecalculation(false);
     setPlannerResult(plannerSuggestion);
   };
 
@@ -1658,6 +1722,8 @@ const SystemCapacityControlPage: React.FC = () => {
                 value={planner.selected_org_id}
                 onChange={(e) => setPlannerField("selected_org_id", String(e.target.value || ""))}
                 fullWidth
+                error={Boolean(plannerFieldErrors.selected_org_id)}
+                helperText={plannerFieldErrors.selected_org_id || ""}
               >
                 {orgRows.map((row) => (
                   <MenuItem key={row.org_id} value={row.org_id}>
@@ -1665,14 +1731,79 @@ const SystemCapacityControlPage: React.FC = () => {
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField label="Number of mandis in this organisation" helperText="Enter how many mandis are operated under this organisation." type="number" value={planner.number_of_mandis} onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Total farmers in this organisation" helperText="Enter total farmers served by this organisation, not per mandi." type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Total registered traders in this organisation" helperText="Enter total registered traders in this organisation, not per mandi." type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Peak traders bidding at the same time" helperText="Enter the maximum traders expected to bid at the same time." type="number" value={planner.peak_active_traders} onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Peak lots waiting in queue" helperText="Enter the maximum lots that may wait in auction queue during a busy period." type="number" value={planner.expected_peak_queued_lots} onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Total lots per day in this organisation" helperText="Enter total lots across all mandis. Example: 10 mandis × 50 lots = 500 lots/day." type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Peak concurrent auctions in this organisation" helperText="Enter how many auctions may run at the same time across the organisation." type="number" value={planner.expected_concurrent_auctions} onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Growth buffer (%)" type="number" inputProps={{ min: 0, max: 90 }} value={planner.growth_buffer_percent} onChange={(e) => setPlannerField("growth_buffer_percent", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField
+                label="Number of mandis in this organisation"
+                helperText={plannerFieldErrors.number_of_mandis || "Enter how many mandis are operated under this organisation."}
+                type="number"
+                value={planner.number_of_mandis}
+                onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.number_of_mandis)}
+              />
+              <TextField
+                label="Total farmers in this organisation"
+                helperText={plannerFieldErrors.expected_farmers || "Enter total farmers served by this organisation, not per mandi."}
+                type="number"
+                value={planner.expected_farmers}
+                onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.expected_farmers)}
+              />
+              <TextField
+                label="Total registered traders in this organisation"
+                helperText={plannerFieldErrors.expected_traders || "Enter total registered traders in this organisation, not per mandi."}
+                type="number"
+                value={planner.expected_traders}
+                onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.expected_traders)}
+              />
+              <TextField
+                label="Peak traders bidding at the same time"
+                helperText={plannerFieldErrors.peak_active_traders || "Enter the maximum traders expected to bid at the same time."}
+                type="number"
+                value={planner.peak_active_traders}
+                onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.peak_active_traders)}
+              />
+              <TextField
+                label="Peak lots waiting in queue"
+                helperText={plannerFieldErrors.expected_peak_queued_lots || "Enter the maximum lots that may wait in auction queue during a busy period."}
+                type="number"
+                value={planner.expected_peak_queued_lots}
+                onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.expected_peak_queued_lots)}
+              />
+              <TextField
+                label="Total lots per day in this organisation"
+                helperText={plannerFieldErrors.expected_lots_per_day || "Enter total lots across all mandis. Example: 10 mandis × 50 lots = 500 lots/day."}
+                type="number"
+                value={planner.expected_lots_per_day}
+                onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.expected_lots_per_day)}
+              />
+              <TextField
+                label="Peak concurrent auctions in this organisation"
+                helperText={plannerFieldErrors.expected_concurrent_auctions || "Enter how many auctions may run at the same time across the organisation."}
+                type="number"
+                value={planner.expected_concurrent_auctions}
+                onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.expected_concurrent_auctions)}
+              />
+              <TextField
+                label="Growth buffer (%)"
+                helperText={plannerFieldErrors.growth_buffer_percent || ""}
+                type="number"
+                inputProps={{ min: 0, max: 100 }}
+                value={planner.growth_buffer_percent}
+                onChange={(e) => setPlannerField("growth_buffer_percent", toNonNegativeNumber(e.target.value))}
+                fullWidth
+                error={Boolean(plannerFieldErrors.growth_buffer_percent)}
+              />
               <TextField
                 select
                 label="Usage Profile"
@@ -1685,12 +1816,21 @@ const SystemCapacityControlPage: React.FC = () => {
                 ))}
               </TextField>
             </Box>
-            {plannerValidationError && (
+            {(plannerTopErrors.length > 0 || plannerValidationError) && (
               <Alert severity="error" sx={{ mb: 1.5 }}>
-                {plannerValidationError}
+                <Stack spacing={0.5}>
+                  {(plannerTopErrors.length > 0 ? plannerTopErrors : [plannerValidationError]).map((message) => (
+                    <Typography key={message} variant="body2">{message}</Typography>
+                  ))}
+                </Stack>
               </Alert>
             )}
-            {!plannerResult && !plannerValidationError && (
+            {plannerNeedsRecalculation && (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                Values changed. Click Calculate Capacity again.
+              </Alert>
+            )}
+            {!plannerResult && !plannerValidationError && plannerTopErrors.length === 0 && !plannerNeedsRecalculation && (
               <Alert severity="info" sx={{ mb: 1.5 }}>
                 Enter business values to calculate a suggested allocation.
               </Alert>
@@ -1711,11 +1851,19 @@ const SystemCapacityControlPage: React.FC = () => {
                   Planner Output
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                  <MetricCard label="Suggested live auctions" value={plannerResult.suggested_live_lanes} help="Organisation-level suggested live auctions." />
-                  <MetricCard label="Suggested open auctions" value={plannerResult.suggested_open_lanes} help="Organisation-level suggested open auctions." />
-                  <MetricCard label="Suggested queued lots" value={plannerResult.suggested_queued_lots} help="Organisation-level suggested queued lots." />
-                  <MetricCard label="Suggested concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Organisation-level suggested concurrent bidders." />
-                  <MetricCard label="Suggested allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Nearest matching tier or CUSTOM." />
+                  {plannerResult.was_clamped ? (
+                    <>
+                      <MetricCard label="Suggested requirement: live auctions" value={plannerResult.raw_suggested_live_lanes} help="Raw business demand before platform-limit clamp." />
+                      <MetricCard label="Suggested requirement: open auctions" value={plannerResult.raw_suggested_open_lanes} help="Raw business demand before platform-limit clamp." />
+                      <MetricCard label="Suggested requirement: queued lots" value={plannerResult.raw_suggested_queued_lots} help="Raw business demand before platform-limit clamp." />
+                      <MetricCard label="Suggested requirement: concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform-limit clamp." />
+                    </>
+                  ) : null}
+                  <MetricCard label="Applied allocation after platform limits: live auctions" value={plannerResult.suggested_live_lanes} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied allocation after platform limits: open auctions" value={plannerResult.suggested_open_lanes} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied allocation after platform limits: queued lots" value={plannerResult.suggested_queued_lots} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied allocation after platform limits: concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Final allocation that can be applied now." />
+                  <MetricCard label="Suggested allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Exact tier match on final applied values; otherwise CUSTOM." />
                   <MetricCard label="Remaining live capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.live} help="Remaining platform live capacity after this allocation." />
                   <MetricCard label="Remaining open capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.open} help="Remaining platform open capacity after this allocation." />
                   <MetricCard label="Remaining queued capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.queued} help="Remaining platform queued capacity after this allocation." />
@@ -1753,10 +1901,10 @@ const SystemCapacityControlPage: React.FC = () => {
             <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
               Calculate Capacity
             </Button>
-            <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources}>
+            <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources || plannerNeedsRecalculation}>
               Apply Resources to Section A
             </Button>
-            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult}>
+            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult || plannerNeedsRecalculation}>
               Apply to Selected Organisation
             </Button>
           </DialogActions>

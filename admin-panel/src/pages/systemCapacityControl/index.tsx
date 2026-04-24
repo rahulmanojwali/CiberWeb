@@ -186,6 +186,17 @@ function toNonNegativeNumber(value: any): number {
   return Math.max(0, parsed);
 }
 
+function roundUpRam(value: number): number {
+  const nonNegative = Math.max(0, Number(value || 0));
+  if (nonNegative <= 0) return 1;
+  return Math.max(1, Math.ceil(nonNegative * 2) / 2);
+}
+
+function roundUpCpu(value: number): number {
+  const nonNegative = Math.max(0, Number(value || 0));
+  return Math.max(1, Math.ceil(nonNegative));
+}
+
 const headerHelpIconSx = {
   ml: 0.5,
   fontSize: 16,
@@ -761,6 +772,54 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlannerOpen(false);
   };
 
+  const plannerPhysicalResources = useMemo(() => {
+    if (!plannerResult) return null;
+    const growthMultiplier = 1 + (plannerGrowthBufferPercent / 100);
+    const suggestedLive = Number(plannerResult.suggested_live_lanes || 0);
+    const suggestedQueued = Number(plannerResult.suggested_queued_lots || 0);
+    const suggestedBidders = Number(plannerResult.suggested_concurrent_bidders || 0);
+    const totalUsers = Number(planner.expected_farmers || 0) + Number(planner.expected_traders || 0);
+
+    const appRamBase = 0.5 + (suggestedLive * 0.25) + ((suggestedBidders / 100) * 0.25);
+    const appCpuBase = 1 + (suggestedLive * 0.25) + ((suggestedBidders / 100) * 0.15);
+    const dbRamBase = 0.5 + ((suggestedQueued / 100) * 0.25) + ((suggestedBidders / 100) * 0.15);
+    const dbCpuBase = 1 + ((suggestedQueued / 100) * 0.15) + ((suggestedBidders / 100) * 0.10);
+    const webRamBase = 0.5 + ((totalUsers / 1000) * 0.25);
+    const webCpuBase = 1 + ((totalUsers / 2000) * 0.25);
+
+    return {
+      required_app_server_ram_gb: roundUpRam(appRamBase * growthMultiplier),
+      required_app_server_vcpu: roundUpCpu(appCpuBase * growthMultiplier),
+      required_db_server_ram_gb: roundUpRam(dbRamBase * growthMultiplier),
+      required_db_server_vcpu: roundUpCpu(dbCpuBase * growthMultiplier),
+      required_web_server_ram_gb: roundUpRam(webRamBase * growthMultiplier),
+      required_web_server_vcpu: roundUpCpu(webCpuBase * growthMultiplier),
+      recommended_os_reserve_percent: 20,
+      recommended_system_reserve_percent: Math.max(20, plannerGrowthBufferPercent),
+      recommended_web_admin_reserve_percent: 20,
+    };
+  }, [plannerResult, plannerGrowthBufferPercent, planner.expected_farmers, planner.expected_traders]);
+
+  const applyPlannerResourcesToSectionA = () => {
+    if (!plannerPhysicalResources) return;
+    setSystemConfig((prev) => ({
+      ...prev,
+      infra_profile: {
+        ...(prev.infra_profile || {}),
+        app_server_ram_gb: plannerPhysicalResources.required_app_server_ram_gb,
+        app_server_vcpu: plannerPhysicalResources.required_app_server_vcpu,
+        db_server_ram_gb: plannerPhysicalResources.required_db_server_ram_gb,
+        db_server_vcpu: plannerPhysicalResources.required_db_server_vcpu,
+        web_server_ram_gb: plannerPhysicalResources.required_web_server_ram_gb,
+        web_server_vcpu: plannerPhysicalResources.required_web_server_vcpu,
+        os_reserve_percent: plannerPhysicalResources.recommended_os_reserve_percent,
+        system_reserve_percent: plannerPhysicalResources.recommended_system_reserve_percent,
+        web_admin_reserve_percent: plannerPhysicalResources.recommended_web_admin_reserve_percent,
+      },
+    }));
+    setInfraDirty(true);
+  };
+
   const handleCalculatePlanner = () => {
     const hasBusinessValues = [
       planner.expected_farmers,
@@ -786,7 +845,7 @@ const SystemCapacityControlPage: React.FC = () => {
       return;
     }
     if (!hasBusinessValues) {
-      setPlannerValidationError("Enter business values to calculate a suggested allocation.");
+      setPlannerValidationError("Enter expected farmers, traders, or lots before calculating.");
       setPlannerResult(null);
       return;
     }
@@ -1647,7 +1706,7 @@ const SystemCapacityControlPage: React.FC = () => {
               </Alert>
             ))}
             {plannerResult && (
-              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                   Planner Output
                 </Typography>
@@ -1664,11 +1723,38 @@ const SystemCapacityControlPage: React.FC = () => {
                 </Box>
               </Paper>
             )}
+            {plannerResult && plannerPhysicalResources && (
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Estimated Physical Resources Required
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                  These are advisory server requirements based on the business inputs. They do not change Section A automatically.
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                  <MetricCard label="Required App Server RAM (GB)" value={plannerPhysicalResources.required_app_server_ram_gb} help="Advisory estimate." />
+                  <MetricCard label="Required App Server vCPU" value={plannerPhysicalResources.required_app_server_vcpu} help="Advisory estimate." />
+                  <MetricCard label="Required DB Server RAM (GB)" value={plannerPhysicalResources.required_db_server_ram_gb} help="Advisory estimate." />
+                  <MetricCard label="Required DB Server vCPU" value={plannerPhysicalResources.required_db_server_vcpu} help="Advisory estimate." />
+                  <MetricCard label="Required Web Server RAM (GB)" value={plannerPhysicalResources.required_web_server_ram_gb} help="Advisory estimate." />
+                  <MetricCard label="Required Web Server vCPU" value={plannerPhysicalResources.required_web_server_vcpu} help="Advisory estimate." />
+                  <MetricCard label="Recommended OS Reserve %" value={plannerPhysicalResources.recommended_os_reserve_percent} help="Planning reserve." />
+                  <MetricCard label="Recommended System Reserve %" value={plannerPhysicalResources.recommended_system_reserve_percent} help="Planning reserve." />
+                  <MetricCard label="Recommended Web/Admin Reserve %" value={plannerPhysicalResources.recommended_web_admin_reserve_percent} help="Planning reserve." />
+                </Box>
+                <Alert severity="info" sx={{ mt: 1.25 }}>
+                  Resource estimates are planning guidance. Final production sizing should be validated with real usage, monitoring, and load testing.
+                </Alert>
+              </Paper>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPlannerOpen(false)}>Close</Button>
             <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
               Calculate Capacity
+            </Button>
+            <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources}>
+              Apply Resources to Section A
             </Button>
             <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult}>
               Apply to Selected Organisation

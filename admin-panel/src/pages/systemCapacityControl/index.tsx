@@ -4,6 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Paper,
   Stack,
@@ -127,6 +131,19 @@ type StateFlags = {
 };
 
 type CapacityPlanningMode = "MANUAL" | "AUTO_FROM_SAFE_CAPACITY";
+type PlannerState = {
+  expected_farmers: number;
+  expected_traders: number;
+  expected_concurrent_bidders: number;
+  expected_live_auction_lanes: number;
+  expected_open_auction_lanes: number;
+  expected_queued_lots: number;
+  expected_lots_per_day: number;
+  buffer_percent: number;
+  deployment_type: "SHARED" | "DEDICATED" | "HYBRID";
+  same_machine_or_separate: "SAME" | "SEPARATE";
+  websocket_shared_or_separate: "SHARED" | "SEPARATE";
+};
 
 function currentUsername(): string | null {
   try {
@@ -149,6 +166,23 @@ function toNumberOrNull(v: any): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toNonNegativeNumber(value: any): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, parsed);
+}
+
+function roundUpRam(value: number): number {
+  const nonNegative = Math.max(0, Number(value || 0));
+  if (nonNegative <= 0) return 1;
+  return Math.max(1, Math.ceil(nonNegative * 2) / 2);
+}
+
+function roundUpCpu(value: number): number {
+  const nonNegative = Math.max(0, Number(value || 0));
+  return Math.max(1, Math.ceil(nonNegative));
+}
+
 const headerHelpIconSx = {
   ml: 0.5,
   fontSize: 16,
@@ -160,6 +194,16 @@ const CLOUD_PROVIDER_OPTIONS = ["OCI", "AWS", "AZURE", "GCP", "ON_PREM", "HYBRID
 const DEPLOYMENT_TYPE_OPTIONS = ["SHARED", "DEDICATED", "HYBRID"] as const;
 const SAME_MACHINE_OPTIONS = ["SAME", "SEPARATE"] as const;
 const WEBSOCKET_MODE_OPTIONS = ["SHARED", "SEPARATE"] as const;
+const SECTION_F_TIER_OPTIONS = ["STARTER", "STANDARD", "PREMIUM", "ENTERPRISE", "DEDICATED", "CUSTOM"] as const;
+const CAPACITY_ENGINE_ASSUMPTIONS = {
+  ram_per_live_lane_gb: 0.2,
+  cpu_per_live_lane: 0.2,
+  ram_per_open_lane_gb: 0.05,
+  ram_per_100_queued_lots_gb: 0.1,
+  cpu_per_100_queued_lots: 0.1,
+  ram_per_100_bidders_gb: 0.15,
+  cpu_per_100_bidders: 0.1,
+};
 
 function normalizeSelectValue(
   value: any,
@@ -317,6 +361,20 @@ const SystemCapacityControlPage: React.FC = () => {
   const [orgRows, setOrgRows] = useState<OrgAllocation[]>([]);
   const [capacityPlanningMode, setCapacityPlanningMode] = useState<CapacityPlanningMode>("MANUAL");
   const [bufferPercent, setBufferPercent] = useState<number>(20);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [planner, setPlanner] = useState<PlannerState>({
+    expected_farmers: 0,
+    expected_traders: 0,
+    expected_concurrent_bidders: 0,
+    expected_live_auction_lanes: 0,
+    expected_open_auction_lanes: 0,
+    expected_queued_lots: 0,
+    expected_lots_per_day: 0,
+    buffer_percent: 20,
+    deployment_type: "SHARED",
+    same_machine_or_separate: "SEPARATE",
+    websocket_shared_or_separate: "SHARED",
+  });
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
   const infraFormReady = useMemo(() => isInfraFormReady(systemConfig.infra_profile || {}), [systemConfig.infra_profile]);
@@ -364,6 +422,94 @@ const SystemCapacityControlPage: React.FC = () => {
       || Number(row.allocated_max_concurrent_bidders || 0) < 0
     ))
   ), [orgRows]);
+
+  const plannerBufferPercent = Math.min(90, Math.max(0, Number(planner.buffer_percent || 0)));
+  const plannerOutputs = useMemo(() => {
+    const utilization = Math.max(0.1, (100 - plannerBufferPercent) / 100);
+    const liveLanes = toNonNegativeNumber(planner.expected_live_auction_lanes);
+    const openLanes = toNonNegativeNumber(planner.expected_open_auction_lanes);
+    const queuedLots = toNonNegativeNumber(planner.expected_queued_lots);
+    const bidders = toNonNegativeNumber(planner.expected_concurrent_bidders);
+    const farmers = toNonNegativeNumber(planner.expected_farmers);
+    const traders = toNonNegativeNumber(planner.expected_traders);
+    const lotsPerDay = toNonNegativeNumber(planner.expected_lots_per_day);
+
+    const apiRamBase = (liveLanes * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_live_lane_gb)
+      + (openLanes * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb)
+      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb);
+    const apiCpuBase = (liveLanes * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane)
+      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders);
+    const dbRamBase = ((queuedLots / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb)
+      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb);
+    const dbCpuBase = ((queuedLots / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots)
+      + ((bidders / 100) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders);
+
+    const webTrafficBase = Math.max(openLanes, (farmers + traders) / 250);
+    const webRamBase = (webTrafficBase * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb)
+      + ((bidders / 200) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb)
+      + ((lotsPerDay / 5000) * CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb);
+    const webCpuBase = (webTrafficBase * (CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane / 2))
+      + ((bidders / 200) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders)
+      + ((lotsPerDay / 5000) * CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots);
+
+    const requiredAppRam = roundUpRam(apiRamBase / utilization);
+    const requiredAppCpu = roundUpCpu(apiCpuBase / utilization);
+    const requiredDbRam = roundUpRam(dbRamBase / utilization);
+    const requiredDbCpu = roundUpCpu(dbCpuBase / utilization);
+    const requiredWebRam = roundUpRam(webRamBase / utilization);
+    const requiredWebCpu = roundUpCpu(webCpuBase / utilization);
+
+    const osReserve = 10;
+    const systemReserve = 10;
+    const webReserve = 10;
+    const apiMultiplier = Math.max(0.1, 1 - ((osReserve + systemReserve) / 100));
+    const dbMultiplier = Math.max(0.1, 1 - ((osReserve + systemReserve) / 100));
+    const webMultiplier = Math.max(0.1, 1 - ((osReserve + webReserve) / 100));
+    const usableApiRam = requiredAppRam * apiMultiplier;
+    const usableApiCpu = requiredAppCpu * apiMultiplier;
+    const usableDbRam = requiredDbRam * dbMultiplier;
+    const usableDbCpu = requiredDbCpu * dbMultiplier;
+
+    const apiSafeLive = Math.floor(Math.min(
+      usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_live_lane_gb,
+      usableApiCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane,
+    ));
+    const apiSafeOpen = Math.floor(Math.max(
+      apiSafeLive,
+      Math.min(
+        usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_open_lane_gb,
+        usableApiCpu / Math.max(CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_live_lane / 2, 0.01),
+      ),
+    ));
+    const dbSafeQueued = Math.floor(Math.min(
+      (usableDbRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_queued_lots_gb) * 100,
+      (usableDbCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_queued_lots) * 100,
+    ));
+    const apiSafeBidders = Math.floor(Math.min(
+      (usableApiRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb) * 100,
+      (usableApiCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders) * 100,
+    ));
+    const dbSafeBidders = Math.floor(Math.min(
+      (usableDbRam / CAPACITY_ENGINE_ASSUMPTIONS.ram_per_100_bidders_gb) * 100,
+      (usableDbCpu / CAPACITY_ENGINE_ASSUMPTIONS.cpu_per_100_bidders) * 100,
+    ));
+
+    return {
+      required_app_server_ram_gb: requiredAppRam,
+      required_app_server_vcpu: requiredAppCpu,
+      required_db_server_ram_gb: requiredDbRam,
+      required_db_server_vcpu: requiredDbCpu,
+      required_web_server_ram_gb: requiredWebRam,
+      required_web_server_vcpu: requiredWebCpu,
+      recommended_os_reserve_percent: osReserve,
+      recommended_system_reserve_percent: systemReserve,
+      recommended_web_admin_reserve_percent: webReserve,
+      estimated_safe_live_lanes: Math.max(0, apiSafeLive),
+      estimated_safe_open_lanes: Math.max(0, apiSafeOpen),
+      estimated_safe_queued_lots: Math.max(0, dbSafeQueued),
+      estimated_safe_concurrent_bidders: Math.max(0, Math.min(apiSafeBidders, dbSafeBidders)),
+    };
+  }, [planner, plannerBufferPercent]);
 
   const sectionCFieldErrors = useMemo<Record<string, string>>(() => {
     const auction = systemConfig.auction_capacity || {};
@@ -483,15 +629,16 @@ const SystemCapacityControlPage: React.FC = () => {
   };
 
   const clampedBufferPercent = Math.min(90, Math.max(0, Number(bufferPercent || 0)));
+  const isBufferPercentValid = Number.isFinite(Number(bufferPercent)) && Number(bufferPercent) >= 0 && Number(bufferPercent) <= 90;
+  const hasDerivedSafeForGeneration = stateFlags.derived_ready
+    && [safeMaxLive, safeMaxOpen, safeMaxQueued, safeMaxBidders].every((value) => Number.isFinite(value));
 
   const generateFromSafe = (safeValue: number) => {
     const generated = Math.floor(Number(safeValue || 0) * ((100 - clampedBufferPercent) / 100));
     return Math.max(0, Math.min(Number(safeValue || 0), generated));
   };
 
-  const handleGeneratePlatformLimits = () => {
-    if (capacityPlanningMode !== "AUTO_FROM_SAFE_CAPACITY") return;
-
+  const buildGeneratedAuctionCapacity = () => {
     const generatedLive = generateFromSafe(safeMaxLive);
     const generatedOpen = generateFromSafe(safeMaxOpen);
     const generatedQueued = generateFromSafe(safeMaxQueued);
@@ -508,27 +655,68 @@ const SystemCapacityControlPage: React.FC = () => {
       ? Math.max(0, Math.floor(suggestedMandiQueued / Math.max(1, suggestedMandiLive || 1)))
       : 0;
 
+    return {
+      max_total_live_lanes: generatedLive,
+      max_total_open_lanes: generatedOpen,
+      max_total_queued_lots: generatedQueued,
+      max_total_concurrent_bidders: generatedBidders,
+      default_org_max_live_lanes: suggestedOrgLive,
+      default_org_max_open_lanes: suggestedOrgOpen,
+      default_org_max_total_queued_lots: suggestedOrgQueued,
+      default_org_max_concurrent_bidders: suggestedOrgBidders,
+      default_mandi_max_live_lanes: suggestedMandiLive,
+      default_mandi_max_open_lanes: suggestedMandiOpen,
+      default_mandi_max_total_queued_lots: suggestedMandiQueued,
+      default_mandi_max_queue_per_lane: Math.min(suggestedMandiQueuePerLane, suggestedMandiQueued),
+    };
+  };
+
+  const generatedPreview = useMemo(() => buildGeneratedAuctionCapacity(), [safeMaxLive, safeMaxOpen, safeMaxQueued, safeMaxBidders, clampedBufferPercent]);
+
+  const handleGeneratePlatformLimits = () => {
+    if (!hasDerivedSafeForGeneration || !isBufferPercentValid) return;
+    const generated = buildGeneratedAuctionCapacity();
     setSystemConfig((prev) => ({
       ...prev,
       auction_capacity: {
         ...(prev.auction_capacity || {}),
-        max_total_live_lanes: generatedLive,
-        max_total_open_lanes: generatedOpen,
-        max_total_queued_lots: generatedQueued,
-        max_total_concurrent_bidders: generatedBidders,
-        default_org_max_live_lanes: suggestedOrgLive,
-        default_org_max_open_lanes: suggestedOrgOpen,
-        default_org_max_total_queued_lots: suggestedOrgQueued,
-        default_org_max_concurrent_bidders: suggestedOrgBidders,
-        default_mandi_max_live_lanes: suggestedMandiLive,
-        default_mandi_max_open_lanes: suggestedMandiOpen,
-        default_mandi_max_total_queued_lots: suggestedMandiQueued,
-        default_mandi_max_queue_per_lane: Math.min(suggestedMandiQueuePerLane, suggestedMandiQueued),
+        ...generated,
       },
     }));
     setPlatformSaveError(null);
     setPlatformSaveSuccess("Platform limits generated from derived safe capacity. Review and save Section C.");
   };
+
+  useEffect(() => {
+    const sectionCDisabled = !canEditCapacityControl || !stateFlags.infra_ready || infraDirty;
+    if (capacityPlanningMode !== "AUTO_FROM_SAFE_CAPACITY") return;
+    if (!hasDerivedSafeForGeneration || !isBufferPercentValid || sectionCDisabled) return;
+    const generated = buildGeneratedAuctionCapacity();
+    setSystemConfig((prev) => {
+      const current = prev.auction_capacity || {};
+      const hasAnyDifference = Object.entries(generated).some(([key, value]) => Number(current[key]) !== Number(value));
+      if (!hasAnyDifference) return prev;
+      return {
+        ...prev,
+        auction_capacity: {
+          ...current,
+          ...generated,
+        },
+      };
+    });
+  }, [
+    capacityPlanningMode,
+    clampedBufferPercent,
+    safeMaxLive,
+    safeMaxOpen,
+    safeMaxQueued,
+    safeMaxBidders,
+    hasDerivedSafeForGeneration,
+    isBufferPercentValid,
+    canEditCapacityControl,
+    stateFlags.infra_ready,
+    infraDirty,
+  ]);
 
   const setInfraField = (key: string, value: any) => {
     setSystemConfig((prev) => ({
@@ -541,19 +729,65 @@ const SystemCapacityControlPage: React.FC = () => {
     setInfraDirty(true);
   };
 
+  const setPlannerField = <K extends keyof PlannerState>(key: K, value: PlannerState[K]) => {
+    setPlanner((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyPlannerToSectionA = () => {
+    setSystemConfig((prev) => ({
+      ...prev,
+      infra_profile: {
+        ...(prev.infra_profile || {}),
+        app_server_ram_gb: plannerOutputs.required_app_server_ram_gb,
+        app_server_vcpu: plannerOutputs.required_app_server_vcpu,
+        db_server_ram_gb: plannerOutputs.required_db_server_ram_gb,
+        db_server_vcpu: plannerOutputs.required_db_server_vcpu,
+        web_server_ram_gb: plannerOutputs.required_web_server_ram_gb,
+        web_server_vcpu: plannerOutputs.required_web_server_vcpu,
+        os_reserve_percent: plannerOutputs.recommended_os_reserve_percent,
+        system_reserve_percent: plannerOutputs.recommended_system_reserve_percent,
+        web_admin_reserve_percent: plannerOutputs.recommended_web_admin_reserve_percent,
+        deployment_type: planner.deployment_type,
+        same_machine_or_separate: planner.same_machine_or_separate,
+        websocket_shared_or_separate: planner.websocket_shared_or_separate,
+      },
+    }));
+    setInfraDirty(true);
+    setPlannerOpen(false);
+  };
+
   const updateOrgRow = (orgId: string, patch: Partial<OrgAllocation>) => {
     setOrgRows((prev) => prev.map((row) => (row.org_id === orgId ? { ...row, ...patch } : row)));
   };
 
+  const updateOrgNumericField = (
+    orgId: string,
+    key: "allocated_max_live_lanes" | "allocated_max_open_lanes" | "allocated_max_queued_lots" | "allocated_max_concurrent_bidders",
+    rawValue: string,
+  ) => {
+    const trimmed = String(rawValue ?? "").trim();
+    const parsed = trimmed === "" ? null : Number(trimmed);
+    const value = parsed === null || Number.isNaN(parsed) ? null : parsed;
+    setOrgRows((prev) => prev.map((row) => (row.org_id === orgId
+      ? { ...row, [key]: value, tier_code: "CUSTOM" }
+      : row)));
+  };
+
   const handleTierChange = (orgId: string, tierCode: string) => {
     const normalizedTier = String(tierCode || "").trim().toUpperCase();
-    const preset = presetMap[normalizedTier] || null;
     setOrgRows((prev) => prev.map((row) => {
       if (row.org_id !== orgId) return row;
       if (!normalizedTier) {
         return { ...row, tier_code: null };
       }
-      return applyPreset(row, preset || { tier_code: normalizedTier } as TierPreset);
+      if (normalizedTier === "CUSTOM") {
+        return { ...row, tier_code: "CUSTOM" };
+      }
+      const preset = presetMap[normalizedTier] || null;
+      if (!preset) {
+        return { ...row, tier_code: normalizedTier };
+      }
+      return applyPreset(row, preset);
     }));
   };
 
@@ -755,6 +989,9 @@ const SystemCapacityControlPage: React.FC = () => {
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
               Refresh
+            </Button>
+            <Button variant="outlined" onClick={() => setPlannerOpen(true)}>
+              Capacity Planner
             </Button>
             <Button variant="outlined" onClick={handleSaveSystem} disabled={!canEditCapacityControl || !sectionAReadyToContinue || savingSystem || loading}>
               {savingSystem ? "Saving..." : "Save Platform Capacity"}
@@ -968,23 +1205,27 @@ const SystemCapacityControlPage: React.FC = () => {
                 label="Buffer Percent"
                 type="number"
                 value={bufferPercent}
-                onChange={(e) => setBufferPercent(Math.min(90, Math.max(0, Number(e.target.value || 0))))}
+                onChange={(e) => setBufferPercent(Number(e.target.value || 0))}
                 fullWidth
                 disabled={platformSectionDisabled}
                 inputProps={{ min: 0, max: 90 }}
                 helperText="Default: 20"
+                error={!isBufferPercentValid}
               />
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <Button
                   variant="outlined"
                   fullWidth
                   onClick={handleGeneratePlatformLimits}
-                  disabled={platformSectionDisabled || capacityPlanningMode !== "AUTO_FROM_SAFE_CAPACITY" || !stateFlags.derived_ready}
+                  disabled={platformSectionDisabled || !hasDerivedSafeForGeneration || !isBufferPercentValid}
                 >
                   Generate Platform Limits
                 </Button>
               </Box>
             </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+              With {clampedBufferPercent}% buffer → Live: {generatedPreview.max_total_live_lanes}, Open: {generatedPreview.max_total_open_lanes}, Queued: {generatedPreview.max_total_queued_lots}, Bidders: {generatedPreview.max_total_concurrent_bidders}
+            </Typography>
           </Box>
           <Stack spacing={1.5}>
             <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5 }}>
@@ -1233,6 +1474,7 @@ const SystemCapacityControlPage: React.FC = () => {
               <TableBody>
                 {orgRows.map((row) => {
                   const tierSelected = Boolean(row.tier_code);
+                  const tierIsCustom = String(row.tier_code || "").toUpperCase() === "CUSTOM";
                   const selectedPreset = tierSelected ? presetMap[String(row.tier_code || "").toUpperCase()] : null;
                   return (
                     <TableRow key={row.org_id}>
@@ -1255,8 +1497,8 @@ const SystemCapacityControlPage: React.FC = () => {
                             sx={{ minWidth: 140 }}
                             disabled={orgSectionDisabled}
                           >
-                            <MenuItem value="">Custom</MenuItem>
-                            {availableTiers.map((tierCode) => <MenuItem key={tierCode} value={tierCode}>{tierCode}</MenuItem>)}
+                            <MenuItem value="">-- Select Tier --</MenuItem>
+                            {SECTION_F_TIER_OPTIONS.map((tierCode) => <MenuItem key={tierCode} value={tierCode}>{tierCode}</MenuItem>)}
                           </TextField>
                           {selectedPreset?.price_hint ? (
                             <Typography variant="caption" color="text.secondary">Price hint: {selectedPreset.price_hint}</Typography>
@@ -1268,10 +1510,10 @@ const SystemCapacityControlPage: React.FC = () => {
                         <Typography variant="caption" display="block">Open {row.current_open_lanes}</Typography>
                         <Typography variant="caption" display="block">Queued {row.current_queued_lots}</Typography>
                       </TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_live_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.live} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_open_lanes: Number(e.target.value) || null })} sx={{ width: 110 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.open} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_queued_lots: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.queued} /></TableCell>
-                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgRow(row.org_id, { allocated_max_concurrent_bidders: Number(e.target.value) || null })} sx={{ width: 120 }} disabled={orgSectionDisabled || tierSelected} error={orgAllocationSummary.exceeded.bidders} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_live_lanes)} onChange={(e) => updateOrgNumericField(row.org_id, "allocated_max_live_lanes", e.target.value)} sx={{ width: 110 }} disabled={orgSectionDisabled || (tierSelected && !tierIsCustom)} error={orgAllocationSummary.exceeded.live} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_open_lanes)} onChange={(e) => updateOrgNumericField(row.org_id, "allocated_max_open_lanes", e.target.value)} sx={{ width: 110 }} disabled={orgSectionDisabled || (tierSelected && !tierIsCustom)} error={orgAllocationSummary.exceeded.open} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_queued_lots)} onChange={(e) => updateOrgNumericField(row.org_id, "allocated_max_queued_lots", e.target.value)} sx={{ width: 120 }} disabled={orgSectionDisabled || (tierSelected && !tierIsCustom)} error={orgAllocationSummary.exceeded.queued} /></TableCell>
+                      <TableCell><TextField size="small" type="number" value={num(row.allocated_max_concurrent_bidders)} onChange={(e) => updateOrgNumericField(row.org_id, "allocated_max_concurrent_bidders", e.target.value)} sx={{ width: 120 }} disabled={orgSectionDisabled || (tierSelected && !tierIsCustom)} error={orgAllocationSummary.exceeded.bidders} /></TableCell>
                       <TableCell><Switch checked={Boolean(row.overflow_allowed)} onChange={(e) => updateOrgRow(row.org_id, { overflow_allowed: e.target.checked })} disabled={orgSectionDisabled || tierSelected} /></TableCell>
                       <TableCell><Switch checked={Boolean(row.special_event_allowed)} onChange={(e) => updateOrgRow(row.org_id, { special_event_allowed: e.target.checked })} disabled={orgSectionDisabled || tierSelected} /></TableCell>
                       <TableCell><TextField size="small" type="number" value={num(row.priority_weight)} onChange={(e) => updateOrgRow(row.org_id, { priority_weight: Number(e.target.value) || null })} sx={{ width: 100 }} disabled={orgSectionDisabled} /></TableCell>
@@ -1295,6 +1537,60 @@ const SystemCapacityControlPage: React.FC = () => {
             </Table>
           </Box>
         </Paper>
+
+        <Dialog open={plannerOpen} onClose={() => setPlannerOpen(false)} fullWidth maxWidth="lg">
+          <DialogTitle>Capacity Planner</DialogTitle>
+          <DialogContent dividers>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Reverse planning tool: expected load to required infrastructure. This does not save automatically.
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5, mb: 2 }}>
+              <TextField label="Expected Farmers" type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Traders" type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Concurrent Bidders" type="number" value={planner.expected_concurrent_bidders} onChange={(e) => setPlannerField("expected_concurrent_bidders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Live Auction Lanes" type="number" value={planner.expected_live_auction_lanes} onChange={(e) => setPlannerField("expected_live_auction_lanes", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Open Auction Lanes" type="number" value={planner.expected_open_auction_lanes} onChange={(e) => setPlannerField("expected_open_auction_lanes", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Queued Lots" type="number" value={planner.expected_queued_lots} onChange={(e) => setPlannerField("expected_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Expected Lots Per Day" type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Buffer Percent" type="number" inputProps={{ min: 0, max: 90 }} value={planner.buffer_percent} onChange={(e) => setPlannerField("buffer_percent", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField select label="Deployment Type" value={planner.deployment_type} onChange={(e) => setPlannerField("deployment_type", e.target.value as PlannerState["deployment_type"])} fullWidth>
+                {DEPLOYMENT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              </TextField>
+              <TextField select label="Same Machine or Separate" value={planner.same_machine_or_separate} onChange={(e) => setPlannerField("same_machine_or_separate", e.target.value as PlannerState["same_machine_or_separate"])} fullWidth>
+                {SAME_MACHINE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              </TextField>
+              <TextField select label="WebSocket Shared or Separate" value={planner.websocket_shared_or_separate} onChange={(e) => setPlannerField("websocket_shared_or_separate", e.target.value as PlannerState["websocket_shared_or_separate"])} fullWidth>
+                {WEBSOCKET_MODE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              </TextField>
+            </Box>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                Planner Output
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                <MetricCard label="Required App Server RAM (GB)" value={plannerOutputs.required_app_server_ram_gb} help="required_app_server_ram_gb" />
+                <MetricCard label="Required App Server vCPU" value={plannerOutputs.required_app_server_vcpu} help="required_app_server_vcpu" />
+                <MetricCard label="Required DB Server RAM (GB)" value={plannerOutputs.required_db_server_ram_gb} help="required_db_server_ram_gb" />
+                <MetricCard label="Required DB Server vCPU" value={plannerOutputs.required_db_server_vcpu} help="required_db_server_vcpu" />
+                <MetricCard label="Required Web Server RAM (GB)" value={plannerOutputs.required_web_server_ram_gb} help="required_web_server_ram_gb" />
+                <MetricCard label="Required Web Server vCPU" value={plannerOutputs.required_web_server_vcpu} help="required_web_server_vcpu" />
+                <MetricCard label="Recommended OS Reserve %" value={plannerOutputs.recommended_os_reserve_percent} help="recommended_os_reserve_percent" />
+                <MetricCard label="Recommended System Reserve %" value={plannerOutputs.recommended_system_reserve_percent} help="recommended_system_reserve_percent" />
+                <MetricCard label="Recommended Web/Admin Reserve %" value={plannerOutputs.recommended_web_admin_reserve_percent} help="recommended_web_admin_reserve_percent" />
+                <MetricCard label="Estimated Safe Live Lanes" value={plannerOutputs.estimated_safe_live_lanes} help="estimated_safe_live_lanes" />
+                <MetricCard label="Estimated Safe Open Lanes" value={plannerOutputs.estimated_safe_open_lanes} help="estimated_safe_open_lanes" />
+                <MetricCard label="Estimated Safe Queued Lots" value={plannerOutputs.estimated_safe_queued_lots} help="estimated_safe_queued_lots" />
+                <MetricCard label="Estimated Safe Concurrent Bidders" value={plannerOutputs.estimated_safe_concurrent_bidders} help="estimated_safe_concurrent_bidders" />
+              </Box>
+            </Paper>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPlannerOpen(false)}>Close</Button>
+            <Button variant="contained" onClick={applyPlannerToSectionA} disabled={!canEditCapacityControl}>
+              Apply to Section A
+            </Button>
+          </DialogActions>
+        </Dialog>
       </PageContainer>
     </StepUpGuard>
   );

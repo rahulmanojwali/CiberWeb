@@ -143,6 +143,21 @@ type PlannerState = {
   growth_buffer_percent: number;
   usage_profile: "TESTING" | "SMALL" | "NORMAL" | "HEAVY" | "PEAK_SEASON";
 };
+type PlannerSuggestion = {
+  suggested_live_lanes: number;
+  suggested_open_lanes: number;
+  suggested_queued_lots: number;
+  suggested_concurrent_bidders: number;
+  suggested_tier_code: string | null;
+  remaining_platform_capacity_after_apply: {
+    live: number;
+    open: number;
+    queued: number;
+    bidders: number;
+  };
+  warnings: string[];
+  was_clamped: boolean;
+};
 
 function currentUsername(): string | null {
   try {
@@ -341,6 +356,8 @@ const SystemCapacityControlPage: React.FC = () => {
   const [capacityPlanningMode, setCapacityPlanningMode] = useState<CapacityPlanningMode>("MANUAL");
   const [bufferPercent, setBufferPercent] = useState<number>(20);
   const [plannerOpen, setPlannerOpen] = useState(false);
+  const [plannerValidationError, setPlannerValidationError] = useState<string | null>(null);
+  const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
     number_of_mandis: 1,
@@ -406,7 +423,7 @@ const SystemCapacityControlPage: React.FC = () => {
     () => orgRows.find((row) => String(row.org_id) === String(planner.selected_org_id)) || null,
     [orgRows, planner.selected_org_id],
   );
-  const plannerSuggestion = useMemo(() => {
+  const plannerSuggestion = useMemo<PlannerSuggestion>(() => {
     const usageProfileMultiplierMap: Record<PlannerState["usage_profile"], number> = {
       TESTING: 0.7,
       SMALL: 0.85,
@@ -465,7 +482,8 @@ const SystemCapacityControlPage: React.FC = () => {
         && Number(preset?.max_concurrent_bidders || 0) >= suggestedBidders
       ));
 
-    const suggestedTierCode = fittingTier?.tier_code || "CUSTOM";
+    const hasSuggestedValues = suggestedLive > 0 || suggestedOpen > 0 || suggestedQueued > 0 || suggestedBidders > 0;
+    const suggestedTierCode = hasSuggestedValues ? (fittingTier?.tier_code || "CUSTOM") : null;
     const remainingAfterApply = {
       live: Math.max(0, remainingLiveBeforeApply - suggestedLive),
       open: Math.max(0, remainingOpenBeforeApply - suggestedOpen),
@@ -481,6 +499,7 @@ const SystemCapacityControlPage: React.FC = () => {
       suggested_tier_code: suggestedTierCode,
       remaining_platform_capacity_after_apply: remainingAfterApply,
       warnings,
+      was_clamped: warnings.length > 0,
     };
   }, [
     planner,
@@ -720,23 +739,60 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const setPlannerField = <K extends keyof PlannerState>(key: K, value: PlannerState[K]) => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
+    setPlannerValidationError(null);
+    setPlannerResult(null);
   };
 
   const applyPlannerToSelectedOrg = () => {
+    if (!plannerResult) return;
     if (!planner.selected_org_id) return;
     setOrgRows((prev) => prev.map((row) => {
       if (String(row.org_id) !== String(planner.selected_org_id)) return row;
       return {
         ...row,
-        tier_code: plannerSuggestion.suggested_tier_code || "CUSTOM",
-        allocated_max_live_lanes: plannerSuggestion.suggested_live_lanes,
-        allocated_max_open_lanes: plannerSuggestion.suggested_open_lanes,
-        allocated_max_queued_lots: plannerSuggestion.suggested_queued_lots,
-        allocated_max_concurrent_bidders: plannerSuggestion.suggested_concurrent_bidders,
+        tier_code: plannerResult.suggested_tier_code || "CUSTOM",
+        allocated_max_live_lanes: plannerResult.suggested_live_lanes,
+        allocated_max_open_lanes: plannerResult.suggested_open_lanes,
+        allocated_max_queued_lots: plannerResult.suggested_queued_lots,
+        allocated_max_concurrent_bidders: plannerResult.suggested_concurrent_bidders,
       };
     }));
     setOrgSaveError(null);
     setPlannerOpen(false);
+  };
+
+  const handleCalculatePlanner = () => {
+    const hasBusinessValues = [
+      planner.expected_farmers,
+      planner.expected_traders,
+      planner.expected_lots_per_day,
+      planner.expected_peak_queued_lots,
+      planner.peak_active_traders,
+    ].some((value) => Number(value) > 0);
+
+    if (!planner.selected_org_id) {
+      setPlannerValidationError("Please select an organisation.");
+      setPlannerResult(null);
+      return;
+    }
+    if (Number(planner.number_of_mandis || 0) <= 0) {
+      setPlannerValidationError("Number of mandis must be greater than 0.");
+      setPlannerResult(null);
+      return;
+    }
+    if (Number(planner.expected_concurrent_auctions || 0) <= 0) {
+      setPlannerValidationError("Peak concurrent auctions in this organisation must be greater than 0.");
+      setPlannerResult(null);
+      return;
+    }
+    if (!hasBusinessValues) {
+      setPlannerValidationError("Enter business values to calculate a suggested allocation.");
+      setPlannerResult(null);
+      return;
+    }
+
+    setPlannerValidationError(null);
+    setPlannerResult(plannerSuggestion);
   };
 
   const updateOrgRow = (orgId: string, patch: Partial<OrgAllocation>) => {
@@ -1550,13 +1606,13 @@ const SystemCapacityControlPage: React.FC = () => {
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField label="How many mandis are expected?" type="number" value={planner.number_of_mandis} onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="How many farmers are expected?" type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="How many traders are registered?" type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="How many traders may bid at the same time?" type="number" value={planner.peak_active_traders} onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="How many lots may wait in queue on a busy day?" type="number" value={planner.expected_peak_queued_lots} onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected lots per day" type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
-              <TextField label="Expected concurrent auctions" type="number" value={planner.expected_concurrent_auctions} onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Number of mandis in this organisation" helperText="Enter how many mandis are operated under this organisation." type="number" value={planner.number_of_mandis} onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Total farmers in this organisation" helperText="Enter total farmers served by this organisation, not per mandi." type="number" value={planner.expected_farmers} onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Total registered traders in this organisation" helperText="Enter total registered traders in this organisation, not per mandi." type="number" value={planner.expected_traders} onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Peak traders bidding at the same time" helperText="Enter the maximum traders expected to bid at the same time." type="number" value={planner.peak_active_traders} onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Peak lots waiting in queue" helperText="Enter the maximum lots that may wait in auction queue during a busy period." type="number" value={planner.expected_peak_queued_lots} onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Total lots per day in this organisation" helperText="Enter total lots across all mandis. Example: 10 mandis × 50 lots = 500 lots/day." type="number" value={planner.expected_lots_per_day} onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))} fullWidth />
+              <TextField label="Peak concurrent auctions in this organisation" helperText="Enter how many auctions may run at the same time across the organisation." type="number" value={planner.expected_concurrent_auctions} onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))} fullWidth />
               <TextField label="Growth buffer (%)" type="number" inputProps={{ min: 0, max: 90 }} value={planner.growth_buffer_percent} onChange={(e) => setPlannerField("growth_buffer_percent", toNonNegativeNumber(e.target.value))} fullWidth />
               <TextField
                 select
@@ -1570,31 +1626,51 @@ const SystemCapacityControlPage: React.FC = () => {
                 ))}
               </TextField>
             </Box>
-            {plannerSuggestion.warnings.map((warning) => (
+            {plannerValidationError && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                {plannerValidationError}
+              </Alert>
+            )}
+            {!plannerResult && !plannerValidationError && (
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                Enter business values to calculate a suggested allocation.
+              </Alert>
+            )}
+            {plannerResult?.was_clamped ? (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                Suggested allocation was reduced because remaining platform capacity is not enough.
+              </Alert>
+            ) : null}
+            {plannerResult?.warnings?.map((warning) => (
               <Alert key={warning} severity="warning" sx={{ mb: 1.5 }}>
                 {warning}
               </Alert>
             ))}
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Planner Output
-              </Typography>
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                <MetricCard label="Suggested Live Lanes" value={plannerSuggestion.suggested_live_lanes} help="suggested_live_lanes" />
-                <MetricCard label="Suggested Open Lanes" value={plannerSuggestion.suggested_open_lanes} help="suggested_open_lanes" />
-                <MetricCard label="Suggested Queued Lots" value={plannerSuggestion.suggested_queued_lots} help="suggested_queued_lots" />
-                <MetricCard label="Suggested Concurrent Bidders" value={plannerSuggestion.suggested_concurrent_bidders} help="suggested_concurrent_bidders" />
-                <MetricCard label="Suggested Tier Code" value={plannerSuggestion.suggested_tier_code} help="suggested_tier_code" />
-                <MetricCard label="Remaining Live After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.live} help="remaining_platform_capacity_after_apply.live" />
-                <MetricCard label="Remaining Open After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.open} help="remaining_platform_capacity_after_apply.open" />
-                <MetricCard label="Remaining Queued After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.queued} help="remaining_platform_capacity_after_apply.queued" />
-                <MetricCard label="Remaining Bidders After Apply" value={plannerSuggestion.remaining_platform_capacity_after_apply.bidders} help="remaining_platform_capacity_after_apply.bidders" />
-              </Box>
-            </Paper>
+            {plannerResult && (
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Planner Output
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                  <MetricCard label="Suggested live auctions" value={plannerResult.suggested_live_lanes} help="Organisation-level suggested live auctions." />
+                  <MetricCard label="Suggested open auctions" value={plannerResult.suggested_open_lanes} help="Organisation-level suggested open auctions." />
+                  <MetricCard label="Suggested queued lots" value={plannerResult.suggested_queued_lots} help="Organisation-level suggested queued lots." />
+                  <MetricCard label="Suggested concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Organisation-level suggested concurrent bidders." />
+                  <MetricCard label="Suggested allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Nearest matching tier or CUSTOM." />
+                  <MetricCard label="Remaining live capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.live} help="Remaining platform live capacity after this allocation." />
+                  <MetricCard label="Remaining open capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.open} help="Remaining platform open capacity after this allocation." />
+                  <MetricCard label="Remaining queued capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.queued} help="Remaining platform queued capacity after this allocation." />
+                  <MetricCard label="Remaining bidder capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.bidders} help="Remaining platform bidder capacity after this allocation." />
+                </Box>
+              </Paper>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPlannerOpen(false)}>Close</Button>
-            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id}>
+            <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
+              Calculate Capacity
+            </Button>
+            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult}>
               Apply to Selected Organisation
             </Button>
           </DialogActions>

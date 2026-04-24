@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Alert,
   Box,
@@ -161,6 +161,11 @@ type PlannerSuggestion = {
   };
   warnings: string[];
   was_clamped: boolean;
+};
+type PlannerValidationResult = {
+  fieldErrors: Partial<Record<keyof PlannerState, string>>;
+  topErrors: string[];
+  isValid: boolean;
 };
 
 function currentUsername(): string | null {
@@ -374,7 +379,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const [plannerValidationError, setPlannerValidationError] = useState<string | null>(null);
   const [plannerFieldErrors, setPlannerFieldErrors] = useState<Partial<Record<keyof PlannerState, string>>>({});
   const [plannerTopErrors, setPlannerTopErrors] = useState<string[]>([]);
-  const [plannerNeedsRecalculation, setPlannerNeedsRecalculation] = useState(false);
+  const [plannerApplyMessage, setPlannerApplyMessage] = useState<string | null>(null);
   const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
@@ -503,10 +508,10 @@ const SystemCapacityControlPage: React.FC = () => {
     const appliedBidders = Math.max(0, Math.min(bufferedBidders, remainingBiddersBeforeApply));
 
     const warnings: string[] = [];
-    if (bufferedLive > remainingLiveBeforeApply) warnings.push(`Live lanes clamped by remaining platform capacity (${remainingLiveBeforeApply}).`);
-    if (bufferedOpen > remainingOpenBeforeApply) warnings.push(`Open lanes clamped by remaining platform capacity (${remainingOpenBeforeApply}).`);
-    if (bufferedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots clamped by remaining platform capacity (${remainingQueuedBeforeApply}).`);
-    if (bufferedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders clamped by remaining platform capacity (${remainingBiddersBeforeApply}).`);
+    if (bufferedLive > remainingLiveBeforeApply) warnings.push(`Live auctions reduced to remaining limit: ${remainingLiveBeforeApply}.`);
+    if (bufferedOpen > remainingOpenBeforeApply) warnings.push(`Open auctions reduced to remaining limit: ${remainingOpenBeforeApply}.`);
+    if (bufferedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots reduced to remaining limit: ${remainingQueuedBeforeApply}.`);
+    if (bufferedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders reduced to remaining limit: ${remainingBiddersBeforeApply}.`);
 
     const hasSuggestedValues = appliedLive > 0 || appliedOpen > 0 || appliedQueued > 0 || appliedBidders > 0;
     const exactTierCode = findExactMatchingTierCode(appliedLive, appliedOpen, appliedQueued, appliedBidders);
@@ -771,20 +776,12 @@ const SystemCapacityControlPage: React.FC = () => {
   const setPlannerField = <K extends keyof PlannerState>(key: K, value: PlannerState[K]) => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
     setPlannerValidationError(null);
-    setPlannerFieldErrors((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-    setPlannerTopErrors([]);
-    if (plannerResult) {
-      setPlannerNeedsRecalculation(true);
-    }
+    setPlannerApplyMessage(null);
     setPlannerResult(null);
   };
 
   const applyPlannerToSelectedOrg = () => {
-    if (!plannerResult || plannerNeedsRecalculation) return;
+    if (!plannerResult) return;
     if (!planner.selected_org_id) return;
     const finalTierCode = findExactMatchingTierCode(
       plannerResult.suggested_live_lanes,
@@ -804,7 +801,7 @@ const SystemCapacityControlPage: React.FC = () => {
       };
     }));
     setOrgSaveError(null);
-    setOrgSaveSuccess("Suggested allocation applied. Please click Save Org Allocation to persist.");
+    setOrgSaveSuccess("Values applied to the form. Please save the relevant section to persist.");
     setPlannerOpen(false);
   };
 
@@ -816,23 +813,64 @@ const SystemCapacityControlPage: React.FC = () => {
     const suggestedBidders = Number(plannerResult.suggested_concurrent_bidders || 0);
     const totalUsers = Number(planner.expected_farmers || 0) + Number(planner.expected_traders || 0);
 
-    const appRamBase = 0.5 + (suggestedLive * 0.25) + ((suggestedBidders / 100) * 0.25);
-    const appCpuBase = 1 + (suggestedLive * 0.25) + ((suggestedBidders / 100) * 0.15);
-    const dbRamBase = 0.5 + ((suggestedQueued / 100) * 0.25) + ((suggestedBidders / 100) * 0.15);
-    const dbCpuBase = 1 + ((suggestedQueued / 100) * 0.15) + ((suggestedBidders / 100) * 0.10);
-    const webRamBase = 0.5 + ((totalUsers / 1000) * 0.25);
-    const webCpuBase = 1 + ((totalUsers / 2000) * 0.25);
+    const appRamBase = 0.5;
+    const appRamLiveImpact = suggestedLive * 0.25;
+    const appRamBidderImpact = (suggestedBidders / 100) * 0.25;
+    const appRamBeforeBuffer = appRamBase + appRamLiveImpact + appRamBidderImpact;
+    const appRamBufferImpact = appRamBeforeBuffer * (growthMultiplier - 1);
+    const appRamEstimated = appRamBeforeBuffer + appRamBufferImpact;
+
+    const appCpuBase = 1;
+    const appCpuLiveImpact = suggestedLive * 0.25;
+    const appCpuBidderImpact = (suggestedBidders / 100) * 0.15;
+    const appCpuBeforeBuffer = appCpuBase + appCpuLiveImpact + appCpuBidderImpact;
+    const appCpuBufferImpact = appCpuBeforeBuffer * (growthMultiplier - 1);
+    const appCpuEstimated = appCpuBeforeBuffer + appCpuBufferImpact;
+
+    const dbRamBase = 0.5;
+    const dbRamQueueImpact = (suggestedQueued / 100) * 0.25;
+    const dbRamBidderImpact = (suggestedBidders / 100) * 0.15;
+    const dbRamBeforeBuffer = dbRamBase + dbRamQueueImpact + dbRamBidderImpact;
+    const dbRamBufferImpact = dbRamBeforeBuffer * (growthMultiplier - 1);
+    const dbRamEstimated = dbRamBeforeBuffer + dbRamBufferImpact;
+
+    const dbCpuBase = 1;
+    const dbCpuQueueImpact = (suggestedQueued / 100) * 0.15;
+    const dbCpuBidderImpact = (suggestedBidders / 100) * 0.10;
+    const dbCpuBeforeBuffer = dbCpuBase + dbCpuQueueImpact + dbCpuBidderImpact;
+    const dbCpuBufferImpact = dbCpuBeforeBuffer * (growthMultiplier - 1);
+    const dbCpuEstimated = dbCpuBeforeBuffer + dbCpuBufferImpact;
+
+    const webRamBase = 0.5;
+    const webRamUserImpact = (totalUsers / 1000) * 0.25;
+    const webRamBeforeBuffer = webRamBase + webRamUserImpact;
+    const webRamBufferImpact = webRamBeforeBuffer * (growthMultiplier - 1);
+    const webRamEstimated = webRamBeforeBuffer + webRamBufferImpact;
+
+    const webCpuBase = 1;
+    const webCpuUserImpact = (totalUsers / 2000) * 0.25;
+    const webCpuBeforeBuffer = webCpuBase + webCpuUserImpact;
+    const webCpuBufferImpact = webCpuBeforeBuffer * (growthMultiplier - 1);
+    const webCpuEstimated = webCpuBeforeBuffer + webCpuBufferImpact;
 
     return {
-      required_app_server_ram_gb: roundUpRam(appRamBase * growthMultiplier),
-      required_app_server_vcpu: roundUpCpu(appCpuBase * growthMultiplier),
-      required_db_server_ram_gb: roundUpRam(dbRamBase * growthMultiplier),
-      required_db_server_vcpu: roundUpCpu(dbCpuBase * growthMultiplier),
-      required_web_server_ram_gb: roundUpRam(webRamBase * growthMultiplier),
-      required_web_server_vcpu: roundUpCpu(webCpuBase * growthMultiplier),
+      required_app_server_ram_gb: roundUpRam(appRamEstimated),
+      required_app_server_vcpu: roundUpCpu(appCpuEstimated),
+      required_db_server_ram_gb: roundUpRam(dbRamEstimated),
+      required_db_server_vcpu: roundUpCpu(dbCpuEstimated),
+      required_web_server_ram_gb: roundUpRam(webRamEstimated),
+      required_web_server_vcpu: roundUpCpu(webCpuEstimated),
       recommended_os_reserve_percent: 20,
       recommended_system_reserve_percent: Math.max(20, plannerGrowthBufferPercent),
       recommended_web_admin_reserve_percent: 20,
+      breakdown: {
+        app_ram: { base: appRamBase, live: appRamLiveImpact, bidder: appRamBidderImpact, buffer: appRamBufferImpact, estimated: appRamEstimated, recommended: roundUpRam(appRamEstimated) },
+        app_cpu: { base: appCpuBase, live: appCpuLiveImpact, bidder: appCpuBidderImpact, buffer: appCpuBufferImpact, estimated: appCpuEstimated, recommended: roundUpCpu(appCpuEstimated) },
+        db_ram: { base: dbRamBase, queue: dbRamQueueImpact, bidder: dbRamBidderImpact, buffer: dbRamBufferImpact, estimated: dbRamEstimated, recommended: roundUpRam(dbRamEstimated) },
+        db_cpu: { base: dbCpuBase, queue: dbCpuQueueImpact, bidder: dbCpuBidderImpact, buffer: dbCpuBufferImpact, estimated: dbCpuEstimated, recommended: roundUpCpu(dbCpuEstimated) },
+        web_ram: { base: webRamBase, users: webRamUserImpact, buffer: webRamBufferImpact, estimated: webRamEstimated, recommended: roundUpRam(webRamEstimated) },
+        web_cpu: { base: webCpuBase, users: webCpuUserImpact, buffer: webCpuBufferImpact, estimated: webCpuEstimated, recommended: roundUpCpu(webCpuEstimated) },
+      },
     };
   }, [plannerResult, plannerGrowthBufferPercent, planner.expected_farmers, planner.expected_traders]);
 
@@ -854,21 +892,22 @@ const SystemCapacityControlPage: React.FC = () => {
       },
     }));
     setInfraDirty(true);
+    setPlannerApplyMessage("Values applied to the form. Please save the relevant section to persist.");
   };
 
-  const handleCalculatePlanner = () => {
+  const validatePlannerInputs = useCallback((current: PlannerState): PlannerValidationResult => {
     const nextFieldErrors: Partial<Record<keyof PlannerState, string>> = {};
     const nextTopErrors: string[] = [];
-    const farmers = Number(planner.expected_farmers || 0);
-    const traders = Number(planner.expected_traders || 0);
-    const peakTraders = Number(planner.peak_active_traders || 0);
-    const lotsPerDay = Number(planner.expected_lots_per_day || 0);
-    const peakQueued = Number(planner.expected_peak_queued_lots || 0);
-    const mandis = Number(planner.number_of_mandis || 0);
-    const concurrentAuctions = Number(planner.expected_concurrent_auctions || 0);
-    const growthBuffer = Number(planner.growth_buffer_percent || 0);
+    const farmers = Number(current.expected_farmers || 0);
+    const traders = Number(current.expected_traders || 0);
+    const peakTraders = Number(current.peak_active_traders || 0);
+    const lotsPerDay = Number(current.expected_lots_per_day || 0);
+    const peakQueued = Number(current.expected_peak_queued_lots || 0);
+    const mandis = Number(current.number_of_mandis || 0);
+    const concurrentAuctions = Number(current.expected_concurrent_auctions || 0);
+    const growthBuffer = Number(current.growth_buffer_percent || 0);
 
-    if (!planner.selected_org_id) {
+    if (!current.selected_org_id) {
       nextFieldErrors.selected_org_id = "Select an organisation.";
       nextTopErrors.push("Select an organisation.");
     }
@@ -901,20 +940,36 @@ const SystemCapacityControlPage: React.FC = () => {
     if (!hasBusinessValues) {
       nextTopErrors.push("Enter expected farmers, traders, or lots before calculating.");
     }
-    if (Object.keys(nextFieldErrors).length > 0 || nextTopErrors.length > 0) {
-      const combinedErrors = Array.from(new Set([...nextTopErrors, ...Object.values(nextFieldErrors)]));
-      setPlannerFieldErrors(nextFieldErrors);
-      setPlannerTopErrors(combinedErrors);
-      setPlannerValidationError(combinedErrors[0] || "Please correct planner inputs.");
+    const combinedErrors = Array.from(new Set([...nextTopErrors, ...Object.values(nextFieldErrors)]));
+    return {
+      fieldErrors: nextFieldErrors,
+      topErrors: combinedErrors,
+      isValid: combinedErrors.length === 0,
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!plannerOpen) return;
+    const validation = validatePlannerInputs(planner);
+    setPlannerFieldErrors(validation.fieldErrors);
+    setPlannerTopErrors(validation.topErrors);
+    setPlannerValidationError(validation.topErrors[0] || null);
+    if (!validation.isValid) {
       setPlannerResult(null);
-      setPlannerNeedsRecalculation(false);
       return;
     }
+    setPlannerResult(plannerSuggestion);
+  }, [planner, plannerOpen, plannerSuggestion, validatePlannerInputs]);
 
-    setPlannerValidationError(null);
-    setPlannerFieldErrors({});
-    setPlannerTopErrors([]);
-    setPlannerNeedsRecalculation(false);
+  const handleCalculatePlanner = () => {
+    const validation = validatePlannerInputs(planner);
+    setPlannerFieldErrors(validation.fieldErrors);
+    setPlannerTopErrors(validation.topErrors);
+    setPlannerValidationError(validation.topErrors[0] || null);
+    if (!validation.isValid) {
+      setPlannerResult(null);
+      return;
+    }
     setPlannerResult(plannerSuggestion);
   };
 
@@ -1709,11 +1764,14 @@ const SystemCapacityControlPage: React.FC = () => {
           </Box>
         </Paper>
 
-        <Dialog open={plannerOpen} onClose={() => setPlannerOpen(false)} fullWidth maxWidth="lg">
+        <Dialog open={plannerOpen} onClose={() => { setPlannerApplyMessage(null); setPlannerOpen(false); }} fullWidth maxWidth="lg">
           <DialogTitle>Capacity Planner</DialogTitle>
           <DialogContent dividers>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               This planner estimates organisation allocation from business numbers. It does not change physical server capacity.
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+              Planner output updates automatically from the values above.
             </Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5, mb: 2 }}>
               <TextField
@@ -1742,7 +1800,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Total farmers in this organisation"
-                helperText={plannerFieldErrors.expected_farmers || "Enter total farmers served by this organisation, not per mandi."}
+                helperText={plannerFieldErrors.expected_farmers || "Enter total farmers served by this organisation, not per mandi. Impact: Mainly affects web/admin resource planning."}
                 type="number"
                 value={planner.expected_farmers}
                 onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))}
@@ -1751,7 +1809,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Total registered traders in this organisation"
-                helperText={plannerFieldErrors.expected_traders || "Enter total registered traders in this organisation, not per mandi."}
+                helperText={plannerFieldErrors.expected_traders || "Enter total registered traders in this organisation, not per mandi. Impact: Mainly affects web/admin resource planning."}
                 type="number"
                 value={planner.expected_traders}
                 onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))}
@@ -1760,7 +1818,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Peak traders bidding at the same time"
-                helperText={plannerFieldErrors.peak_active_traders || "Enter the maximum traders expected to bid at the same time."}
+                helperText={plannerFieldErrors.peak_active_traders || "Enter the maximum traders expected to bid at the same time. Impact: Affects app server, WebSocket, bidder capacity, and DB persistence."}
                 type="number"
                 value={planner.peak_active_traders}
                 onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))}
@@ -1769,7 +1827,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Peak lots waiting in queue"
-                helperText={plannerFieldErrors.expected_peak_queued_lots || "Enter the maximum lots that may wait in auction queue during a busy period."}
+                helperText={plannerFieldErrors.expected_peak_queued_lots || "Enter the maximum lots that may wait in auction queue during a busy period. Impact: Mainly affects DB RAM/vCPU and queued-lot capacity."}
                 type="number"
                 value={planner.expected_peak_queued_lots}
                 onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))}
@@ -1787,7 +1845,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Peak concurrent auctions in this organisation"
-                helperText={plannerFieldErrors.expected_concurrent_auctions || "Enter how many auctions may run at the same time across the organisation."}
+                helperText={plannerFieldErrors.expected_concurrent_auctions || "Enter how many auctions may run at the same time across the organisation. Impact: Mainly affects app server RAM/vCPU and live lane allocation."}
                 type="number"
                 value={planner.expected_concurrent_auctions}
                 onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))}
@@ -1796,7 +1854,7 @@ const SystemCapacityControlPage: React.FC = () => {
               />
               <TextField
                 label="Growth buffer (%)"
-                helperText={plannerFieldErrors.growth_buffer_percent || ""}
+                helperText={plannerFieldErrors.growth_buffer_percent || "Impact: Increases recommended resources for future load."}
                 type="number"
                 inputProps={{ min: 0, max: 100 }}
                 value={planner.growth_buffer_percent}
@@ -1825,19 +1883,14 @@ const SystemCapacityControlPage: React.FC = () => {
                 </Stack>
               </Alert>
             )}
-            {plannerNeedsRecalculation && (
-              <Alert severity="warning" sx={{ mb: 1.5 }}>
-                Values changed. Click Calculate Capacity again.
-              </Alert>
-            )}
-            {!plannerResult && !plannerValidationError && plannerTopErrors.length === 0 && !plannerNeedsRecalculation && (
+            {!plannerResult && !plannerValidationError && plannerTopErrors.length === 0 && (
               <Alert severity="info" sx={{ mb: 1.5 }}>
                 Enter business values to calculate a suggested allocation.
               </Alert>
             )}
             {plannerResult?.was_clamped ? (
               <Alert severity="warning" sx={{ mb: 1.5 }}>
-                Suggested allocation was reduced because remaining platform capacity is not enough.
+                Your business demand is higher than remaining platform capacity. The applied organisation allocation has been reduced. Increase Section C platform capacity or free capacity from other organisations.
               </Alert>
             ) : null}
             {plannerResult?.warnings?.map((warning) => (
@@ -1890,21 +1943,87 @@ const SystemCapacityControlPage: React.FC = () => {
                   <MetricCard label="Recommended System Reserve %" value={plannerPhysicalResources.recommended_system_reserve_percent} help="Planning reserve." />
                   <MetricCard label="Recommended Web/Admin Reserve %" value={plannerPhysicalResources.recommended_web_admin_reserve_percent} help="Planning reserve." />
                 </Box>
+                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mt: 1.25 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
+                    Resource Impact Breakdown
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                    This explains why the planner recommends the RAM and CPU values below.
+                  </Typography>
+                  <Stack spacing={0.75} sx={{ mb: 1.25 }}>
+                    <Typography variant="body2">App Server RAM: Base 0.5 GB + live auction load + bidder load + buffer, rounded up.</Typography>
+                    <Typography variant="body2">DB Server RAM: Base 0.5 GB + queued lot load + bidder persistence load + buffer, rounded up.</Typography>
+                    <Typography variant="body2">Web Server RAM: Base 0.5 GB + farmer/trader portal load + buffer, rounded up.</Typography>
+                  </Stack>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))" }, gap: 1 }}>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">App Server RAM breakdown</Typography>
+                      <Typography variant="body2">Base app memory: {plannerPhysicalResources.breakdown.app_ram.base.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_ram.live.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_ram.bidder.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.app_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_ram.recommended.toFixed(1)} GB</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">App Server vCPU breakdown</Typography>
+                      <Typography variant="body2">Base app CPU: {plannerPhysicalResources.breakdown.app_cpu.base.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_cpu.live.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_cpu.bidder.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.app_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_cpu.recommended.toFixed(0)} vCPU</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">DB Server RAM breakdown</Typography>
+                      <Typography variant="body2">Base DB memory: {plannerPhysicalResources.breakdown.db_ram.base.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_ram.queue.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_ram.bidder.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.db_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_ram.recommended.toFixed(1)} GB</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">DB Server vCPU breakdown</Typography>
+                      <Typography variant="body2">Base DB CPU: {plannerPhysicalResources.breakdown.db_cpu.base.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_cpu.queue.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_cpu.bidder.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.db_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_cpu.recommended.toFixed(0)} vCPU</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">Web Server RAM breakdown</Typography>
+                      <Typography variant="body2">Base web/admin memory: {plannerPhysicalResources.breakdown.web_ram.base.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_ram.users.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.web_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_ram.recommended.toFixed(1)} GB</Typography>
+                    </Paper>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2">Web Server vCPU breakdown</Typography>
+                      <Typography variant="body2">Base web/admin CPU: {plannerPhysicalResources.breakdown.web_cpu.base.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_cpu.users.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.web_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_cpu.recommended.toFixed(0)} vCPU</Typography>
+                    </Paper>
+                  </Box>
+                </Paper>
                 <Alert severity="info" sx={{ mt: 1.25 }}>
                   Resource estimates are planning guidance. Final production sizing should be validated with real usage, monitoring, and load testing.
                 </Alert>
               </Paper>
             )}
+            {plannerApplyMessage && (
+              <Alert severity="success" sx={{ mt: 1.5 }}>
+                {plannerApplyMessage}
+              </Alert>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setPlannerOpen(false)}>Close</Button>
+            <Button onClick={() => { setPlannerApplyMessage(null); setPlannerOpen(false); }}>Close</Button>
             <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
               Calculate Capacity
             </Button>
-            <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources || plannerNeedsRecalculation}>
+            <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources}>
               Apply Resources to Section A
             </Button>
-            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult || plannerNeedsRecalculation}>
+            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult}>
               Apply to Selected Organisation
             </Button>
           </DialogActions>

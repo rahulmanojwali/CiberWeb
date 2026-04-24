@@ -32,6 +32,11 @@ import {
   updatePlatformAuctionCapacity,
   updateOrgAuctionCapacityAllocation,
 } from "../../services/systemCapacityControlApi";
+import {
+  CAPACITY_MODEL_CONSTANTS,
+  deriveSafeCapacityFromInfra,
+  estimateRequiredInfraFromLoad,
+} from "../../utils/capacityModel";
 
 type SystemConfig = {
   deployment_profile_name: string;
@@ -193,17 +198,6 @@ function toNonNegativeNumber(value: any): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
   return Math.max(0, parsed);
-}
-
-function roundUpRam(value: number): number {
-  const nonNegative = Math.max(0, Number(value || 0));
-  if (nonNegative <= 0) return 1;
-  return Math.max(1, Math.ceil(nonNegative * 2) / 2);
-}
-
-function roundUpCpu(value: number): number {
-  const nonNegative = Math.max(0, Number(value || 0));
-  return Math.max(1, Math.ceil(nonNegative));
 }
 
 const headerHelpIconSx = {
@@ -441,11 +435,26 @@ const SystemCapacityControlPage: React.FC = () => {
     ))
   ), [orgRows]);
 
-  const plannerGrowthBufferPercent = Math.min(100, Math.max(0, Number(planner.growth_buffer_percent || 0)));
   const plannerSelectedRow = useMemo(
     () => orgRows.find((row) => String(row.org_id) === String(planner.selected_org_id)) || null,
     [orgRows, planner.selected_org_id],
   );
+  const plannerModelEstimate = useMemo(() => estimateRequiredInfraFromLoad({
+    expected_farmers: Number(planner.expected_farmers || 0),
+    expected_traders: Number(planner.expected_traders || 0),
+    peak_active_traders: Number(planner.peak_active_traders || 0),
+    expected_lots_per_day: Number(planner.expected_lots_per_day || 0),
+    expected_peak_queued_lots: Number(planner.expected_peak_queued_lots || 0),
+    expected_concurrent_auctions: Number(planner.expected_concurrent_auctions || 0),
+    growth_buffer_percent: Number(planner.growth_buffer_percent || 0),
+    number_of_mandis: Number(planner.number_of_mandis || 0),
+    deployment_type: String(systemConfig?.infra_profile?.deployment_type || ""),
+    same_machine_or_separate: String(
+      systemConfig?.infra_profile?.same_machine_or_separate || systemConfig?.infra_profile?.same_machine || "",
+    ),
+    websocket_shared_or_separate: String(systemConfig?.infra_profile?.websocket_shared_or_separate || "SHARED"),
+    usage_profile: planner.usage_profile,
+  }), [planner, systemConfig?.infra_profile]);
   const findExactMatchingTierCode = (
     live: number,
     open: number,
@@ -466,31 +475,10 @@ const SystemCapacityControlPage: React.FC = () => {
   };
 
   const plannerSuggestion = useMemo<PlannerSuggestion>(() => {
-    const usageProfileMultiplierMap: Record<PlannerState["usage_profile"], number> = {
-      TESTING: 0.7,
-      SMALL: 0.85,
-      NORMAL: 1,
-      HEAVY: 1.2,
-      PEAK_SEASON: 1.4,
-    };
-    const usageMultiplier = usageProfileMultiplierMap[planner.usage_profile] || 1;
-    const growthMultiplier = 1 + (plannerGrowthBufferPercent / 100);
-
-    const concurrentAuctions = toNonNegativeNumber(planner.expected_concurrent_auctions);
-    const expectedLotsPerDay = toNonNegativeNumber(planner.expected_lots_per_day);
-    const peakQueuedLots = toNonNegativeNumber(planner.expected_peak_queued_lots);
-    const peakActiveTraders = toNonNegativeNumber(planner.peak_active_traders);
-    const expectedTraders = toNonNegativeNumber(planner.expected_traders);
-
-    const baseLive = Math.max(1, concurrentAuctions);
-    const baseOpen = Math.max(baseLive, Math.ceil(baseLive * 2));
-    const baseQueued = Math.max(peakQueuedLots, Math.ceil(expectedLotsPerDay * 0.25));
-    const baseBidders = Math.max(peakActiveTraders, Math.ceil(expectedTraders * 0.25));
-
-    const bufferedLive = Math.ceil(Math.ceil(baseLive * usageMultiplier) * growthMultiplier);
-    const bufferedOpen = Math.ceil(Math.ceil(baseOpen * usageMultiplier) * growthMultiplier);
-    const bufferedQueued = Math.ceil(Math.ceil(baseQueued * usageMultiplier) * growthMultiplier);
-    const bufferedBidders = Math.ceil(Math.ceil(baseBidders * usageMultiplier) * growthMultiplier);
+    const bufferedLive = Number(plannerModelEstimate.demand_after_buffer_live_lanes || 0);
+    const bufferedOpen = Number(plannerModelEstimate.demand_after_buffer_open_lanes || 0);
+    const bufferedQueued = Number(plannerModelEstimate.demand_after_buffer_queued_lots || 0);
+    const bufferedBidders = Number(plannerModelEstimate.demand_after_buffer_concurrent_bidders || 0);
 
     const selectedOrgCurrentLive = Number(plannerSelectedRow?.allocated_max_live_lanes || 0);
     const selectedOrgCurrentOpen = Number(plannerSelectedRow?.allocated_max_open_lanes || 0);
@@ -538,8 +526,7 @@ const SystemCapacityControlPage: React.FC = () => {
       was_clamped: warnings.length > 0,
     };
   }, [
-    planner,
-    plannerGrowthBufferPercent,
+    plannerModelEstimate,
     plannerSelectedRow,
     platformMaxLive,
     platformMaxOpen,
@@ -807,72 +794,83 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const plannerPhysicalResources = useMemo(() => {
     if (!plannerResult) return null;
-    const growthMultiplier = 1 + (plannerGrowthBufferPercent / 100);
-    const suggestedLive = Number(plannerResult.suggested_live_lanes || 0);
-    const suggestedQueued = Number(plannerResult.suggested_queued_lots || 0);
-    const suggestedBidders = Number(plannerResult.suggested_concurrent_bidders || 0);
-    const totalUsers = Number(planner.expected_farmers || 0) + Number(planner.expected_traders || 0);
+    const demandLive = Number(plannerModelEstimate.demand_after_buffer_live_lanes || 0);
+    const demandOpen = Number(plannerModelEstimate.demand_after_buffer_open_lanes || 0);
+    const demandQueued = Number(plannerModelEstimate.demand_after_buffer_queued_lots || 0);
+    const demandBidders = Number(plannerModelEstimate.demand_after_buffer_concurrent_bidders || 0);
+    const rawReq = plannerModelEstimate.raw_requirements || {};
 
-    const appRamBase = 0.5;
-    const appRamLiveImpact = suggestedLive * 0.25;
-    const appRamBidderImpact = (suggestedBidders / 100) * 0.25;
-    const appRamBeforeBuffer = appRamBase + appRamLiveImpact + appRamBidderImpact;
-    const appRamBufferImpact = appRamBeforeBuffer * (growthMultiplier - 1);
-    const appRamEstimated = appRamBeforeBuffer + appRamBufferImpact;
+    const appLiveRamNeed = demandLive * CAPACITY_MODEL_CONSTANTS.ram_per_live_lane_gb;
+    const appOpenRamNeed = demandOpen * CAPACITY_MODEL_CONSTANTS.ram_per_open_lane_gb;
+    const appBidderRamNeed = (demandBidders / 100) * CAPACITY_MODEL_CONSTANTS.ram_per_100_bidders_gb;
+    const appChosenRamNeed = Math.max(appLiveRamNeed, appOpenRamNeed, appBidderRamNeed);
 
-    const appCpuBase = 1;
-    const appCpuLiveImpact = suggestedLive * 0.25;
-    const appCpuBidderImpact = (suggestedBidders / 100) * 0.15;
-    const appCpuBeforeBuffer = appCpuBase + appCpuLiveImpact + appCpuBidderImpact;
-    const appCpuBufferImpact = appCpuBeforeBuffer * (growthMultiplier - 1);
-    const appCpuEstimated = appCpuBeforeBuffer + appCpuBufferImpact;
+    const appLiveCpuNeed = demandLive * CAPACITY_MODEL_CONSTANTS.cpu_per_live_lane;
+    const appOpenCpuNeed = demandOpen * (CAPACITY_MODEL_CONSTANTS.cpu_per_live_lane / CAPACITY_MODEL_CONSTANTS.open_lane_cpu_divisor);
+    const appBidderCpuNeed = (demandBidders / 100) * CAPACITY_MODEL_CONSTANTS.cpu_per_100_bidders;
+    const appChosenCpuNeed = Math.max(appLiveCpuNeed, appOpenCpuNeed, appBidderCpuNeed);
 
-    const dbRamBase = 0.5;
-    const dbRamQueueImpact = (suggestedQueued / 100) * 0.25;
-    const dbRamBidderImpact = (suggestedBidders / 100) * 0.15;
-    const dbRamBeforeBuffer = dbRamBase + dbRamQueueImpact + dbRamBidderImpact;
-    const dbRamBufferImpact = dbRamBeforeBuffer * (growthMultiplier - 1);
-    const dbRamEstimated = dbRamBeforeBuffer + dbRamBufferImpact;
+    const dbQueueRamNeed = (demandQueued / 100) * CAPACITY_MODEL_CONSTANTS.ram_per_100_queued_lots_gb;
+    const dbBidderRamNeed = (demandBidders / 100) * CAPACITY_MODEL_CONSTANTS.ram_per_100_bidders_gb;
+    const dbChosenRamNeed = Math.max(dbQueueRamNeed, dbBidderRamNeed);
 
-    const dbCpuBase = 1;
-    const dbCpuQueueImpact = (suggestedQueued / 100) * 0.15;
-    const dbCpuBidderImpact = (suggestedBidders / 100) * 0.10;
-    const dbCpuBeforeBuffer = dbCpuBase + dbCpuQueueImpact + dbCpuBidderImpact;
-    const dbCpuBufferImpact = dbCpuBeforeBuffer * (growthMultiplier - 1);
-    const dbCpuEstimated = dbCpuBeforeBuffer + dbCpuBufferImpact;
+    const dbQueueCpuNeed = (demandQueued / 100) * CAPACITY_MODEL_CONSTANTS.cpu_per_100_queued_lots;
+    const dbBidderCpuNeed = (demandBidders / 100) * CAPACITY_MODEL_CONSTANTS.cpu_per_100_bidders;
+    const dbChosenCpuNeed = Math.max(dbQueueCpuNeed, dbBidderCpuNeed);
 
-    const webRamBase = 0.5;
-    const webRamUserImpact = (totalUsers / 1000) * 0.25;
-    const webRamBeforeBuffer = webRamBase + webRamUserImpact;
-    const webRamBufferImpact = webRamBeforeBuffer * (growthMultiplier - 1);
-    const webRamEstimated = webRamBeforeBuffer + webRamBufferImpact;
-
-    const webCpuBase = 1;
-    const webCpuUserImpact = (totalUsers / 2000) * 0.25;
-    const webCpuBeforeBuffer = webCpuBase + webCpuUserImpact;
-    const webCpuBufferImpact = webCpuBeforeBuffer * (growthMultiplier - 1);
-    const webCpuEstimated = webCpuBeforeBuffer + webCpuBufferImpact;
+    const webRawRam = Number(rawReq.web_server_ram_gb || 0);
+    const webRawCpu = Number(rawReq.web_server_vcpu || 0);
+    const webBaseRam = 0.5;
+    const webBaseCpu = 1;
+    const webUserRam = Math.max(0, webRawRam - webBaseRam);
+    const webUserCpu = Math.max(0, webRawCpu - webBaseCpu);
 
     return {
-      required_app_server_ram_gb: roundUpRam(appRamEstimated),
-      required_app_server_vcpu: roundUpCpu(appCpuEstimated),
-      required_db_server_ram_gb: roundUpRam(dbRamEstimated),
-      required_db_server_vcpu: roundUpCpu(dbCpuEstimated),
-      required_web_server_ram_gb: roundUpRam(webRamEstimated),
-      required_web_server_vcpu: roundUpCpu(webCpuEstimated),
-      recommended_os_reserve_percent: 20,
-      recommended_system_reserve_percent: Math.max(20, plannerGrowthBufferPercent),
-      recommended_web_admin_reserve_percent: 20,
+      required_app_server_ram_gb: Number(plannerModelEstimate.required_app_server_ram_gb || 0),
+      required_app_server_vcpu: Number(plannerModelEstimate.required_app_server_vcpu || 0),
+      required_db_server_ram_gb: Number(plannerModelEstimate.required_db_server_ram_gb || 0),
+      required_db_server_vcpu: Number(plannerModelEstimate.required_db_server_vcpu || 0),
+      required_web_server_ram_gb: Number(plannerModelEstimate.required_web_server_ram_gb || 0),
+      required_web_server_vcpu: Number(plannerModelEstimate.required_web_server_vcpu || 0),
+      recommended_os_reserve_percent: Number(plannerModelEstimate.recommended_os_reserve_percent || 0),
+      recommended_system_reserve_percent: Number(plannerModelEstimate.recommended_system_reserve_percent || 0),
+      recommended_web_admin_reserve_percent: Number(plannerModelEstimate.recommended_web_admin_reserve_percent || 0),
       breakdown: {
-        app_ram: { base: appRamBase, live: appRamLiveImpact, bidder: appRamBidderImpact, buffer: appRamBufferImpact, estimated: appRamEstimated, recommended: roundUpRam(appRamEstimated) },
-        app_cpu: { base: appCpuBase, live: appCpuLiveImpact, bidder: appCpuBidderImpact, buffer: appCpuBufferImpact, estimated: appCpuEstimated, recommended: roundUpCpu(appCpuEstimated) },
-        db_ram: { base: dbRamBase, queue: dbRamQueueImpact, bidder: dbRamBidderImpact, buffer: dbRamBufferImpact, estimated: dbRamEstimated, recommended: roundUpRam(dbRamEstimated) },
-        db_cpu: { base: dbCpuBase, queue: dbCpuQueueImpact, bidder: dbCpuBidderImpact, buffer: dbCpuBufferImpact, estimated: dbCpuEstimated, recommended: roundUpCpu(dbCpuEstimated) },
-        web_ram: { base: webRamBase, users: webRamUserImpact, buffer: webRamBufferImpact, estimated: webRamEstimated, recommended: roundUpRam(webRamEstimated) },
-        web_cpu: { base: webCpuBase, users: webCpuUserImpact, buffer: webCpuBufferImpact, estimated: webCpuEstimated, recommended: roundUpCpu(webCpuEstimated) },
+        app_ram: { base: 0, live: appLiveRamNeed, bidder: appBidderRamNeed, open: appOpenRamNeed, selected: appChosenRamNeed, estimated: Number(rawReq.app_server_ram_gb || 0), recommended: Number(plannerModelEstimate.required_app_server_ram_gb || 0) },
+        app_cpu: { base: 0, live: appLiveCpuNeed, bidder: appBidderCpuNeed, open: appOpenCpuNeed, selected: appChosenCpuNeed, estimated: Number(rawReq.app_server_vcpu || 0), recommended: Number(plannerModelEstimate.required_app_server_vcpu || 0) },
+        db_ram: { base: 0, queue: dbQueueRamNeed, bidder: dbBidderRamNeed, selected: dbChosenRamNeed, estimated: Number(rawReq.db_server_ram_gb || 0), recommended: Number(plannerModelEstimate.required_db_server_ram_gb || 0) },
+        db_cpu: { base: 0, queue: dbQueueCpuNeed, bidder: dbBidderCpuNeed, selected: dbChosenCpuNeed, estimated: Number(rawReq.db_server_vcpu || 0), recommended: Number(plannerModelEstimate.required_db_server_vcpu || 0) },
+        web_ram: { base: webBaseRam, users: webUserRam, selected: webRawRam, estimated: webRawRam, recommended: Number(plannerModelEstimate.required_web_server_ram_gb || 0) },
+        web_cpu: { base: webBaseCpu, users: webUserCpu, selected: webRawCpu, estimated: webRawCpu, recommended: Number(plannerModelEstimate.required_web_server_vcpu || 0) },
       },
     };
-  }, [plannerResult, plannerGrowthBufferPercent, planner.expected_farmers, planner.expected_traders]);
+  }, [plannerResult, plannerModelEstimate]);
+
+  const plannerCapacityFromRecommendedInfra = useMemo(() => {
+    if (!plannerPhysicalResources) return null;
+    return deriveSafeCapacityFromInfra({
+      app_server_ram_gb: plannerPhysicalResources.required_app_server_ram_gb,
+      app_server_vcpu: plannerPhysicalResources.required_app_server_vcpu,
+      db_server_ram_gb: plannerPhysicalResources.required_db_server_ram_gb,
+      db_server_vcpu: plannerPhysicalResources.required_db_server_vcpu,
+      web_server_ram_gb: plannerPhysicalResources.required_web_server_ram_gb,
+      web_server_vcpu: plannerPhysicalResources.required_web_server_vcpu,
+      os_reserve_percent: plannerPhysicalResources.recommended_os_reserve_percent,
+      system_reserve_percent: plannerPhysicalResources.recommended_system_reserve_percent,
+      web_admin_reserve_percent: plannerPhysicalResources.recommended_web_admin_reserve_percent,
+      websocket_shared_or_separate: String(systemConfig?.infra_profile?.websocket_shared_or_separate || "SHARED"),
+    });
+  }, [plannerPhysicalResources, systemConfig?.infra_profile?.websocket_shared_or_separate]);
+
+  const plannerModelMismatch = useMemo(() => {
+    if (!plannerResult || !plannerCapacityFromRecommendedInfra) return false;
+    return (
+      Number(plannerCapacityFromRecommendedInfra.final_safe_live_lanes || 0) < Number(plannerModelEstimate.demand_after_buffer_live_lanes || 0)
+      || Number(plannerCapacityFromRecommendedInfra.final_safe_open_lanes || 0) < Number(plannerModelEstimate.demand_after_buffer_open_lanes || 0)
+      || Number(plannerCapacityFromRecommendedInfra.final_safe_queued_lots || 0) < Number(plannerModelEstimate.demand_after_buffer_queued_lots || 0)
+      || Number(plannerCapacityFromRecommendedInfra.final_safe_concurrent_bidders || 0) < Number(plannerModelEstimate.demand_after_buffer_concurrent_bidders || 0)
+    );
+  }, [plannerResult, plannerCapacityFromRecommendedInfra, plannerModelEstimate]);
 
   const applyPlannerResourcesToSectionA = () => {
     if (!plannerPhysicalResources) return;
@@ -1770,6 +1768,9 @@ const SystemCapacityControlPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               This planner estimates organisation allocation from business numbers. It does not change physical server capacity.
             </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              Section B calculates capacity from saved physical infrastructure. This planner estimates required physical infrastructure from business demand. Both use the same capacity model.
+            </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               Planner output updates automatically from the values above.
             </Typography>
@@ -1951,25 +1952,27 @@ const SystemCapacityControlPage: React.FC = () => {
                     This explains why the planner recommends the RAM and CPU values below.
                   </Typography>
                   <Stack spacing={0.75} sx={{ mb: 1.25 }}>
-                    <Typography variant="body2">App Server RAM: Base 0.5 GB + live auction load + bidder load + buffer, rounded up.</Typography>
-                    <Typography variant="body2">DB Server RAM: Base 0.5 GB + queued lot load + bidder persistence load + buffer, rounded up.</Typography>
-                    <Typography variant="body2">Web Server RAM: Base 0.5 GB + farmer/trader portal load + buffer, rounded up.</Typography>
+                    <Typography variant="body2">App Server RAM: Calculated from the strongest of live lanes, open lanes, and bidder load, then adjusted for reserves and rounded up.</Typography>
+                    <Typography variant="body2">DB Server RAM: Calculated from the stronger of queued lots and bidder persistence load, then adjusted for reserves and rounded up.</Typography>
+                    <Typography variant="body2">Web Server RAM: Base web/admin footprint plus user load, then adjusted for reserves and rounded up.</Typography>
                   </Stack>
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))" }, gap: 1 }}>
                     <Paper variant="outlined" sx={{ p: 1 }}>
                       <Typography variant="subtitle2">App Server RAM breakdown</Typography>
                       <Typography variant="body2">Base app memory: {plannerPhysicalResources.breakdown.app_ram.base.toFixed(2)} GB</Typography>
                       <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_ram.live.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Open auction impact: {plannerPhysicalResources.breakdown.app_ram.open.toFixed(2)} GB</Typography>
                       <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_ram.bidder.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.app_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.app_ram.selected.toFixed(2)} GB</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_ram.recommended.toFixed(1)} GB</Typography>
                     </Paper>
                     <Paper variant="outlined" sx={{ p: 1 }}>
                       <Typography variant="subtitle2">App Server vCPU breakdown</Typography>
                       <Typography variant="body2">Base app CPU: {plannerPhysicalResources.breakdown.app_cpu.base.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_cpu.live.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Open auction impact: {plannerPhysicalResources.breakdown.app_cpu.open.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_cpu.bidder.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.app_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.app_cpu.selected.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_cpu.recommended.toFixed(0)} vCPU</Typography>
                     </Paper>
                     <Paper variant="outlined" sx={{ p: 1 }}>
@@ -1977,7 +1980,7 @@ const SystemCapacityControlPage: React.FC = () => {
                       <Typography variant="body2">Base DB memory: {plannerPhysicalResources.breakdown.db_ram.base.toFixed(2)} GB</Typography>
                       <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_ram.queue.toFixed(2)} GB</Typography>
                       <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_ram.bidder.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.db_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.db_ram.selected.toFixed(2)} GB</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_ram.recommended.toFixed(1)} GB</Typography>
                     </Paper>
                     <Paper variant="outlined" sx={{ p: 1 }}>
@@ -1985,25 +1988,43 @@ const SystemCapacityControlPage: React.FC = () => {
                       <Typography variant="body2">Base DB CPU: {plannerPhysicalResources.breakdown.db_cpu.base.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_cpu.queue.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_cpu.bidder.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.db_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.db_cpu.selected.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_cpu.recommended.toFixed(0)} vCPU</Typography>
                     </Paper>
                     <Paper variant="outlined" sx={{ p: 1 }}>
                       <Typography variant="subtitle2">Web Server RAM breakdown</Typography>
                       <Typography variant="body2">Base web/admin memory: {plannerPhysicalResources.breakdown.web_ram.base.toFixed(2)} GB</Typography>
                       <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_ram.users.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.web_ram.buffer.toFixed(2)} GB</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.web_ram.selected.toFixed(2)} GB</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_ram.recommended.toFixed(1)} GB</Typography>
                     </Paper>
                     <Paper variant="outlined" sx={{ p: 1 }}>
                       <Typography variant="subtitle2">Web Server vCPU breakdown</Typography>
                       <Typography variant="body2">Base web/admin CPU: {plannerPhysicalResources.breakdown.web_cpu.base.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_cpu.users.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Growth buffer: +{plannerPhysicalResources.breakdown.web_cpu.buffer.toFixed(2)} vCPU</Typography>
+                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.web_cpu.selected.toFixed(2)} vCPU</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_cpu.recommended.toFixed(0)} vCPU</Typography>
                     </Paper>
                   </Box>
                 </Paper>
+                {plannerCapacityFromRecommendedInfra && (
+                  <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mt: 1.25 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                      Estimated capacity from recommended resources
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                      <MetricCard label="Estimated live lanes" value={plannerCapacityFromRecommendedInfra.final_safe_live_lanes} help="Derived by re-running Section B model on recommended infra." />
+                      <MetricCard label="Estimated open lanes" value={plannerCapacityFromRecommendedInfra.final_safe_open_lanes} help="Derived by re-running Section B model on recommended infra." />
+                      <MetricCard label="Estimated queued lots" value={plannerCapacityFromRecommendedInfra.final_safe_queued_lots} help="Derived by re-running Section B model on recommended infra." />
+                      <MetricCard label="Estimated bidders" value={plannerCapacityFromRecommendedInfra.final_safe_concurrent_bidders} help="Derived by re-running Section B model on recommended infra." />
+                    </Box>
+                  </Paper>
+                )}
+                {plannerModelMismatch && (
+                  <Alert severity="warning" sx={{ mt: 1.25 }}>
+                    Recommended resources do not satisfy the estimated demand. Calculation model mismatch.
+                  </Alert>
+                )}
                 <Alert severity="info" sx={{ mt: 1.25 }}>
                   Resource estimates are planning guidance. Final production sizing should be validated with real usage, monitoring, and load testing.
                 </Alert>

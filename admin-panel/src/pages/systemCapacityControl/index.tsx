@@ -158,6 +158,12 @@ type PlannerSuggestion = {
   suggested_queued_lots: number;
   suggested_concurrent_bidders: number;
   suggested_tier_code: string | null;
+  remaining_platform_capacity_before_apply: {
+    live: number;
+    open: number;
+    queued: number;
+    bidders: number;
+  };
   remaining_platform_capacity_after_apply: {
     live: number;
     open: number;
@@ -485,10 +491,15 @@ const SystemCapacityControlPage: React.FC = () => {
     const selectedOrgCurrentQueued = Number(plannerSelectedRow?.allocated_max_queued_lots || 0);
     const selectedOrgCurrentBidders = Number(plannerSelectedRow?.allocated_max_concurrent_bidders || 0);
 
-    const remainingLiveBeforeApply = Math.max(0, platformMaxLive - (orgAllocationSummary.allocatedLive - selectedOrgCurrentLive));
-    const remainingOpenBeforeApply = Math.max(0, platformMaxOpen - (orgAllocationSummary.allocatedOpen - selectedOrgCurrentOpen));
-    const remainingQueuedBeforeApply = Math.max(0, platformMaxQueued - (orgAllocationSummary.allocatedQueued - selectedOrgCurrentQueued));
-    const remainingBiddersBeforeApply = Math.max(0, platformMaxBidders - (orgAllocationSummary.allocatedBidders - selectedOrgCurrentBidders));
+    const sectionERemainingLive = Number(remainingPool?.remaining_allocatable_live ?? Math.max(0, platformMaxLive - orgAllocationSummary.allocatedLive));
+    const sectionERemainingOpen = Number(remainingPool?.remaining_allocatable_open ?? Math.max(0, platformMaxOpen - orgAllocationSummary.allocatedOpen));
+    const sectionERemainingQueued = Number(remainingPool?.remaining_allocatable_queued ?? Math.max(0, platformMaxQueued - orgAllocationSummary.allocatedQueued));
+    const sectionERemainingBidders = Number(remainingPool?.remaining_allocatable_bidders ?? Math.max(0, platformMaxBidders - orgAllocationSummary.allocatedBidders));
+
+    const remainingLiveBeforeApply = Math.max(0, sectionERemainingLive + selectedOrgCurrentLive);
+    const remainingOpenBeforeApply = Math.max(0, sectionERemainingOpen + selectedOrgCurrentOpen);
+    const remainingQueuedBeforeApply = Math.max(0, sectionERemainingQueued + selectedOrgCurrentQueued);
+    const remainingBiddersBeforeApply = Math.max(0, sectionERemainingBidders + selectedOrgCurrentBidders);
 
     const appliedLive = Math.max(0, Math.min(bufferedLive, remainingLiveBeforeApply));
     const appliedOpen = Math.max(0, Math.min(bufferedOpen, remainingOpenBeforeApply));
@@ -521,6 +532,12 @@ const SystemCapacityControlPage: React.FC = () => {
       suggested_queued_lots: appliedQueued,
       suggested_concurrent_bidders: appliedBidders,
       suggested_tier_code: suggestedTierCode,
+      remaining_platform_capacity_before_apply: {
+        live: remainingLiveBeforeApply,
+        open: remainingOpenBeforeApply,
+        queued: remainingQueuedBeforeApply,
+        bidders: remainingBiddersBeforeApply,
+      },
       remaining_platform_capacity_after_apply: remainingAfterApply,
       warnings,
       was_clamped: warnings.length > 0,
@@ -533,6 +550,7 @@ const SystemCapacityControlPage: React.FC = () => {
     platformMaxQueued,
     platformMaxBidders,
     orgAllocationSummary,
+    remainingPool,
     presetMap,
   ]);
 
@@ -872,6 +890,162 @@ const SystemCapacityControlPage: React.FC = () => {
     );
   }, [plannerResult, plannerCapacityFromRecommendedInfra, plannerModelEstimate]);
 
+  const plannerPhysicalFitRows = useMemo(() => {
+    if (!plannerPhysicalResources) return [];
+    const currentInfra = systemConfig?.infra_profile || {};
+    return [
+      {
+        label: "App Server RAM",
+        required: Number(plannerPhysicalResources.required_app_server_ram_gb || 0),
+        current: Number(currentInfra.app_server_ram_gb || 0),
+        unit: "GB",
+      },
+      {
+        label: "App Server vCPU",
+        required: Number(plannerPhysicalResources.required_app_server_vcpu || 0),
+        current: Number(currentInfra.app_server_vcpu || 0),
+        unit: "vCPU",
+      },
+      {
+        label: "DB Server RAM",
+        required: Number(plannerPhysicalResources.required_db_server_ram_gb || 0),
+        current: Number(currentInfra.db_server_ram_gb || 0),
+        unit: "GB",
+      },
+      {
+        label: "DB Server vCPU",
+        required: Number(plannerPhysicalResources.required_db_server_vcpu || 0),
+        current: Number(currentInfra.db_server_vcpu || 0),
+        unit: "vCPU",
+      },
+      {
+        label: "Web Server RAM",
+        required: Number(plannerPhysicalResources.required_web_server_ram_gb || 0),
+        current: Number(currentInfra.web_server_ram_gb || 0),
+        unit: "GB",
+      },
+      {
+        label: "Web Server vCPU",
+        required: Number(plannerPhysicalResources.required_web_server_vcpu || 0),
+        current: Number(currentInfra.web_server_vcpu || 0),
+        unit: "vCPU",
+      },
+    ].map((row) => ({
+      ...row,
+      ok: row.current >= row.required,
+    }));
+  }, [plannerPhysicalResources, systemConfig?.infra_profile]);
+
+  const plannerSafeCapacityRows = useMemo(() => {
+    if (!plannerResult) return [];
+    return [
+      {
+        label: "Live auctions",
+        required: Number(plannerResult.raw_suggested_live_lanes || 0),
+        safe: Number(derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0),
+      },
+      {
+        label: "Open auctions",
+        required: Number(plannerResult.raw_suggested_open_lanes || 0),
+        safe: Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0),
+      },
+      {
+        label: "Queued lots",
+        required: Number(plannerResult.raw_suggested_queued_lots || 0),
+        safe: Number(derivedSafeCapacity?.final_safe_max_total_queued_lots ?? derivedSafeCapacity?.derived_safe_max_total_queued_lots ?? 0),
+      },
+      {
+        label: "Concurrent bidders",
+        required: Number(plannerResult.raw_suggested_concurrent_bidders || 0),
+        safe: Number(derivedSafeCapacity?.final_safe_max_concurrent_bidders ?? derivedSafeCapacity?.derived_safe_max_concurrent_bidders ?? 0),
+      },
+    ].map((row) => ({
+      ...row,
+      ok: row.safe >= row.required,
+    }));
+  }, [plannerResult, derivedSafeCapacity]);
+
+  const plannerPlatformFitRows = useMemo(() => {
+    if (!plannerResult) return [];
+    return [
+      {
+        label: "Live auctions",
+        applied: Number(plannerResult.suggested_live_lanes || 0),
+        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.live || 0),
+        raw: Number(plannerResult.raw_suggested_live_lanes || 0),
+      },
+      {
+        label: "Open auctions",
+        applied: Number(plannerResult.suggested_open_lanes || 0),
+        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.open || 0),
+        raw: Number(plannerResult.raw_suggested_open_lanes || 0),
+      },
+      {
+        label: "Queued lots",
+        applied: Number(plannerResult.suggested_queued_lots || 0),
+        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.queued || 0),
+        raw: Number(plannerResult.raw_suggested_queued_lots || 0),
+      },
+      {
+        label: "Concurrent bidders",
+        applied: Number(plannerResult.suggested_concurrent_bidders || 0),
+        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.bidders || 0),
+        raw: Number(plannerResult.raw_suggested_concurrent_bidders || 0),
+      },
+    ].map((row) => ({
+      ...row,
+      status: row.raw > row.remaining
+        ? (row.applied > 0 ? "REDUCED" : "NOT_ENOUGH")
+        : "OK",
+    }));
+  }, [plannerResult]);
+
+  const plannerPhysicalFitOk = plannerPhysicalFitRows.every((row) => row.ok);
+  const plannerSafeCapacityFitOk = plannerSafeCapacityRows.every((row) => row.ok);
+  const plannerPlatformTotalFitOk = Boolean(plannerResult) && (
+    Number(platformMaxLive || 0) >= Number(plannerResult?.raw_suggested_live_lanes || 0)
+    && Number(platformMaxOpen || 0) >= Number(plannerResult?.raw_suggested_open_lanes || 0)
+    && Number(platformMaxQueued || 0) >= Number(plannerResult?.raw_suggested_queued_lots || 0)
+    && Number(platformMaxBidders || 0) >= Number(plannerResult?.raw_suggested_concurrent_bidders || 0)
+  );
+  const plannerPartiallyAppliedByRemaining = Boolean(plannerResult?.was_clamped) && plannerPlatformTotalFitOk;
+
+  const plannerResultStatus = useMemo(() => {
+    if (!plannerResult) return null;
+    if (plannerPartiallyAppliedByRemaining) {
+      return {
+        code: "PARTIALLY_APPLIED_DUE_TO_REMAINING_CAPACITY" as const,
+        severity: "warning" as const,
+        text: "Planner demand is higher than remaining platform capacity. Applied values have been reduced.",
+      };
+    }
+    if (!plannerPhysicalFitOk || !plannerSafeCapacityFitOk) {
+      return {
+        code: "NEEDS_MORE_PHYSICAL_INFRA" as const,
+        severity: "error" as const,
+        text: "Physical infrastructure is not enough. Increase Section A resources or reduce expected load.",
+      };
+    }
+    if (!plannerPlatformTotalFitOk) {
+      return {
+        code: "NEEDS_MORE_PLATFORM_CAPACITY" as const,
+        severity: "warning" as const,
+        text: "Physical infrastructure is enough, but Section C platform capacity is too low. Increase platform limits or free capacity from other organisations.",
+      };
+    }
+    return {
+      code: "FITS_CURRENT_SETUP" as const,
+      severity: "success" as const,
+      text: "This organisation can be supported with the current physical infrastructure and platform capacity.",
+    };
+  }, [
+    plannerResult,
+    plannerPartiallyAppliedByRemaining,
+    plannerPhysicalFitOk,
+    plannerSafeCapacityFitOk,
+    plannerPlatformTotalFitOk,
+  ]);
+
   const applyPlannerResourcesToSectionA = () => {
     if (!plannerPhysicalResources) return;
     setSystemConfig((prev) => ({
@@ -890,7 +1064,7 @@ const SystemCapacityControlPage: React.FC = () => {
       },
     }));
     setInfraDirty(true);
-    setPlannerApplyMessage("Values applied to the form. Please save the relevant section to persist.");
+    setPlannerApplyMessage("Resources copied to Section A. Save Physical Infrastructure and re-check Section B.");
   };
 
   const validatePlannerInputs = useCallback((current: PlannerState): PlannerValidationResult => {
@@ -1774,6 +1948,11 @@ const SystemCapacityControlPage: React.FC = () => {
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               Planner output updates automatically from the values above.
             </Typography>
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              This planner has two checks:
+              <Typography variant="body2">1. Can your current servers support this organisation?</Typography>
+              <Typography variant="body2">2. Can your remaining platform allocation accept this organisation now?</Typography>
+            </Alert>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5, mb: 2 }}>
               <TextField
                 select
@@ -1902,26 +2081,78 @@ const SystemCapacityControlPage: React.FC = () => {
             {plannerResult && (
               <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Planner Output
+                  Planner Result Summary
                 </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                  {plannerResult.was_clamped ? (
-                    <>
-                      <MetricCard label="Suggested requirement: live auctions" value={plannerResult.raw_suggested_live_lanes} help="Raw business demand before platform-limit clamp." />
-                      <MetricCard label="Suggested requirement: open auctions" value={plannerResult.raw_suggested_open_lanes} help="Raw business demand before platform-limit clamp." />
-                      <MetricCard label="Suggested requirement: queued lots" value={plannerResult.raw_suggested_queued_lots} help="Raw business demand before platform-limit clamp." />
-                      <MetricCard label="Suggested requirement: concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform-limit clamp." />
-                    </>
-                  ) : null}
-                  <MetricCard label="Applied allocation after platform limits: live auctions" value={plannerResult.suggested_live_lanes} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied allocation after platform limits: open auctions" value={plannerResult.suggested_open_lanes} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied allocation after platform limits: queued lots" value={plannerResult.suggested_queued_lots} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied allocation after platform limits: concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Final allocation that can be applied now." />
-                  <MetricCard label="Suggested allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Exact tier match on final applied values; otherwise CUSTOM." />
-                  <MetricCard label="Remaining live capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.live} help="Remaining platform live capacity after this allocation." />
-                  <MetricCard label="Remaining open capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.open} help="Remaining platform open capacity after this allocation." />
-                  <MetricCard label="Remaining queued capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.queued} help="Remaining platform queued capacity after this allocation." />
-                  <MetricCard label="Remaining bidder capacity after apply" value={plannerResult.remaining_platform_capacity_after_apply.bidders} help="Remaining platform bidder capacity after this allocation." />
+                {plannerResultStatus ? (
+                  <Alert severity={plannerResultStatus.severity} sx={{ mb: 1.25 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{plannerResultStatus.code}</Typography>
+                    <Typography variant="body2">{plannerResultStatus.text}</Typography>
+                  </Alert>
+                ) : null}
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Business Demand Estimate
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 1.25 }}>
+                  <MetricCard label="Required live auctions" value={plannerResult.raw_suggested_live_lanes} help="Raw business demand before platform limits." />
+                  <MetricCard label="Required open auctions" value={plannerResult.raw_suggested_open_lanes} help="Raw business demand before platform limits." />
+                  <MetricCard label="Required queued lots" value={plannerResult.raw_suggested_queued_lots} help="Raw business demand before platform limits." />
+                  <MetricCard label="Required concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform limits." />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Final Allocation That Can Be Applied Now
+                </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 1 }}>
+                  <MetricCard label="Applied live auctions" value={plannerResult.suggested_live_lanes} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied open auctions" value={plannerResult.suggested_open_lanes} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied queued lots" value={plannerResult.suggested_queued_lots} help="Final allocation that can be applied now." />
+                  <MetricCard label="Applied concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Final allocation that can be applied now." />
+                  <MetricCard label="Allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Final tier code for Section F apply." />
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
+                  Business demand is what the organisation needs. Final allocation is what can be applied now within remaining platform capacity.
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Physical Resource Fit Check
+                </Typography>
+                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25, mb: 1.25 }}>
+                  {plannerPhysicalFitRows.map((row) => (
+                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                      <Typography variant="body2">Required: {row.required} {row.unit}</Typography>
+                      <Typography variant="body2">Current Section A: {row.current} {row.unit}</Typography>
+                      <Chip size="small" color={row.ok ? "success" : "warning"} label={row.ok ? "OK" : "Needs upgrade"} />
+                    </Stack>
+                  ))}
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Safe Capacity Fit Check
+                </Typography>
+                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25, mb: 1.25 }}>
+                  {plannerSafeCapacityRows.map((row) => (
+                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                      <Typography variant="body2">Planner requirement: {row.required}</Typography>
+                      <Typography variant="body2">Section B safe capacity: {row.safe}</Typography>
+                      <Chip size="small" color={row.ok ? "success" : "error"} label={row.ok ? "OK" : "Not enough"} />
+                    </Stack>
+                  ))}
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Platform Allocation Fit Check
+                </Typography>
+                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25 }}>
+                  {plannerPlatformFitRows.map((row) => (
+                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                      <Typography variant="body2">Planner applied allocation: {row.applied}</Typography>
+                      <Typography variant="body2">Remaining platform capacity: {row.remaining}</Typography>
+                      <Chip
+                        size="small"
+                        color={row.status === "OK" ? "success" : row.status === "REDUCED" ? "warning" : "error"}
+                        label={row.status === "OK" ? "OK" : row.status === "REDUCED" ? "Reduced" : "Not enough"}
+                      />
+                    </Stack>
+                  ))}
                 </Box>
               </Paper>
             )}
@@ -2022,7 +2253,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 )}
                 {plannerModelMismatch && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
-                    Recommended resources do not satisfy the estimated demand. Calculation model mismatch.
+                    Planner resource estimate does not satisfy its own demand. Capacity model mismatch.
                   </Alert>
                 )}
                 <Alert severity="info" sx={{ mt: 1.25 }}>

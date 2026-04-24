@@ -967,29 +967,33 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const plannerPlatformFitRows = useMemo(() => {
     if (!plannerResult) return [];
+    const sectionERemainingLive = Number(remainingPool?.remaining_allocatable_live ?? Math.max(0, platformMaxLive - orgAllocationSummary.allocatedLive));
+    const sectionERemainingOpen = Number(remainingPool?.remaining_allocatable_open ?? Math.max(0, platformMaxOpen - orgAllocationSummary.allocatedOpen));
+    const sectionERemainingQueued = Number(remainingPool?.remaining_allocatable_queued ?? Math.max(0, platformMaxQueued - orgAllocationSummary.allocatedQueued));
+    const sectionERemainingBidders = Number(remainingPool?.remaining_allocatable_bidders ?? Math.max(0, platformMaxBidders - orgAllocationSummary.allocatedBidders));
     return [
       {
         label: "Live auctions",
         applied: Number(plannerResult.suggested_live_lanes || 0),
-        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.live || 0),
+        remaining: sectionERemainingLive,
         raw: Number(plannerResult.raw_suggested_live_lanes || 0),
       },
       {
         label: "Open auctions",
         applied: Number(plannerResult.suggested_open_lanes || 0),
-        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.open || 0),
+        remaining: sectionERemainingOpen,
         raw: Number(plannerResult.raw_suggested_open_lanes || 0),
       },
       {
         label: "Queued lots",
         applied: Number(plannerResult.suggested_queued_lots || 0),
-        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.queued || 0),
+        remaining: sectionERemainingQueued,
         raw: Number(plannerResult.raw_suggested_queued_lots || 0),
       },
       {
         label: "Concurrent bidders",
         applied: Number(plannerResult.suggested_concurrent_bidders || 0),
-        remaining: Number(plannerResult.remaining_platform_capacity_before_apply.bidders || 0),
+        remaining: sectionERemainingBidders,
         raw: Number(plannerResult.raw_suggested_concurrent_bidders || 0),
       },
     ].map((row) => ({
@@ -998,7 +1002,7 @@ const SystemCapacityControlPage: React.FC = () => {
         ? (row.applied > 0 ? "REDUCED" : "NOT_ENOUGH")
         : "OK",
     }));
-  }, [plannerResult]);
+  }, [plannerResult, remainingPool, platformMaxLive, platformMaxOpen, platformMaxQueued, platformMaxBidders, orgAllocationSummary]);
 
   const plannerPhysicalFitOk = plannerPhysicalFitRows.every((row) => row.ok);
   const plannerSafeCapacityFitOk = plannerSafeCapacityRows.every((row) => row.ok);
@@ -1016,27 +1020,27 @@ const SystemCapacityControlPage: React.FC = () => {
       return {
         code: "PARTIALLY_APPLIED_DUE_TO_REMAINING_CAPACITY" as const,
         severity: "warning" as const,
-        text: "Planner demand is higher than remaining platform capacity. Applied values have been reduced.",
+        text: "Reduced because remaining allocation is low",
       };
     }
     if (!plannerPhysicalFitOk || !plannerSafeCapacityFitOk) {
       return {
         code: "NEEDS_MORE_PHYSICAL_INFRA" as const,
         severity: "error" as const,
-        text: "Physical infrastructure is not enough. Increase Section A resources or reduce expected load.",
+        text: "Needs more physical infrastructure",
       };
     }
     if (!plannerPlatformTotalFitOk) {
       return {
         code: "NEEDS_MORE_PLATFORM_CAPACITY" as const,
         severity: "warning" as const,
-        text: "Physical infrastructure is enough, but Section C platform capacity is too low. Increase platform limits or free capacity from other organisations.",
+        text: "Needs more platform capacity",
       };
     }
     return {
       code: "FITS_CURRENT_SETUP" as const,
       severity: "success" as const,
-      text: "This organisation can be supported with the current physical infrastructure and platform capacity.",
+      text: "Fits current setup",
     };
   }, [
     plannerResult,
@@ -1943,7 +1947,7 @@ const SystemCapacityControlPage: React.FC = () => {
               This planner estimates organisation allocation from business numbers. It does not change physical server capacity.
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-              Section B calculates capacity from saved physical infrastructure. This planner estimates required physical infrastructure from business demand. Both use the same capacity model.
+              Section A is your current physical server. Section B is safe capacity calculated from Section A. Section C is the platform limit you allow. Section F is organisation allocation. This planner checks whether the selected organisation can fit into all of them.
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               Planner output updates automatically from the values above.
@@ -2099,7 +2103,7 @@ const SystemCapacityControlPage: React.FC = () => {
                   <MetricCard label="Required concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform limits." />
                 </Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Final Allocation That Can Be Applied Now
+                  Final Allocation Applied Now
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 1 }}>
                   <MetricCard label="Applied live auctions" value={plannerResult.suggested_live_lanes} help="Final allocation that can be applied now." />

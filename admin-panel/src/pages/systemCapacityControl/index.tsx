@@ -380,6 +380,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const [plannerFieldErrors, setPlannerFieldErrors] = useState<Partial<Record<keyof PlannerState, string>>>({});
   const [plannerTopErrors, setPlannerTopErrors] = useState<string[]>([]);
   const [plannerApplyMessage, setPlannerApplyMessage] = useState<string | null>(null);
+  const [plannerApplyError, setPlannerApplyError] = useState<string | null>(null);
   const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
@@ -501,25 +502,25 @@ const SystemCapacityControlPage: React.FC = () => {
     const remainingQueuedBeforeApply = Math.max(0, sectionERemainingQueued + selectedOrgCurrentQueued);
     const remainingBiddersBeforeApply = Math.max(0, sectionERemainingBidders + selectedOrgCurrentBidders);
 
-    const appliedLive = Math.max(0, Math.min(bufferedLive, remainingLiveBeforeApply));
-    const appliedOpen = Math.max(0, Math.min(bufferedOpen, remainingOpenBeforeApply));
-    const appliedQueued = Math.max(0, Math.min(bufferedQueued, remainingQueuedBeforeApply));
-    const appliedBidders = Math.max(0, Math.min(bufferedBidders, remainingBiddersBeforeApply));
+    const appliedLive = Math.max(0, bufferedLive);
+    const appliedOpen = Math.max(0, bufferedOpen);
+    const appliedQueued = Math.max(0, bufferedQueued);
+    const appliedBidders = Math.max(0, bufferedBidders);
 
     const warnings: string[] = [];
-    if (bufferedLive > remainingLiveBeforeApply) warnings.push(`Live auctions reduced to remaining limit: ${remainingLiveBeforeApply}.`);
-    if (bufferedOpen > remainingOpenBeforeApply) warnings.push(`Open auctions reduced to remaining limit: ${remainingOpenBeforeApply}.`);
-    if (bufferedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots reduced to remaining limit: ${remainingQueuedBeforeApply}.`);
-    if (bufferedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders reduced to remaining limit: ${remainingBiddersBeforeApply}.`);
+    if (appliedLive > remainingLiveBeforeApply) warnings.push(`Live auctions exceed available capacity by ${appliedLive - remainingLiveBeforeApply}.`);
+    if (appliedOpen > remainingOpenBeforeApply) warnings.push(`Open auctions exceed available capacity by ${appliedOpen - remainingOpenBeforeApply}.`);
+    if (appliedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots exceed available capacity by ${appliedQueued - remainingQueuedBeforeApply}.`);
+    if (appliedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders exceed available capacity by ${appliedBidders - remainingBiddersBeforeApply}.`);
 
     const hasSuggestedValues = appliedLive > 0 || appliedOpen > 0 || appliedQueued > 0 || appliedBidders > 0;
     const exactTierCode = findExactMatchingTierCode(appliedLive, appliedOpen, appliedQueued, appliedBidders);
     const suggestedTierCode = hasSuggestedValues ? (exactTierCode || "CUSTOM") : null;
     const remainingAfterApply = {
-      live: Math.max(0, remainingLiveBeforeApply - appliedLive),
-      open: Math.max(0, remainingOpenBeforeApply - appliedOpen),
-      queued: Math.max(0, remainingQueuedBeforeApply - appliedQueued),
-      bidders: Math.max(0, remainingBiddersBeforeApply - appliedBidders),
+      live: remainingLiveBeforeApply - appliedLive,
+      open: remainingOpenBeforeApply - appliedOpen,
+      queued: remainingQueuedBeforeApply - appliedQueued,
+      bidders: remainingBiddersBeforeApply - appliedBidders,
     };
 
     return {
@@ -540,7 +541,7 @@ const SystemCapacityControlPage: React.FC = () => {
       },
       remaining_platform_capacity_after_apply: remainingAfterApply,
       warnings,
-      was_clamped: warnings.length > 0,
+      was_clamped: false,
     };
   }, [
     plannerModelEstimate,
@@ -782,32 +783,8 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
     setPlannerValidationError(null);
     setPlannerApplyMessage(null);
+    setPlannerApplyError(null);
     setPlannerResult(null);
-  };
-
-  const applyPlannerToSelectedOrg = () => {
-    if (!plannerResult) return;
-    if (!planner.selected_org_id) return;
-    const finalTierCode = findExactMatchingTierCode(
-      plannerResult.suggested_live_lanes,
-      plannerResult.suggested_open_lanes,
-      plannerResult.suggested_queued_lots,
-      plannerResult.suggested_concurrent_bidders,
-    ) || "CUSTOM";
-    setOrgRows((prev) => prev.map((row) => {
-      if (String(row.org_id) !== String(planner.selected_org_id)) return row;
-      return {
-        ...row,
-        tier_code: finalTierCode,
-        allocated_max_live_lanes: plannerResult.suggested_live_lanes,
-        allocated_max_open_lanes: plannerResult.suggested_open_lanes,
-        allocated_max_queued_lots: plannerResult.suggested_queued_lots,
-        allocated_max_concurrent_bidders: plannerResult.suggested_concurrent_bidders,
-      };
-    }));
-    setOrgSaveError(null);
-    setOrgSaveSuccess("Values applied to the form. Please save the relevant section to persist.");
-    setPlannerOpen(false);
   };
 
   const plannerPhysicalResources = useMemo(() => {
@@ -971,38 +948,54 @@ const SystemCapacityControlPage: React.FC = () => {
     const sectionERemainingOpen = Number(remainingPool?.remaining_allocatable_open ?? Math.max(0, platformMaxOpen - orgAllocationSummary.allocatedOpen));
     const sectionERemainingQueued = Number(remainingPool?.remaining_allocatable_queued ?? Math.max(0, platformMaxQueued - orgAllocationSummary.allocatedQueued));
     const sectionERemainingBidders = Number(remainingPool?.remaining_allocatable_bidders ?? Math.max(0, platformMaxBidders - orgAllocationSummary.allocatedBidders));
+    const selectedOrgCurrentLive = Number(plannerSelectedRow?.allocated_max_live_lanes || 0);
+    const selectedOrgCurrentOpen = Number(plannerSelectedRow?.allocated_max_open_lanes || 0);
+    const selectedOrgCurrentQueued = Number(plannerSelectedRow?.allocated_max_queued_lots || 0);
+    const selectedOrgCurrentBidders = Number(plannerSelectedRow?.allocated_max_concurrent_bidders || 0);
     return [
       {
         label: "Live auctions",
-        applied: Number(plannerResult.suggested_live_lanes || 0),
-        remaining: sectionERemainingLive,
-        raw: Number(plannerResult.raw_suggested_live_lanes || 0),
+        availableBeforeApply: Number(plannerResult.remaining_platform_capacity_before_apply.live || 0),
+        plannerAllocationToApply: Number(plannerResult.suggested_live_lanes || 0),
+        remainingAfterApply: Number(plannerResult.remaining_platform_capacity_after_apply.live || 0),
+        sectionERemaining: sectionERemainingLive,
+        selectedOrgCurrent: selectedOrgCurrentLive,
       },
       {
         label: "Open auctions",
-        applied: Number(plannerResult.suggested_open_lanes || 0),
-        remaining: sectionERemainingOpen,
-        raw: Number(plannerResult.raw_suggested_open_lanes || 0),
+        availableBeforeApply: Number(plannerResult.remaining_platform_capacity_before_apply.open || 0),
+        plannerAllocationToApply: Number(plannerResult.suggested_open_lanes || 0),
+        remainingAfterApply: Number(plannerResult.remaining_platform_capacity_after_apply.open || 0),
+        sectionERemaining: sectionERemainingOpen,
+        selectedOrgCurrent: selectedOrgCurrentOpen,
       },
       {
         label: "Queued lots",
-        applied: Number(plannerResult.suggested_queued_lots || 0),
-        remaining: sectionERemainingQueued,
-        raw: Number(plannerResult.raw_suggested_queued_lots || 0),
+        availableBeforeApply: Number(plannerResult.remaining_platform_capacity_before_apply.queued || 0),
+        plannerAllocationToApply: Number(plannerResult.suggested_queued_lots || 0),
+        remainingAfterApply: Number(plannerResult.remaining_platform_capacity_after_apply.queued || 0),
+        sectionERemaining: sectionERemainingQueued,
+        selectedOrgCurrent: selectedOrgCurrentQueued,
       },
       {
         label: "Concurrent bidders",
-        applied: Number(plannerResult.suggested_concurrent_bidders || 0),
-        remaining: sectionERemainingBidders,
-        raw: Number(plannerResult.raw_suggested_concurrent_bidders || 0),
+        availableBeforeApply: Number(plannerResult.remaining_platform_capacity_before_apply.bidders || 0),
+        plannerAllocationToApply: Number(plannerResult.suggested_concurrent_bidders || 0),
+        remainingAfterApply: Number(plannerResult.remaining_platform_capacity_after_apply.bidders || 0),
+        sectionERemaining: sectionERemainingBidders,
+        selectedOrgCurrent: selectedOrgCurrentBidders,
       },
     ].map((row) => ({
       ...row,
-      status: row.raw > row.remaining
-        ? (row.applied > 0 ? "REDUCED" : "NOT_ENOUGH")
-        : "OK",
+      status: row.availableBeforeApply <= 0 && row.plannerAllocationToApply > 0
+        ? "NO_REMAINING"
+        : row.remainingAfterApply < 0
+          ? "NOT_ENOUGH"
+          : row.sectionERemaining <= 0 && row.selectedOrgCurrent > 0 && row.plannerAllocationToApply > 0
+            ? "CAN_REPLACE"
+            : "OK",
     }));
-  }, [plannerResult, remainingPool, platformMaxLive, platformMaxOpen, platformMaxQueued, platformMaxBidders, orgAllocationSummary]);
+  }, [plannerResult, remainingPool, platformMaxLive, platformMaxOpen, platformMaxQueued, platformMaxBidders, orgAllocationSummary, plannerSelectedRow]);
 
   const plannerPhysicalFitOk = plannerPhysicalFitRows.every((row) => row.ok);
   const plannerSafeCapacityFitOk = plannerSafeCapacityRows.every((row) => row.ok);
@@ -1012,43 +1005,101 @@ const SystemCapacityControlPage: React.FC = () => {
     && Number(platformMaxQueued || 0) >= Number(plannerResult?.raw_suggested_queued_lots || 0)
     && Number(platformMaxBidders || 0) >= Number(plannerResult?.raw_suggested_concurrent_bidders || 0)
   );
-  const plannerPartiallyAppliedByRemaining = Boolean(plannerResult?.was_clamped) && plannerPlatformTotalFitOk;
+  const plannerFinalAllocationWithinAvailable = Boolean(plannerResult) && (
+    Number(plannerResult?.suggested_live_lanes || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0)
+    && Number(plannerResult?.suggested_open_lanes || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.open || 0)
+    && Number(plannerResult?.suggested_queued_lots || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.queued || 0)
+    && Number(plannerResult?.suggested_concurrent_bidders || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.bidders || 0)
+  );
+  const plannerNoRemainingLiveCapacity = Boolean(plannerResult) && (
+    Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0) <= 0
+    && Number(plannerResult?.suggested_live_lanes || 0) > 0
+  );
+  const plannerCanReplaceSelectedOrgAllocation = Boolean(plannerResult) && (
+    Number(remainingPool?.remaining_allocatable_live ?? Math.max(0, platformMaxLive - orgAllocationSummary.allocatedLive)) <= 0
+    && Number(plannerSelectedRow?.allocated_max_live_lanes || 0) > 0
+    && Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0) > 0
+    && Number(plannerResult?.suggested_live_lanes || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0)
+  );
 
   const plannerResultStatus = useMemo(() => {
     if (!plannerResult) return null;
-    if (plannerPartiallyAppliedByRemaining) {
+    if (plannerNoRemainingLiveCapacity) {
       return {
-        code: "PARTIALLY_APPLIED_DUE_TO_REMAINING_CAPACITY" as const,
-        severity: "warning" as const,
-        text: "Reduced because remaining allocation is low",
+        severity: "error" as const,
+        text: "Cannot apply because no remaining platform capacity",
+      };
+    }
+    if (plannerCanReplaceSelectedOrgAllocation) {
+      return {
+        severity: "info" as const,
+        text: "Can replace selected org allocation",
       };
     }
     if (!plannerPhysicalFitOk || !plannerSafeCapacityFitOk) {
       return {
-        code: "NEEDS_MORE_PHYSICAL_INFRA" as const,
         severity: "error" as const,
         text: "Needs more physical infrastructure",
       };
     }
-    if (!plannerPlatformTotalFitOk) {
+    if (!plannerFinalAllocationWithinAvailable || !plannerPlatformTotalFitOk) {
       return {
-        code: "NEEDS_MORE_PLATFORM_CAPACITY" as const,
         severity: "warning" as const,
         text: "Needs more platform capacity",
       };
     }
     return {
-      code: "FITS_CURRENT_SETUP" as const,
       severity: "success" as const,
       text: "Fits current setup",
     };
   }, [
     plannerResult,
-    plannerPartiallyAppliedByRemaining,
+    plannerNoRemainingLiveCapacity,
+    plannerCanReplaceSelectedOrgAllocation,
     plannerPhysicalFitOk,
     plannerSafeCapacityFitOk,
+    plannerFinalAllocationWithinAvailable,
     plannerPlatformTotalFitOk,
   ]);
+
+  const applyPlannerToSelectedOrg = () => {
+    if (!plannerResult) return;
+    if (!planner.selected_org_id) return;
+    setPlannerApplyMessage(null);
+    setPlannerApplyError(null);
+    if (plannerNoRemainingLiveCapacity) {
+      setPlannerApplyError("No remaining live auction capacity is available. Increase Section C capacity or reduce/remove another organisation allocation.");
+      return;
+    }
+    if (!plannerFinalAllocationWithinAvailable) {
+      setPlannerApplyError("Planner allocation exceeds available capacity for the selected organisation.");
+      return;
+    }
+    if (!plannerPhysicalFitOk) {
+      const confirmed = window.confirm("Physical Resource Fit Check is not OK. Apply allocation anyway?");
+      if (!confirmed) return;
+    }
+    const finalTierCode = findExactMatchingTierCode(
+      plannerResult.suggested_live_lanes,
+      plannerResult.suggested_open_lanes,
+      plannerResult.suggested_queued_lots,
+      plannerResult.suggested_concurrent_bidders,
+    ) || "CUSTOM";
+    setOrgRows((prev) => prev.map((row) => {
+      if (String(row.org_id) !== String(planner.selected_org_id)) return row;
+      return {
+        ...row,
+        tier_code: finalTierCode,
+        allocated_max_live_lanes: plannerResult.suggested_live_lanes,
+        allocated_max_open_lanes: plannerResult.suggested_open_lanes,
+        allocated_max_queued_lots: plannerResult.suggested_queued_lots,
+        allocated_max_concurrent_bidders: plannerResult.suggested_concurrent_bidders,
+      };
+    }));
+    setOrgSaveError(null);
+    setOrgSaveSuccess("Values applied to the form. Please save the relevant section to persist.");
+    setPlannerOpen(false);
+  };
 
   const applyPlannerResourcesToSectionA = () => {
     if (!plannerPhysicalResources) return;
@@ -1138,6 +1189,7 @@ const SystemCapacityControlPage: React.FC = () => {
   }, [planner, plannerOpen, plannerSuggestion, validatePlannerInputs]);
 
   const handleCalculatePlanner = () => {
+    setPlannerApplyError(null);
     const validation = validatePlannerInputs(planner);
     setPlannerFieldErrors(validation.fieldErrors);
     setPlannerTopErrors(validation.topErrors);
@@ -1580,6 +1632,9 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section C — Platform Capacity Profile
           </Typography>
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            Section B shows maximum safe capacity from physical infrastructure. Section C shows how much of that safe capacity the platform is allowed to use. Section F must fit inside Section C.
+          </Alert>
           {platformSectionDisabled && (
             <Alert severity="info" sx={{ mb: 1.5 }}>
               Complete and save Section A to continue.
@@ -1940,7 +1995,7 @@ const SystemCapacityControlPage: React.FC = () => {
           </Box>
         </Paper>
 
-        <Dialog open={plannerOpen} onClose={() => { setPlannerApplyMessage(null); setPlannerOpen(false); }} fullWidth maxWidth="lg">
+        <Dialog open={plannerOpen} onClose={() => { setPlannerApplyMessage(null); setPlannerApplyError(null); setPlannerOpen(false); }} fullWidth maxWidth="lg">
           <DialogTitle>Capacity Planner</DialogTitle>
           <DialogContent dividers>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -1949,6 +2004,9 @@ const SystemCapacityControlPage: React.FC = () => {
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
               Section A is your current physical server. Section B is safe capacity calculated from Section A. Section C is the platform limit you allow. Section F is organisation allocation. This planner checks whether the selected organisation can fit into all of them.
             </Typography>
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Section B shows maximum safe capacity from physical infrastructure. Section C shows how much of that safe capacity the platform is allowed to use. Section F must fit inside Section C.
+            </Alert>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               Planner output updates automatically from the values above.
             </Typography>
@@ -2072,11 +2130,11 @@ const SystemCapacityControlPage: React.FC = () => {
                 Enter business values to calculate a suggested allocation.
               </Alert>
             )}
-            {plannerResult?.was_clamped ? (
-              <Alert severity="warning" sx={{ mb: 1.5 }}>
-                Your business demand is higher than remaining platform capacity. The applied organisation allocation has been reduced. Increase Section C platform capacity or free capacity from other organisations.
+            {plannerNoRemainingLiveCapacity && (
+              <Alert severity="error" sx={{ mb: 1.5 }}>
+                No remaining live auction capacity is available. Increase Section C capacity or reduce/remove another organisation allocation.
               </Alert>
-            ) : null}
+            )}
             {plannerResult?.warnings?.map((warning) => (
               <Alert key={warning} severity="warning" sx={{ mb: 1.5 }}>
                 {warning}
@@ -2089,7 +2147,6 @@ const SystemCapacityControlPage: React.FC = () => {
                 </Typography>
                 {plannerResultStatus ? (
                   <Alert severity={plannerResultStatus.severity} sx={{ mb: 1.25 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{plannerResultStatus.code}</Typography>
                     <Typography variant="body2">{plannerResultStatus.text}</Typography>
                   </Alert>
                 ) : null}
@@ -2113,7 +2170,7 @@ const SystemCapacityControlPage: React.FC = () => {
                   <MetricCard label="Allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Final tier code for Section F apply." />
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
-                  Business demand is what the organisation needs. Final allocation is what can be applied now within remaining platform capacity.
+                  Remaining after apply is calculated as: available before apply - planner allocation to apply.
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
                   Physical Resource Fit Check
@@ -2145,15 +2202,35 @@ const SystemCapacityControlPage: React.FC = () => {
                   Platform Allocation Fit Check
                 </Typography>
                 <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                    Available before apply | Planner allocation to apply | Remaining after apply | Status
+                  </Typography>
                   {plannerPlatformFitRows.map((row) => (
                     <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
                       <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
-                      <Typography variant="body2">Planner applied allocation: {row.applied}</Typography>
-                      <Typography variant="body2">Remaining platform capacity: {row.remaining}</Typography>
+                      <Typography variant="body2">Available before apply: {row.availableBeforeApply}</Typography>
+                      <Typography variant="body2">Planner allocation to apply: {row.plannerAllocationToApply}</Typography>
+                      <Typography variant="body2">Remaining after apply: {row.remainingAfterApply}</Typography>
                       <Chip
                         size="small"
-                        color={row.status === "OK" ? "success" : row.status === "REDUCED" ? "warning" : "error"}
-                        label={row.status === "OK" ? "OK" : row.status === "REDUCED" ? "Reduced" : "Not enough"}
+                        color={
+                          row.status === "OK"
+                            ? "success"
+                            : row.status === "CAN_REPLACE"
+                              ? "info"
+                              : row.status === "NOT_ENOUGH"
+                                ? "warning"
+                                : "error"
+                        }
+                        label={
+                          row.status === "OK"
+                            ? "OK"
+                            : row.status === "CAN_REPLACE"
+                              ? "Can replace"
+                              : row.status === "NOT_ENOUGH"
+                                ? "Not enough"
+                                : "No remaining capacity"
+                        }
                       />
                     </Stack>
                   ))}
@@ -2270,16 +2347,31 @@ const SystemCapacityControlPage: React.FC = () => {
                 {plannerApplyMessage}
               </Alert>
             )}
+            {plannerApplyError && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                {plannerApplyError}
+              </Alert>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setPlannerApplyMessage(null); setPlannerOpen(false); }}>Close</Button>
+            <Button onClick={() => { setPlannerApplyMessage(null); setPlannerApplyError(null); setPlannerOpen(false); }}>Close</Button>
             <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
               Calculate Capacity
             </Button>
             <Button variant="outlined" onClick={applyPlannerResourcesToSectionA} disabled={!canEditCapacityControl || !plannerResult || !plannerPhysicalResources}>
               Apply Resources to Section A
             </Button>
-            <Button variant="contained" onClick={applyPlannerToSelectedOrg} disabled={!canEditCapacityControl || !planner.selected_org_id || !plannerResult}>
+            <Button
+              variant="contained"
+              onClick={applyPlannerToSelectedOrg}
+              disabled={
+                !canEditCapacityControl
+                || !planner.selected_org_id
+                || !plannerResult
+                || plannerNoRemainingLiveCapacity
+                || !plannerFinalAllocationWithinAvailable
+              }
+            >
               Apply to Selected Organisation
             </Button>
           </DialogActions>

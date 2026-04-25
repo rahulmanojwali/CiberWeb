@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -21,6 +24,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { PageContainer } from "../../components/PageContainer";
@@ -880,40 +884,47 @@ const SystemCapacityControlPage: React.FC = () => {
         required: Number(plannerPhysicalResources.required_app_server_ram_gb || 0),
         current: Number(currentInfra.app_server_ram_gb || 0),
         unit: "GB",
+        group: "RUNTIME" as const,
       },
       {
         label: "App Server vCPU",
         required: Number(plannerPhysicalResources.required_app_server_vcpu || 0),
         current: Number(currentInfra.app_server_vcpu || 0),
         unit: "vCPU",
+        group: "RUNTIME" as const,
       },
       {
         label: "DB Server RAM",
         required: Number(plannerPhysicalResources.required_db_server_ram_gb || 0),
         current: Number(currentInfra.db_server_ram_gb || 0),
         unit: "GB",
+        group: "RUNTIME" as const,
       },
       {
         label: "DB Server vCPU",
         required: Number(plannerPhysicalResources.required_db_server_vcpu || 0),
         current: Number(currentInfra.db_server_vcpu || 0),
         unit: "vCPU",
+        group: "RUNTIME" as const,
       },
       {
         label: "Web Server RAM",
         required: Number(plannerPhysicalResources.required_web_server_ram_gb || 0),
         current: Number(currentInfra.web_server_ram_gb || 0),
         unit: "GB",
+        group: "WEB_ADVISORY" as const,
       },
       {
         label: "Web Server vCPU",
         required: Number(plannerPhysicalResources.required_web_server_vcpu || 0),
         current: Number(currentInfra.web_server_vcpu || 0),
         unit: "vCPU",
+        group: "WEB_ADVISORY" as const,
       },
     ].map((row) => ({
       ...row,
       ok: row.current >= row.required,
+      statusLabel: row.current >= row.required ? "OK" : row.group === "WEB_ADVISORY" ? "Advisory upgrade" : "Needs upgrade",
     }));
   }, [plannerPhysicalResources, systemConfig?.infra_profile]);
 
@@ -992,7 +1003,9 @@ const SystemCapacityControlPage: React.FC = () => {
   const plannerHasErrorMetric = plannerPlatformFitRows.some((row) => row.status === "ERROR");
   const plannerHasFullMetric = plannerPlatformFitRows.some((row) => row.status === "FULL");
 
-  const plannerPhysicalFitOk = plannerPhysicalFitRows.every((row) => row.ok);
+  const plannerRuntimePhysicalRows = plannerPhysicalFitRows.filter((row) => row.group === "RUNTIME");
+  const plannerWebAdvisoryRows = plannerPhysicalFitRows.filter((row) => row.group === "WEB_ADVISORY");
+  const plannerWebAdvisoryHasMismatch = plannerWebAdvisoryRows.some((row) => !row.ok);
   const plannerSafeCapacityFitOk = plannerSafeCapacityRows.every((row) => row.ok);
   const plannerPlatformTotalFitOk = Boolean(plannerResult) && (
     Number(platformMaxLive || 0) >= Number(plannerResult?.raw_suggested_live_lanes || 0)
@@ -1006,10 +1019,54 @@ const SystemCapacityControlPage: React.FC = () => {
     && Number(plannerResult?.suggested_queued_lots || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.queued || 0)
     && Number(plannerResult?.suggested_concurrent_bidders || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.bidders || 0)
   );
-  const plannerNoRemainingLiveCapacity = Boolean(plannerResult) && (
-    Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0) <= 0
-    && Number(plannerResult?.suggested_live_lanes || 0) > 0
-  );
+  const plannerApiDbInfraBlocking = plannerRuntimePhysicalRows.some((row) => !row.ok) && !plannerSafeCapacityFitOk;
+  const plannerHasValidationErrors = plannerTopErrors.length > 0 || Boolean(plannerValidationError);
+  const plannerHasBlockingPlatformError = plannerHasErrorMetric || !plannerFinalAllocationWithinAvailable;
+  const plannerApplyDisabled = !canEditCapacityControl
+    || !planner.selected_org_id
+    || !plannerResult
+    || plannerHasValidationErrors
+    || !plannerSafeCapacityFitOk
+    || plannerHasBlockingPlatformError
+    || plannerApiDbInfraBlocking;
+
+  const plannerDecisionSummary = useMemo(() => {
+    if (!plannerResult) return null;
+    if (plannerHasBlockingPlatformError || !plannerPlatformTotalFitOk) {
+      return {
+        code: "NEEDS_MORE_PLATFORM_CAPACITY" as const,
+        severity: "error" as const,
+        text: "This organisation cannot be allocated because remaining platform capacity is not enough.",
+      };
+    }
+    if (!plannerSafeCapacityFitOk || plannerApiDbInfraBlocking) {
+      return {
+        code: "NEEDS_MORE_API_DB_INFRA" as const,
+        severity: "error" as const,
+        text: "Current API/DB infrastructure is not enough for this organisation.",
+      };
+    }
+    if (plannerHasFullMetric) {
+      return {
+        code: "CAN_APPLY_BUT_FULL" as const,
+        severity: "warning" as const,
+        text: "This organisation can be allocated, but one or more limits will be fully used.",
+      };
+    }
+    return {
+      code: "CAN_APPLY" as const,
+      severity: "success" as const,
+      text: "This organisation can be allocated with the current platform capacity.",
+    };
+  }, [
+    plannerResult,
+    plannerHasBlockingPlatformError,
+    plannerPlatformTotalFitOk,
+    plannerSafeCapacityFitOk,
+    plannerApiDbInfraBlocking,
+    plannerHasFullMetric,
+  ]);
+
   const plannerCanReplaceSelectedOrgAllocation = Boolean(plannerResult) && (
     Number(remainingPool?.remaining_allocatable_live ?? Math.max(0, platformMaxLive - orgAllocationSummary.allocatedLive)) <= 0
     && Number(plannerSelectedRow?.allocated_max_live_lanes || 0) > 0
@@ -1017,66 +1074,22 @@ const SystemCapacityControlPage: React.FC = () => {
     && Number(plannerResult?.suggested_live_lanes || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0)
   );
 
-  const plannerResultStatus = useMemo(() => {
-    if (!plannerResult) return null;
-    if (plannerNoRemainingLiveCapacity) {
-      return {
-        severity: "error" as const,
-        text: "Cannot apply because no remaining platform capacity",
-      };
-    }
-    if (plannerCanReplaceSelectedOrgAllocation) {
-      return {
-        severity: "info" as const,
-        text: "Can replace selected org allocation",
-      };
-    }
-    if (!plannerPhysicalFitOk || !plannerSafeCapacityFitOk) {
-      return {
-        severity: "error" as const,
-        text: "Needs more physical infrastructure",
-      };
-    }
-    if (!plannerFinalAllocationWithinAvailable || !plannerPlatformTotalFitOk) {
-      return {
-        severity: "warning" as const,
-        text: "Needs more platform capacity",
-      };
-    }
-    return {
-      severity: "success" as const,
-      text: "Fits current setup",
-    };
-  }, [
-    plannerResult,
-    plannerNoRemainingLiveCapacity,
-    plannerCanReplaceSelectedOrgAllocation,
-    plannerPhysicalFitOk,
-    plannerSafeCapacityFitOk,
-    plannerFinalAllocationWithinAvailable,
-    plannerPlatformTotalFitOk,
-  ]);
-
   const applyPlannerToSelectedOrg = () => {
     if (!plannerResult) return;
     if (!planner.selected_org_id) return;
     setPlannerApplyMessage(null);
     setPlannerApplyError(null);
-    if (plannerHasErrorMetric || plannerNoRemainingLiveCapacity) {
-      setPlannerApplyError("No remaining live auction capacity is available. Increase Section C capacity or reduce/remove another organisation allocation.");
+    if (plannerHasErrorMetric || !plannerFinalAllocationWithinAvailable) {
+      setPlannerApplyError("Cannot apply. Requested allocation exceeds available capacity.");
       return;
     }
-    if (!plannerFinalAllocationWithinAvailable) {
-      setPlannerApplyError("Planner allocation exceeds available capacity for the selected organisation.");
+    if (!plannerSafeCapacityFitOk) {
+      setPlannerApplyError("Current API/DB infrastructure is not enough for this organisation.");
       return;
     }
     if (plannerHasFullMetric) {
-      const confirmedFull = window.confirm("Applying this will exhaust platform capacity. Continue?");
+      const confirmedFull = window.confirm("Applying this allocation will fully use one or more platform limits. Continue?");
       if (!confirmedFull) return;
-    }
-    if (!plannerPhysicalFitOk) {
-      const confirmed = window.confirm("Physical Resource Fit Check is not OK. Apply allocation anyway?");
-      if (!confirmed) return;
     }
     const finalTierCode = findExactMatchingTierCode(
       plannerResult.suggested_live_lanes,
@@ -2148,9 +2161,9 @@ const SystemCapacityControlPage: React.FC = () => {
                 Enter business values to calculate a suggested allocation.
               </Alert>
             )}
-            {plannerNoRemainingLiveCapacity && (
+            {plannerHasErrorMetric && (
               <Alert severity="error" sx={{ mb: 1.5 }}>
-                No remaining live auction capacity is available. Increase Section C capacity or reduce/remove another organisation allocation.
+                Cannot apply. Requested allocation exceeds available capacity.
               </Alert>
             )}
             {plannerHasFullMetric && (
@@ -2165,66 +2178,52 @@ const SystemCapacityControlPage: React.FC = () => {
             ))}
             {plannerResult && (
               <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Planner Result Summary
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  1. Decision Summary
                 </Typography>
-                {plannerResultStatus ? (
-                  <Alert severity={plannerResultStatus.severity} sx={{ mb: 1.25 }}>
-                    <Typography variant="body2">{plannerResultStatus.text}</Typography>
+                {plannerDecisionSummary ? (
+                  <Alert severity={plannerDecisionSummary.severity} sx={{ mb: 1.25 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25 }}>{plannerDecisionSummary.code}</Typography>
+                    <Typography variant="body2">{plannerDecisionSummary.text}</Typography>
                   </Alert>
                 ) : null}
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Business Demand Estimate
+                {plannerCanReplaceSelectedOrgAllocation && (
+                  <Alert severity="info" sx={{ mb: 1.25 }}>
+                    Can replace selected org allocation
+                  </Alert>
+                )}
+                {plannerWebAdvisoryHasMismatch && (
+                  <Alert severity="warning" sx={{ mb: 1.25 }}>
+                    WEB_ADMIN_ADVISORY: Web/Admin resources may need upgrade for smoother portal/admin usage.
+                  </Alert>
+                )}
+
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  2. Final Allocation to Apply
                 </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 1.25 }}>
-                  <MetricCard label="Required live auctions" value={plannerResult.raw_suggested_live_lanes} help="Raw business demand before platform limits." />
-                  <MetricCard label="Required open auctions" value={plannerResult.raw_suggested_open_lanes} help="Raw business demand before platform limits." />
-                  <MetricCard label="Required queued lots" value={plannerResult.raw_suggested_queued_lots} help="Raw business demand before platform limits." />
-                  <MetricCard label="Required concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform limits." />
-                </Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Final Allocation Applied Now
+                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mb: 1.25 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                    Final allocation to Section F
+                  </Typography>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mb: 0.75 }}>
+                    <Chip size="small" color="primary" label={`Live auctions: ${plannerResult.suggested_live_lanes}`} />
+                    <Chip size="small" color="primary" label={`Open auctions: ${plannerResult.suggested_open_lanes}`} />
+                    <Chip size="small" color="primary" label={`Queued lots: ${plannerResult.suggested_queued_lots}`} />
+                    <Chip size="small" color="primary" label={`Concurrent bidders: ${plannerResult.suggested_concurrent_bidders}`} />
+                    <Chip size="small" color="default" label={`Tier: ${plannerResult.suggested_tier_code || "N/A"}`} />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                    These are the values that will be copied to the selected organisation row. Nothing is saved until Save Org Allocation is clicked.
+                  </Typography>
+                </Paper>
+
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  3. Fit Checks
                 </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25, mb: 1 }}>
-                  <MetricCard label="Applied live auctions" value={plannerResult.suggested_live_lanes} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied open auctions" value={plannerResult.suggested_open_lanes} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied queued lots" value={plannerResult.suggested_queued_lots} help="Final allocation that can be applied now." />
-                  <MetricCard label="Applied concurrent bidders" value={plannerResult.suggested_concurrent_bidders} help="Final allocation that can be applied now." />
-                  <MetricCard label="Allocation tier" value={plannerResult.suggested_tier_code || "N/A"} help="Final tier code for Section F apply." />
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
-                  Remaining after apply is calculated as: available before apply - planner allocation to apply.
-                </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Physical Resource Fit Check
-                </Typography>
-                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25, mb: 1.25 }}>
-                  {plannerPhysicalFitRows.map((row) => (
-                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
-                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
-                      <Typography variant="body2">Required: {row.required} {row.unit}</Typography>
-                      <Typography variant="body2">Current Section A: {row.current} {row.unit}</Typography>
-                      <Chip size="small" color={row.ok ? "success" : "warning"} label={row.ok ? "OK" : "Needs upgrade"} />
-                    </Stack>
-                  ))}
-                </Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Safe Capacity Fit Check
-                </Typography>
-                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25, mb: 1.25 }}>
-                  {plannerSafeCapacityRows.map((row) => (
-                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
-                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
-                      <Typography variant="body2">Planner requirement: {row.required}</Typography>
-                      <Typography variant="body2">Section B safe capacity: {row.safe}</Typography>
-                      <Chip size="small" color={row.ok ? "success" : "error"} label={row.ok ? "OK" : "Not enough"} />
-                    </Stack>
-                  ))}
-                </Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  Platform Allocation Fit Check
-                </Typography>
-                <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25 }}>
+                <Paper variant="outlined" sx={{ p: 1, borderRadius: 1.25, mb: 1.25 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Platform Allocation Fit Check
+                  </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                     Available before apply | Planner allocation to apply | Remaining after apply | Status
                   </Typography>
@@ -2236,132 +2235,145 @@ const SystemCapacityControlPage: React.FC = () => {
                       <Typography variant="body2">Remaining after apply: {row.remainingAfterApply}</Typography>
                       <Chip
                         size="small"
-                        color={
-                          row.status === "OK"
-                            ? "success"
-                            : row.status === "FULL" || row.status === "REDUCED"
-                              ? "warning"
-                              : "error"
-                        }
-                        label={
-                          row.status === "OK"
-                            ? "OK"
-                            : row.status === "FULL"
-                              ? "FULL"
-                              : row.status === "REDUCED"
-                                ? "REDUCED"
-                                : "ERROR"
-                        }
+                        color={row.status === "OK" ? "success" : row.status === "FULL" || row.status === "REDUCED" ? "warning" : "error"}
+                        label={row.status}
                       />
+                      {row.status === "FULL" && (
+                        <Typography variant="caption" color="warning.main">
+                          Fits, but this metric will be fully used after applying.
+                        </Typography>
+                      )}
+                      {row.status === "ERROR" && (
+                        <Typography variant="caption" color="error.main">
+                          Cannot apply. Requested allocation exceeds available capacity.
+                        </Typography>
+                      )}
                     </Stack>
                   ))}
-                </Box>
+                </Paper>
+                <Paper variant="outlined" sx={{ p: 1, borderRadius: 1.25 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Safe Capacity Fit Check (Section B)
+                  </Typography>
+                  {plannerSafeCapacityRows.map((row) => (
+                    <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                      <Typography variant="body2">Planner requirement: {row.required}</Typography>
+                      <Typography variant="body2">Section B safe capacity: {row.safe}</Typography>
+                      <Chip size="small" color={row.ok ? "success" : "error"} label={row.ok ? "OK" : "Not enough"} />
+                    </Stack>
+                  ))}
+                </Paper>
               </Paper>
             )}
+
+            {plannerResult && (
+              <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Business Demand Estimate</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                    <MetricCard label="Required live auctions" value={plannerResult.raw_suggested_live_lanes} help="Raw business demand before platform limits." />
+                    <MetricCard label="Required open auctions" value={plannerResult.raw_suggested_open_lanes} help="Raw business demand before platform limits." />
+                    <MetricCard label="Required queued lots" value={plannerResult.raw_suggested_queued_lots} help="Raw business demand before platform limits." />
+                    <MetricCard label="Required concurrent bidders" value={plannerResult.raw_suggested_concurrent_bidders} help="Raw business demand before platform limits." />
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            )}
+
+            {plannerResult && (
+              <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Physical Resource Fit Check</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    Web/Admin resource estimates are for dashboard/admin usability. They do not directly reduce auction runtime capacity. Auction runtime capacity is governed by App/API and DB checks.
+                  </Alert>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Auction Runtime Resources</Typography>
+                  <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25, mb: 1 }}>
+                    {plannerRuntimePhysicalRows.map((row) => (
+                      <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                        <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                        <Typography variant="body2">Required: {row.required} {row.unit}</Typography>
+                        <Typography variant="body2">Current Section A: {row.current} {row.unit}</Typography>
+                        <Chip size="small" color={row.ok ? "success" : "warning"} label={row.statusLabel} />
+                      </Stack>
+                    ))}
+                  </Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Portal/Admin Advisory Resources</Typography>
+                  <Box sx={{ p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1.25 }}>
+                    {plannerWebAdvisoryRows.map((row) => (
+                      <Stack key={row.label} direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ py: 0.5 }}>
+                        <Typography variant="body2" sx={{ minWidth: 180 }}>{row.label}</Typography>
+                        <Typography variant="body2">Required: {row.required} {row.unit}</Typography>
+                        <Typography variant="body2">Current Section A: {row.current} {row.unit}</Typography>
+                        <Chip size="small" color={row.ok ? "success" : "warning"} label={row.statusLabel} />
+                      </Stack>
+                    ))}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            )}
+
             {plannerResult && plannerPhysicalResources && (
-              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  Estimated Physical Resources Required
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                  These are advisory server requirements based on the business inputs. They do not change Section A automatically.
-                </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                  <MetricCard label="Required App Server RAM (GB)" value={plannerPhysicalResources.required_app_server_ram_gb} help="Advisory estimate." />
-                  <MetricCard label="Required App Server vCPU" value={plannerPhysicalResources.required_app_server_vcpu} help="Advisory estimate." />
-                  <MetricCard label="Required DB Server RAM (GB)" value={plannerPhysicalResources.required_db_server_ram_gb} help="Advisory estimate." />
-                  <MetricCard label="Required DB Server vCPU" value={plannerPhysicalResources.required_db_server_vcpu} help="Advisory estimate." />
-                  <MetricCard label="Required Web Server RAM (GB)" value={plannerPhysicalResources.required_web_server_ram_gb} help="Advisory estimate." />
-                  <MetricCard label="Required Web Server vCPU" value={plannerPhysicalResources.required_web_server_vcpu} help="Advisory estimate." />
-                  <MetricCard label="Recommended OS Reserve %" value={plannerPhysicalResources.recommended_os_reserve_percent} help="Planning reserve." />
-                  <MetricCard label="Recommended System Reserve %" value={plannerPhysicalResources.recommended_system_reserve_percent} help="Planning reserve." />
-                  <MetricCard label="Recommended Web/Admin Reserve %" value={plannerPhysicalResources.recommended_web_admin_reserve_percent} help="Planning reserve." />
-                </Box>
-                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mt: 1.25 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
-                    Resource Impact Breakdown
+              <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Estimated Physical Resources Required</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                    These are advisory server requirements based on the business inputs. They do not change Section A automatically.
                   </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                    <MetricCard label="Required App Server RAM (GB)" value={plannerPhysicalResources.required_app_server_ram_gb} help="Advisory estimate." />
+                    <MetricCard label="Required App Server vCPU" value={plannerPhysicalResources.required_app_server_vcpu} help="Advisory estimate." />
+                    <MetricCard label="Required DB Server RAM (GB)" value={plannerPhysicalResources.required_db_server_ram_gb} help="Advisory estimate." />
+                    <MetricCard label="Required DB Server vCPU" value={plannerPhysicalResources.required_db_server_vcpu} help="Advisory estimate." />
+                    <MetricCard label="Required Web Server RAM (GB)" value={plannerPhysicalResources.required_web_server_ram_gb} help="Advisory estimate." />
+                    <MetricCard label="Required Web Server vCPU" value={plannerPhysicalResources.required_web_server_vcpu} help="Advisory estimate." />
+                    <MetricCard label="Recommended OS Reserve %" value={plannerPhysicalResources.recommended_os_reserve_percent} help="Planning reserve." />
+                    <MetricCard label="Recommended System Reserve %" value={plannerPhysicalResources.recommended_system_reserve_percent} help="Planning reserve." />
+                    <MetricCard label="Recommended Web/Admin Reserve %" value={plannerPhysicalResources.recommended_web_admin_reserve_percent} help="Planning reserve." />
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            )}
+
+            {plannerResult && plannerPhysicalResources && (
+              <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Resource Impact Breakdown</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
                     This explains why the planner recommends the RAM and CPU values below.
                   </Typography>
-                  <Stack spacing={0.75} sx={{ mb: 1.25 }}>
+                  <Stack spacing={0.75}>
                     <Typography variant="body2">App Server RAM: Calculated from the strongest of live lanes, open lanes, and bidder load, then adjusted for reserves and rounded up.</Typography>
                     <Typography variant="body2">DB Server RAM: Calculated from the stronger of queued lots and bidder persistence load, then adjusted for reserves and rounded up.</Typography>
                     <Typography variant="body2">Web Server RAM: Base web/admin footprint plus user load, then adjusted for reserves and rounded up.</Typography>
                   </Stack>
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))" }, gap: 1 }}>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">App Server RAM breakdown</Typography>
-                      <Typography variant="body2">Base app memory: {plannerPhysicalResources.breakdown.app_ram.base.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_ram.live.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Open auction impact: {plannerPhysicalResources.breakdown.app_ram.open.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_ram.bidder.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.app_ram.selected.toFixed(2)} GB</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_ram.recommended.toFixed(1)} GB</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">App Server vCPU breakdown</Typography>
-                      <Typography variant="body2">Base app CPU: {plannerPhysicalResources.breakdown.app_cpu.base.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Live auction impact: {plannerPhysicalResources.breakdown.app_cpu.live.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Open auction impact: {plannerPhysicalResources.breakdown.app_cpu.open.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Bidder impact: {plannerPhysicalResources.breakdown.app_cpu.bidder.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.app_cpu.selected.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.app_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.app_cpu.recommended.toFixed(0)} vCPU</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">DB Server RAM breakdown</Typography>
-                      <Typography variant="body2">Base DB memory: {plannerPhysicalResources.breakdown.db_ram.base.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_ram.queue.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_ram.bidder.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.db_ram.selected.toFixed(2)} GB</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_ram.recommended.toFixed(1)} GB</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">DB Server vCPU breakdown</Typography>
-                      <Typography variant="body2">Base DB CPU: {plannerPhysicalResources.breakdown.db_cpu.base.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Queue impact: {plannerPhysicalResources.breakdown.db_cpu.queue.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Bidder persistence impact: {plannerPhysicalResources.breakdown.db_cpu.bidder.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.db_cpu.selected.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.db_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.db_cpu.recommended.toFixed(0)} vCPU</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">Web Server RAM breakdown</Typography>
-                      <Typography variant="body2">Base web/admin memory: {plannerPhysicalResources.breakdown.web_ram.base.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_ram.users.toFixed(2)} GB</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.web_ram.selected.toFixed(2)} GB</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_ram.estimated.toFixed(2)} GB {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_ram.recommended.toFixed(1)} GB</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1 }}>
-                      <Typography variant="subtitle2">Web Server vCPU breakdown</Typography>
-                      <Typography variant="body2">Base web/admin CPU: {plannerPhysicalResources.breakdown.web_cpu.base.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">User count impact: {plannerPhysicalResources.breakdown.web_cpu.users.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2">Driving requirement before reserve: {plannerPhysicalResources.breakdown.web_cpu.selected.toFixed(2)} vCPU</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>Estimated: {plannerPhysicalResources.breakdown.web_cpu.estimated.toFixed(2)} vCPU {"\u2192"} Recommended: {plannerPhysicalResources.breakdown.web_cpu.recommended.toFixed(0)} vCPU</Typography>
-                    </Paper>
+                </AccordionDetails>
+              </Accordion>
+            )}
+
+            {plannerResult && plannerCapacityFromRecommendedInfra && (
+              <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Estimated Capacity from Recommended Resources</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
+                    <MetricCard label="Estimated live lanes" value={plannerCapacityFromRecommendedInfra.final_safe_live_lanes} help="Derived by re-running Section B model on recommended infra." />
+                    <MetricCard label="Estimated open lanes" value={plannerCapacityFromRecommendedInfra.final_safe_open_lanes} help="Derived by re-running Section B model on recommended infra." />
+                    <MetricCard label="Estimated queued lots" value={plannerCapacityFromRecommendedInfra.final_safe_queued_lots} help="Derived by re-running Section B model on recommended infra." />
+                    <MetricCard label="Estimated bidders" value={plannerCapacityFromRecommendedInfra.final_safe_concurrent_bidders} help="Derived by re-running Section B model on recommended infra." />
                   </Box>
-                </Paper>
-                {plannerCapacityFromRecommendedInfra && (
-                  <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mt: 1.25 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                      Estimated capacity from recommended resources
-                    </Typography>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
-                      <MetricCard label="Estimated live lanes" value={plannerCapacityFromRecommendedInfra.final_safe_live_lanes} help="Derived by re-running Section B model on recommended infra." />
-                      <MetricCard label="Estimated open lanes" value={plannerCapacityFromRecommendedInfra.final_safe_open_lanes} help="Derived by re-running Section B model on recommended infra." />
-                      <MetricCard label="Estimated queued lots" value={plannerCapacityFromRecommendedInfra.final_safe_queued_lots} help="Derived by re-running Section B model on recommended infra." />
-                      <MetricCard label="Estimated bidders" value={plannerCapacityFromRecommendedInfra.final_safe_concurrent_bidders} help="Derived by re-running Section B model on recommended infra." />
-                    </Box>
-                  </Paper>
-                )}
-                {plannerModelMismatch && (
-                  <Alert severity="warning" sx={{ mt: 1.25 }}>
-                    Planner resource estimate does not satisfy its own demand. Capacity model mismatch.
-                  </Alert>
-                )}
-                <Alert severity="info" sx={{ mt: 1.25 }}>
-                  Resource estimates are planning guidance. Final production sizing should be validated with real usage, monitoring, and load testing.
-                </Alert>
-              </Paper>
+                </AccordionDetails>
+              </Accordion>
             )}
             {plannerApplyMessage && (
               <Alert severity="success" sx={{ mt: 1.5 }}>
@@ -2385,14 +2397,7 @@ const SystemCapacityControlPage: React.FC = () => {
             <Button
               variant="contained"
               onClick={applyPlannerToSelectedOrg}
-              disabled={
-                !canEditCapacityControl
-                || !planner.selected_org_id
-                || !plannerResult
-                || plannerHasErrorMetric
-                || plannerNoRemainingLiveCapacity
-                || !plannerFinalAllocationWithinAvailable
-              }
+              disabled={plannerApplyDisabled}
             >
               Apply to Selected Organisation
             </Button>

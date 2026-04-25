@@ -179,6 +179,18 @@ type PlannerValidationResult = {
   isValid: boolean;
 };
 
+const DEFAULT_PLANNER_INPUTS: Omit<PlannerState, "selected_org_id"> = {
+  number_of_mandis: 1,
+  expected_farmers: 5,
+  expected_traders: 5,
+  peak_active_traders: 1,
+  expected_lots_per_day: 5,
+  expected_peak_queued_lots: 1,
+  expected_concurrent_auctions: 1,
+  growth_buffer_percent: 0,
+  usage_profile: "NORMAL",
+};
+
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -384,15 +396,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
-    number_of_mandis: 1,
-    expected_farmers: 0,
-    expected_traders: 0,
-    peak_active_traders: 0,
-    expected_lots_per_day: 0,
-    expected_peak_queued_lots: 0,
-    expected_concurrent_auctions: 1,
-    growth_buffer_percent: 20,
-    usage_profile: "NORMAL",
+    ...DEFAULT_PLANNER_INPUTS,
   });
 
   const presetMap = useMemo(() => buildPresetMap(tierPresets), [tierPresets]);
@@ -1092,7 +1096,7 @@ const SystemCapacityControlPage: React.FC = () => {
       };
     }));
     setOrgSaveError(null);
-    setOrgSaveSuccess("Values applied to the form. Please save the relevant section to persist.");
+    setOrgSaveSuccess("Values applied to the selected org row in Section F. Click Save Org Allocation to persist.");
     setPlannerOpen(false);
   };
 
@@ -1146,6 +1150,10 @@ const SystemCapacityControlPage: React.FC = () => {
       nextFieldErrors.expected_concurrent_auctions = "Peak concurrent auctions in this organisation must be greater than 0.";
       nextTopErrors.push("Peak concurrent auctions in this organisation must be greater than 0.");
     }
+    if (concurrentAuctions > Number(platformMaxLive || 0)) {
+      nextFieldErrors.expected_concurrent_auctions = `Peak concurrent auctions cannot exceed Section C Max Total Live Lanes (${Number(platformMaxLive || 0)}).`;
+      nextTopErrors.push(`Peak concurrent auctions cannot exceed Section C Max Total Live Lanes (${Number(platformMaxLive || 0)}).`);
+    }
     if (growthBuffer < 0 || growthBuffer > 100) {
       nextFieldErrors.growth_buffer_percent = "Growth buffer (%) must be between 0 and 100.";
       nextTopErrors.push("Growth buffer (%) must be between 0 and 100.");
@@ -1168,7 +1176,22 @@ const SystemCapacityControlPage: React.FC = () => {
       topErrors: combinedErrors,
       isValid: combinedErrors.length === 0,
     };
-  }, []);
+  }, [platformMaxLive]);
+
+  const openPlannerDialog = () => {
+    const selectedOrgId = planner.selected_org_id || String(orgRows[0]?.org_id || "");
+    setPlanner({
+      selected_org_id: selectedOrgId,
+      ...DEFAULT_PLANNER_INPUTS,
+    });
+    setPlannerFieldErrors({});
+    setPlannerTopErrors([]);
+    setPlannerValidationError(null);
+    setPlannerApplyMessage(null);
+    setPlannerApplyError(null);
+    setPlannerResult(null);
+    setPlannerOpen(true);
+  };
 
   useEffect(() => {
     if (!plannerOpen) return;
@@ -1439,7 +1462,7 @@ const SystemCapacityControlPage: React.FC = () => {
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
               Refresh
             </Button>
-            <Button variant="outlined" onClick={() => setPlannerOpen(true)}>
+            <Button variant="outlined" onClick={openPlannerDialog}>
               Capacity Planner
             </Button>
             <Button variant="outlined" onClick={handleSaveSystem} disabled={!canEditCapacityControl || !sectionAReadyToContinue || savingSystem || loading}>

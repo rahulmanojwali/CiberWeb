@@ -333,6 +333,7 @@ export const AuctionSessions: React.FC = () => {
   const [createLaneError, setCreateLaneError] = useState<string | null>(null);
   const [createLaneErrorSeverity, setCreateLaneErrorSeverity] = useState<"error" | "warning">("error");
   const [createLaneForm, setCreateLaneForm] = useState({
+    mandi_code: "",
     session_code: "",
     commodity_family: "" as string,
     lane_template_key: "" as string,
@@ -546,7 +547,19 @@ export const AuctionSessions: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+    let list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+    if (uiConfig.role !== "SUPER_ADMIN" && scopedMandiCodes.length > 0) {
+      const allowed = new Set(scopedMandiCodes.map((code) => String(code).toLowerCase()));
+      list = list.filter((m: any) => {
+        const candidates = [
+          m?.mandi_slug,
+          m?.slug,
+          m?.mandi_code,
+          m?.mandi_id,
+        ].map((value) => String(value || "").toLowerCase()).filter(Boolean);
+        return candidates.some((candidate) => allowed.has(candidate));
+      });
+    }
     setMandiOptions(
       list.map((m: any) => ({
         value: m.mandi_slug || m.slug || String(m.mandi_id || ""),
@@ -921,8 +934,12 @@ export const AuctionSessions: React.FC = () => {
   };
 
   const handleOpenCreateLane = () => {
+    const singleScopedMandi = scopedMandiCodes.length === 1 ? String(scopedMandiCodes[0]) : "";
+    const singleLoadedMandi = mandiOptions.length === 1 ? String(mandiOptions[0].value) : "";
+    const modalMandiCode = filters.mandi_code || singleScopedMandi || singleLoadedMandi || "";
     setCreateLaneError(null);
     setCreateLaneForm({
+      mandi_code: modalMandiCode,
       session_code: "",
       commodity_family: "",
       lane_template_key: "",
@@ -953,7 +970,7 @@ export const AuctionSessions: React.FC = () => {
     try {
       const payload: Record<string, any> = {
         org_code: filters.org_code || undefined,
-        mandi_code: filters.mandi_code || undefined,
+        mandi_code: createLaneForm.mandi_code || undefined,
         method_code: createLaneForm.method_code,
         rounds_enabled: createLaneForm.rounds_enabled,
         status: "PLANNED",
@@ -991,6 +1008,31 @@ export const AuctionSessions: React.FC = () => {
       setCreateLaneLoading(false);
     }
   };
+
+  const scheduledStartDate = createLaneForm.scheduled_start_time ? new Date(createLaneForm.scheduled_start_time) : null;
+  const scheduledEndDate = createLaneForm.scheduled_end_time ? new Date(createLaneForm.scheduled_end_time) : null;
+  const scheduledStartMs = scheduledStartDate ? scheduledStartDate.getTime() : null;
+  const scheduledEndMs = scheduledEndDate ? scheduledEndDate.getTime() : null;
+  const isScheduledStartInvalid = Boolean(scheduledStartDate && Number.isNaN(scheduledStartDate.getTime()));
+  const isScheduledEndInvalid = Boolean(scheduledEndDate && Number.isNaN(scheduledEndDate.getTime()));
+  const requiresScheduledEnd = createLaneForm.closure_mode === "AUTO_AT_END_TIME" || createLaneForm.closure_mode === "MANUAL_OR_AUTO";
+  const missingScheduledEnd = requiresScheduledEnd && !createLaneForm.scheduled_end_time;
+  const isScheduleRangeInvalid =
+    scheduledStartMs !== null
+    && scheduledEndMs !== null
+    && !Number.isNaN(scheduledStartMs)
+    && !Number.isNaN(scheduledEndMs)
+    && scheduledEndMs <= scheduledStartMs;
+  const hasCreateLaneDateError = isScheduledStartInvalid || isScheduledEndInvalid || missingScheduledEnd || isScheduleRangeInvalid;
+  const isCreateLaneMandiMissing = !String(createLaneForm.mandi_code || "").trim();
+  const isCreateLaneRequiredFieldsMissing = !String(createLaneForm.session_name || "").trim() || !String(filters.org_code || "").trim();
+  const isCreateLaneCapacityBlocked = !laneCapacitySummary.auction_lanes_enabled || !laneCapacitySummary.can_create_new_lane;
+  const isCreateLaneSubmitDisabled =
+    createLaneLoading
+    || isCreateLaneMandiMissing
+    || isCreateLaneRequiredFieldsMissing
+    || isCreateLaneCapacityBlocked
+    || hasCreateLaneDateError;
 
   return (
     <PageContainer>
@@ -1643,7 +1685,22 @@ export const AuctionSessions: React.FC = () => {
                 Create a lane-aware auction session. Existing lifecycle behavior remains unchanged; this only adds business identity and queue metadata.
               </Typography>
               <TextField label="Organisation" value={filters.org_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Mandi" value={filters.mandi_code || "Select in filters"} InputProps={{ readOnly: true }} fullWidth />
+              <TextField
+                select
+                required
+                label="Mandi"
+                value={createLaneForm.mandi_code}
+                onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, mandi_code: e.target.value }))}
+                helperText="Required. Only mandis you can access are shown."
+                fullWidth
+              >
+                <MenuItem value="">Select Mandi</MenuItem>
+                {mandiOptions.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>
+                    {m.label}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "background.paper" }}>
                 <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
                   Section B — Auction Lane Details
@@ -1816,6 +1873,15 @@ export const AuctionSessions: React.FC = () => {
                   <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
                 </Stack>
               </Paper>
+              {hasCreateLaneDateError && (
+                <Alert severity="warning">
+                  {missingScheduledEnd
+                    ? "Scheduled End is required for selected closure mode."
+                    : isScheduleRangeInvalid
+                    ? "Scheduled End must be after Scheduled Start."
+                    : "Please enter valid scheduled date/time values."}
+                </Alert>
+              )}
               <TextField label="Notes" value={createLaneForm.notes} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, notes: e.target.value }))} multiline minRows={3} fullWidth />
               {createLaneError && (
                 <Alert severity={createLaneErrorSeverity}>
@@ -1825,8 +1891,13 @@ export const AuctionSessions: React.FC = () => {
             </Stack>
           </DialogContent>
           <DialogActions>
+            {isCreateLaneMandiMissing && (
+              <Typography variant="body2" color="warning.main" sx={{ mr: "auto" }}>
+                Please select a mandi to create an auction lane.
+              </Typography>
+            )}
             <Button onClick={() => { setCreateLaneError(null); setOpenCreateLane(false); }} disabled={createLaneLoading}>Close</Button>
-            <Button variant="contained" onClick={handleCreateLane} disabled={createLaneLoading || !createLaneForm.session_name || !filters.mandi_code || !filters.org_code || !laneCapacitySummary.can_create_new_lane}>
+            <Button variant="contained" onClick={handleCreateLane} disabled={isCreateLaneSubmitDisabled}>
               {createLaneLoading ? "Creating..." : "Create Lane"}
             </Button>
           </DialogActions>

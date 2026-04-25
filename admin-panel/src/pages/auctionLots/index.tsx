@@ -80,37 +80,37 @@ type SessionOption = Option & {
   session: any;
 };
 type LotOption = { value: string; label: string; shortCode?: string; lot: any };
-type LaneCapacitySummary = {
-  live_session_count: number;
-  open_session_count: number;
-  total_queued_lots: number;
-  average_queue_per_lane: number;
-  overloaded_lane_count: number;
-  max_live_sessions_per_mandi: number;
-  max_total_open_sessions_per_mandi: number;
-  max_queue_per_lane: number;
+type CapacitySummary = {
+  org_allocation_configured: boolean;
+  no_org_allocation_message: string | null;
   can_create_new_lane: boolean;
-  can_start_new_live_lane: boolean;
   auction_lanes_enabled: boolean;
-  show_capacity_guardrails: boolean;
-  current_live_sessions: number;
-  current_open_sessions: number;
-  current_total_queued_lots: number;
-  current_system_live_sessions?: number;
-  current_system_open_sessions?: number;
-  current_system_total_queued_lots?: number;
-  current_org_live_sessions: number;
-  current_org_open_sessions: number;
-  current_org_total_queued_lots: number;
-  effective_max_live_sessions: number;
-  effective_max_open_sessions: number;
-  effective_max_queue_per_lane: number;
-  effective_max_total_queued_lots: number;
-  effective_system_max_live_sessions?: number;
-  effective_system_max_open_sessions?: number;
-  effective_system_max_total_queued_lots?: number;
-  capacity_guard_state: string;
+  guard_enabled: boolean;
+  guard_state: string;
   blocking_reason?: string | null;
+  org_allocation: {
+    allocated_max_live_lanes: number;
+    allocated_max_open_lanes: number;
+    allocated_max_queued_lots: number;
+    allocated_max_concurrent_bidders: number;
+  };
+  org_usage: {
+    used_live_lanes: number;
+    used_open_lanes: number;
+    used_queued_lots: number;
+    used_concurrent_bidders: number;
+  };
+  org_remaining: {
+    remaining_live_lanes: number;
+    remaining_open_lanes: number;
+    remaining_queued_lots: number;
+    remaining_concurrent_bidders: number;
+  };
+  mandi_effective: {
+    max_live_lanes: number;
+    max_open_lanes: number;
+    max_queue_per_lane: number;
+  };
 };
 
 function currentUsername(): string | null {
@@ -352,37 +352,44 @@ export const AuctionLots: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasCapacitySummary, setHasCapacitySummary] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [openHelp, setOpenHelp] = useState(false);
   const [helpTitle, setHelpTitle] = useState("Help");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [laneCapacitySummary, setLaneCapacitySummary] = useState<LaneCapacitySummary>({
-    live_session_count: 0,
-    open_session_count: 0,
-    total_queued_lots: 0,
-    average_queue_per_lane: 0,
-    overloaded_lane_count: 0,
-    max_live_sessions_per_mandi: 3,
-    max_total_open_sessions_per_mandi: 6,
-    max_queue_per_lane: 25,
+  const [capacitySummary, setCapacitySummary] = useState<CapacitySummary>({
+    org_allocation_configured: false,
+    no_org_allocation_message: "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.",
     can_create_new_lane: true,
-    can_start_new_live_lane: true,
     auction_lanes_enabled: true,
-    show_capacity_guardrails: true,
-    current_live_sessions: 0,
-    current_open_sessions: 0,
-    current_total_queued_lots: 0,
-    current_org_live_sessions: 0,
-    current_org_open_sessions: 0,
-    current_org_total_queued_lots: 0,
-    effective_max_live_sessions: 3,
-    effective_max_open_sessions: 6,
-    effective_max_queue_per_lane: 25,
-    effective_max_total_queued_lots: 75,
-    capacity_guard_state: "GREEN",
+    guard_enabled: true,
+    guard_state: "GREEN",
     blocking_reason: null,
+    org_allocation: {
+      allocated_max_live_lanes: 0,
+      allocated_max_open_lanes: 0,
+      allocated_max_queued_lots: 0,
+      allocated_max_concurrent_bidders: 0,
+    },
+    org_usage: {
+      used_live_lanes: 0,
+      used_open_lanes: 0,
+      used_queued_lots: 0,
+      used_concurrent_bidders: 0,
+    },
+    org_remaining: {
+      remaining_live_lanes: 0,
+      remaining_open_lanes: 0,
+      remaining_queued_lots: 0,
+      remaining_concurrent_bidders: 0,
+    },
+    mandi_effective: {
+      max_live_lanes: 0,
+      max_open_lanes: 0,
+      max_queue_per_lane: 0,
+    },
   });
   const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || ""));
   const isSelectedSessionLive = selectedSessionStatus === "LIVE";
@@ -447,8 +454,13 @@ export const AuctionLots: React.FC = () => {
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
   const createSubmitValid = Boolean(createForm.lot_id && createForm.session_id && createBasePriceValid);
-  const createSubmitDisabled = createLoading || !createSubmitValid;
-  const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && !filters.mandi_code;
+  const noOrgAllocationConfigured = !capacitySummary.org_allocation_configured;
+  const orgAllocationWarning = capacitySummary.no_org_allocation_message
+    || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
+  const canCreateSessionWithinCapacity = Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled);
+  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured;
+  const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
+  const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
   const showNoRowsForFilters = !loading && !showMandiInstruction && rows.length === 0;
   const createSessionRequiresEnd =
@@ -684,7 +696,14 @@ export const AuctionLots: React.FC = () => {
     const username = currentUsername();
     if (!username) return;
     const resp = await fetchMandis({ username, language, filters: { is_active: true } });
-    const list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+    let list = resp?.data?.mandis || resp?.response?.data?.mandis || [];
+    if (uiConfig.role !== "SUPER_ADMIN" && scopedMandiCodes.length > 0) {
+      const allowed = new Set(scopedMandiCodes.map((code) => String(code).toLowerCase()));
+      list = list.filter((m: any) => {
+        const code = String(m.mandi_slug || m.slug || m.mandi_code || "").toLowerCase();
+        return allowed.has(code);
+      });
+    }
     setMandiOptions(
       list.map((m: any) => ({
         value: m.mandi_slug || m.slug || String(m.mandi_id || ""),
@@ -827,34 +846,72 @@ export const AuctionLots: React.FC = () => {
         console.debug("[AUCTION_LOTS_DEBUG] sample_row", mapped[0]);
       }
       setRows(mapped);
-      const summary = resp?.data?.lane_capacity_summary || resp?.response?.data?.lane_capacity_summary || null;
+      const summary = resp?.data?.capacity_summary || resp?.response?.data?.capacity_summary || null;
       if (summary) {
-        setLaneCapacitySummary({
-          live_session_count: Number(summary.live_session_count || 0),
-          open_session_count: Number(summary.open_session_count || 0),
-          total_queued_lots: Number(summary.total_queued_lots || 0),
-          average_queue_per_lane: Number(summary.average_queue_per_lane || 0),
-          overloaded_lane_count: Number(summary.overloaded_lane_count || 0),
-          max_live_sessions_per_mandi: Number(summary.max_live_sessions_per_mandi || 3),
-          max_total_open_sessions_per_mandi: Number(summary.max_total_open_sessions_per_mandi || 6),
-          max_queue_per_lane: Number(summary.max_queue_per_lane || 25),
+        setHasCapacitySummary(true);
+        setCapacitySummary({
+          org_allocation_configured: Boolean(summary.org_allocation_configured),
+          no_org_allocation_message: summary.no_org_allocation_message || null,
           can_create_new_lane: Boolean(summary.can_create_new_lane),
-          can_start_new_live_lane: Boolean(summary.can_start_new_live_lane ?? true),
           auction_lanes_enabled: Boolean(summary.auction_lanes_enabled ?? true),
-          show_capacity_guardrails: Boolean(summary.show_capacity_guardrails ?? true),
-          current_live_sessions: Number(summary.current_live_sessions || summary.live_session_count || 0),
-          current_open_sessions: Number(summary.current_open_sessions || summary.open_session_count || 0),
-          current_total_queued_lots: Number(summary.current_total_queued_lots || summary.total_queued_lots || 0),
-          current_org_live_sessions: Number(summary.current_org_live_sessions || 0),
-          current_org_open_sessions: Number(summary.current_org_open_sessions || 0),
-          current_org_total_queued_lots: Number(summary.current_org_total_queued_lots || 0),
-          effective_max_live_sessions: Number(summary.effective_max_live_sessions || summary.max_live_sessions_per_mandi || 3),
-          effective_max_open_sessions: Number(summary.effective_max_open_sessions || summary.max_total_open_sessions_per_mandi || 6),
-          effective_max_queue_per_lane: Number(summary.effective_max_queue_per_lane || summary.max_queue_per_lane || 25),
-          effective_max_total_queued_lots: Number(summary.effective_max_total_queued_lots || 75),
-          capacity_guard_state: String(summary.capacity_guard_state || "GREEN").toUpperCase(),
+          guard_enabled: Boolean(summary.guard_enabled ?? true),
+          guard_state: String(summary.guard_state || "GREEN").toUpperCase(),
           blocking_reason: summary.blocking_reason || null,
+          org_allocation: {
+            allocated_max_live_lanes: Number(summary?.org_allocation?.allocated_max_live_lanes || 0),
+            allocated_max_open_lanes: Number(summary?.org_allocation?.allocated_max_open_lanes || 0),
+            allocated_max_queued_lots: Number(summary?.org_allocation?.allocated_max_queued_lots || 0),
+            allocated_max_concurrent_bidders: Number(summary?.org_allocation?.allocated_max_concurrent_bidders || 0),
+          },
+          org_usage: {
+            used_live_lanes: Number(summary?.org_usage?.used_live_lanes || 0),
+            used_open_lanes: Number(summary?.org_usage?.used_open_lanes || 0),
+            used_queued_lots: Number(summary?.org_usage?.used_queued_lots || 0),
+            used_concurrent_bidders: Number(summary?.org_usage?.used_concurrent_bidders || 0),
+          },
+          org_remaining: {
+            remaining_live_lanes: Number(summary?.org_remaining?.remaining_live_lanes || 0),
+            remaining_open_lanes: Number(summary?.org_remaining?.remaining_open_lanes || 0),
+            remaining_queued_lots: Number(summary?.org_remaining?.remaining_queued_lots || 0),
+            remaining_concurrent_bidders: Number(summary?.org_remaining?.remaining_concurrent_bidders || 0),
+          },
+          mandi_effective: {
+            max_live_lanes: Number(summary?.mandi_effective?.max_live_lanes || 0),
+            max_open_lanes: Number(summary?.mandi_effective?.max_open_lanes || 0),
+            max_queue_per_lane: Number(summary?.mandi_effective?.max_queue_per_lane || 0),
+          },
         });
+      } else {
+        setHasCapacitySummary(false);
+        setCapacitySummary((prev) => ({
+          ...prev,
+          org_allocation_configured: false,
+          can_create_new_lane: false,
+          blocking_reason: null,
+          org_allocation: {
+            allocated_max_live_lanes: 0,
+            allocated_max_open_lanes: 0,
+            allocated_max_queued_lots: 0,
+            allocated_max_concurrent_bidders: 0,
+          },
+          org_usage: {
+            used_live_lanes: 0,
+            used_open_lanes: 0,
+            used_queued_lots: 0,
+            used_concurrent_bidders: 0,
+          },
+          org_remaining: {
+            remaining_live_lanes: 0,
+            remaining_open_lanes: 0,
+            remaining_queued_lots: 0,
+            remaining_concurrent_bidders: 0,
+          },
+          mandi_effective: {
+            max_live_lanes: 0,
+            max_open_lanes: 0,
+            max_queue_per_lane: 0,
+          },
+        }));
       }
       setSelectedRow((prev) => mapped.find((row) => row.id === prev?.id) || null);
     } finally {
@@ -1015,6 +1072,10 @@ export const AuctionLots: React.FC = () => {
     const username = currentUsername();
     const country = currentCountry();
     if (!username) return;
+    if (noOrgAllocationConfigured) {
+      setCreateError(orgAllocationWarning);
+      return;
+    }
     console.log("CREATE FORM:", createForm);
     console.log("SESSION OPTIONS:", sessionOptions);
     if (import.meta.env.DEV) {
@@ -1083,6 +1144,10 @@ export const AuctionLots: React.FC = () => {
   const handleCreateSession = async () => {
     const username = currentUsername();
     if (!username || !selectedLot) return;
+    if (noOrgAllocationConfigured) {
+      setCreateSessionError(orgAllocationWarning);
+      return;
+    }
     setCreateSessionLoading(true);
     setCreateSessionError(null);
     try {
@@ -1354,7 +1419,7 @@ export const AuctionLots: React.FC = () => {
             </>
           )}
           {canCreate && (
-            <Button variant="contained" size="small" onClick={() => setOpenCreate(true)}>
+            <Button variant="contained" size="small" onClick={() => setOpenCreate(true)} disabled={noOrgAllocationConfigured}>
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
@@ -1367,41 +1432,46 @@ export const AuctionLots: React.FC = () => {
         </Stack>
       </Stack>
 
-      {laneCapacitySummary.show_capacity_guardrails && (
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-          <Stack spacing={1.5}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              Auction Capacity Summary
-            </Typography>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(140px, 1fr))" },
-                gap: 1.25,
-              }}
-            >
-              <Typography variant="body2"><strong>Live Lanes:</strong> {laneCapacitySummary.current_live_sessions}</Typography>
-              <Typography variant="body2"><strong>Open Lanes:</strong> {laneCapacitySummary.current_open_sessions}</Typography>
-              <Typography variant="body2"><strong>Allowed Live Lanes:</strong> {laneCapacitySummary.effective_max_live_sessions}</Typography>
-              <Typography variant="body2"><strong>Allowed Open Lanes:</strong> {laneCapacitySummary.effective_max_open_sessions}</Typography>
-              <Typography variant="body2"><strong>Total Queued Lots:</strong> {laneCapacitySummary.current_total_queued_lots}</Typography>
-              <Typography variant="body2"><strong>Allowed Queue Capacity:</strong> {laneCapacitySummary.effective_max_total_queued_lots}</Typography>
-              <Typography variant="body2"><strong>Org Live / Open:</strong> {laneCapacitySummary.current_org_live_sessions} / {laneCapacitySummary.current_org_open_sessions}</Typography>
-              <Typography variant="body2"><strong>Org Queued Lots:</strong> {laneCapacitySummary.current_org_total_queued_lots}</Typography>
-              <Typography variant="body2"><strong>System Live / Open:</strong> {laneCapacitySummary.current_system_live_sessions ?? 0} / {laneCapacitySummary.current_system_open_sessions ?? 0}</Typography>
-              <Typography variant="body2"><strong>System Queued Lots:</strong> {laneCapacitySummary.current_system_total_queued_lots ?? 0}</Typography>
-              <Typography variant="body2"><strong>Average Queue per Lane:</strong> {laneCapacitySummary.average_queue_per_lane}</Typography>
-              <Typography variant="body2"><strong>Overloaded Lanes:</strong> {laneCapacitySummary.overloaded_lane_count}</Typography>
-              <Typography variant="body2"><strong>Can Create New Lane?:</strong> {laneCapacitySummary.can_create_new_lane ? "Yes" : "No"}</Typography>
-              <Typography variant="body2"><strong>Guard State:</strong> {laneCapacitySummary.capacity_guard_state || "GREEN"}</Typography>
-            </Box>
-            {!laneCapacitySummary.can_create_new_lane && (
-              <Alert severity="warning">
-                {laneCapacitySummary.blocking_reason || "Lane creation is currently blocked by configured auction capacity limits."}
-              </Alert>
-            )}
-          </Stack>
-        </Paper>
+      {hasCapacitySummary && (
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Auction Capacity Summary
+          </Typography>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(170px, 1fr))" },
+              gap: 1.25,
+            }}
+          >
+            <Typography variant="body2"><strong>Org Allocated Live:</strong> {capacitySummary.org_allocation.allocated_max_live_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Used Live:</strong> {capacitySummary.org_usage.used_live_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Remaining Live:</strong> {capacitySummary.org_remaining.remaining_live_lanes}</Typography>
+            <Typography variant="body2"><strong>Mandi Effective Live:</strong> {capacitySummary.mandi_effective.max_live_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Allocated Open:</strong> {capacitySummary.org_allocation.allocated_max_open_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Used Open:</strong> {capacitySummary.org_usage.used_open_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Remaining Open:</strong> {capacitySummary.org_remaining.remaining_open_lanes}</Typography>
+            <Typography variant="body2"><strong>Mandi Effective Open:</strong> {capacitySummary.mandi_effective.max_open_lanes}</Typography>
+            <Typography variant="body2"><strong>Org Allocated Queue:</strong> {capacitySummary.org_allocation.allocated_max_queued_lots}</Typography>
+            <Typography variant="body2"><strong>Org Used Queue:</strong> {capacitySummary.org_usage.used_queued_lots}</Typography>
+            <Typography variant="body2"><strong>Org Remaining Queue:</strong> {capacitySummary.org_remaining.remaining_queued_lots}</Typography>
+            <Typography variant="body2"><strong>Queue Per Lane:</strong> {capacitySummary.mandi_effective.max_queue_per_lane}</Typography>
+            <Typography variant="body2"><strong>Org Allocated Bidders:</strong> {capacitySummary.org_allocation.allocated_max_concurrent_bidders}</Typography>
+            <Typography variant="body2"><strong>Org Used Bidders:</strong> {capacitySummary.org_usage.used_concurrent_bidders}</Typography>
+            <Typography variant="body2"><strong>Remaining Org Bidder Capacity:</strong> {capacitySummary.org_remaining.remaining_concurrent_bidders}</Typography>
+            <Typography variant="body2"><strong>Guard State:</strong> {capacitySummary.guard_state || "GREEN"}</Typography>
+          </Box>
+          {noOrgAllocationConfigured && (
+            <Alert severity="warning">{orgAllocationWarning}</Alert>
+          )}
+          {!noOrgAllocationConfigured && !canCreateSessionWithinCapacity && (
+            <Alert severity="warning">
+              {capacitySummary.blocking_reason || "Lane creation is currently blocked by configured auction capacity limits."}
+            </Alert>
+          )}
+        </Stack>
+      </Paper>
       )}
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
@@ -1574,6 +1644,9 @@ export const AuctionLots: React.FC = () => {
           <DialogContent>
             {createOptionsLoading && <LinearProgress sx={{ mb: 2 }} />}
             <Stack spacing={2} mt={1}>
+              {noOrgAllocationConfigured && (
+                <Alert severity="warning">{orgAllocationWarning}</Alert>
+              )}
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   Section A — Source Lot
@@ -1695,7 +1768,12 @@ export const AuctionLots: React.FC = () => {
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
                       <Typography variant="body2">No active auction lane is available for this mandi. Please create a lane before mapping this lot.</Typography>
-                      <Button variant="outlined" size="small" onClick={() => setOpenCreateSession(true)} disabled={!laneCapacitySummary.can_create_new_lane}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setOpenCreateSession(true)}
+                        disabled={noOrgAllocationConfigured || !canCreateSessionWithinCapacity}
+                      >
                         Create Session
                       </Button>
                     </Stack>
@@ -2021,7 +2099,12 @@ export const AuctionLots: React.FC = () => {
               </Paper>
 
               {createSessionError && <Alert severity="error">{createSessionError}</Alert>}
-              {!laneCapacitySummary.can_create_new_lane && (
+              {noOrgAllocationConfigured && (
+                <Alert severity="warning">
+                  {orgAllocationWarning}
+                </Alert>
+              )}
+              {!noOrgAllocationConfigured && !canCreateSessionWithinCapacity && (
                 <Alert severity="warning">
                   Maximum open or live auction lanes have reached the configured mandi limit.
                 </Alert>
@@ -2032,7 +2115,11 @@ export const AuctionLots: React.FC = () => {
             <Button onClick={() => setOpenCreateSession(false)} disabled={createSessionLoading}>
               Close
             </Button>
-            <Button variant="contained" onClick={handleCreateSession} disabled={createSessionLoading || !createSessionForm.session_name || !laneCapacitySummary.can_create_new_lane}>
+            <Button
+              variant="contained"
+              onClick={handleCreateSession}
+              disabled={createSessionLoading || !createSessionForm.session_name || noOrgAllocationConfigured || !canCreateSessionWithinCapacity}
+            >
               {createSessionLoading ? "Creating..." : "Create Session"}
             </Button>
           </DialogActions>

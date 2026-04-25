@@ -222,6 +222,10 @@ function toNonNegativeNumber(value: any): number {
   return Math.max(0, parsed);
 }
 
+function isBlankValue(value: any): boolean {
+  return value === null || value === undefined || String(value).trim() === "";
+}
+
 const headerHelpIconSx = {
   ml: 0.5,
   fontSize: 16,
@@ -1249,6 +1253,39 @@ const SystemCapacityControlPage: React.FC = () => {
       : row)));
   };
 
+  const isOrgAllocationCleared = (row: OrgAllocation) => {
+    const tier = String(row?.tier_code || "").trim().toUpperCase();
+    const tierCleared = !tier || tier === "CUSTOM";
+    return tierCleared
+      && isBlankValue(row?.allocated_max_live_lanes)
+      && isBlankValue(row?.allocated_max_open_lanes)
+      && isBlankValue(row?.allocated_max_queued_lots)
+      && isBlankValue(row?.allocated_max_concurrent_bidders)
+      && !Boolean(row?.overflow_allowed)
+      && !Boolean(row?.special_event_allowed);
+  };
+
+  const buildOrgAllocationPayload = (row: OrgAllocation) => {
+    const clearAllocation = isOrgAllocationCleared(row);
+    return {
+      org_id: row.org_id,
+      org_code: row.org_code || null,
+      action: clearAllocation ? "DELETE_ALLOCATION" : "UPSERT_ALLOCATION",
+      clear_allocation: clearAllocation,
+      capacity: {
+        tier_code: row.tier_code,
+        max_live_sessions: row.allocated_max_live_lanes,
+        max_open_sessions: row.allocated_max_open_lanes,
+        max_total_queued_lots: row.allocated_max_queued_lots,
+        max_concurrent_bidders: row.allocated_max_concurrent_bidders,
+        allow_overflow_lanes: row.overflow_allowed,
+        allow_special_event_lanes: row.special_event_allowed,
+        priority_weight: row.priority_weight,
+        reserved_capacity_enabled: row.reserved_capacity_enabled,
+      },
+    };
+  };
+
   const handleTierChange = (orgId: string, tierCode: string) => {
     const normalizedTier = String(tierCode || "").trim().toUpperCase();
     setOrgRows((prev) => prev.map((row) => {
@@ -1350,30 +1387,18 @@ const SystemCapacityControlPage: React.FC = () => {
     setOrgSaveError(null);
     setOrgSaveSuccess(null);
     try {
+      const clearAllocation = isOrgAllocationCleared(row);
       const resp: any = await updateOrgAuctionCapacityAllocation({
         username,
-        payload: {
-          org_id: row.org_id,
-          capacity: {
-            tier_code: row.tier_code,
-            max_live_sessions: row.allocated_max_live_lanes,
-            max_open_sessions: row.allocated_max_open_lanes,
-            max_total_queued_lots: row.allocated_max_queued_lots,
-            max_concurrent_bidders: row.allocated_max_concurrent_bidders,
-            allow_overflow_lanes: row.overflow_allowed,
-            allow_special_event_lanes: row.special_event_allowed,
-            priority_weight: row.priority_weight,
-            reserved_capacity_enabled: row.reserved_capacity_enabled,
-          },
-        },
+        payload: buildOrgAllocationPayload(row),
       });
       if (String(resp?.response?.responsecode || "") !== "0") {
         setOrgSaveError(resp?.response?.description || "Failed to save organisation allocation.");
         setRemainingPool(resp?.data?.remaining_allocatable_pool || remainingPool);
         return;
       }
-      setOrgSaveSuccess(resp?.response?.description || "Organisation auction capacity allocation saved successfully.");
       await loadData();
+      setOrgSaveSuccess(resp?.response?.description || (clearAllocation ? "Organisation allocation removed successfully." : "Organisation allocation updated successfully."));
     } catch (err: any) {
       setOrgSaveError(err?.message || "Failed to save organisation allocation.");
     } finally {
@@ -1399,32 +1424,23 @@ const SystemCapacityControlPage: React.FC = () => {
     setOrgSaveError(null);
     setOrgSaveSuccess(null);
     try {
+      let hasClearedAllocation = false;
       for (const row of orgRows) {
+        const clearAllocation = isOrgAllocationCleared(row);
+        if (clearAllocation) hasClearedAllocation = true;
         const resp: any = await updateOrgAuctionCapacityAllocation({
           username,
-          payload: {
-            org_id: row.org_id,
-            capacity: {
-              tier_code: row.tier_code,
-              max_live_sessions: row.allocated_max_live_lanes,
-              max_open_sessions: row.allocated_max_open_lanes,
-              max_total_queued_lots: row.allocated_max_queued_lots,
-              max_concurrent_bidders: row.allocated_max_concurrent_bidders,
-              allow_overflow_lanes: row.overflow_allowed,
-              allow_special_event_lanes: row.special_event_allowed,
-              priority_weight: row.priority_weight,
-              reserved_capacity_enabled: row.reserved_capacity_enabled,
-            },
-          },
+          payload: buildOrgAllocationPayload(row),
         });
         if (String(resp?.response?.responsecode || "") !== "0") {
           setOrgSaveError(`${row.org_name}: ${resp?.response?.description || "Failed to save organisation allocation."}`);
           setRemainingPool(resp?.data?.remaining_allocatable_pool || remainingPool);
           return;
         }
+        if (Boolean(resp?.data?.allocation_removed)) hasClearedAllocation = true;
       }
       await loadData();
-      setOrgSaveSuccess("Organisation auction capacity allocation saved successfully.");
+      setOrgSaveSuccess(hasClearedAllocation ? "Organisation allocation removed successfully." : "Organisation allocation updated successfully.");
     } catch (err: any) {
       setOrgSaveError(err?.message || "Failed to save organisation allocation.");
     } finally {

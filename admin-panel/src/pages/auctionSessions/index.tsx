@@ -36,6 +36,8 @@ type SessionRow = {
   round?: string | null;
   status?: string | null;
   derived_status?: string | null;
+  start_mode?: "MANUAL" | "AUTO" | "MANUAL_OR_AUTO" | string | null;
+  actual_start?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   closure_mode?: string | null;
@@ -57,6 +59,8 @@ type SessionRow = {
   overloaded?: boolean;
   overload_reason?: string | null;
 };
+
+type SessionStartMode = "MANUAL" | "AUTO" | "MANUAL_OR_AUTO";
 
 type LaneCapacitySummary = {
   live_session_count: number;
@@ -257,6 +261,39 @@ function closureModeLabel(mode?: string | null) {
   return displayValue(mode);
 }
 
+function normalizeStartMode(mode?: string | null): SessionStartMode {
+  const normalized = String(mode || "").trim().toUpperCase();
+  if (normalized === "MANUAL") return "MANUAL";
+  if (normalized === "AUTO") return "AUTO";
+  return "MANUAL_OR_AUTO";
+}
+
+function formatDurationHms(diffMs: number) {
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getStartCountdownLabel(session: SessionRow, nowMs: number) {
+  const status = String(session.status || "").trim().toUpperCase();
+  if (status !== "PLANNED") return "";
+  const scheduledStartRaw = session.scheduled_start_time;
+  if (!scheduledStartRaw) return "";
+  const scheduledStart = new Date(scheduledStartRaw);
+  if (Number.isNaN(scheduledStart.getTime())) return "";
+  const diffMs = scheduledStart.getTime() - nowMs;
+  if (diffMs > 0) {
+    return `Starts in ${formatDurationHms(diffMs)}`;
+  }
+  const mode = normalizeStartMode(session.start_mode);
+  if (mode === "AUTO" || mode === "MANUAL_OR_AUTO") {
+    return "Waiting to start (scheduler delay)";
+  }
+  return "Start time reached";
+}
+
 function sessionStatusHelperText(status?: string | null) {
   const normalized = String(status || "").trim().toUpperCase();
   if (normalized === "PLANNED") return "This session is created but not started yet. Bidding should remain blocked until the session is started.";
@@ -334,6 +371,7 @@ export const AuctionSessions: React.FC = () => {
   const [createLaneErrorSeverity, setCreateLaneErrorSeverity] = useState<"error" | "warning">("error");
   const [createLaneForm, setCreateLaneForm] = useState({
     mandi_code: "",
+    start_mode: "MANUAL_OR_AUTO" as SessionStartMode,
     session_code: "",
     commodity_family: "" as string,
     lane_template_key: "" as string,
@@ -431,7 +469,17 @@ export const AuctionSessions: React.FC = () => {
         renderCell: (params) => {
           const row = params.row as SessionRow;
           const derivedStatus = deriveDisplayStatus(row, nowMs);
-          return <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />;
+          const countdownLabel = getStartCountdownLabel(row, nowMs);
+          return (
+            <Stack spacing={0.3} sx={{ py: 0.4 }}>
+              <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />
+              {countdownLabel && (
+                <Typography variant="caption" color={countdownLabel.includes("scheduler delay") ? "warning.main" : "text.secondary"}>
+                  {countdownLabel}
+                </Typography>
+              )}
+            </Stack>
+          );
         },
       },
       {
@@ -611,6 +659,8 @@ export const AuctionSessions: React.FC = () => {
         round: item.round || item.round_code || null,
         status: item.status || null,
         derived_status: item.derived_status || null,
+        start_mode: item.start_mode || "MANUAL_OR_AUTO",
+        actual_start: item.actual_start || item.start_time || null,
         start_time: item.start_time || item.start || null,
         end_time: item.end_time || item.end || null,
         closure_mode: item.closure_mode || "MANUAL_OR_AUTO",
@@ -940,6 +990,7 @@ export const AuctionSessions: React.FC = () => {
     setCreateLaneError(null);
     setCreateLaneForm({
       mandi_code: modalMandiCode,
+      start_mode: "MANUAL_OR_AUTO",
       session_code: "",
       commodity_family: "",
       lane_template_key: "",
@@ -974,6 +1025,7 @@ export const AuctionSessions: React.FC = () => {
         method_code: createLaneForm.method_code,
         rounds_enabled: createLaneForm.rounds_enabled,
         status: "PLANNED",
+        start_mode: createLaneForm.start_mode,
         closure_mode: createLaneForm.closure_mode,
         session_code: createLaneForm.session_code || undefined,
         session_name: createLaneForm.session_name,
@@ -1361,6 +1413,7 @@ export const AuctionSessions: React.FC = () => {
                   <DetailField label="Organisation" value={displayValue(selectedSession.org_code)} />
                   <DetailField label="Mandi" value={displayValue(selectedSession.mandi_code)} />
                   <DetailField label="Method" value={displayValue(selectedSession.method)} />
+                  <DetailField label="Start Mode" value={displayValue(normalizeStartMode(selectedSession.start_mode))} />
                   <DetailField label="Round(s)" value={displayValue(selectedSession.round)} />
                 </Box>
               </Box>
@@ -1371,6 +1424,7 @@ export const AuctionSessions: React.FC = () => {
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
                   <DetailField label="Start Time" value={displayValue(formatDate(selectedSession.start_time))} />
+                  <DetailField label="Actual Start" value={displayValue(formatDate(selectedSession.actual_start || selectedSession.start_time))} />
                   <DetailField label="Actual End" value={displayValue(formatDate(selectedSession.end_time))} />
                   <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
                   <DetailField label="Closure Mode" value={closureModeLabel(selectedSession.closure_mode || "MANUAL_OR_AUTO")} />
@@ -1436,9 +1490,9 @@ export const AuctionSessions: React.FC = () => {
                 Edit Lane
               </Button>
             )}
-            {String(selectedSession.status || "").toUpperCase() === "PLANNED" && !isExpiredPlanned && (
+            {String(selectedSession.status || "").toUpperCase() === "PLANNED" && (
               <Button variant="contained" onClick={handleStart} disabled={detailLoading} sx={{ minWidth: 140 }}>
-                {detailLoading ? "Starting..." : "Start Auction"}
+                {detailLoading ? "Starting..." : "Start Now"}
               </Button>
             )}
             {(String(selectedSession.status || "").toUpperCase() === "LIVE" || String(selectedSession.status || "").toUpperCase() === "PLANNED") && (
@@ -1864,6 +1918,18 @@ export const AuctionSessions: React.FC = () => {
                   Section C — Closure Plan
                 </Typography>
                 <Stack spacing={1.5}>
+                  <TextField
+                    select
+                    label="Start Mode"
+                    value={createLaneForm.start_mode}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, start_mode: normalizeStartMode(e.target.value) }))}
+                    helperText="AUTO and MANUAL_OR_AUTO sessions can auto-start at scheduled start."
+                    fullWidth
+                  >
+                    <MenuItem value="MANUAL">MANUAL</MenuItem>
+                    <MenuItem value="AUTO">AUTO</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                  </TextField>
                   <TextField select label="Closure Mode" value={createLaneForm.closure_mode} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))} fullWidth>
                     <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
                     <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>

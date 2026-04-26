@@ -58,6 +58,9 @@ type LotRow = {
   session_scheduled_end_time?: string | null;
   session_closure_mode?: string | null;
   session_status?: string | null;
+  session_auto_start_state?: "PENDING" | "OVERDUE" | string | null;
+  session_auto_start_label?: string | null;
+  session_auto_start_reason?: string | null;
   is_active_lot?: "Y" | "N" | null;
   lot_phase?: string | null;
   session_has_active_lot?: boolean | null;
@@ -519,7 +522,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "session_status",
         headerName: "Session Status",
-        width: 160,
+        width: 240,
         renderCell: (params) => {
           const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
           const label = sessionStatus || "—";
@@ -535,14 +538,24 @@ export const AuctionLots: React.FC = () => {
               : "default";
           const variant = sessionStatus === "PLANNED" || sessionStatus === "CLOSED" ? "outlined" : "filled";
           return (
-            <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
+            <Stack spacing={0.25} sx={{ py: 0.4 }}>
               <Chip
                 size="small"
                 label={label}
                 color={color as "default" | "success" | "warning" | "error"}
                 variant={variant}
               />
-            </Box>
+              {sessionStatus === "PLANNED" && params.row.session_auto_start_label && (
+                <Typography variant="caption" color={String(params.row.session_auto_start_state || "").toUpperCase() === "OVERDUE" ? "error.main" : "text.secondary"}>
+                  {params.row.session_auto_start_label}
+                </Typography>
+              )}
+              {sessionStatus === "PLANNED" && params.row.session_auto_start_reason && String(params.row.session_auto_start_state || "").toUpperCase() === "OVERDUE" && (
+                <Typography variant="caption" color="error.main">
+                  {params.row.session_auto_start_reason}
+                </Typography>
+              )}
+            </Stack>
           );
         },
       },
@@ -824,6 +837,9 @@ export const AuctionLots: React.FC = () => {
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
         session_closure_mode: item?.session?.closure_mode || item?.session_closure_mode || item?.closure_mode || null,
         session_status: item?.session?.status || item?.session_status || null,
+        session_auto_start_state: item?.session?.auto_start_state || null,
+        session_auto_start_label: item?.session?.auto_start_label || null,
+        session_auto_start_reason: item?.session?.auto_start_reason || null,
         session_has_active_lot: typeof item?.session?.has_active_lot === "boolean" ? item.session.has_active_lot : null,
         session_no_active_lot: typeof item?.session?.no_active_lot === "boolean" ? item.session.no_active_lot : null,
         session_remaining_lot_count:

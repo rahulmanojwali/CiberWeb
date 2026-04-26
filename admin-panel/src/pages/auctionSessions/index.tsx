@@ -43,6 +43,10 @@ type SessionRow = {
   closure_mode?: string | null;
   scheduled_start_time?: string | null;
   scheduled_end_time?: string | null;
+  auto_start_state?: "PENDING" | "OVERDUE" | string | null;
+  auto_start_label?: string | null;
+  auto_start_reason?: string | null;
+  lifecycle_state_reason?: string | null;
   auto_close_enabled?: boolean;
   closed_by_type?: string | null;
   close_reason?: string | null;
@@ -279,6 +283,22 @@ function formatDurationHms(diffMs: number) {
 function getStartCountdownLabel(session: SessionRow, nowMs: number) {
   const status = String(session.status || "").trim().toUpperCase();
   if (status !== "PLANNED") return "";
+  if (session.auto_start_label) {
+    if (String(session.auto_start_state || "").toUpperCase() === "OVERDUE") {
+      return "Auto start overdue";
+    }
+    if (String(session.auto_start_state || "").toUpperCase() === "PENDING") {
+      const scheduledStartRaw = session.scheduled_start_time;
+      if (scheduledStartRaw) {
+        const scheduledStart = new Date(scheduledStartRaw);
+        if (!Number.isNaN(scheduledStart.getTime())) {
+          const diffMs = scheduledStart.getTime() - nowMs;
+          if (diffMs > 0) return `Auto start pending • Starts in ${formatDurationHms(diffMs)}`;
+        }
+      }
+      return "Auto start pending";
+    }
+  }
   const scheduledStartRaw = session.scheduled_start_time;
   if (!scheduledStartRaw) return "";
   const scheduledStart = new Date(scheduledStartRaw);
@@ -478,6 +498,11 @@ export const AuctionSessions: React.FC = () => {
                   {countdownLabel}
                 </Typography>
               )}
+              {row.auto_start_reason && String(row.auto_start_state || "").toUpperCase() === "OVERDUE" && (
+                <Typography variant="caption" color="error.main">
+                  {row.auto_start_reason}
+                </Typography>
+              )}
             </Stack>
           );
         },
@@ -666,6 +691,10 @@ export const AuctionSessions: React.FC = () => {
         closure_mode: item.closure_mode || "MANUAL_OR_AUTO",
         scheduled_start_time: item.scheduled_start_time || null,
         scheduled_end_time: item.scheduled_end_time || null,
+        auto_start_state: item.auto_start_state || null,
+        auto_start_label: item.auto_start_label || null,
+        auto_start_reason: item.auto_start_reason || null,
+        lifecycle_state_reason: item.lifecycle_state_reason || null,
         auto_close_enabled: Boolean(item.auto_close_enabled),
         closed_by_type: item.closed_by_type || null,
         close_reason: item.close_reason || null,

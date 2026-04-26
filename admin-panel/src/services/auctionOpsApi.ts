@@ -97,6 +97,22 @@ export const getAuctionLots = async ({
     ...filters,
   });
 
+export const runAuctionLifecycleEngine = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.runAuctionLifecycleEngine, {
+    api: "runAuctionLifecycleEngine",
+    username,
+    language,
+    ...payload,
+  });
+
 export const startAuctionLot = async ({
   username,
   language = DEFAULT_LANGUAGE,

@@ -559,6 +559,7 @@ export const API_ROUTES = {
     startAuctionSession: "/admin/startAuctionSession",
     rescheduleAuctionSession: "/admin/rescheduleAuctionSession",
     closeAuctionSession: "/admin/closeAuctionSession",
+    runAuctionLifecycleEngine: "/admin/runAuctionLifecycleEngine",
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
     startAuctionLot: "/admin/startAuctionLot",

@@ -129,6 +129,38 @@ export const startAuctionLot = async ({
     ...payload,
   });
 
+export const updateQueuedAuctionLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.updateQueuedAuctionLot, {
+    api: "updateQueuedAuctionLot",
+    username,
+    language,
+    ...payload,
+  });
+
+export const withdrawQueuedAuctionLot = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.withdrawQueuedAuctionLot, {
+    api: "withdrawQueuedAuctionLot",
+    username,
+    language,
+    ...payload,
+  });
+
 export const getAuctionResults = async ({
   username,
   language = DEFAULT_LANGUAGE,

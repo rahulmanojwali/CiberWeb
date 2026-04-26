@@ -563,6 +563,8 @@ export const API_ROUTES = {
     getAuctionLots: "/admin/getAuctionLots",
     getAuctionResults: "/admin/getAuctionResults",
     startAuctionLot: "/admin/startAuctionLot",
+    updateQueuedAuctionLot: "/admin/updateQueuedAuctionLot",
+    withdrawQueuedAuctionLot: "/admin/withdrawQueuedAuctionLot",
     finalizeAuctionResult: "/admin/finalizeAuctionResult",
     getAuctionResultByLot: "/admin/getAuctionResultByLot",
     listAuctionResultsBySession: "/admin/listAuctionResultsBySession",

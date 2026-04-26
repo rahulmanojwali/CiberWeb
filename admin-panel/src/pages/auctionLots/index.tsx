@@ -19,6 +19,10 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -30,7 +34,7 @@ import { can } from "../../utils/adminUiConfig";
 import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
-import { createAuctionSession, finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot } from "../../services/auctionOpsApi";
+import { createAuctionSession, finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot, updateQueuedAuctionLot, withdrawQueuedAuctionLot } from "../../services/auctionOpsApi";
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
@@ -61,6 +65,8 @@ type LotRow = {
   session_auto_start_state?: "PENDING" | "OVERDUE" | string | null;
   session_auto_start_label?: string | null;
   session_auto_start_reason?: string | null;
+  queue_reason?: string | null;
+  queue_reason_message?: string | null;
   is_active_lot?: "Y" | "N" | null;
   lot_phase?: string | null;
   session_has_active_lot?: boolean | null;
@@ -299,6 +305,17 @@ const getTimeLeftPresentation = (
   return { label: countdown.label, tone: "live" as const };
 };
 
+const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
+  const normalized = String(code || "").trim().toUpperCase();
+  if (normalized === "LIVE_CAPACITY_FULL") return "Live capacity is full. Lot is queued.";
+  if (normalized === "OPEN_LANE_CAPACITY_FULL") return "Open lane capacity is full. Lot is queued.";
+  if (normalized === "MANDI_CAPACITY_FULL") return "Mandi capacity is full. Lot is queued.";
+  if (normalized === "ORG_CAPACITY_FULL") return "Organisation capacity is full. Lot is queued.";
+  if (normalized === "PLATFORM_CAPACITY_FULL") return "Platform capacity is full. Lot is queued.";
+  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE") return "Waiting for active lot to close in this lane.";
+  return String(fallbackMessage || "").trim() || "Queued";
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -357,6 +374,13 @@ export const AuctionLots: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [hasCapacitySummary, setHasCapacitySummary] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
+  const [openRowDialog, setOpenRowDialog] = useState(false);
+  const [rowDialogMode, setRowDialogMode] = useState<"VIEW" | "EDIT">("VIEW");
+  const [rowEditForm, setRowEditForm] = useState({
+    estimated_qty_kg: "",
+    start_price_per_qtl: "",
+    reserve_price_per_qtl: "",
+  });
   const [openHelp, setOpenHelp] = useState(false);
   const [helpTitle, setHelpTitle] = useState("Help");
   const [actionLoading, setActionLoading] = useState(false);
@@ -456,7 +480,7 @@ export const AuctionLots: React.FC = () => {
     if (!openingRatePerQtl || !selectedTotalQtl) return null;
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
-  const createSubmitValid = Boolean(createForm.lot_id && createForm.session_id && createBasePriceValid);
+  const createSubmitValid = Boolean(createForm.lot_id && createBasePriceValid);
   const noOrgAllocationConfigured = !capacitySummary.org_allocation_configured;
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
@@ -471,6 +495,36 @@ export const AuctionLots: React.FC = () => {
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 220,
+        sortable: false,
+        filterable: false,
+        renderCell: (params) => {
+          const row = params.row;
+          const lotStatus = String(row.status || "").toUpperCase();
+          const sessionStatus = normalizeSessionStatus(String(row.session_status || ""));
+          const canStart = lotStatus === "QUEUED" && sessionStatus === "LIVE";
+          const canEdit = lotStatus === "QUEUED";
+          return (
+            <Stack direction="row" spacing={0.5}>
+              <IconButton size="small" title="View lot details" onClick={() => openRowDialogFor(row, "VIEW")}>
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" title="Edit queued lot" onClick={() => openRowDialogFor(row, "EDIT")} disabled={!canEdit}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" title="Withdraw from queue" onClick={() => handleWithdrawQueuedLot(row)} disabled={!canEdit}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" title="Start/Promote lot" onClick={() => handleStartSelectedLot(row)} disabled={!canStart}>
+                <PlayArrowIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          );
+        },
+      },
       {
         field: "lot_id",
         headerName: "Lot / Product",
@@ -555,6 +609,27 @@ export const AuctionLots: React.FC = () => {
                   {params.row.session_auto_start_reason}
                 </Typography>
               )}
+            </Stack>
+          );
+        },
+      },
+      {
+        field: "queue_reason",
+        headerName: "Queue Reason",
+        width: 260,
+        renderCell: (params) => {
+          const lotStatus = String(params.row.status || "").toUpperCase();
+          if (lotStatus !== "QUEUED") return <Typography variant="body2" color="text.secondary">—</Typography>;
+          const code = params.row.queue_reason || null;
+          const message = queueReasonLabel(code, params.row.queue_reason_message);
+          return (
+            <Stack spacing={0.2} sx={{ py: 0.3 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                {code || "QUEUED"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {message}
+              </Typography>
             </Stack>
           );
         },
@@ -840,6 +915,8 @@ export const AuctionLots: React.FC = () => {
         session_auto_start_state: item?.session?.auto_start_state || null,
         session_auto_start_label: item?.session?.auto_start_label || null,
         session_auto_start_reason: item?.session?.auto_start_reason || null,
+        queue_reason: item.queue_reason || null,
+        queue_reason_message: item.queue_reason_message || null,
         session_has_active_lot: typeof item?.session?.has_active_lot === "boolean" ? item.session.has_active_lot : null,
         session_no_active_lot: typeof item?.session?.no_active_lot === "boolean" ? item.session.no_active_lot : null,
         session_remaining_lot_count:
@@ -986,10 +1063,20 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
-  const handleStartSelectedLot = async () => {
+  const handleStartSelectedLot = async (rowInput?: LotRow | null) => {
     const username = currentUsername();
-    if (!username || !selectedRow || !selectedRow.backend_lot_id || !selectedRow.session_id || !selectedRow.org_id || selectedRow.mandi_id_value == null) return;
+    const row = rowInput || selectedRow;
+    if (!username || !row || !row.backend_lot_id || !row.session_id || !row.org_id || row.mandi_id_value == null) return;
+    const rowSessionStatus = normalizeSessionStatus(String(row.session_status || ""));
     if (!isSelectedSessionLive) {
+      if (rowInput && rowSessionStatus === "LIVE") {
+        // no-op, continue below
+      } else {
+        setActionError("Auction lot can be started only when the auction session is live.");
+        return;
+      }
+    }
+    if (rowSessionStatus !== "LIVE") {
       setActionError("Auction lot can be started only when the auction session is live.");
       return;
     }
@@ -1000,10 +1087,10 @@ export const AuctionLots: React.FC = () => {
         username,
         language,
         payload: {
-          org_id: selectedRow.org_id,
-          mandi_id: Number(selectedRow.mandi_id_value),
-          session_id: selectedRow.session_id,
-          lot_id: selectedRow.backend_lot_id,
+          org_id: row.org_id,
+          mandi_id: Number(row.mandi_id_value),
+          session_id: row.session_id,
+          lot_id: row.backend_lot_id,
         },
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
@@ -1015,6 +1102,73 @@ export const AuctionLots: React.FC = () => {
       await loadData();
     } catch (err: any) {
       setActionError(err?.message || "Failed to start auction lot.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openRowDialogFor = (row: LotRow, mode: "VIEW" | "EDIT") => {
+    setSelectedRow(row);
+    setRowDialogMode(mode);
+    setRowEditForm({
+      estimated_qty_kg: row.quantity != null ? String(row.quantity) : "",
+      start_price_per_qtl: row.base_price != null ? String(row.base_price) : "",
+      reserve_price_per_qtl: "",
+    });
+    setOpenRowDialog(true);
+  };
+
+  const handleSaveQueuedLotEdit = async () => {
+    const username = currentUsername();
+    if (!username || !selectedRow || !selectedRow.backend_lot_id) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const payload: Record<string, any> = {
+        auction_lot_id: selectedRow.backend_lot_id,
+      };
+      if (String(rowEditForm.estimated_qty_kg || "").trim()) payload.estimated_qty_kg = rowEditForm.estimated_qty_kg;
+      if (String(rowEditForm.start_price_per_qtl || "").trim()) payload.start_price_per_qtl = rowEditForm.start_price_per_qtl;
+      if (rowEditForm.reserve_price_per_qtl !== undefined) payload.reserve_price_per_qtl = rowEditForm.reserve_price_per_qtl;
+      const resp: any = await updateQueuedAuctionLot({ username, language, payload });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setActionError(desc || "Failed to update queued lot.");
+        return;
+      }
+      setOpenRowDialog(false);
+      await loadData();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to update queued lot.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleWithdrawQueuedLot = async (row?: LotRow | null) => {
+    const username = currentUsername();
+    const selected = row || selectedRow;
+    if (!username || !selected || !selected.backend_lot_id) return;
+    if (!window.confirm("Withdraw this queued lot from lane queue?")) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const resp: any = await withdrawQueuedAuctionLot({
+        username,
+        language,
+        payload: { auction_lot_id: selected.backend_lot_id },
+      });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setActionError(desc || "Failed to withdraw queued lot.");
+        return;
+      }
+      if (openRowDialog) setOpenRowDialog(false);
+      await loadData();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to withdraw queued lot.");
     } finally {
       setActionLoading(false);
     }
@@ -1104,13 +1258,8 @@ export const AuctionLots: React.FC = () => {
         submit_disabled: createSubmitDisabled,
       });
     }
-    const sessionStatus = String(selectedCreateSession?.status || "").toUpperCase();
-    if (sessionStatus === "CLOSED" || sessionStatus === "CANCELLED") {
-      setCreateError("Cannot map lots to a CLOSED or CANCELLED session.");
-      return;
-    }
-    if (!createForm.session_id || !createForm.lot_id || !createBasePriceRaw) {
-      setCreateError("Session, lot, and opening price are required.");
+    if (!createForm.lot_id || !createBasePriceRaw) {
+      setCreateError("Lot and opening price are required.");
       return;
     }
     if (!/^\d+(\.\d{1,2})?$/.test(createBasePriceRaw)) {
@@ -1132,7 +1281,7 @@ export const AuctionLots: React.FC = () => {
         country,
         language,
         lot_id: createForm.lot_id,
-        session_id: createForm.session_id,
+        session_id: createForm.session_id || undefined,
         start_price_per_qtl: createBasePriceRaw,
       };
       if (import.meta.env.DEV) {
@@ -1418,7 +1567,7 @@ export const AuctionLots: React.FC = () => {
               <Button
                 variant="contained"
                 size="small"
-                onClick={handleStartSelectedLot}
+                onClick={() => handleStartSelectedLot()}
                 disabled={actionLoading || !canStartSelectedLot}
               >
                 Start Selected Lot
@@ -1561,7 +1710,7 @@ export const AuctionLots: React.FC = () => {
             <MenuItem value="LIVE">Live</MenuItem>
             <MenuItem value="SOLD">Sold</MenuItem>
             <MenuItem value="UNSOLD">Unsold</MenuItem>
-            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            <MenuItem value="WITHDRAWN">Withdrawn</MenuItem>
           </TextField>
           <TextField
             label="Date From"
@@ -1589,6 +1738,11 @@ export const AuctionLots: React.FC = () => {
         <Alert severity="info" sx={{ mb: 2 }}>
           No active lot currently selected in this live session.
           {selectedRow?.session_ready_to_close ? " This session is ready to close." : ""}
+        </Alert>
+      )}
+      {String(selectedRow?.status || "").toUpperCase() === "QUEUED" && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {queueReasonLabel(selectedRow?.queue_reason, selectedRow?.queue_reason_message)}
         </Alert>
       )}
 
@@ -1645,6 +1799,89 @@ export const AuctionLots: React.FC = () => {
             Verify lots first and map them to an active auction session, then refresh this page.
           </Typography>
         </Paper>
+      )}
+
+      {openRowDialog && selectedRow && (
+        <Dialog open={openRowDialog} onClose={() => setOpenRowDialog(false)} fullWidth maxWidth="sm">
+          <DialogTitle>{rowDialogMode === "EDIT" ? "Edit Queued Lot" : "Auction Lot Details"}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.25} mt={0.5}>
+              <Typography variant="body2"><strong>Lot:</strong> {selectedRow.lot_id}</Typography>
+              <Typography variant="body2"><strong>Session:</strong> {selectedRow.session_name || selectedRow.session_code || "—"}</Typography>
+              <Typography variant="body2"><strong>Status:</strong> {selectedRow.status || "—"}</Typography>
+              <Typography variant="body2"><strong>Active Lot:</strong> {String(selectedRow.is_active_lot || "N").toUpperCase() === "Y" ? "Yes" : "No"}</Typography>
+              {String(selectedRow.status || "").toUpperCase() === "QUEUED" && (
+                <Alert severity="info">
+                  {queueReasonLabel(selectedRow.queue_reason, selectedRow.queue_reason_message)}
+                </Alert>
+              )}
+              {rowDialogMode === "EDIT" ? (
+                <Stack spacing={1}>
+                  <TextField
+                    label="Estimated Qty (kg)"
+                    size="small"
+                    type="number"
+                    value={rowEditForm.estimated_qty_kg}
+                    onChange={(e) => setRowEditForm((prev) => ({ ...prev, estimated_qty_kg: e.target.value }))}
+                    inputProps={{ min: 0.01, step: 0.01 }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Start Price (₹/qtl)"
+                    size="small"
+                    type="number"
+                    value={rowEditForm.start_price_per_qtl}
+                    onChange={(e) => setRowEditForm((prev) => ({ ...prev, start_price_per_qtl: e.target.value }))}
+                    inputProps={{ min: 0.01, step: 0.01 }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Reserve Price (₹/qtl)"
+                    size="small"
+                    type="number"
+                    value={rowEditForm.reserve_price_per_qtl}
+                    onChange={(e) => setRowEditForm((prev) => ({ ...prev, reserve_price_per_qtl: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }}
+                    fullWidth
+                  />
+                </Stack>
+              ) : (
+                <Stack spacing={0.8}>
+                  <Typography variant="body2"><strong>Commodity:</strong> {selectedRow.commodity || "—"}</Typography>
+                  <Typography variant="body2"><strong>Product:</strong> {selectedRow.product || "—"}</Typography>
+                  <Typography variant="body2"><strong>Qty:</strong> {selectedRow.quantity != null ? `${formatInr(selectedRow.quantity)} kg` : "—"}</Typography>
+                  <Typography variant="body2"><strong>Start Price:</strong> {selectedRow.base_price != null ? `₹${formatInr(selectedRow.base_price)}/qtl` : "—"}</Typography>
+                </Stack>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            {rowDialogMode === "EDIT" && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => handleWithdrawQueuedLot(selectedRow)}
+                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED"}
+              >
+                Withdraw
+              </Button>
+            )}
+            <Button onClick={() => setOpenRowDialog(false)} disabled={actionLoading}>Close</Button>
+            {rowDialogMode === "EDIT" ? (
+              <Button variant="contained" onClick={handleSaveQueuedLotEdit} disabled={actionLoading}>
+                Save
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={() => handleStartSelectedLot(selectedRow)}
+                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED" || normalizeSessionStatus(selectedRow.session_status) !== "LIVE"}
+              >
+                Start Lot
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
       )}
 
       {openCreate && (
@@ -1729,17 +1966,18 @@ export const AuctionLots: React.FC = () => {
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  Section B — Auction Lane
+                  Section B — Lane Assignment (Automatic)
                 </Typography>
                 <TextField
                   select
-                  label="Auction Lane"
+                  label="Preferred Lane (Optional)"
                   size="small"
                   value={createForm.session_id}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
                   SelectProps={{ onOpen: loadSessionsForDropdown }}
                   onClick={loadSessionsForDropdown}
                   fullWidth
+                  helperText="Backend auto-assigns lane by org/mandi/commodity/lane type. Preferred lane is only used if it matches."
                 >
                   <MenuItem value="">Select</MenuItem>
                   {sessionOptions.map((s) => (

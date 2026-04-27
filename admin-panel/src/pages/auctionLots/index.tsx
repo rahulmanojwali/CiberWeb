@@ -96,6 +96,7 @@ type SessionOption = Option & {
 };
 type LotOption = { value: string; label: string; shortCode?: string; lot: any };
 type CapacitySummary = {
+  testing_mode_enabled: boolean;
   org_allocation_configured: boolean;
   no_org_allocation_message: string | null;
   can_create_new_lane: boolean;
@@ -414,6 +415,7 @@ export const AuctionLots: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [capacitySummary, setCapacitySummary] = useState<CapacitySummary>({
+    testing_mode_enabled: false,
     org_allocation_configured: false,
     no_org_allocation_message: "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.",
     can_create_new_lane: true,
@@ -1034,6 +1036,7 @@ export const AuctionLots: React.FC = () => {
       if (summary) {
         setHasCapacitySummary(true);
         setCapacitySummary({
+          testing_mode_enabled: Boolean(summary.testing_mode_enabled),
           org_allocation_configured: Boolean(summary.org_allocation_configured),
           no_org_allocation_message: summary.no_org_allocation_message || null,
           can_create_new_lane: Boolean(summary.can_create_new_lane),
@@ -1069,6 +1072,7 @@ export const AuctionLots: React.FC = () => {
         setHasCapacitySummary(false);
         setCapacitySummary((prev) => ({
           ...prev,
+          testing_mode_enabled: false,
           org_allocation_configured: false,
           can_create_new_lane: false,
           blocking_reason: null,
@@ -1762,6 +1766,11 @@ export const AuctionLots: React.FC = () => {
         </Stack>
       </Stack>
 
+      {capacitySummary.testing_mode_enabled && (
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        Testing Capacity Mode is enabled. Capacity limits are advisory only.
+      </Alert>
+      )}
       {hasCapacitySummary && (
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack spacing={1.5}>

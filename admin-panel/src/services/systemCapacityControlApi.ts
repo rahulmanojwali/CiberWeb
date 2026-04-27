@@ -62,7 +62,7 @@ export const updatePlatformAuctionCapacity = async ({
     ...payload,
   });
 
-export const updateManualCapacity = async ({
+export const updateTestingCapacity = async ({
   username,
   language = DEFAULT_LANGUAGE,
   payload,
@@ -71,8 +71,8 @@ export const updateManualCapacity = async ({
   language?: string;
   payload: Record<string, any>;
 }) =>
-  postEncrypted(API_ROUTES.admin.updateManualCapacity, {
-    api: API_TAGS.SYSTEM_CAPACITY_CONTROL.updateManual,
+  postEncrypted(API_ROUTES.admin.updateTestingCapacity, {
+    api: API_TAGS.SYSTEM_CAPACITY_CONTROL.updateTesting,
     username,
     language,
     ...payload,

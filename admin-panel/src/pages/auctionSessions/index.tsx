@@ -67,6 +67,7 @@ type SessionRow = {
 type SessionStartMode = "MANUAL" | "AUTO" | "MANUAL_OR_AUTO";
 
 type LaneCapacitySummary = {
+  testing_mode_enabled: boolean;
   live_session_count: number;
   open_session_count: number;
   total_queued_lots: number;
@@ -412,6 +413,7 @@ export const AuctionSessions: React.FC = () => {
     notes: "",
   });
   const [laneCapacitySummary, setLaneCapacitySummary] = useState<LaneCapacitySummary>({
+    testing_mode_enabled: false,
     live_session_count: 0,
     open_session_count: 0,
     total_queued_lots: 0,
@@ -715,6 +717,7 @@ export const AuctionSessions: React.FC = () => {
       const summary = resp?.data?.lane_capacity_summary || resp?.response?.data?.lane_capacity_summary || null;
       if (summary) {
         setLaneCapacitySummary({
+          testing_mode_enabled: Boolean(summary.testing_mode_enabled),
           live_session_count: Number(summary.live_session_count || 0),
           open_session_count: Number(summary.open_session_count || 0),
           total_queued_lots: Number(summary.total_queued_lots || 0),
@@ -1270,6 +1273,12 @@ export const AuctionSessions: React.FC = () => {
           />
         </Box>
       </Paper>
+
+      {laneCapacitySummary.testing_mode_enabled && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Testing Capacity Mode is enabled. Capacity limits are advisory only.
+        </Alert>
+      )}
 
       {laneCapacitySummary.show_capacity_guardrails && (
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>

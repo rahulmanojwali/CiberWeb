@@ -36,6 +36,7 @@ import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
 import { createAuctionSession, finalizeAuctionResult, getAuctionLots, getAuctionSessions, startAuctionLot, updateQueuedAuctionLot, withdrawQueuedAuctionLot } from "../../services/auctionOpsApi";
+import { updateOrgAuctionCapacityAllocation } from "../../services/systemCapacityControlApi";
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
@@ -322,6 +323,20 @@ const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: str
   return String(fallbackMessage || "").trim() || "Queued";
 };
 
+const capacityCapDetailedMessage = (summary: CapacitySummary) => {
+  const usedOpen = Number(summary.org_usage.used_open_lanes || 0);
+  const allocatedOpen = Number(summary.org_allocation.allocated_max_open_lanes || 0);
+  const usedLive = Number(summary.org_usage.used_live_lanes || 0);
+  const allocatedLive = Number(summary.org_allocation.allocated_max_live_lanes || 0);
+  const mandiOpen = Number(summary.mandi_effective.max_open_lanes || 0);
+  const mandiLive = Number(summary.mandi_effective.max_live_lanes || 0);
+  const openDeficit = Math.max(0, usedOpen + 1 - Math.max(allocatedOpen, 0));
+  const liveDeficit = Math.max(0, usedLive + 1 - Math.max(allocatedLive, 0));
+  const requiredOpen = Math.max(5, usedOpen + 1);
+  const requiredLive = Math.max(3, usedLive + 1);
+  return `Cannot auto-start this lot because org open lanes are full: ${usedOpen} used / ${allocatedOpen} allocated. Org live lanes: ${usedLive} used / ${allocatedLive} allocated. Mandi effective limits: open ${mandiOpen}, live ${mandiLive}. Required additional capacity: open +${openDeficit}, live +${liveDeficit}. Increase Section F → Allocated Max Open and Allocated Max Live for this org, or close an existing lane. Suggested testing target: Allocated Max Open at least ${requiredOpen} and Allocated Max Live at least ${requiredLive}.`;
+};
+
 export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
@@ -330,6 +345,7 @@ export const AuctionLots: React.FC = () => {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [testCapacityLoading, setTestCapacityLoading] = useState(false);
   const [createOptionsLoading, setCreateOptionsLoading] = useState(false);
   const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
@@ -519,6 +535,14 @@ export const AuctionLots: React.FC = () => {
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
   const canCreateSessionWithinCapacity = Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled);
+  const capacityBlockingFull = useMemo(() => (
+    Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_open_lanes || 0)
+    || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_live_lanes || 0)
+    || Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.mandi_effective.max_open_lanes || 0)
+    || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.mandi_effective.max_live_lanes || 0)
+    || !Boolean(capacitySummary.can_create_new_lane)
+  ), [capacitySummary]);
+  const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch;
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
@@ -655,7 +679,9 @@ export const AuctionLots: React.FC = () => {
           const lotStatus = String(params.row.status || "").toUpperCase();
           if (lotStatus !== "QUEUED") return <Typography variant="body2" color="text.secondary">—</Typography>;
           const code = params.row.queue_reason || null;
-          const message = queueReasonLabel(code, params.row.queue_reason_message);
+          const message = String(code || "").toUpperCase() === "CAPACITY_CAP" && hasCapacitySummary
+            ? `Org open ${capacitySummary.org_usage.used_open_lanes}/${capacitySummary.org_allocation.allocated_max_open_lanes}, live ${capacitySummary.org_usage.used_live_lanes}/${capacitySummary.org_allocation.allocated_max_live_lanes}. Increase Section F org allocation or close a lane.`
+            : queueReasonLabel(code, params.row.queue_reason_message);
           return (
             <Stack spacing={0.2} sx={{ py: 0.3 }}>
               <Typography variant="caption" sx={{ fontWeight: 700 }}>
@@ -1377,9 +1403,13 @@ export const AuctionLots: React.FC = () => {
       const queuePos = createdItem?.queue_position ?? "—";
       const queueReasonMsg = queueReasonLabel(createdItem?.queue_reason, createdItem?.queue_reason_message);
       const willAutoStart = String(createdItem?.status || "").toUpperCase() === "LIVE" ? "Yes" : (String(createdItem?.queue_reason || "").toUpperCase() === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE" ? "Yes" : "No");
-      setCreateSuccess(
-        `Assigned Lane: ${assignedLane} | Lane Type: ${assignedLaneType} | Queue Position: ${queuePos} | Queue Reason: ${queueReasonMsg} | Auto-start: ${willAutoStart}`,
-      );
+      if (String(createdItem?.queue_reason || "").toUpperCase() === "CAPACITY_CAP") {
+        setCreateSuccess("Lane assigned successfully, but lot is queued because capacity is full. Auto-start will happen after capacity is available.");
+      } else {
+        setCreateSuccess(
+          `Assigned Lane: ${assignedLane} | Lane Type: ${assignedLaneType} | Queue Position: ${queuePos} | Queue Reason: ${queueReasonMsg} | Auto-start: ${willAutoStart}`,
+        );
+      }
       setOpenCreate(false);
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "" });
       await loadData();
@@ -1462,6 +1492,53 @@ export const AuctionLots: React.FC = () => {
       setCreateSessionError(err?.message || "Failed to create session.");
     } finally {
       setCreateSessionLoading(false);
+    }
+  };
+
+  const handleOpenCapacityControl = () => {
+    window.location.assign("/admin/system/capacity-control");
+  };
+
+  const handleApplySafeTestCapacity = async () => {
+    const username = currentUsername();
+    if (!username) return;
+    const target = selectedRow || rows[0];
+    if (!target?.org_id && !target?.org_code) {
+      setActionError("Select an org/mandi context first to apply test capacity.");
+      return;
+    }
+    setTestCapacityLoading(true);
+    setActionError(null);
+    try {
+      const payload: Record<string, any> = {
+        action: "UPSERT_ALLOCATION",
+        clear_allocation: false,
+        capacity: {
+          tier_code: "CUSTOM",
+          max_live_sessions: 3,
+          max_open_sessions: 5,
+          max_total_queued_lots: 500,
+          max_concurrent_bidders: 300,
+          allow_overflow_lanes: false,
+          allow_special_event_lanes: false,
+          reserved_capacity_enabled: false,
+        },
+      };
+      if (target?.org_id) payload.org_id = target.org_id;
+      if (target?.org_code) payload.org_code = target.org_code;
+      const resp: any = await updateOrgAuctionCapacityAllocation({ username, language, payload });
+      const rc = resp?.response?.responsecode ?? resp?.responsecode;
+      const desc = resp?.response?.description ?? resp?.description;
+      if (String(rc) !== "0") {
+        setActionError(desc || "Failed to apply safe test capacity.");
+        return;
+      }
+      setCreateSuccess("Safe test capacity applied: Live=3, Open=5, Queue=500, Bidders=300.");
+      await loadData();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to apply safe test capacity.");
+    } finally {
+      setTestCapacityLoading(false);
     }
   };
 
@@ -1726,6 +1803,37 @@ export const AuctionLots: React.FC = () => {
         </Stack>
       </Paper>
       )}
+      {hasCapacitySummary && capacityBlockingFull && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2, borderColor: "warning.main" }}>
+          <Stack spacing={1.25}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "warning.dark" }}>
+              Capacity is blocking auto-start
+            </Typography>
+            <Typography variant="body2">
+              Current org open lanes: {capacitySummary.org_usage.used_open_lanes} used / {capacitySummary.org_allocation.allocated_max_open_lanes} allocated
+            </Typography>
+            <Typography variant="body2">
+              Current org live lanes: {capacitySummary.org_usage.used_live_lanes} used / {capacitySummary.org_allocation.allocated_max_live_lanes} allocated
+            </Typography>
+            <Typography variant="body2">
+              Current mandi effective limits: open {capacitySummary.mandi_effective.max_open_lanes}, live {capacitySummary.mandi_effective.max_live_lanes}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Suggested action: Increase org Allocated Max Open to at least 5 and Allocated Max Live to at least 3 for testing parallel lanes.
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button size="small" variant="outlined" onClick={handleOpenCapacityControl}>
+                Open Capacity Control
+              </Button>
+              {showTestCapacityHelper && (
+                <Button size="small" variant="contained" onClick={handleApplySafeTestCapacity} disabled={testCapacityLoading}>
+                  {testCapacityLoading ? "Applying..." : "Apply Safe Test Capacity"}
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
@@ -1849,7 +1957,9 @@ export const AuctionLots: React.FC = () => {
       )}
       {String(selectedRow?.status || "").toUpperCase() === "QUEUED" && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          {queueReasonLabel(selectedRow?.queue_reason, selectedRow?.queue_reason_message)}
+          {String(selectedRow?.queue_reason || "").toUpperCase() === "CAPACITY_CAP" && hasCapacitySummary
+            ? capacityCapDetailedMessage(capacitySummary)
+            : queueReasonLabel(selectedRow?.queue_reason, selectedRow?.queue_reason_message)}
         </Alert>
       )}
 

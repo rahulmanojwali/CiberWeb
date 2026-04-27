@@ -14,6 +14,7 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -49,6 +50,10 @@ type LotRow = {
   session_lane_type?: string | null;
   session_commodity_group?: string | null;
   session_is_overflow_lane?: boolean | null;
+  lane_name?: string | null;
+  lane_type?: string | null;
+  commodity_group?: string | null;
+  queue_position?: number | null;
   org_id?: string | null;
   mandi_id_value?: number | string | null;
   org_code?: string | null;
@@ -307,6 +312,7 @@ const getTimeLeftPresentation = (
 
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
   const normalized = String(code || "").trim().toUpperCase();
+  if (normalized === "CAPACITY_CAP") return "Capacity limit reached. Lot is queued until lane capacity is available.";
   if (normalized === "LIVE_CAPACITY_FULL") return "Live capacity is full. Lot is queued.";
   if (normalized === "OPEN_LANE_CAPACITY_FULL") return "Open lane capacity is full. Lot is queued.";
   if (normalized === "MANDI_CAPACITY_FULL") return "Mandi capacity is full. Lot is queued.";
@@ -323,6 +329,7 @@ export const AuctionLots: React.FC = () => {
   const [openCreate, setOpenCreate] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [createOptionsLoading, setCreateOptionsLoading] = useState(false);
   const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
@@ -352,6 +359,7 @@ export const AuctionLots: React.FC = () => {
     allow_manual_close_when_auto_enabled: true,
   });
   const [createForm, setCreateForm] = useState({
+    auto_assign_lane: true,
     session_id: "",
     lot_id: "",
     base_price: "",
@@ -364,6 +372,9 @@ export const AuctionLots: React.FC = () => {
     commodity: "",
     product: "",
     session_id: "",
+    lane: "",
+    lane_type: "",
+    commodity_group: "",
     lot_status: "",
     date_from: "",
     date_to: "",
@@ -454,6 +465,29 @@ export const AuctionLots: React.FC = () => {
     () => sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")) || null,
     [sessionItems, createForm.session_id],
   );
+  const selectedLotCommodityGroup = useMemo(() => (
+    String(
+      selectedLot?.commodity_group
+      || selectedLot?.commodity_group_code
+      || selectedLot?.commodity_name_en
+      || selectedLot?.commodity_name
+      || selectedLot?.commodity
+      || "",
+    ).trim()
+  ), [selectedLot]);
+  const selectedLaneCommodityGroup = useMemo(() => (
+    String(
+      selectedCreateSession?.commodity_group
+      || selectedCreateSession?.commodity_group_code
+      || "",
+    ).trim()
+  ), [selectedCreateSession]);
+  const selectedLaneCommodityMismatch = useMemo(() => {
+    if (!selectedCreateSession || !selectedLotCommodityGroup || !selectedLaneCommodityGroup) return false;
+    const laneGroup = selectedLaneCommodityGroup.toUpperCase();
+    const lotGroup = selectedLotCommodityGroup.toUpperCase();
+    return !(laneGroup === lotGroup || laneGroup.includes(lotGroup) || lotGroup.includes(laneGroup));
+  }, [selectedCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
   const selectedTotalKg = useMemo(() => {
@@ -485,7 +519,7 @@ export const AuctionLots: React.FC = () => {
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
   const canCreateSessionWithinCapacity = Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled);
-  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured;
+  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch;
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
@@ -678,16 +712,40 @@ export const AuctionLots: React.FC = () => {
         valueGetter: (_value, row) => closureModeLabel((row as any)?.session_closure_mode),
       },
       {
+        field: "lane_name",
+        headerName: "Lane Name",
+        width: 220,
+        valueGetter: (_value, row) => row.lane_name || row.session_name || row.session_code || "—",
+      },
+      {
+        field: "lane_type",
+        headerName: "Lane Type",
+        width: 150,
+        valueGetter: (_value, row) => humanizeLaneType(row.lane_type || row.session_lane_type),
+      },
+      {
+        field: "commodity_group",
+        headerName: "Commodity Group",
+        width: 170,
+        valueGetter: (_value, row) => row.commodity_group || row.session_commodity_group || "—",
+      },
+      {
+        field: "queue_position",
+        headerName: "Queue Position",
+        width: 130,
+        valueGetter: (_value, row) => row.queue_position ?? "—",
+      },
+      {
         field: "session_lane",
-        headerName: "Lane",
-        width: 240,
+        headerName: "Lane Summary",
+        width: 250,
         renderCell: (params) => (
           <Stack spacing={0.2} sx={{ py: 0.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {params.row.session_name || params.row.session_code || "—"}
+              {params.row.lane_name || params.row.session_name || params.row.session_code || "—"}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {[params.row.session_commodity_group, params.row.session_lane_type?.replace(/_/g, " ")].filter(Boolean).join(" • ") || "—"}
+              [params.row.commodity_group || params.row.session_commodity_group, (params.row.lane_type || params.row.session_lane_type)?.replace(/_/g, " ")].filter(Boolean).join(" • ") || "—"
             </Typography>
           </Stack>
         ),
@@ -880,6 +938,9 @@ export const AuctionLots: React.FC = () => {
           commodity: filters.commodity || undefined,
           product: filters.product || undefined,
           session_id: filters.session_id || undefined,
+          lane: filters.lane || undefined,
+          lane_type: filters.lane_type || undefined,
+          commodity_group: filters.commodity_group || undefined,
           lot_status: filters.lot_status || undefined,
           date_from: filters.date_from || undefined,
           date_to: filters.date_to || undefined,
@@ -897,6 +958,10 @@ export const AuctionLots: React.FC = () => {
         session_lane_type: item?.session?.lane_type || item?.session_lane_type || null,
         session_commodity_group: item?.session?.commodity_group || item?.session_commodity_group || null,
         session_is_overflow_lane: typeof item?.session?.is_overflow_lane === "boolean" ? item.session.is_overflow_lane : null,
+        lane_name: item?.lane_name || item?.session?.session_name || item?.session_name || null,
+        lane_type: item?.lane_type || item?.session?.lane_type || item?.session_lane_type || null,
+        commodity_group: item?.commodity_group || item?.session?.commodity_group || item?.session_commodity_group || null,
+        queue_position: item?.queue_position !== undefined && item?.queue_position !== null ? Number(item.queue_position) : null,
         org_id: item.org_id || null,
         mandi_id_value: item.mandi_id ?? null,
         org_code: item.org_code || item.org_id || null,
@@ -1262,6 +1327,14 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Lot and opening price are required.");
       return;
     }
+    if (!createForm.auto_assign_lane && !createForm.session_id) {
+      setCreateError("Select a preferred lane or enable Auto assign best lane.");
+      return;
+    }
+    if (selectedLaneCommodityMismatch) {
+      setCreateError("Selected lane does not match lot commodity group. Use Auto assignment recommended or choose a matching lane.");
+      return;
+    }
     if (!/^\d+(\.\d{1,2})?$/.test(createBasePriceRaw)) {
       setCreateError("Opening price must be a number with up to 2 decimals.");
       return;
@@ -1273,6 +1346,7 @@ export const AuctionLots: React.FC = () => {
     }
     setCreateLoading(true);
     setCreateError(null);
+    setCreateSuccess(null);
     try {
       const payload = {
         api: "mapLotToAuctionSession",
@@ -1281,7 +1355,8 @@ export const AuctionLots: React.FC = () => {
         country,
         language,
         lot_id: createForm.lot_id,
-        session_id: createForm.session_id || undefined,
+        auto_assign_lane: Boolean(createForm.auto_assign_lane),
+        session_id: createForm.auto_assign_lane ? undefined : (createForm.session_id || undefined),
         start_price_per_qtl: createBasePriceRaw,
       };
       if (import.meta.env.DEV) {
@@ -1296,8 +1371,17 @@ export const AuctionLots: React.FC = () => {
         setCreateError(desc || "Failed to create auction lot.");
         return;
       }
+      const createdItem = resp?.data?.item || resp?.response?.data?.item || null;
+      const assignedLane = createdItem?.lane_name || createdItem?.session?.session_name || createdItem?.session?.session_code || "—";
+      const assignedLaneType = humanizeLaneType(createdItem?.lane_type || createdItem?.session?.lane_type || null);
+      const queuePos = createdItem?.queue_position ?? "—";
+      const queueReasonMsg = queueReasonLabel(createdItem?.queue_reason, createdItem?.queue_reason_message);
+      const willAutoStart = String(createdItem?.status || "").toUpperCase() === "LIVE" ? "Yes" : (String(createdItem?.queue_reason || "").toUpperCase() === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE" ? "Yes" : "No");
+      setCreateSuccess(
+        `Assigned Lane: ${assignedLane} | Lane Type: ${assignedLaneType} | Queue Position: ${queuePos} | Queue Reason: ${queueReasonMsg} | Auto-start: ${willAutoStart}`,
+      );
       setOpenCreate(false);
-      setCreateForm({ session_id: "", lot_id: "", base_price: "" });
+      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "" });
       await loadData();
     } catch (err: any) {
       setCreateError(err?.message || "Failed to create auction lot.");
@@ -1427,7 +1511,7 @@ export const AuctionLots: React.FC = () => {
       });
     }
     loadData();
-  }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
+  }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lane, filters.lane_type, filters.commodity_group, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
 
   useEffect(() => {
     if (!canView || !filters.session_id) return;
@@ -1477,9 +1561,10 @@ export const AuctionLots: React.FC = () => {
 
   useEffect(() => {
     if (openCreate) {
-      setCreateForm({ session_id: "", lot_id: "", base_price: "" });
+      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "" });
       setSelectedLot(null);
       setSessionOptions([]);
+      setCreateError(null);
       setCreateSessionForm({
         method_code: "OPEN_OUTCRY",
         rounds_enabled: ["ROUND1"],
@@ -1532,6 +1617,9 @@ export const AuctionLots: React.FC = () => {
       commodity: "",
       product: "",
       session_id: "",
+      lane: "",
+      lane_type: "",
+      commodity_group: "",
       lot_status: "",
       date_from: "",
       date_to: "",
@@ -1695,6 +1783,24 @@ export const AuctionLots: React.FC = () => {
           </TextField>
 
           <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth />
+          <TextField label="Lane" size="small" value={filters.lane} onChange={(e) => updateFilter("lane", e.target.value)} fullWidth />
+          <TextField
+            select
+            label="Lane Type"
+            size="small"
+            value={filters.lane_type}
+            onChange={(e) => updateFilter("lane_type", e.target.value)}
+            fullWidth
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="COMMODITY_LANE">Commodity Lane</MenuItem>
+            <MenuItem value="PREMIUM_LANE">Premium Lane</MenuItem>
+            <MenuItem value="FAST_TRACK_LANE">Fast Track Lane</MenuItem>
+            <MenuItem value="BULK_LANE">Bulk Lane</MenuItem>
+            <MenuItem value="OVERFLOW_LANE">Overflow Lane</MenuItem>
+            <MenuItem value="SPECIAL_EVENT_LANE">Special Event Lane</MenuItem>
+          </TextField>
+          <TextField label="Commodity Group" size="small" value={filters.commodity_group} onChange={(e) => updateFilter("commodity_group", e.target.value)} fullWidth />
           <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth />
           <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth />
           <TextField
@@ -1734,6 +1840,7 @@ export const AuctionLots: React.FC = () => {
       </Paper>
 
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
+      {createSuccess && <Alert severity="success" sx={{ mb: 2 }}>{createSuccess}</Alert>}
       {selectedRow?.session_status === "LIVE" && selectedRow?.session_no_active_lot && (
         <Alert severity="info" sx={{ mb: 2 }}>
           No active lot currently selected in this live session.
@@ -1968,51 +2075,80 @@ export const AuctionLots: React.FC = () => {
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   Section B — Lane Assignment (Automatic)
                 </Typography>
-                <TextField
-                  select
-                  label="Preferred Lane (Optional)"
-                  size="small"
-                  value={createForm.session_id}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
-                  SelectProps={{ onOpen: loadSessionsForDropdown }}
-                  onClick={loadSessionsForDropdown}
-                  fullWidth
-                  helperText="Backend auto-assigns lane by org/mandi/commodity/lane type. Preferred lane is only used if it matches."
-                >
-                  <MenuItem value="">Select</MenuItem>
-                  {sessionOptions.map((s) => (
-                    <MenuItem
-                      key={s.value}
-                      value={s.value}
-                      sx={s.session?.suggested_for_selected_lot ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
-                    >
-                      <Stack spacing={0.35} sx={{ py: 0.3, width: "100%" }}>
-                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {s.session?.session_name || s.session?.session_code || s.label}
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    Auto assign best lane
+                  </Typography>
+                  <Switch
+                    checked={Boolean(createForm.auto_assign_lane)}
+                    onChange={(e) => setCreateForm((prev) => ({
+                      ...prev,
+                      auto_assign_lane: e.target.checked,
+                      session_id: e.target.checked ? "" : prev.session_id,
+                    }))}
+                  />
+                </Stack>
+                <Alert severity="info" sx={{ mt: 1.25 }}>
+                  Auto assignment recommended.
+                </Alert>
+                {!createForm.auto_assign_lane && (
+                  <Alert severity="warning" sx={{ mt: 1.25 }}>
+                    Manual lane selection is enabled. Choose carefully to avoid commodity mismatch.
+                  </Alert>
+                )}
+                {!createForm.auto_assign_lane && (
+                  <TextField
+                    select
+                    label="Preferred Lane (Manual)"
+                    size="small"
+                    value={createForm.session_id}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, session_id: e.target.value }))}
+                    SelectProps={{ onOpen: loadSessionsForDropdown }}
+                    onClick={loadSessionsForDropdown}
+                    fullWidth
+                    sx={{ mt: 1.25 }}
+                    helperText="Manual selection only. Lane must match lot commodity group and lane type."
+                  >
+                    <MenuItem value="">Select</MenuItem>
+                    {sessionOptions.map((s) => (
+                      <MenuItem
+                        key={s.value}
+                        value={s.value}
+                        sx={s.session?.suggested_for_selected_lot ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
+                      >
+                        <Stack spacing={0.35} sx={{ py: 0.3, width: "100%" }}>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {s.session?.session_name || s.session?.session_code || s.label}
+                            </Typography>
+                            {s.session?.suggested_for_selected_lot && (
+                              <Chip size="small" color="success" label="Suggested" />
+                            )}
+                            {s.session?.is_overflow_lane && (
+                              <Chip size="small" color="warning" variant="outlined" label="Overflow" />
+                            )}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            Commodity Group: {s.session?.commodity_group || "-"} · Lane Type: {humanizeLaneType(s.session?.lane_type)}
                           </Typography>
-                          {s.session?.suggested_for_selected_lot && (
-                            <Chip size="small" color="success" label="Suggested" />
-                          )}
-                          {s.session?.is_overflow_lane && (
-                            <Chip size="small" color="warning" variant="outlined" label="Overflow" />
+                          <Typography variant="caption" color="text.secondary">
+                            Queue: {s.session?.queued_count ?? 0} · Active: {s.session?.active_lot_code || "-"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "-"} · Overflow: {s.session?.is_overflow_lane ? "Yes" : "No"}
+                          </Typography>
+                          {s.session?.suggestion_reason && (
+                            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
+                              {s.session.suggested_for_selected_lot ? `Best match for selected lot · ${s.session.suggestion_reason}` : s.session.suggestion_reason}
+                            </Typography>
                           )}
                         </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          Commodity Group: {s.session?.commodity_group || "-"} · Lane Type: {humanizeLaneType(s.session?.lane_type)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Queue: {s.session?.queued_count ?? 0} · Active: {s.session?.active_lot_code || "-"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "-"} · Overflow: {s.session?.is_overflow_lane ? "Yes" : "No"}
-                        </Typography>
-                        {s.session?.suggestion_reason && (
-                          <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
-                            {s.session.suggested_for_selected_lot ? `Best match for selected lot · ${s.session.suggestion_reason}` : s.session.suggestion_reason}
-                          </Typography>
-                        )}
-                      </Stack>
-                    </MenuItem>
-                  ))}
-                </TextField>
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                {selectedLaneCommodityMismatch && (
+                  <Alert severity="warning" sx={{ mt: 1.25 }}>
+                    Selected lane commodity group does not match the selected lot. Choose a matching lane or keep Preferred Lane empty.
+                  </Alert>
+                )}
                 {!canSessionsList && (
                   <Alert severity="error" sx={{ mt: 1.25 }}>
                     Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.

@@ -175,7 +175,8 @@ type PlannerSuggestion = {
     bidders: number;
   };
   warnings: string[];
-  was_clamped: boolean;
+  recommended_plan_label: string;
+  recommendation_reason: string;
 };
 type PlannerValidationResult = {
   fieldErrors: Partial<Record<keyof PlannerState, string>>;
@@ -216,12 +217,6 @@ function toNumberOrNull(v: any): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function toNonNegativeNumber(value: any): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.max(0, parsed);
-}
-
 function isBlankValue(value: any): boolean {
   return value === null || value === undefined || String(value).trim() === "";
 }
@@ -237,7 +232,40 @@ const CLOUD_PROVIDER_OPTIONS = ["OCI", "AWS", "AZURE", "GCP", "ON_PREM", "HYBRID
 const DEPLOYMENT_TYPE_OPTIONS = ["SHARED", "DEDICATED", "HYBRID"] as const;
 const SAME_MACHINE_OPTIONS = ["SAME", "SEPARATE"] as const;
 const WEBSOCKET_MODE_OPTIONS = ["SHARED", "SEPARATE"] as const;
-const SECTION_F_TIER_OPTIONS = ["STARTER", "STANDARD", "PREMIUM", "ENTERPRISE", "DEDICATED", "CUSTOM"] as const;
+const SECTION_F_TIER_OPTIONS = ["STARTER", "STANDARD", "PREMIUM", "ENTERPRISE", "DEDICATED", "CUSTOM", "CLEAR"] as const;
+
+const SECTION_F_TIER_PRESETS = [
+  { tier_code: "STARTER", label: "Starter \u2014 1 live / 1 open / 55 queue / 46 bidders", live: 1, open: 1, queued: 55, bidders: 46 },
+  { tier_code: "STANDARD", label: "Standard \u2014 1 live / 1 open / 104 queue / 93 bidders", live: 1, open: 1, queued: 104, bidders: 93 },
+  { tier_code: "PREMIUM", label: "Premium \u2014 1 live / 2 open / 174 queue / 163 bidders", live: 1, open: 2, queued: 174, bidders: 163 },
+  { tier_code: "ENTERPRISE", label: "Enterprise \u2014 1 live / 3 open / 349 queue / 279 bidders", live: 1, open: 3, queued: 349, bidders: 279 },
+  { tier_code: "DEDICATED", label: "Dedicated \u2014 2 live / 5 open / 594 queue / 419 bidders", live: 2, open: 5, queued: 594, bidders: 419 },
+] as const;
+
+const SECTION_F_TIER_LABELS: Record<string, string> = {
+  STARTER: "Starter \u2014 1 live / 1 open / 55 queue / 46 bidders",
+  STANDARD: "Standard \u2014 1 live / 1 open / 104 queue / 93 bidders",
+  PREMIUM: "Premium \u2014 1 live / 2 open / 174 queue / 163 bidders",
+  ENTERPRISE: "Enterprise \u2014 1 live / 3 open / 349 queue / 279 bidders",
+  DEDICATED: "Dedicated \u2014 2 live / 5 open / 594 queue / 419 bidders",
+  CUSTOM: "Custom \u2014 Manual capacity",
+  CLEAR: "Clear allocation",
+};
+
+type SectionFStatus = "OK" | "FULL" | "OVER_LIMIT" | "UNSAVED" | "CLEARED";
+
+function integerOrNull(value: any): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.trunc(parsed);
+}
+
+function nonNegativeInteger(value: any): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.trunc(parsed));
+}
 
 function normalizeSelectValue(
   value: any,
@@ -301,19 +329,45 @@ function buildPresetMap(presets: TierPreset[]) {
   }, {});
 }
 
-function applyPreset(row: OrgAllocation, preset?: TierPreset | null): OrgAllocation {
-  if (!preset) return row;
-  return {
-    ...row,
-    tier_code: preset.tier_code,
-    allocated_max_live_lanes: preset.max_live_sessions,
-    allocated_max_open_lanes: preset.max_open_sessions,
-    allocated_max_queued_lots: preset.max_total_queued_lots,
-    allocated_max_concurrent_bidders: preset.max_concurrent_bidders,
-    overflow_allowed: preset.allow_overflow_lanes,
-    special_event_allowed: preset.allow_special_event_lanes,
-    reserved_capacity_enabled: preset.reserved_capacity_enabled,
-  };
+function buildOrgRowSignature(row: OrgAllocation): string {
+  return JSON.stringify({
+    tier_code: String(row?.tier_code || "").trim().toUpperCase() || null,
+    allocated_max_live_lanes: integerOrNull(row?.allocated_max_live_lanes),
+    allocated_max_open_lanes: integerOrNull(row?.allocated_max_open_lanes),
+    allocated_max_queued_lots: integerOrNull(row?.allocated_max_queued_lots),
+    allocated_max_concurrent_bidders: integerOrNull(row?.allocated_max_concurrent_bidders),
+    overflow_allowed: Boolean(row?.overflow_allowed),
+    special_event_allowed: Boolean(row?.special_event_allowed),
+    reserved_capacity_enabled: Boolean(row?.reserved_capacity_enabled),
+    priority_weight: integerOrNull(row?.priority_weight),
+  });
+}
+
+function getSectionFTierDisplayLabel(tierCode: string | null | undefined): string {
+  const normalized = String(tierCode || "").trim().toUpperCase();
+  if (!normalized) return "Not selected";
+  return SECTION_F_TIER_LABELS[normalized] || normalized;
+}
+
+function getSectionFTierPresetByCode(tierCode: string): (typeof SECTION_F_TIER_PRESETS)[number] | null {
+  const normalized = String(tierCode || "").trim().toUpperCase();
+  return SECTION_F_TIER_PRESETS.find((preset) => preset.tier_code === normalized) || null;
+}
+
+function sectionFStatusChipSx(status: SectionFStatus) {
+  if (status === "FULL" || status === "UNSAVED") {
+    return { bgcolor: "#ed6c02", color: "#fff" };
+  }
+  if (status === "CLEARED") {
+    return { bgcolor: "#9e9e9e", color: "#fff" };
+  }
+  if (status === "OVER_LIMIT") {
+    return { bgcolor: "#d32f2f", color: "#fff" };
+  }
+  if (status === "OK") {
+    return { bgcolor: "#2e7d32", color: "#fff" };
+  }
+  return undefined;
 }
 
 function healthColor(state?: string): "success" | "warning" | "error" | "default" {
@@ -402,6 +456,8 @@ const SystemCapacityControlPage: React.FC = () => {
   const [plannerApplyMessage, setPlannerApplyMessage] = useState<string | null>(null);
   const [plannerApplyError, setPlannerApplyError] = useState<string | null>(null);
   const [plannerResult, setPlannerResult] = useState<PlannerSuggestion | null>(null);
+  const [plannerQueueExceptionConfirmed, setPlannerQueueExceptionConfirmed] = useState(false);
+  const [savedOrgRowSignatures, setSavedOrgRowSignatures] = useState<Record<string, string>>({});
   const [planner, setPlanner] = useState<PlannerState>({
     selected_org_id: "",
     ...DEFAULT_PLANNER_INPUTS,
@@ -430,10 +486,10 @@ const SystemCapacityControlPage: React.FC = () => {
       bidders: allocatedBidders > platformMaxBidders,
     };
     const messages: string[] = [];
-    if (exceeded.live) messages.push(`Allocated live lanes exceed platform limit. Allocated: ${allocatedLive}, Allowed: ${platformMaxLive}.`);
-    if (exceeded.open) messages.push(`Allocated open lanes exceed platform limit. Allocated: ${allocatedOpen}, Allowed: ${platformMaxOpen}.`);
-    if (exceeded.queued) messages.push(`Allocated queued lots exceed platform limit. Allocated: ${allocatedQueued}, Allowed: ${platformMaxQueued}.`);
-    if (exceeded.bidders) messages.push(`Allocated bidders exceed platform limit. Allocated: ${allocatedBidders}, Allowed: ${platformMaxBidders}.`);
+    if (exceeded.live) messages.push(`Live allocation exceeds platform limit by ${allocatedLive - platformMaxLive}.`);
+    if (exceeded.open) messages.push(`Open allocation exceeds platform limit by ${allocatedOpen - platformMaxOpen}.`);
+    if (exceeded.queued) messages.push(`Queue allocation exceeds platform limit by ${allocatedQueued - platformMaxQueued}.`);
+    if (exceeded.bidders) messages.push(`Concurrent bidders allocation exceeds platform limit by ${allocatedBidders - platformMaxBidders}.`);
     return {
       allocatedLive,
       allocatedOpen,
@@ -453,6 +509,115 @@ const SystemCapacityControlPage: React.FC = () => {
       || Number(row.allocated_max_concurrent_bidders || 0) < 0
     ))
   ), [orgRows]);
+
+  const isOrgAllocationCleared = useCallback((row: OrgAllocation) => {
+    const tier = String(row?.tier_code || "").trim().toUpperCase();
+    const tierCleared = !tier || tier === "CUSTOM";
+    return tierCleared
+      && isBlankValue(row?.allocated_max_live_lanes)
+      && isBlankValue(row?.allocated_max_open_lanes)
+      && isBlankValue(row?.allocated_max_queued_lots)
+      && isBlankValue(row?.allocated_max_concurrent_bidders)
+      && !Boolean(row?.overflow_allowed)
+      && !Boolean(row?.special_event_allowed);
+  }, []);
+
+  const orgRowStatuses = useMemo(() => {
+    const totalLive = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_live_lanes || 0), 0);
+    const totalOpen = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_open_lanes || 0), 0);
+    const totalQueued = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_queued_lots || 0), 0);
+    const totalBidders = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_concurrent_bidders || 0), 0);
+
+    return orgRows.reduce<Record<string, SectionFStatus>>((acc, row) => {
+      const rowLive = Number(row.allocated_max_live_lanes || 0);
+      const rowOpen = Number(row.allocated_max_open_lanes || 0);
+      const rowQueued = Number(row.allocated_max_queued_lots || 0);
+      const rowBidders = Number(row.allocated_max_concurrent_bidders || 0);
+
+      const isCleared = isOrgAllocationCleared(row);
+      if (isCleared) {
+        acc[row.org_id] = "CLEARED";
+        return acc;
+      }
+
+      const remainingForRowLive = Math.max(0, platformMaxLive - (totalLive - rowLive));
+      const remainingForRowOpen = Math.max(0, platformMaxOpen - (totalOpen - rowOpen));
+      const remainingForRowQueued = Math.max(0, platformMaxQueued - (totalQueued - rowQueued));
+      const remainingForRowBidders = Math.max(0, platformMaxBidders - (totalBidders - rowBidders));
+
+      const overLimit = (
+        rowLive > remainingForRowLive
+        || rowOpen > remainingForRowOpen
+        || rowQueued > remainingForRowQueued
+        || rowBidders > remainingForRowBidders
+      );
+      if (overLimit) {
+        acc[row.org_id] = "OVER_LIMIT";
+        return acc;
+      }
+
+      const isUnsaved = savedOrgRowSignatures[String(row.org_id)] !== buildOrgRowSignature(row);
+      if (isUnsaved) {
+        acc[row.org_id] = "UNSAVED";
+        return acc;
+      }
+
+      const isFull = (
+        (rowLive > 0 && rowLive === remainingForRowLive)
+        || (rowOpen > 0 && rowOpen === remainingForRowOpen)
+        || (rowQueued > 0 && rowQueued === remainingForRowQueued)
+        || (rowBidders > 0 && rowBidders === remainingForRowBidders)
+      );
+      acc[row.org_id] = isFull ? "FULL" : "OK";
+      return acc;
+    }, {});
+  }, [
+    orgRows,
+    isOrgAllocationCleared,
+    platformMaxLive,
+    platformMaxOpen,
+    platformMaxQueued,
+    platformMaxBidders,
+    savedOrgRowSignatures,
+  ]);
+
+  const orgRowCapacityFlags = useMemo(() => {
+    const totalLive = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_live_lanes || 0), 0);
+    const totalOpen = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_open_lanes || 0), 0);
+    const totalQueued = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_queued_lots || 0), 0);
+    const totalBidders = orgRows.reduce((sum, row) => sum + Number(row.allocated_max_concurrent_bidders || 0), 0);
+    return orgRows.reduce<Record<string, { full: boolean; overLimit: boolean; cleared: boolean }>>((acc, row) => {
+      const rowLive = Number(row.allocated_max_live_lanes || 0);
+      const rowOpen = Number(row.allocated_max_open_lanes || 0);
+      const rowQueued = Number(row.allocated_max_queued_lots || 0);
+      const rowBidders = Number(row.allocated_max_concurrent_bidders || 0);
+      const remainingForRowLive = Math.max(0, platformMaxLive - (totalLive - rowLive));
+      const remainingForRowOpen = Math.max(0, platformMaxOpen - (totalOpen - rowOpen));
+      const remainingForRowQueued = Math.max(0, platformMaxQueued - (totalQueued - rowQueued));
+      const remainingForRowBidders = Math.max(0, platformMaxBidders - (totalBidders - rowBidders));
+      const overLimit = (
+        rowLive > remainingForRowLive
+        || rowOpen > remainingForRowOpen
+        || rowQueued > remainingForRowQueued
+        || rowBidders > remainingForRowBidders
+      );
+      const full = !overLimit && (
+        (rowLive > 0 && rowLive === remainingForRowLive)
+        || (rowOpen > 0 && rowOpen === remainingForRowOpen)
+        || (rowQueued > 0 && rowQueued === remainingForRowQueued)
+        || (rowBidders > 0 && rowBidders === remainingForRowBidders)
+      );
+      acc[row.org_id] = { full, overLimit, cleared: isOrgAllocationCleared(row) };
+      return acc;
+    }, {});
+  }, [
+    orgRows,
+    platformMaxLive,
+    platformMaxOpen,
+    platformMaxQueued,
+    platformMaxBidders,
+    isOrgAllocationCleared,
+  ]);
 
   const plannerSelectedRow = useMemo(
     () => orgRows.find((row) => String(row.org_id) === String(planner.selected_org_id)) || null,
@@ -480,17 +645,14 @@ const SystemCapacityControlPage: React.FC = () => {
     queued: number,
     bidders: number,
   ): string | null => {
-    const exactMatch = SECTION_F_TIER_OPTIONS
-      .filter((tierCode) => tierCode !== "CUSTOM")
-      .map((tierCode) => presetMap[tierCode])
-      .filter(Boolean)
+    const exactMatch = SECTION_F_TIER_PRESETS
       .find((preset) => (
-        Number(preset?.max_live_sessions || 0) === Number(live || 0)
-        && Number(preset?.max_open_sessions || 0) === Number(open || 0)
-        && Number(preset?.max_total_queued_lots || 0) === Number(queued || 0)
-        && Number(preset?.max_concurrent_bidders || 0) === Number(bidders || 0)
+        Number(preset.live || 0) === Number(live || 0)
+        && Number(preset.open || 0) === Number(open || 0)
+        && Number(preset.queued || 0) === Number(queued || 0)
+        && Number(preset.bidders || 0) === Number(bidders || 0)
       ));
-    return exactMatch?.tier_code || null;
+    return exactMatch ? exactMatch.tier_code : null;
   };
 
   const plannerSuggestion = useMemo<PlannerSuggestion>(() => {
@@ -514,10 +676,28 @@ const SystemCapacityControlPage: React.FC = () => {
     const remainingQueuedBeforeApply = Math.max(0, sectionERemainingQueued + selectedOrgCurrentQueued);
     const remainingBiddersBeforeApply = Math.max(0, sectionERemainingBidders + selectedOrgCurrentBidders);
 
-    const appliedLive = Math.max(0, bufferedLive);
-    const appliedOpen = Math.max(0, bufferedOpen);
-    const appliedQueued = Math.max(0, bufferedQueued);
-    const appliedBidders = Math.max(0, bufferedBidders);
+    const requiredLive = Math.max(0, bufferedLive);
+    const requiredOpen = Math.max(0, bufferedOpen);
+    const requiredQueued = Math.max(0, bufferedQueued);
+    const requiredBidders = Math.max(0, bufferedBidders);
+    const hasRequiredValues = requiredLive > 0 || requiredOpen > 0 || requiredQueued > 0 || requiredBidders > 0;
+    const exactTierCode = findExactMatchingTierCode(requiredLive, requiredOpen, requiredQueued, requiredBidders);
+    const smallestFittingTier = SECTION_F_TIER_PRESETS.find((preset) => (
+      requiredLive <= preset.live
+      && requiredOpen <= preset.open
+      && requiredQueued <= preset.queued
+      && requiredBidders <= preset.bidders
+    ));
+    const exceedsDedicated = !smallestFittingTier && hasRequiredValues;
+    const suggestedTierCode = hasRequiredValues
+      ? (exactTierCode || (smallestFittingTier ? smallestFittingTier.tier_code : "CUSTOM"))
+      : null;
+    const suggestedTierPreset = suggestedTierCode ? getSectionFTierPresetByCode(suggestedTierCode) : null;
+
+    const appliedLive = suggestedTierPreset ? suggestedTierPreset.live : requiredLive;
+    const appliedOpen = suggestedTierPreset ? suggestedTierPreset.open : requiredOpen;
+    const appliedQueued = suggestedTierPreset ? suggestedTierPreset.queued : requiredQueued;
+    const appliedBidders = suggestedTierPreset ? suggestedTierPreset.bidders : requiredBidders;
 
     const warnings: string[] = [];
     if (appliedLive > remainingLiveBeforeApply) warnings.push(`Live auctions exceed available capacity by ${appliedLive - remainingLiveBeforeApply}.`);
@@ -525,9 +705,6 @@ const SystemCapacityControlPage: React.FC = () => {
     if (appliedQueued > remainingQueuedBeforeApply) warnings.push(`Queued lots exceed available capacity by ${appliedQueued - remainingQueuedBeforeApply}.`);
     if (appliedBidders > remainingBiddersBeforeApply) warnings.push(`Concurrent bidders exceed available capacity by ${appliedBidders - remainingBiddersBeforeApply}.`);
 
-    const hasSuggestedValues = appliedLive > 0 || appliedOpen > 0 || appliedQueued > 0 || appliedBidders > 0;
-    const exactTierCode = findExactMatchingTierCode(appliedLive, appliedOpen, appliedQueued, appliedBidders);
-    const suggestedTierCode = hasSuggestedValues ? (exactTierCode || "CUSTOM") : null;
     const remainingAfterApply = {
       live: remainingLiveBeforeApply - appliedLive,
       open: remainingOpenBeforeApply - appliedOpen,
@@ -553,7 +730,10 @@ const SystemCapacityControlPage: React.FC = () => {
       },
       remaining_platform_capacity_after_apply: remainingAfterApply,
       warnings,
-      was_clamped: false,
+      recommended_plan_label: suggestedTierCode ? getSectionFTierDisplayLabel(suggestedTierCode) : "Not available",
+      recommendation_reason: exceedsDedicated
+        ? "Demand exceeds Dedicated tier. Use Custom manual capacity."
+        : "Supports your expected live auctions, queue, and concurrent bidders.",
     };
   }, [
     plannerModelEstimate,
@@ -564,7 +744,6 @@ const SystemCapacityControlPage: React.FC = () => {
     platformMaxBidders,
     orgAllocationSummary,
     remainingPool,
-    presetMap,
   ]);
 
   const sectionCFieldErrors = useMemo<Record<string, string>>(() => {
@@ -660,7 +839,14 @@ const SystemCapacityControlPage: React.FC = () => {
       setWarnings(Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : []);
       setCapacityHealth(data.capacity_health || null);
       setUpgradeAlerts(Array.isArray(data.upgrade_alerts) ? data.upgrade_alerts.filter(Boolean) : []);
-      setOrgRows(Array.isArray(data.org_allocations) ? data.org_allocations : []);
+      const incomingOrgRows: OrgAllocation[] = Array.isArray(data.org_allocations) ? (data.org_allocations as OrgAllocation[]) : [];
+      setOrgRows(incomingOrgRows);
+      setSavedOrgRowSignatures(
+        incomingOrgRows.reduce((acc: Record<string, string>, row: OrgAllocation) => {
+          acc[String(row.org_id)] = buildOrgRowSignature(row);
+          return acc;
+        }, {}),
+      );
       setInfraDirty(false);
     } catch (err: any) {
       setError(err?.message || "Failed to load system capacity control.");
@@ -793,6 +979,9 @@ const SystemCapacityControlPage: React.FC = () => {
 
   const setPlannerField = <K extends keyof PlannerState>(key: K, value: PlannerState[K]) => {
     setPlanner((prev) => ({ ...prev, [key]: value }));
+    if (key === "expected_lots_per_day" || key === "expected_peak_queued_lots") {
+      setPlannerQueueExceptionConfirmed(false);
+    }
     setPlannerValidationError(null);
     setPlannerApplyMessage(null);
     setPlannerApplyError(null);
@@ -928,7 +1117,7 @@ const SystemCapacityControlPage: React.FC = () => {
     ].map((row) => ({
       ...row,
       ok: row.current >= row.required,
-      statusLabel: row.current >= row.required ? "OK" : row.group === "WEB_ADVISORY" ? "Advisory upgrade" : "Needs upgrade",
+      statusLabel: row.current >= row.required ? "OK" : "NEEDS_UPGRADE",
     }));
   }, [plannerPhysicalResources, systemConfig?.infra_profile]);
 
@@ -998,9 +1187,7 @@ const SystemCapacityControlPage: React.FC = () => {
         ? "ERROR"
         : row.remainingAfterApply === 0 && row.plannerAllocationToApply > 0
           ? "FULL"
-          : row.rawPlannerAllocation > row.plannerAllocationToApply
-            ? "REDUCED"
-            : "OK",
+          : "OK",
     }));
   }, [plannerResult, remainingPool, platformMaxLive, platformMaxOpen, platformMaxQueued, platformMaxBidders, orgAllocationSummary, plannerSelectedRow]);
 
@@ -1010,12 +1197,15 @@ const SystemCapacityControlPage: React.FC = () => {
   const plannerRuntimePhysicalRows = plannerPhysicalFitRows.filter((row) => row.group === "RUNTIME");
   const plannerWebAdvisoryRows = plannerPhysicalFitRows.filter((row) => row.group === "WEB_ADVISORY");
   const plannerWebAdvisoryHasMismatch = plannerWebAdvisoryRows.some((row) => !row.ok);
+  const plannerOnlyWebVcpuNeedsUpgrade = plannerWebAdvisoryRows.some((row) => row.label === "Web Server vCPU" && !row.ok)
+    && plannerWebAdvisoryRows.filter((row) => row.label !== "Web Server vCPU").every((row) => row.ok)
+    && plannerRuntimePhysicalRows.every((row) => row.ok);
   const plannerSafeCapacityFitOk = plannerSafeCapacityRows.every((row) => row.ok);
   const plannerPlatformTotalFitOk = Boolean(plannerResult) && (
-    Number(platformMaxLive || 0) >= Number(plannerResult?.raw_suggested_live_lanes || 0)
-    && Number(platformMaxOpen || 0) >= Number(plannerResult?.raw_suggested_open_lanes || 0)
-    && Number(platformMaxQueued || 0) >= Number(plannerResult?.raw_suggested_queued_lots || 0)
-    && Number(platformMaxBidders || 0) >= Number(plannerResult?.raw_suggested_concurrent_bidders || 0)
+    Number(platformMaxLive || 0) >= Number(plannerResult?.suggested_live_lanes || 0)
+    && Number(platformMaxOpen || 0) >= Number(plannerResult?.suggested_open_lanes || 0)
+    && Number(platformMaxQueued || 0) >= Number(plannerResult?.suggested_queued_lots || 0)
+    && Number(platformMaxBidders || 0) >= Number(plannerResult?.suggested_concurrent_bidders || 0)
   );
   const plannerFinalAllocationWithinAvailable = Boolean(plannerResult) && (
     Number(plannerResult?.suggested_live_lanes || 0) <= Number(plannerResult?.remaining_platform_capacity_before_apply.live || 0)
@@ -1040,7 +1230,7 @@ const SystemCapacityControlPage: React.FC = () => {
       return {
         code: "NEEDS_MORE_PLATFORM_CAPACITY" as const,
         severity: "error" as const,
-        text: "This organisation cannot be allocated because remaining platform capacity is not enough.",
+        text: "This plan exceeds remaining platform allocation. Reduce values, clear other organisation allocation, or increase Section C capacity.",
       };
     }
     if (!plannerSafeCapacityFitOk || plannerApiDbInfraBlocking) {
@@ -1084,7 +1274,7 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlannerApplyMessage(null);
     setPlannerApplyError(null);
     if (plannerHasErrorMetric || !plannerFinalAllocationWithinAvailable) {
-      setPlannerApplyError("Cannot apply. Requested allocation exceeds available capacity.");
+      setPlannerApplyError("This plan exceeds remaining platform allocation. Reduce values, clear other organisation allocation, or increase Section C capacity.");
       return;
     }
     if (!plannerSafeCapacityFitOk) {
@@ -1092,7 +1282,7 @@ const SystemCapacityControlPage: React.FC = () => {
       return;
     }
     if (plannerHasFullMetric) {
-      const confirmedFull = window.confirm("Applying this allocation will fully use one or more platform limits. Continue?");
+      const confirmedFull = window.confirm("Applying this will exhaust platform capacity. Continue?");
       if (!confirmedFull) return;
     }
     const finalTierCode = findExactMatchingTierCode(
@@ -1149,6 +1339,25 @@ const SystemCapacityControlPage: React.FC = () => {
     const mandis = Number(current.number_of_mandis || 0);
     const concurrentAuctions = Number(current.expected_concurrent_auctions || 0);
     const growthBuffer = Number(current.growth_buffer_percent || 0);
+    const sectionBLive = Number(derivedSafeCapacity?.final_safe_max_live_lanes ?? derivedSafeCapacity?.derived_safe_max_live_lanes ?? 0);
+    const sectionBOpen = Number(derivedSafeCapacity?.final_safe_max_open_lanes ?? derivedSafeCapacity?.derived_safe_max_open_lanes ?? 0);
+    const sectionBMaxConcurrentAuctions = Math.max(0, Math.min(sectionBLive || 0, sectionBOpen || 0));
+    const integerFields: Array<keyof PlannerState> = [
+      "number_of_mandis",
+      "expected_farmers",
+      "expected_traders",
+      "peak_active_traders",
+      "expected_lots_per_day",
+      "expected_peak_queued_lots",
+      "expected_concurrent_auctions",
+    ];
+
+    integerFields.forEach((field) => {
+      const raw = Number(current[field] || 0);
+      if (!Number.isInteger(raw) || raw < 0) {
+        nextFieldErrors[field] = "Use a non-negative whole number.";
+      }
+    });
 
     if (!current.selected_org_id) {
       nextFieldErrors.selected_org_id = "Select an organisation.";
@@ -1167,9 +1376,9 @@ const SystemCapacityControlPage: React.FC = () => {
       nextFieldErrors.expected_concurrent_auctions = "Peak concurrent auctions in this organisation must be greater than 0.";
       nextTopErrors.push("Peak concurrent auctions in this organisation must be greater than 0.");
     }
-    if (concurrentAuctions > Number(platformMaxLive || 0)) {
-      nextFieldErrors.expected_concurrent_auctions = `Peak concurrent auctions cannot exceed Section C Max Total Live Lanes (${Number(platformMaxLive || 0)}).`;
-      nextTopErrors.push(`Peak concurrent auctions cannot exceed Section C Max Total Live Lanes (${Number(platformMaxLive || 0)}).`);
+    if (sectionBMaxConcurrentAuctions > 0 && concurrentAuctions > sectionBMaxConcurrentAuctions) {
+      nextFieldErrors.expected_concurrent_auctions = `Peak concurrent auctions cannot exceed Section B max possible live/open (${sectionBMaxConcurrentAuctions}).`;
+      nextTopErrors.push(`Peak concurrent auctions cannot exceed Section B max possible live/open (${sectionBMaxConcurrentAuctions}).`);
     }
     if (growthBuffer < 0 || growthBuffer > 100) {
       nextFieldErrors.growth_buffer_percent = "Growth buffer (%) must be between 0 and 100.";
@@ -1179,9 +1388,9 @@ const SystemCapacityControlPage: React.FC = () => {
       nextFieldErrors.peak_active_traders = "Peak traders bidding at the same time cannot exceed total registered traders.";
       nextTopErrors.push("Peak traders bidding at the same time cannot exceed total registered traders.");
     }
-    if (lotsPerDay > 0 && peakQueued > lotsPerDay) {
-      nextFieldErrors.expected_peak_queued_lots = "Peak queued lots cannot exceed total lots per day.";
-      nextTopErrors.push("Peak queued lots cannot exceed total lots per day.");
+    if (lotsPerDay > 0 && peakQueued > lotsPerDay && !plannerQueueExceptionConfirmed) {
+      nextFieldErrors.expected_peak_queued_lots = "Peak queued lots exceed total lots per day. Confirm exception to continue.";
+      nextTopErrors.push("Peak queued lots exceed total lots per day. Confirm exception to continue.");
     }
     const hasBusinessValues = [farmers, traders, peakTraders, lotsPerDay, peakQueued].some((value) => value > 0);
     if (!hasBusinessValues) {
@@ -1193,7 +1402,7 @@ const SystemCapacityControlPage: React.FC = () => {
       topErrors: combinedErrors,
       isValid: combinedErrors.length === 0,
     };
-  }, [platformMaxLive]);
+  }, [derivedSafeCapacity, plannerQueueExceptionConfirmed]);
 
   const openPlannerDialog = () => {
     const selectedOrgId = planner.selected_org_id || String(orgRows[0]?.org_id || "");
@@ -1207,6 +1416,7 @@ const SystemCapacityControlPage: React.FC = () => {
     setPlannerApplyMessage(null);
     setPlannerApplyError(null);
     setPlannerResult(null);
+    setPlannerQueueExceptionConfirmed(false);
     setPlannerOpen(true);
   };
 
@@ -1247,22 +1457,10 @@ const SystemCapacityControlPage: React.FC = () => {
   ) => {
     const trimmed = String(rawValue ?? "").trim();
     const parsed = trimmed === "" ? null : Number(trimmed);
-    const value = parsed === null || Number.isNaN(parsed) ? null : parsed;
+    const value = parsed === null || Number.isNaN(parsed) ? null : Math.max(0, Math.trunc(parsed));
     setOrgRows((prev) => prev.map((row) => (row.org_id === orgId
       ? { ...row, [key]: value, tier_code: "CUSTOM" }
       : row)));
-  };
-
-  const isOrgAllocationCleared = (row: OrgAllocation) => {
-    const tier = String(row?.tier_code || "").trim().toUpperCase();
-    const tierCleared = !tier || tier === "CUSTOM";
-    return tierCleared
-      && isBlankValue(row?.allocated_max_live_lanes)
-      && isBlankValue(row?.allocated_max_open_lanes)
-      && isBlankValue(row?.allocated_max_queued_lots)
-      && isBlankValue(row?.allocated_max_concurrent_bidders)
-      && !Boolean(row?.overflow_allowed)
-      && !Boolean(row?.special_event_allowed);
   };
 
   const buildOrgAllocationPayload = (row: OrgAllocation) => {
@@ -1290,7 +1488,7 @@ const SystemCapacityControlPage: React.FC = () => {
     const normalizedTier = String(tierCode || "").trim().toUpperCase();
     setOrgRows((prev) => prev.map((row) => {
       if (row.org_id !== orgId) return row;
-      if (!normalizedTier) {
+      if (!normalizedTier || normalizedTier === "CLEAR") {
         return {
           ...row,
           tier_code: null,
@@ -1300,16 +1498,28 @@ const SystemCapacityControlPage: React.FC = () => {
           allocated_max_concurrent_bidders: null,
           overflow_allowed: false,
           special_event_allowed: false,
+          reserved_capacity_enabled: false,
         };
       }
       if (normalizedTier === "CUSTOM") {
         return { ...row, tier_code: "CUSTOM" };
       }
-      const preset = presetMap[normalizedTier] || null;
-      if (!preset) {
+      const fixedPreset = getSectionFTierPresetByCode(normalizedTier);
+      if (!fixedPreset) {
         return { ...row, tier_code: normalizedTier };
       }
-      return applyPreset(row, preset);
+      const backendPreset = presetMap[normalizedTier] || null;
+      return {
+        ...row,
+        tier_code: normalizedTier,
+        allocated_max_live_lanes: fixedPreset.live,
+        allocated_max_open_lanes: fixedPreset.open,
+        allocated_max_queued_lots: fixedPreset.queued,
+        allocated_max_concurrent_bidders: fixedPreset.bidders,
+        overflow_allowed: Boolean(backendPreset?.allow_overflow_lanes ?? false),
+        special_event_allowed: Boolean(backendPreset?.allow_special_event_lanes ?? false),
+        reserved_capacity_enabled: Boolean(backendPreset?.reserved_capacity_enabled ?? row.reserved_capacity_enabled),
+      };
     }));
   };
 
@@ -1383,6 +1593,15 @@ const SystemCapacityControlPage: React.FC = () => {
       setOrgSaveError(orgAllocationSummary.messages[0] || "Allocated org totals exceed platform limits.");
       return;
     }
+    const rowCapacity = orgRowCapacityFlags[row.org_id];
+    if (rowCapacity?.overLimit) {
+      setOrgSaveError("This row exceeds remaining platform allocation.");
+      return;
+    }
+    if (rowCapacity?.full) {
+      const confirmedFull = window.confirm("Applying this will exhaust platform capacity. Continue?");
+      if (!confirmedFull) return;
+    }
     setSavingOrgId(row.org_id);
     setOrgSaveError(null);
     setOrgSaveSuccess(null);
@@ -1419,6 +1638,16 @@ const SystemCapacityControlPage: React.FC = () => {
     if (orgAllocationSummary.hasExceeded) {
       setOrgSaveError(orgAllocationSummary.messages[0] || "Allocated org totals exceed platform limits.");
       return;
+    }
+    const hasOverLimitRow = orgRows.some((row) => orgRowCapacityFlags[row.org_id]?.overLimit);
+    if (hasOverLimitRow) {
+      setOrgSaveError("One or more rows exceed remaining platform allocation.");
+      return;
+    }
+    const hasFullRow = orgRows.some((row) => orgRowCapacityFlags[row.org_id]?.full);
+    if (hasFullRow) {
+      const confirmedFull = window.confirm("Applying this will exhaust platform capacity. Continue?");
+      if (!confirmedFull) return;
     }
     setSavingOrgId("__ALL__");
     setOrgSaveError(null);
@@ -1463,6 +1692,7 @@ const SystemCapacityControlPage: React.FC = () => {
     || hasInvalidOrgRows
     || hasOrgNumericErrors
     || orgAllocationSummary.hasExceeded
+    || Object.values(orgRowCapacityFlags).some((entry) => entry.overLimit)
     || !stateFlags.platform_configured;
 
   if (!username) {
@@ -1934,6 +2164,16 @@ const SystemCapacityControlPage: React.FC = () => {
               {message}
             </Alert>
           ))}
+          {Object.values(orgRowCapacityFlags).some((entry) => entry.full) && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              You are using 100% of platform capacity for this metric. No further allocation will be possible.
+            </Alert>
+          )}
+          {Object.values(orgRowCapacityFlags).some((entry) => entry.overLimit) && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              One or more rows exceed remaining platform allocation. Reduce values before saving.
+            </Alert>
+          )}
           <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, mb: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               Allocation Summary
@@ -1962,6 +2202,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 <TableRow>
                   <TableCell>Org Name</TableCell>
                   <TableCell><HeaderWithTooltip label="Tier" help="Optional service or allocation profile for the org. Tier values are derived from current physical capacity." /></TableCell>
+                  <TableCell>Status</TableCell>
                   <TableCell>Current Usage</TableCell>
                   <TableCell><HeaderWithTooltip label="Allocated Max Live" help="Maximum live lanes allowed for the org." /></TableCell>
                   <TableCell><HeaderWithTooltip label="Allocated Max Open" help="Maximum open lanes allowed for the org." /></TableCell>
@@ -1980,6 +2221,7 @@ const SystemCapacityControlPage: React.FC = () => {
                   const tierSelected = Boolean(row.tier_code);
                   const tierIsCustom = String(row.tier_code || "").toUpperCase() === "CUSTOM";
                   const selectedPreset = tierSelected ? presetMap[String(row.tier_code || "").toUpperCase()] : null;
+                  const rowStatus = orgRowStatuses[row.org_id] || "CLEARED";
                   return (
                     <TableRow key={row.org_id}>
                       <TableCell>
@@ -1998,16 +2240,20 @@ const SystemCapacityControlPage: React.FC = () => {
                             size="small"
                             value={row.tier_code || ""}
                             onChange={(e) => handleTierChange(row.org_id, e.target.value)}
-                            sx={{ minWidth: 140 }}
+                            sx={{ minWidth: 320 }}
                             disabled={orgSectionDisabled}
                           >
                             <MenuItem value="">-- Select Tier --</MenuItem>
-                            {SECTION_F_TIER_OPTIONS.map((tierCode) => <MenuItem key={tierCode} value={tierCode}>{tierCode}</MenuItem>)}
+                            {SECTION_F_TIER_OPTIONS.map((tierCode) => <MenuItem key={tierCode} value={tierCode}>{getSectionFTierDisplayLabel(tierCode)}</MenuItem>)}
                           </TextField>
+                          <Typography variant="caption" color="text.secondary">{getSectionFTierDisplayLabel(row.tier_code)}</Typography>
                           {selectedPreset?.price_hint ? (
                             <Typography variant="caption" color="text.secondary">Price hint: {selectedPreset.price_hint}</Typography>
                           ) : null}
                         </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="small" label={rowStatus} sx={sectionFStatusChipSx(rowStatus)} />
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption" display="block">Live {row.current_live_lanes}</Typography>
@@ -2030,7 +2276,7 @@ const SystemCapacityControlPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSaveDisabled || savingOrgId === row.org_id || savingOrgId === "__ALL__" || Boolean(row.allocation_invalid)}>
+                        <Button size="small" variant="outlined" onClick={() => handleSaveOrg(row)} disabled={orgSaveDisabled || rowStatus === "OVER_LIMIT" || savingOrgId === row.org_id || savingOrgId === "__ALL__" || Boolean(row.allocation_invalid)}>
                           {savingOrgId === row.org_id ? "Saving..." : "Save"}
                         </Button>
                       </TableCell>
@@ -2062,6 +2308,9 @@ const SystemCapacityControlPage: React.FC = () => {
               <Typography variant="body2">1. Can your current servers support this organisation?</Typography>
               <Typography variant="body2">2. Can your remaining platform allocation accept this organisation now?</Typography>
             </Alert>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              1. Business Inputs
+            </Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(220px, 1fr))" }, gap: 1.5, mb: 2 }}>
               <TextField
                 select
@@ -2083,7 +2332,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.number_of_mandis || "Enter how many mandis are operated under this organisation."}
                 type="number"
                 value={planner.number_of_mandis}
-                onChange={(e) => setPlannerField("number_of_mandis", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("number_of_mandis", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.number_of_mandis)}
               />
@@ -2092,7 +2341,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.expected_farmers || "Enter total farmers served by this organisation, not per mandi. Impact: Mainly affects web/admin resource planning."}
                 type="number"
                 value={planner.expected_farmers}
-                onChange={(e) => setPlannerField("expected_farmers", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("expected_farmers", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.expected_farmers)}
               />
@@ -2101,7 +2350,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.expected_traders || "Enter total registered traders in this organisation, not per mandi. Impact: Mainly affects web/admin resource planning."}
                 type="number"
                 value={planner.expected_traders}
-                onChange={(e) => setPlannerField("expected_traders", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("expected_traders", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.expected_traders)}
               />
@@ -2110,7 +2359,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.peak_active_traders || "Enter the maximum traders expected to bid at the same time. Impact: Affects app server, WebSocket, bidder capacity, and DB persistence."}
                 type="number"
                 value={planner.peak_active_traders}
-                onChange={(e) => setPlannerField("peak_active_traders", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("peak_active_traders", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.peak_active_traders)}
               />
@@ -2119,7 +2368,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.expected_peak_queued_lots || "Enter the maximum lots that may wait in auction queue during a busy period. Impact: Mainly affects DB RAM/vCPU and queued-lot capacity."}
                 type="number"
                 value={planner.expected_peak_queued_lots}
-                onChange={(e) => setPlannerField("expected_peak_queued_lots", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("expected_peak_queued_lots", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.expected_peak_queued_lots)}
               />
@@ -2128,16 +2377,28 @@ const SystemCapacityControlPage: React.FC = () => {
                 helperText={plannerFieldErrors.expected_lots_per_day || "Enter total lots across all mandis. Example: 10 mandis × 50 lots = 500 lots/day."}
                 type="number"
                 value={planner.expected_lots_per_day}
-                onChange={(e) => setPlannerField("expected_lots_per_day", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("expected_lots_per_day", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.expected_lots_per_day)}
               />
+              {Number(planner.expected_peak_queued_lots || 0) > Number(planner.expected_lots_per_day || 0) && (
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <Button
+                    variant={plannerQueueExceptionConfirmed ? "contained" : "outlined"}
+                    color={plannerQueueExceptionConfirmed ? "warning" : "inherit"}
+                    onClick={() => setPlannerQueueExceptionConfirmed(true)}
+                    fullWidth
+                  >
+                    {plannerQueueExceptionConfirmed ? "Queue exception confirmed" : "Confirm queue exception"}
+                  </Button>
+                </Box>
+              )}
               <TextField
                 label="Peak concurrent auctions in this organisation"
                 helperText={plannerFieldErrors.expected_concurrent_auctions || "Enter how many auctions may run at the same time across the organisation. Impact: Mainly affects app server RAM/vCPU and live lane allocation."}
                 type="number"
                 value={planner.expected_concurrent_auctions}
-                onChange={(e) => setPlannerField("expected_concurrent_auctions", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("expected_concurrent_auctions", nonNegativeInteger(e.target.value))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.expected_concurrent_auctions)}
               />
@@ -2147,7 +2408,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 type="number"
                 inputProps={{ min: 0, max: 100 }}
                 value={planner.growth_buffer_percent}
-                onChange={(e) => setPlannerField("growth_buffer_percent", toNonNegativeNumber(e.target.value))}
+                onChange={(e) => setPlannerField("growth_buffer_percent", Math.max(0, Number(e.target.value || 0)))}
                 fullWidth
                 error={Boolean(plannerFieldErrors.growth_buffer_percent)}
               />
@@ -2179,7 +2440,7 @@ const SystemCapacityControlPage: React.FC = () => {
             )}
             {plannerHasErrorMetric && (
               <Alert severity="error" sx={{ mb: 1.5 }}>
-                Cannot apply. Requested allocation exceeds available capacity.
+                This plan exceeds remaining platform allocation. Reduce values, clear other organisation allocation, or increase Section C capacity.
               </Alert>
             )}
             {plannerHasFullMetric && (
@@ -2195,11 +2456,21 @@ const SystemCapacityControlPage: React.FC = () => {
             {plannerResult && (
               <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, mb: 1.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  1. Decision Summary
+                  2. Recommended Plan
+                </Typography>
+                <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mb: 1.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Recommended Plan: {plannerResult.recommended_plan_label}
+                  </Typography>
+                  <Typography variant="body2">
+                    Reason: {plannerResult.recommendation_reason}
+                  </Typography>
+                </Paper>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  Decision Summary
                 </Typography>
                 {plannerDecisionSummary ? (
                   <Alert severity={plannerDecisionSummary.severity} sx={{ mb: 1.25 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.25 }}>{plannerDecisionSummary.code}</Typography>
                     <Typography variant="body2">{plannerDecisionSummary.text}</Typography>
                   </Alert>
                 ) : null}
@@ -2210,16 +2481,18 @@ const SystemCapacityControlPage: React.FC = () => {
                 )}
                 {plannerWebAdvisoryHasMismatch && (
                   <Alert severity="warning" sx={{ mb: 1.25 }}>
-                    WEB_ADMIN_ADVISORY: Web/Admin resources may need upgrade for smoother portal/admin usage.
+                    {plannerOnlyWebVcpuNeedsUpgrade
+                      ? "Web Server vCPU needs upgrade. This is a warning only and does not block organisation allocation unless platform allocation is exceeded."
+                      : "Web/Admin resources may need upgrade for smoother portal/admin usage."}
                   </Alert>
                 )}
 
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  2. Final Allocation to Apply
+                  4. Final Allocation Applied Now
                 </Typography>
                 <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.25, mb: 1.25 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-                    Final allocation to Section F
+                    Final Allocation Applied Now
                   </Typography>
                   <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mb: 0.75 }}>
                     <Chip size="small" color="primary" label={`Live auctions: ${plannerResult.suggested_live_lanes}`} />
@@ -2234,7 +2507,7 @@ const SystemCapacityControlPage: React.FC = () => {
                 </Paper>
 
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
-                  3. Fit Checks
+                  5. Fit Checks
                 </Typography>
                 <Paper variant="outlined" sx={{ p: 1, borderRadius: 1.25, mb: 1.25 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -2251,7 +2524,7 @@ const SystemCapacityControlPage: React.FC = () => {
                       <Typography variant="body2">Remaining after apply: {row.remainingAfterApply}</Typography>
                       <Chip
                         size="small"
-                        color={row.status === "OK" ? "success" : row.status === "FULL" || row.status === "REDUCED" ? "warning" : "error"}
+                        color={row.status === "OK" ? "success" : row.status === "FULL" ? "warning" : "error"}
                         label={row.status}
                       />
                       {row.status === "FULL" && (
@@ -2286,7 +2559,7 @@ const SystemCapacityControlPage: React.FC = () => {
             {plannerResult && (
               <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Business Demand Estimate</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>3. Business Demand Estimate</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(180px, 1fr))" }, gap: 1.25 }}>
@@ -2302,7 +2575,7 @@ const SystemCapacityControlPage: React.FC = () => {
             {plannerResult && (
               <Accordion defaultExpanded={false} sx={{ mb: 1.5 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Physical Resource Fit Check</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>6. Physical Resource Guidance</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Alert severity="info" sx={{ mb: 1 }}>
@@ -2402,7 +2675,7 @@ const SystemCapacityControlPage: React.FC = () => {
               </Alert>
             )}
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ position: "sticky", bottom: 0, bgcolor: "background.paper", borderTop: "1px solid", borderColor: "divider", zIndex: 2 }}>
             <Button onClick={() => { setPlannerApplyMessage(null); setPlannerApplyError(null); setPlannerOpen(false); }}>Close</Button>
             <Button variant="outlined" onClick={handleCalculatePlanner} disabled={!canEditCapacityControl}>
               Calculate Capacity

@@ -46,6 +46,7 @@ export const API_TAGS = {
     get: "getAuctionCapacityControl",
     update: "updateAuctionCapacityControl",
     updateOrg: "updateOrgAuctionCapacityAllocation",
+    updateManual: "updateAuctionCapacityControl",
   },
   ORG_MANDI: {
     listMappings: "get_Org_Mandi_Mappings24",
@@ -426,6 +427,7 @@ export const API_ROUTES = {
     updateSecuritySwitches: "/admin/security/updateSecuritySwitches",
     getAuctionCapacityControl: "/admin/system/getAuctionCapacityControl",
     updateAuctionCapacityControl: "/admin/system/updateAuctionCapacityControl",
+    updateManualCapacity: "/admin/system/updateManualCapacity",
     updateOrgAuctionCapacityAllocation: "/admin/system/updateOrgAuctionCapacityAllocation",
     getOrgMandiMappings: "/admin/getOrgMandiMappings",
     createOrgMandiMapping: "/admin/createOrgMandiMapping",

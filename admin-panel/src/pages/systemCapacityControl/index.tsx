@@ -34,6 +34,7 @@ import {
   getAuctionCapacityControl,
   updatePhysicalInfrastructureCapacity,
   updatePlatformAuctionCapacity,
+  updateManualCapacity,
   updateOrgAuctionCapacityAllocation,
 } from "../../services/systemCapacityControlApi";
 import {
@@ -44,6 +45,14 @@ import {
 
 type SystemConfig = {
   deployment_profile_name: string;
+  manual_override_enabled?: boolean;
+  manual_limits?: {
+    max_live_lanes?: number | null;
+    max_open_lanes?: number | null;
+    max_queued_lots?: number | null;
+    max_concurrent_bidders?: number | null;
+    updated_on?: string | null;
+  };
   auction_capacity: Record<string, any>;
   infra_profile: Record<string, any>;
 };
@@ -459,6 +468,9 @@ const SystemCapacityControlPage: React.FC = () => {
   const [infraSaveSuccess, setInfraSaveSuccess] = useState<string | null>(null);
   const [platformSaveError, setPlatformSaveError] = useState<string | null>(null);
   const [platformSaveSuccess, setPlatformSaveSuccess] = useState<string | null>(null);
+  const [manualSaveError, setManualSaveError] = useState<string | null>(null);
+  const [manualSaveSuccess, setManualSaveSuccess] = useState<string | null>(null);
+  const [manualSaving, setManualSaving] = useState(false);
   const [orgSaveError, setOrgSaveError] = useState<string | null>(null);
   const [orgSaveSuccess, setOrgSaveSuccess] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -980,6 +992,64 @@ const SystemCapacityControlPage: React.FC = () => {
         [key]: value,
       },
     }));
+  };
+
+  const setManualOverrideEnabled = (enabled: boolean) => {
+    setSystemConfig((prev) => ({
+      ...prev,
+      manual_override_enabled: enabled,
+      manual_limits: {
+        ...(prev.manual_limits || {}),
+      },
+    }));
+    setManualSaveError(null);
+    setManualSaveSuccess(null);
+  };
+
+  const setManualLimitField = (
+    key: "max_live_lanes" | "max_open_lanes" | "max_queued_lots" | "max_concurrent_bidders",
+    value: any,
+  ) => {
+    const parsed = Math.max(0, Math.trunc(Number(value || 0)));
+    setSystemConfig((prev) => ({
+      ...prev,
+      manual_limits: {
+        ...(prev.manual_limits || {}),
+        [key]: Number.isFinite(parsed) ? parsed : 0,
+      },
+    }));
+    setManualSaveError(null);
+    setManualSaveSuccess(null);
+  };
+
+  const handleSaveManualCapacity = async () => {
+    if (!username) return;
+    setManualSaving(true);
+    setManualSaveError(null);
+    setManualSaveSuccess(null);
+    try {
+      const manual = systemConfig?.manual_limits || {};
+      const resp: any = await updateManualCapacity({
+        username,
+        payload: {
+          manual_override_enabled: Boolean(systemConfig?.manual_override_enabled),
+          max_live_lanes: Math.max(0, Math.trunc(Number(manual?.max_live_lanes || 0))),
+          max_open_lanes: Math.max(0, Math.trunc(Number(manual?.max_open_lanes || 0))),
+          max_queued_lots: Math.max(0, Math.trunc(Number(manual?.max_queued_lots || 0))),
+          max_concurrent_bidders: Math.max(0, Math.trunc(Number(manual?.max_concurrent_bidders || 0))),
+        },
+      });
+      if (String(resp?.response?.responsecode || "") !== "0") {
+        setManualSaveError(resp?.response?.description || "Failed to update manual override.");
+        return;
+      }
+      setManualSaveSuccess(resp?.response?.description || "Manual override updated successfully.");
+      await loadData();
+    } catch (err: any) {
+      setManualSaveError(err?.message || "Failed to update manual override.");
+    } finally {
+      setManualSaving(false);
+    }
   };
 
   const clampedBufferPercent = Math.min(90, Math.max(0, Number(bufferPercent || 0)));
@@ -1985,6 +2055,69 @@ const SystemCapacityControlPage: React.FC = () => {
             </Button>
           </Stack>
         </Paper>
+
+        <Accordion defaultExpanded={false} sx={{ mb: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Manual Capacity Override (Testing Mode)
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Alert severity="warning" sx={{ mb: 1.5 }}>
+              Manual mode bypasses system capacity checks. Use only for testing.
+            </Alert>
+            {manualSaveError && <Alert severity="error" sx={{ mb: 1.5 }}>{manualSaveError}</Alert>}
+            {manualSaveSuccess && <Alert severity="success" sx={{ mb: 1.5 }}>{manualSaveSuccess}</Alert>}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(220px, 1fr))" }, gap: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2">Enable Override</Typography>
+                <Switch
+                  checked={Boolean(systemConfig?.manual_override_enabled)}
+                  onChange={(e) => setManualOverrideEnabled(e.target.checked)}
+                  disabled={!canEditCapacityControl || manualSaving}
+                />
+              </Box>
+              <Box />
+              <TextField
+                label="Max Live"
+                type="number"
+                value={num(systemConfig?.manual_limits?.max_live_lanes)}
+                onChange={(e) => setManualLimitField("max_live_lanes", e.target.value)}
+                disabled={!canEditCapacityControl || !Boolean(systemConfig?.manual_override_enabled) || manualSaving}
+              />
+              <TextField
+                label="Max Open"
+                type="number"
+                value={num(systemConfig?.manual_limits?.max_open_lanes)}
+                onChange={(e) => setManualLimitField("max_open_lanes", e.target.value)}
+                disabled={!canEditCapacityControl || !Boolean(systemConfig?.manual_override_enabled) || manualSaving}
+              />
+              <TextField
+                label="Max Queue"
+                type="number"
+                value={num(systemConfig?.manual_limits?.max_queued_lots)}
+                onChange={(e) => setManualLimitField("max_queued_lots", e.target.value)}
+                disabled={!canEditCapacityControl || !Boolean(systemConfig?.manual_override_enabled) || manualSaving}
+              />
+              <TextField
+                label="Max Bidders"
+                type="number"
+                value={num(systemConfig?.manual_limits?.max_concurrent_bidders)}
+                onChange={(e) => setManualLimitField("max_concurrent_bidders", e.target.value)}
+                disabled={!canEditCapacityControl || !Boolean(systemConfig?.manual_override_enabled) || manualSaving}
+              />
+            </Box>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
+              <Button
+                variant="contained"
+                onClick={handleSaveManualCapacity}
+                disabled={!canEditCapacityControl || manualSaving}
+              >
+                {manualSaving ? "Saving..." : "Save"}
+              </Button>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>

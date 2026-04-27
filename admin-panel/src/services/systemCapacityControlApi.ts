@@ -62,6 +62,22 @@ export const updatePlatformAuctionCapacity = async ({
     ...payload,
   });
 
+export const updateManualCapacity = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.updateManualCapacity, {
+    api: API_TAGS.SYSTEM_CAPACITY_CONTROL.updateManual,
+    username,
+    language,
+    ...payload,
+  });
+
 export const updateOrgAuctionCapacityAllocation = async ({
   username,
   language = DEFAULT_LANGUAGE,

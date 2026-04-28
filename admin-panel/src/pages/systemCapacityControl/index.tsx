@@ -1925,6 +1925,18 @@ const SystemCapacityControlPage: React.FC = () => {
     : "Complete and save Section C to continue.";
   const isTestingCapacityModeSelected = Boolean(systemConfig?.testing_capacity_override?.enabled)
     && String(systemConfig?.testing_capacity_override?.capacity_mode || "").trim().toUpperCase() === "TESTING";
+  const testingMaxLive = Number(systemConfig?.testing_capacity_override?.max_live_lanes || 50);
+  const testingMaxOpen = Number(systemConfig?.testing_capacity_override?.max_open_lanes || 75);
+  const testingMaxQueued = Number(systemConfig?.testing_capacity_override?.max_queued_lots || 250);
+  const displayRemainingLiveCapacity = isTestingCapacityModeSelected
+    ? Math.max(0, testingMaxLive - Number(platformUsage?.current_live_lanes || 0))
+    : Number(platformUsage?.remaining_live_capacity ?? 0);
+  const displayRemainingOpenCapacity = isTestingCapacityModeSelected
+    ? Math.max(0, testingMaxOpen - Number(platformUsage?.current_open_lanes || 0))
+    : Number(platformUsage?.remaining_open_capacity ?? 0);
+  const displayRemainingQueueCapacity = isTestingCapacityModeSelected
+    ? Math.max(0, testingMaxQueued - Number(platformUsage?.current_queued_lots || 0))
+    : Number(platformUsage?.remaining_queue_capacity ?? 0);
   const hasInvalidOrgRows = orgRows.some((row) => Boolean(row.allocation_invalid));
   const orgSaveDisabled = orgSectionDisabled
     || hasInvalidOrgRows
@@ -2489,6 +2501,11 @@ const SystemCapacityControlPage: React.FC = () => {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section D — Current Platform Usage / Health
           </Typography>
+          {isTestingCapacityModeSelected && (
+            <Alert severity="warning" sx={{ mb: 1.5 }}>
+              Showing TEST effective remaining values. Production remaining values are ignored in TEST mode.
+            </Alert>
+          )}
           {usageSectionsLocked && (
             <Alert severity="info" sx={{ mb: 1.5 }}>
               {usageBlockMessage}
@@ -2500,9 +2517,21 @@ const SystemCapacityControlPage: React.FC = () => {
             <MetricCard label="Current Queued Lots" value={platformUsage?.current_queued_lots ?? 0} help="Number of lots currently waiting in lane queues." />
             <MetricCard label="Current Bidders" value={platformUsage?.current_bidders ?? 0} help="Current bidder usage tracked in capacity health." />
             <MetricCard label="Current Socket Connections" value={platformUsage?.current_socket_connections ?? 0} help="Current realtime socket usage tracked in capacity health." />
-            <MetricCard label="Remaining Live Capacity" value={platformUsage?.remaining_live_capacity ?? 0} help="Configured platform live capacity still available." />
-            <MetricCard label="Remaining Open Capacity" value={platformUsage?.remaining_open_capacity ?? 0} help="Configured platform open capacity still available." />
-            <MetricCard label="Remaining Queue Capacity" value={platformUsage?.remaining_queue_capacity ?? 0} help="Configured platform queued capacity still available." />
+            <MetricCard
+              label={isTestingCapacityModeSelected ? "Remaining Live Capacity (TEST)" : "Remaining Live Capacity"}
+              value={displayRemainingLiveCapacity}
+              help={isTestingCapacityModeSelected ? "Testing max_live_lanes - current_live_lanes." : "Configured platform live capacity still available."}
+            />
+            <MetricCard
+              label={isTestingCapacityModeSelected ? "Remaining Open Capacity (TEST)" : "Remaining Open Capacity"}
+              value={displayRemainingOpenCapacity}
+              help={isTestingCapacityModeSelected ? "Testing max_open_lanes - current_open_lanes." : "Configured platform open capacity still available."}
+            />
+            <MetricCard
+              label={isTestingCapacityModeSelected ? "Remaining Queue Capacity (TEST)" : "Remaining Queue Capacity"}
+              value={displayRemainingQueueCapacity}
+              help={isTestingCapacityModeSelected ? "Testing max_queued_lots - current_queued_lots." : "Configured platform queued capacity still available."}
+            />
           </Box>
           {isHealthBlockedByInfra ? (
             <Alert severity="info" sx={{ mb: upgradeAlerts.length ? 2 : 0 }}>

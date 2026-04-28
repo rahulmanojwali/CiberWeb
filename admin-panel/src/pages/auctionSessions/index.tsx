@@ -1297,9 +1297,23 @@ export const AuctionSessions: React.FC = () => {
               <DetailField label="Open Lanes" value={displayCount(laneCapacitySummary.current_open_sessions)} />
               <DetailField label="Allowed Live Lanes" value={displayCount(laneCapacitySummary.effective_max_live_sessions)} />
               <DetailField label="Allowed Open Lanes" value={displayCount(laneCapacitySummary.effective_max_open_sessions)} />
+              {laneCapacitySummary.testing_mode_enabled && (
+                <DetailField
+                  label="Live Usage"
+                  value={`${displayCount(laneCapacitySummary.current_live_sessions)} / ${displayCount(laneCapacitySummary.effective_max_live_sessions)}`}
+                />
+              )}
+              {laneCapacitySummary.testing_mode_enabled && (
+                <DetailField
+                  label="Open Usage"
+                  value={`${displayCount(laneCapacitySummary.current_open_sessions)} / ${displayCount(laneCapacitySummary.effective_max_open_sessions)}`}
+                />
+              )}
               <DetailField label="Total Queued Lots" value={displayCount(laneCapacitySummary.current_total_queued_lots)} />
               <DetailField label="Allowed Queue Capacity" value={displayCount(laneCapacitySummary.effective_max_total_queued_lots)} />
-              <DetailField label="Org Live / Open" value={`${displayCount(laneCapacitySummary.current_org_live_sessions)} / ${displayCount(laneCapacitySummary.current_org_open_sessions)}`} />
+              {!laneCapacitySummary.testing_mode_enabled && (
+                <DetailField label="Org Live / Open" value={`${displayCount(laneCapacitySummary.current_org_live_sessions)} / ${displayCount(laneCapacitySummary.current_org_open_sessions)}`} />
+              )}
               <DetailField label="Org Queued Lots" value={displayCount(laneCapacitySummary.current_org_total_queued_lots)} />
               <DetailField label="System Live / Open" value={`${displayCount(laneCapacitySummary.current_system_live_sessions)} / ${displayCount(laneCapacitySummary.current_system_open_sessions)}`} />
               <DetailField label="System Queued Lots" value={displayCount(laneCapacitySummary.current_system_total_queued_lots)} />

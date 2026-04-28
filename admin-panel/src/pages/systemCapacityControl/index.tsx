@@ -1001,7 +1001,7 @@ const SystemCapacityControlPage: React.FC = () => {
   const setTestingModeEnabled = (enabled: boolean) => {
     const defaults = {
       enabled,
-      capacity_mode: "TESTING",
+      capacity_mode: enabled ? "TESTING" : "PRODUCTION",
       guard_enabled: false,
       max_live_lanes: 50,
       max_open_lanes: 75,
@@ -1015,6 +1015,24 @@ const SystemCapacityControlPage: React.FC = () => {
         ...defaults,
         ...(prev.testing_capacity_override || {}),
         enabled,
+      },
+    }));
+    setManualSaveError(null);
+    setManualSaveSuccess(null);
+  };
+
+  const applySafeTestDefaults = () => {
+    setSystemConfig((prev) => ({
+      ...prev,
+      testing_capacity_override: {
+        ...(prev.testing_capacity_override || {}),
+        enabled: true,
+        capacity_mode: "TESTING",
+        guard_enabled: false,
+        max_live_lanes: 50,
+        max_open_lanes: 75,
+        max_queued_lots: 250,
+        max_concurrent_bidders: 150,
       },
     }));
     setManualSaveError(null);
@@ -1905,6 +1923,8 @@ const SystemCapacityControlPage: React.FC = () => {
   const usageBlockMessage = (!stateFlags.infra_ready || infraDirty)
     ? "Complete and save Section A to continue."
     : "Complete and save Section C to continue.";
+  const isTestingCapacityModeSelected = Boolean(systemConfig?.testing_capacity_override?.enabled)
+    && String(systemConfig?.testing_capacity_override?.capacity_mode || "").trim().toUpperCase() === "TESTING";
   const hasInvalidOrgRows = orgRows.some((row) => Boolean(row.allocation_invalid));
   const orgSaveDisabled = orgSectionDisabled
     || hasInvalidOrgRows
@@ -1983,6 +2003,56 @@ const SystemCapacityControlPage: React.FC = () => {
           </Alert>
         )}
 
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+          <Stack spacing={1.5}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Capacity Mode
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant={!isTestingCapacityModeSelected ? "contained" : "outlined"}
+                onClick={() => setTestingModeEnabled(false)}
+                disabled={!canEditCapacityControl || manualSaving}
+              >
+                LIVE
+              </Button>
+              <Button
+                variant={isTestingCapacityModeSelected ? "contained" : "outlined"}
+                color={isTestingCapacityModeSelected ? "warning" : "inherit"}
+                onClick={() => setTestingModeEnabled(true)}
+                disabled={!canEditCapacityControl || manualSaving}
+              >
+                TEST
+              </Button>
+            </Stack>
+            {isTestingCapacityModeSelected && (
+              <>
+                <Alert severity="warning">
+                  Testing mode is enabled. Production capacity limits are advisory only.
+                </Alert>
+                {manualSaveError && <Alert severity="error">{manualSaveError}</Alert>}
+                {manualSaveSuccess && <Alert severity="success">{manualSaveSuccess}</Alert>}
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(220px, 1fr))" }, gap: 1.5 }}>
+                  <TextField label="Live lanes" type="number" value={num(systemConfig?.testing_capacity_override?.max_live_lanes)} onChange={(e) => setTestingOverrideField("max_live_lanes", e.target.value)} disabled={!canEditCapacityControl || manualSaving} />
+                  <TextField label="Open lanes" type="number" value={num(systemConfig?.testing_capacity_override?.max_open_lanes)} onChange={(e) => setTestingOverrideField("max_open_lanes", e.target.value)} disabled={!canEditCapacityControl || manualSaving} />
+                  <TextField label="Queued lots" type="number" value={num(systemConfig?.testing_capacity_override?.max_queued_lots)} onChange={(e) => setTestingOverrideField("max_queued_lots", e.target.value)} disabled={!canEditCapacityControl || manualSaving} />
+                  <TextField label="Concurrent bidders" type="number" value={num(systemConfig?.testing_capacity_override?.max_concurrent_bidders)} onChange={(e) => setTestingOverrideField("max_concurrent_bidders", e.target.value)} disabled={!canEditCapacityControl || manualSaving} />
+                </Box>
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button variant="outlined" onClick={applySafeTestDefaults} disabled={!canEditCapacityControl || manualSaving}>
+                    Apply Safe Test Defaults
+                  </Button>
+                  <Button variant="contained" color="warning" onClick={handleSaveTestingCapacity} disabled={!canEditCapacityControl || manualSaving}>
+                    {manualSaving ? "Saving..." : "Save Testing Mode"}
+                  </Button>
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </Paper>
+
+        {!isTestingCapacityModeSelected && (
+        <>
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section A — Physical Infrastructure Capacity (Mandatory)
@@ -2079,8 +2149,10 @@ const SystemCapacityControlPage: React.FC = () => {
             </Button>
           </Stack>
         </Paper>
+        </>
+        )}
 
-        <Accordion defaultExpanded={Boolean(systemConfig?.testing_capacity_override?.enabled)} sx={{ mb: 2 }}>
+        <Accordion defaultExpanded={Boolean(systemConfig?.testing_capacity_override?.enabled)} sx={{ mb: 2, display: "none" }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
               Testing Capacity Mode
@@ -2169,6 +2241,8 @@ const SystemCapacityControlPage: React.FC = () => {
           </AccordionDetails>
         </Accordion>
 
+        {!isTestingCapacityModeSelected && (
+        <>
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section B — Derived Safe Capacity
@@ -2408,6 +2482,8 @@ const SystemCapacityControlPage: React.FC = () => {
             </Button>
           </Stack>
         </Paper>
+        </>
+        )}
 
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -2475,6 +2551,7 @@ const SystemCapacityControlPage: React.FC = () => {
           </Box>
         </Paper>
 
+        {!isTestingCapacityModeSelected && (
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Section F — Org Allocation Management
@@ -2644,6 +2721,7 @@ const SystemCapacityControlPage: React.FC = () => {
             </Table>
           </Box>
         </Paper>
+        )}
 
         <Dialog open={plannerOpen} onClose={() => { setPlannerApplyMessage(null); setPlannerApplyError(null); setPlannerOpen(false); }} fullWidth maxWidth="lg">
           <DialogTitle>Capacity Planner</DialogTitle>

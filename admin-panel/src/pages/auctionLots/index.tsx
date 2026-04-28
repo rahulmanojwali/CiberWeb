@@ -533,16 +533,18 @@ export const AuctionLots: React.FC = () => {
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
   const createSubmitValid = Boolean(createForm.lot_id && createBasePriceValid);
-  const noOrgAllocationConfigured = !capacitySummary.org_allocation_configured;
+  const noOrgAllocationConfigured = !capacitySummary.testing_mode_enabled && !capacitySummary.org_allocation_configured;
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
   const canCreateSessionWithinCapacity = Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled);
   const capacityBlockingFull = useMemo(() => (
+    !capacitySummary.testing_mode_enabled && (
     Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_open_lanes || 0)
     || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_live_lanes || 0)
     || Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.mandi_effective.max_open_lanes || 0)
     || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.mandi_effective.max_live_lanes || 0)
     || !Boolean(capacitySummary.can_create_new_lane)
+    )
   ), [capacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch;
@@ -682,7 +684,9 @@ export const AuctionLots: React.FC = () => {
           if (lotStatus !== "QUEUED") return <Typography variant="body2" color="text.secondary">—</Typography>;
           const code = params.row.queue_reason || null;
           const message = String(code || "").toUpperCase() === "CAPACITY_CAP" && hasCapacitySummary
-            ? `Org open ${capacitySummary.org_usage.used_open_lanes}/${capacitySummary.org_allocation.allocated_max_open_lanes}, live ${capacitySummary.org_usage.used_live_lanes}/${capacitySummary.org_allocation.allocated_max_live_lanes}. Increase Section F org allocation or close a lane.`
+            ? (capacitySummary.testing_mode_enabled
+              ? "Testing mode is active. Lot remains queued until operational conditions allow auto-start."
+              : `Org open ${capacitySummary.org_usage.used_open_lanes}/${capacitySummary.org_allocation.allocated_max_open_lanes}, live ${capacitySummary.org_usage.used_live_lanes}/${capacitySummary.org_allocation.allocated_max_live_lanes}. Increase Section F org allocation or close a lane.`)
             : queueReasonLabel(code, params.row.queue_reason_message);
           return (
             <Stack spacing={0.2} sx={{ py: 0.3 }}>
@@ -1768,7 +1772,7 @@ export const AuctionLots: React.FC = () => {
 
       {capacitySummary.testing_mode_enabled && (
       <Alert severity="warning" sx={{ mb: 2 }}>
-        Testing Capacity Mode is enabled. Capacity limits are advisory only.
+        Testing Mode is enabled. Additional lanes can be created using testing limits.
       </Alert>
       )}
       {hasCapacitySummary && (
@@ -1800,6 +1804,7 @@ export const AuctionLots: React.FC = () => {
             <Typography variant="body2"><strong>Org Used Bidders:</strong> {capacitySummary.org_usage.used_concurrent_bidders}</Typography>
             <Typography variant="body2"><strong>Remaining Org Bidder Capacity:</strong> {capacitySummary.org_remaining.remaining_concurrent_bidders}</Typography>
             <Typography variant="body2"><strong>Guard State:</strong> {capacitySummary.guard_state || "GREEN"}</Typography>
+            <Typography variant="body2"><strong>Limit Source:</strong> {capacitySummary.testing_mode_enabled ? "TESTING_CAPACITY_OVERRIDE" : "LIVE_CAPACITY_CONFIG"}</Typography>
           </Box>
           {noOrgAllocationConfigured && (
             <Alert severity="warning">{orgAllocationWarning}</Alert>

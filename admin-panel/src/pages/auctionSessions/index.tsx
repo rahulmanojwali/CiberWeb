@@ -1276,7 +1276,7 @@ export const AuctionSessions: React.FC = () => {
 
       {laneCapacitySummary.testing_mode_enabled && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Testing Capacity Mode is enabled. Capacity limits are advisory only.
+          Testing Mode is enabled. Additional lanes can be created using testing limits.
         </Alert>
       )}
 
@@ -1307,6 +1307,7 @@ export const AuctionSessions: React.FC = () => {
               <DetailField label="Overloaded Lanes" value={displayCount(laneCapacitySummary.overloaded_lane_count)} />
               <DetailField label="Can Create New Lane?" value={laneCapacitySummary.can_create_new_lane ? "Yes" : "No"} />
               <DetailField label="Guard State" value={laneCapacitySummary.capacity_guard_state || "GREEN"} />
+              <DetailField label="Limit Source" value={laneCapacitySummary.testing_mode_enabled ? "TESTING_CAPACITY_OVERRIDE" : "LIVE_CAPACITY_CONFIG"} />
             </Box>
             {!laneCapacitySummary.can_create_new_lane && (
               <Alert severity="warning">

@@ -66,6 +66,9 @@ type LotRow = {
   base_price?: number | null;
   session_start_time?: string | null;
   session_scheduled_end_time?: string | null;
+  product_start_time?: string | null;
+  product_end_time?: string | null;
+  product_schedule_status?: string | null;
   session_closure_mode?: string | null;
   session_status?: string | null;
   session_auto_start_state?: "PENDING" | "OVERDUE" | string | null;
@@ -238,6 +241,13 @@ const toDateTimeLocal = (date: Date) => {
 const defaultScheduledEndLocal = (durationMinutes = 120) =>
   toDateTimeLocal(new Date(Date.now() + Math.max(1, durationMinutes) * 60 * 1000));
 
+const toDateTimeInputValue = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return toDateTimeLocal(date);
+};
+
 const closureModeHelperText = (closureMode: string) => {
   if (closureMode === "MANUAL_ONLY") return "Manual close only. Scheduled end is optional.";
   if (closureMode === "AUTO_AT_END_TIME") return "Auto close at scheduled end time. Scheduled end is required.";
@@ -380,6 +390,8 @@ export const AuctionLots: React.FC = () => {
     session_id: "",
     lot_id: "",
     base_price: "",
+    product_start_time: "",
+    product_end_time: "",
   });
 
   const persistedScope = readAuctionScope();
@@ -508,6 +520,10 @@ export const AuctionLots: React.FC = () => {
   }, [selectedCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
+  const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedCreateSession?.scheduled_start_time || null), [selectedCreateSession]);
+  const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedCreateSession?.scheduled_end_time || null), [selectedCreateSession]);
+  const selectedProductStart = useMemo(() => (createForm.product_start_time ? new Date(createForm.product_start_time) : null), [createForm.product_start_time]);
+  const selectedProductEnd = useMemo(() => (createForm.product_end_time ? new Date(createForm.product_end_time) : null), [createForm.product_end_time]);
   const selectedTotalKg = useMemo(() => {
     const lot: any = selectedLot || null;
     const kgCandidate =
@@ -736,6 +752,24 @@ export const AuctionLots: React.FC = () => {
         headerName: "Scheduled End",
         width: 180,
         valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
+      },
+      {
+        field: "product_start_time",
+        headerName: "Product Start",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.product_start_time) || "—",
+      },
+      {
+        field: "product_end_time",
+        headerName: "Product End",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.product_end_time) || "—",
+      },
+      {
+        field: "product_schedule_status",
+        headerName: "Product Schedule",
+        width: 170,
+        valueGetter: (_value, row) => String((row as any)?.product_schedule_status || "—"),
       },
       {
         field: "closure_mode",
@@ -1007,6 +1041,9 @@ export const AuctionLots: React.FC = () => {
         lot_phase: item.lot_phase || null,
         session_start_time: item?.session?.start_time || item?.session_start_time || item?.start_time || null,
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
+        product_start_time: item?.product_start_time || null,
+        product_end_time: item?.product_end_time || null,
+        product_schedule_status: item?.product_schedule_status || null,
         session_closure_mode: item?.session?.closure_mode || item?.session_closure_mode || item?.closure_mode || null,
         session_status: item?.session?.status || item?.session_status || null,
         session_auto_start_state: item?.session?.auto_start_state || null,
@@ -1373,6 +1410,24 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Opening price must be a number with up to 2 decimals.");
       return;
     }
+    const laneStart = selectedCreateSession?.scheduled_start_time ? new Date(selectedCreateSession.scheduled_start_time) : null;
+    const laneEnd = selectedCreateSession?.scheduled_end_time ? new Date(selectedCreateSession.scheduled_end_time) : null;
+    if (laneStart && laneEnd && !Number.isNaN(laneStart.getTime()) && !Number.isNaN(laneEnd.getTime())) {
+      if (selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
+        setCreateError("Product start time must be within lane timing.");
+        return;
+      }
+      if (selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
+        setCreateError("Product end time must be within lane timing.");
+        return;
+      }
+      const effectiveStart = selectedProductStart || laneStart;
+      const effectiveEnd = selectedProductEnd || laneEnd;
+      if (effectiveStart.getTime() >= effectiveEnd.getTime()) {
+        setCreateError("Product start time must be before product end time.");
+        return;
+      }
+    }
     const basePriceNum = Number(createBasePriceRaw);
     if (!Number.isFinite(basePriceNum) || basePriceNum <= 0) {
       setCreateError("Opening price must be greater than 0.");
@@ -1392,6 +1447,8 @@ export const AuctionLots: React.FC = () => {
         auto_assign_lane: Boolean(createForm.auto_assign_lane),
         session_id: createForm.auto_assign_lane ? undefined : (createForm.session_id || undefined),
         start_price_per_qtl: createBasePriceRaw,
+        product_start_time: createForm.product_start_time || undefined,
+        product_end_time: createForm.product_end_time || undefined,
       };
       if (import.meta.env.DEV) {
         console.debug("[AUCTION_LOTS_CREATE] payload", payload);
@@ -1419,7 +1476,7 @@ export const AuctionLots: React.FC = () => {
         );
       }
       setOpenCreate(false);
-      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "" });
+      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       await loadData();
     } catch (err: any) {
       setCreateError(err?.message || "Failed to create auction lot.");
@@ -1646,7 +1703,7 @@ export const AuctionLots: React.FC = () => {
 
   useEffect(() => {
     if (openCreate) {
-      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "" });
+      setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       setSelectedLot(null);
       setSessionOptions([]);
       setCreateError(null);
@@ -2319,7 +2376,43 @@ export const AuctionLots: React.FC = () => {
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  Section C — Pricing
+                  Section C — Product Timing (Optional)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  If left blank, product will follow lane timing.
+                </Typography>
+                {selectedCreateSession && (
+                  <Typography variant="body2" sx={{ mb: 1.5 }}>
+                    <strong>Lane Window:</strong> {formatDate(selectedCreateSession.scheduled_start_time)} to {formatDate(selectedCreateSession.scheduled_end_time)}
+                  </Typography>
+                )}
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                  <TextField
+                    label="Product Start Date/Time"
+                    type="datetime-local"
+                    size="small"
+                    value={createForm.product_start_time}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, product_start_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Product End Date/Time"
+                    type="datetime-local"
+                    size="small"
+                    value={createForm.product_end_time}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, product_end_time: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
+                    fullWidth
+                  />
+                </Stack>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  Section D — Pricing
                 </Typography>
                 <TextField
                   label="Opening Price (₹/qtl)"

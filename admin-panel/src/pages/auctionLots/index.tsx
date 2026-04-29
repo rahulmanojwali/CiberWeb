@@ -255,6 +255,38 @@ const roundToNearestFiveMinutes = (value: Date) => {
   return d;
 };
 
+function normalizeCommodityGroupCode(value: any): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function resolveLotCommodityGroup(lot: any) {
+  const rawCodeOrSlug = String(
+    lot?.commodity_group_code
+    || lot?.commodity_group
+    || lot?.commodity_slug
+    || lot?.commodity
+    || lot?.commodity_name_en
+    || "",
+  ).trim();
+  const label = String(
+    lot?.commodity_group
+    || lot?.commodity
+    || lot?.commodity_name_en
+    || lot?.commodity_slug
+    || "Selected Commodity",
+  ).trim();
+  return {
+    codeOrSlug: rawCodeOrSlug || "",
+    label: label || "Selected Commodity",
+    normalizedCode: normalizeCommodityGroupCode(rawCodeOrSlug || label),
+  };
+}
+
 const defaultScheduledEndLocal = (durationMinutes = 120) =>
   toDateTimeLocal(new Date(Date.now() + Math.max(1, durationMinutes) * 60 * 1000));
 
@@ -417,6 +449,13 @@ export const AuctionLots: React.FC = () => {
     product_end_time: "",
   });
   const [openCreateAssignConfirm, setOpenCreateAssignConfirm] = useState(false);
+  const [createAssignForm, setCreateAssignForm] = useState({
+    lane_name: "",
+    lane_type: "COMMODITY_LANE",
+    scheduled_start_time: "",
+    scheduled_end_time: "",
+    max_queue_size: "25",
+  });
 
   const persistedScope = readAuctionScope();
   const [filters, setFilters] = useState({
@@ -535,16 +574,8 @@ export const AuctionLots: React.FC = () => {
     return sessionOptions.find((opt) => String(opt?.value || "") === String(autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || "")) || null;
   }, [createForm.auto_assign_lane, autoAssignedCreateSession, sessionOptions]);
   const effectiveCreateSession = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
-  const selectedLotCommodityGroup = useMemo(() => (
-    String(
-      selectedLot?.commodity_group
-      || selectedLot?.commodity_group_code
-      || selectedLot?.commodity_name_en
-      || selectedLot?.commodity_name
-      || selectedLot?.commodity
-      || "",
-    ).trim()
-  ), [selectedLot]);
+  const resolvedLotCommodity = useMemo(() => resolveLotCommodityGroup(selectedLot || {}), [selectedLot]);
+  const selectedLotCommodityGroup = useMemo(() => resolvedLotCommodity.label, [resolvedLotCommodity]);
   const selectedLaneCommodityGroup = useMemo(() => (
     String(
       effectiveCreateSession?.commodity_group
@@ -623,19 +654,8 @@ export const AuctionLots: React.FC = () => {
     if (!selectedLot) return null;
     const start = roundToNearestFiveMinutes(new Date());
     const end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
-    const commodityGroup = String(
-      selectedLot?.commodity_group
-      || selectedLot?.commodity_name_en
-      || selectedLot?.commodity_name
-      || selectedLot?.commodity
-      || "",
-    ).trim();
-    const commodityGroupCode = String(
-      selectedLot?.commodity_group_code
-      || selectedLot?.commodity_code
-      || commodityGroup.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "")
-      || "",
-    ).trim();
+    const commodityGroup = String(resolvedLotCommodity?.label || "").trim();
+    const commodityGroupCode = String(resolvedLotCommodity?.normalizedCode || "").trim();
     return {
       mandi_id: Number(selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? 0) || null,
       mandi_name: selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || "",
@@ -652,7 +672,7 @@ export const AuctionLots: React.FC = () => {
       auto_close_enabled: true,
       closure_mode: "MANUAL_OR_AUTO",
     };
-  }, [selectedLot, capacitySummary]);
+  }, [selectedLot, capacitySummary, resolvedLotCommodity]);
   const createAssignMissingMandi = Boolean(selectedLot && !(inlineLanePrefill?.mandi_id));
   const createAssignMissingCommodity = Boolean(selectedLot && !inlineLanePrefill?.commodity_group && !inlineLanePrefill?.commodity_group_code);
   const createAssignPermissionDenied = !canCreateLaneInline;
@@ -667,17 +687,15 @@ export const AuctionLots: React.FC = () => {
     ? "You do not have permission to create lane."
     : null;
   useEffect(() => {
-    if (!openCreate || !noAutoCompatibleLane) return;
-    const debugPayload = {
-      hasSelectedLot: Boolean(selectedLot),
-      selectedLotMandiId: selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? null,
-      selectedLotCommodityGroup: selectedLot?.commodity_group || null,
-      selectedLotCommodityGroupCode: selectedLot?.commodity_group_code || null,
-      canCreateLane: canCreateLaneInline,
-      createAssignLaneDisabledReason: createAssignDisableReason,
-    };
-    console.debug("[AUCTION_LOTS][createAssignLaneDebug]", debugPayload);
-  }, [openCreate, noAutoCompatibleLane, selectedLot, canCreateLaneInline, createAssignDisableReason]);
+    if (!openCreateAssignConfirm || !inlineLanePrefill) return;
+    setCreateAssignForm({
+      lane_name: inlineLanePrefill.lane_name || "",
+      lane_type: inlineLanePrefill.lane_type || "COMMODITY_LANE",
+      scheduled_start_time: inlineLanePrefill.scheduled_start_time || "",
+      scheduled_end_time: inlineLanePrefill.scheduled_end_time || "",
+      max_queue_size: String(inlineLanePrefill.max_queue_size || 25),
+    });
+  }, [openCreateAssignConfirm, inlineLanePrefill]);
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
@@ -1594,7 +1612,9 @@ export const AuctionLots: React.FC = () => {
       return;
     }
     if (createForm.auto_assign_lane && !autoAssignedCreateSession) {
-      setCreateError("No matching lane found for this product. Please create/select a matching lane.");
+      setCreateError(
+        `No matching lane found for ${resolvedLotCommodity?.label || "this commodity"} / ${selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || "this product"}.`,
+      );
       return;
     }
     if (selectedLaneCommodityMismatch) {
@@ -1696,12 +1716,12 @@ export const AuctionLots: React.FC = () => {
       setCreateError("No mandi found for selected lot.");
       return;
     }
-    if (!inlineLanePrefill?.commodity_group) {
+    if (!resolvedLotCommodity?.label && !resolvedLotCommodity?.codeOrSlug) {
       setCreateError("Commodity group missing for selected product.");
       return;
     }
-    const laneStart = new Date(inlineLanePrefill.scheduled_start_time);
-    const laneEnd = new Date(inlineLanePrefill.scheduled_end_time);
+    const laneStart = new Date(createAssignForm.scheduled_start_time);
+    const laneEnd = new Date(createAssignForm.scheduled_end_time);
     if (Number.isNaN(laneStart.getTime()) || Number.isNaN(laneEnd.getTime()) || laneStart.getTime() >= laneEnd.getTime()) {
       setCreateError("Lane timing is invalid.");
       return;
@@ -1728,10 +1748,19 @@ export const AuctionLots: React.FC = () => {
         country,
         language,
         source_lot_id: selectedLot?._id || selectedLot?.lot_id,
-        lane: inlineLanePrefill,
+        lane: {
+          ...inlineLanePrefill,
+          lane_name: createAssignForm.lane_name || inlineLanePrefill?.lane_name,
+          lane_type: createAssignForm.lane_type || "COMMODITY_LANE",
+          commodity_group: resolvedLotCommodity?.label || resolvedLotCommodity?.codeOrSlug || inlineLanePrefill?.commodity_group || "Selected Commodity",
+          commodity_group_code: resolvedLotCommodity?.normalizedCode || inlineLanePrefill?.commodity_group_code || normalizeCommodityGroupCode(resolvedLotCommodity?.label),
+          scheduled_start_time: createAssignForm.scheduled_start_time,
+          scheduled_end_time: createAssignForm.scheduled_end_time,
+          max_queue_size: Number(createAssignForm.max_queue_size || inlineLanePrefill?.max_queue_size || 25),
+        },
         auction_lot: {
-          product_start_time: createForm.product_start_time || undefined,
-          product_end_time: createForm.product_end_time || undefined,
+          product_start_time: createForm.product_start_time || createAssignForm.scheduled_start_time || undefined,
+          product_end_time: createForm.product_end_time || createAssignForm.scheduled_end_time || undefined,
           opening_price_per_qtl: createBasePriceRaw,
         },
       });
@@ -1747,6 +1776,11 @@ export const AuctionLots: React.FC = () => {
           ? `Lane created and product assigned successfully. Lane: ${data?.session_code || data?.session_id || "—"}`
           : "A matching lane already existed. Product assigned to that lane.",
       );
+      setCreateForm((prev) => ({
+        ...prev,
+        product_start_time: prev.product_start_time || createAssignForm.scheduled_start_time,
+        product_end_time: prev.product_end_time || createAssignForm.scheduled_end_time,
+      }));
       setOpenCreateAssignConfirm(false);
       setOpenCreate(false);
       await loadData();
@@ -1977,6 +2011,13 @@ export const AuctionLots: React.FC = () => {
     if (openCreate) {
       setOpenCreateAssignConfirm(false);
       setCreateAssignLoading(false);
+      setCreateAssignForm({
+        lane_name: "",
+        lane_type: "COMMODITY_LANE",
+        scheduled_start_time: "",
+        scheduled_end_time: "",
+        max_queue_size: "25",
+      });
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       setSelectedLot(null);
       setSessionOptions([]);
@@ -2602,9 +2643,11 @@ export const AuctionLots: React.FC = () => {
                 {noAutoCompatibleLane && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     <Stack spacing={1}>
-                      <Typography variant="body2">No matching lane found for this product.</Typography>
+                      <Typography variant="body2">
+                        No matching lane found for {resolvedLotCommodity?.label || "this commodity"} / {selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || "this product"}.
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        No lane exists for this product. A new lane will be created for 4 hours by default. You can edit timing before confirming.
+                        You can create a new lane for {inlineLanePrefill?.mandi_name || "selected mandi"} mandi and assign this product to it.
                       </Typography>
                       <Box>
                         <Button
@@ -2621,9 +2664,6 @@ export const AuctionLots: React.FC = () => {
                           {createAssignDisableReason}
                         </Typography>
                       )}
-                      <Typography variant="caption" color="text.secondary">
-                        hasSelectedLot={String(Boolean(selectedLot))} | selectedLot.mandi_id={String(selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? "null")} | selectedLot.commodity_group={String(selectedLot?.commodity_group || "null")} | selectedLot.commodity_group_code={String(selectedLot?.commodity_group_code || "null")} | canCreateLane={String(canCreateLaneInline)} | createAssignLaneDisabledReason={String(createAssignDisableReason || "null")}
-                      </Typography>
                     </Stack>
                   </Alert>
                 )}
@@ -2784,13 +2824,53 @@ export const AuctionLots: React.FC = () => {
               This will create a new lane for the selected mandi and commodity group, then assign this product to it.
             </Alert>
             <Typography variant="body2"><strong>Mandi:</strong> {inlineLanePrefill?.mandi_name || inlineLanePrefill?.mandi_id || "—"}</Typography>
-            <Typography variant="body2"><strong>Commodity Group:</strong> {inlineLanePrefill?.commodity_group || "—"}</Typography>
-            <Typography variant="body2"><strong>Lane Name:</strong> {inlineLanePrefill?.lane_name || "—"}</Typography>
-            <Typography variant="body2"><strong>Lane Type:</strong> {inlineLanePrefill?.lane_type || "—"}</Typography>
-            <Typography variant="body2"><strong>Start:</strong> {inlineLanePrefill?.scheduled_start_time ? formatDate(new Date(inlineLanePrefill.scheduled_start_time)) : "—"}</Typography>
-            <Typography variant="body2"><strong>End:</strong> {inlineLanePrefill?.scheduled_end_time ? formatDate(new Date(inlineLanePrefill.scheduled_end_time)) : "—"}</Typography>
-            <Typography variant="body2"><strong>Max Queue Size:</strong> {inlineLanePrefill?.max_queue_size ?? 25}</Typography>
-            <Typography variant="body2"><strong>Why selected:</strong> No matching compatible lane exists currently.</Typography>
+            <Typography variant="body2"><strong>Commodity Group:</strong> {resolvedLotCommodity?.label || inlineLanePrefill?.commodity_group || "—"}</Typography>
+            <TextField
+              label="Lane Name"
+              size="small"
+              value={createAssignForm.lane_name}
+              onChange={(e) => setCreateAssignForm((prev) => ({ ...prev, lane_name: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Lane Type"
+              size="small"
+              value={createAssignForm.lane_type}
+              onChange={(e) => setCreateAssignForm((prev) => ({ ...prev, lane_type: e.target.value }))}
+              fullWidth
+            />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <TextField
+                label="Start Date/Time"
+                type="datetime-local"
+                size="small"
+                value={createAssignForm.scheduled_start_time}
+                onChange={(e) => setCreateAssignForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                label="End Date/Time"
+                type="datetime-local"
+                size="small"
+                value={createAssignForm.scheduled_end_time}
+                onChange={(e) => setCreateAssignForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Max Queue Size"
+              size="small"
+              type="number"
+              value={createAssignForm.max_queue_size}
+              onChange={(e) => setCreateAssignForm((prev) => ({ ...prev, max_queue_size: e.target.value }))}
+              inputProps={{ min: "1", step: "1" }}
+              fullWidth
+            />
+            <Typography variant="caption" color="text.secondary">
+              Suggested timing is auto-filled. You may change it before creating the lane.
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>

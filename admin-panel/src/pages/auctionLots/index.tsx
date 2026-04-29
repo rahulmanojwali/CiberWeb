@@ -495,6 +495,12 @@ export const AuctionLots: React.FC = () => {
     () => sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")) || null,
     [sessionItems, createForm.session_id],
   );
+  const autoAssignedCreateSession = useMemo(() => {
+    if (!createForm.auto_assign_lane) return null;
+    const suggested = sessionOptions.find((opt) => Boolean(opt?.session?.suggested_for_selected_lot));
+    return suggested?.session || sessionOptions[0]?.session || null;
+  }, [createForm.auto_assign_lane, sessionOptions]);
+  const effectiveCreateSession = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
   const selectedLotCommodityGroup = useMemo(() => (
     String(
       selectedLot?.commodity_group
@@ -507,21 +513,35 @@ export const AuctionLots: React.FC = () => {
   ), [selectedLot]);
   const selectedLaneCommodityGroup = useMemo(() => (
     String(
-      selectedCreateSession?.commodity_group
-      || selectedCreateSession?.commodity_group_code
+      effectiveCreateSession?.commodity_group
+      || effectiveCreateSession?.commodity_group_code
       || "",
     ).trim()
-  ), [selectedCreateSession]);
+  ), [effectiveCreateSession]);
   const selectedLaneCommodityMismatch = useMemo(() => {
-    if (!selectedCreateSession || !selectedLotCommodityGroup || !selectedLaneCommodityGroup) return false;
+    if (!effectiveCreateSession || !selectedLotCommodityGroup || !selectedLaneCommodityGroup) return false;
     const laneGroup = selectedLaneCommodityGroup.toUpperCase();
     const lotGroup = selectedLotCommodityGroup.toUpperCase();
     return !(laneGroup === lotGroup || laneGroup.includes(lotGroup) || lotGroup.includes(laneGroup));
-  }, [selectedCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
+  }, [effectiveCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
-  const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedCreateSession?.scheduled_start_time || null), [selectedCreateSession]);
-  const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedCreateSession?.scheduled_end_time || null), [selectedCreateSession]);
+  const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(effectiveCreateSession?.scheduled_start_time || null), [effectiveCreateSession]);
+  const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(effectiveCreateSession?.scheduled_end_time || null), [effectiveCreateSession]);
+  const selectedLaneStartDate = useMemo(() => {
+    if (!effectiveCreateSession?.scheduled_start_time) return null;
+    const parsed = new Date(effectiveCreateSession.scheduled_start_time);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [effectiveCreateSession]);
+  const selectedLaneEndDate = useMemo(() => {
+    if (!effectiveCreateSession?.scheduled_end_time) return null;
+    const parsed = new Date(effectiveCreateSession.scheduled_end_time);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [effectiveCreateSession]);
+  const productEndMinTime = useMemo(
+    () => createForm.product_start_time || selectedLaneStartTime || undefined,
+    [createForm.product_start_time, selectedLaneStartTime],
+  );
   const selectedProductStart = useMemo(() => (createForm.product_start_time ? new Date(createForm.product_start_time) : null), [createForm.product_start_time]);
   const selectedProductEnd = useMemo(() => (createForm.product_end_time ? new Date(createForm.product_end_time) : null), [createForm.product_end_time]);
   const selectedTotalKg = useMemo(() => {
@@ -1410,17 +1430,21 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Opening price must be a number with up to 2 decimals.");
       return;
     }
-    const laneStart = selectedCreateSession?.scheduled_start_time ? new Date(selectedCreateSession.scheduled_start_time) : null;
-    const laneEnd = selectedCreateSession?.scheduled_end_time ? new Date(selectedCreateSession.scheduled_end_time) : null;
-    if (laneStart && laneEnd && !Number.isNaN(laneStart.getTime()) && !Number.isNaN(laneEnd.getTime())) {
-      if (selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
-        setCreateError("Product start time must be within lane timing.");
-        return;
-      }
-      if (selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
-        setCreateError("Product end time must be within lane timing.");
-        return;
-      }
+    const laneStart = selectedLaneStartDate;
+    const laneEnd = selectedLaneEndDate;
+    if (laneStart && selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
+      setCreateError(`Product start time must be on or after lane start: ${formatDate(laneStart)}.`);
+      return;
+    }
+    if (laneEnd && selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
+      setCreateError(`Product end time cannot be after lane end time: ${formatDate(laneEnd)}.`);
+      return;
+    }
+    if (selectedProductStart && selectedProductEnd && selectedProductStart.getTime() >= selectedProductEnd.getTime()) {
+      setCreateError("Product start time must be before product end time.");
+      return;
+    }
+    if (laneStart && laneEnd) {
       const effectiveStart = selectedProductStart || laneStart;
       const effectiveEnd = selectedProductEnd || laneEnd;
       if (effectiveStart.getTime() >= effectiveEnd.getTime()) {
@@ -2350,24 +2374,24 @@ export const AuctionLots: React.FC = () => {
                     </Stack>
                   </Alert>
                 )}
-                {selectedCreateSession && (
+                {effectiveCreateSession && (
                   <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Selected Lane Summary
+                      {createForm.auto_assign_lane ? "Auto-Assigned Lane Summary" : "Selected Lane Summary"}
                     </Typography>
                     <Stack spacing={0.6}>
-                      <Typography variant="body2"><strong>Lane Name:</strong> {selectedCreateSession.session_name || selectedCreateSession.session_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(selectedCreateSession.lane_type)}</Typography>
-                      <Typography variant="body2"><strong>Commodity:</strong> {selectedCreateSession.commodity_group || "—"}</Typography>
-                      <Typography variant="body2"><strong>Status:</strong> {selectedCreateSession.status_display || selectedCreateSession.derived_status || selectedCreateSession.status || "—"}</Typography>
-                      <Typography variant="body2"><strong>Queued Count:</strong> {selectedCreateSession.queued_count ?? 0}</Typography>
-                      <Typography variant="body2"><strong>Active Lot:</strong> {selectedCreateSession.active_lot_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {selectedCreateSession.next_queued_lot_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Ready to Close:</strong> {selectedCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
+                      <Typography variant="body2"><strong>Lane Name:</strong> {effectiveCreateSession.session_name || effectiveCreateSession.session_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(effectiveCreateSession.lane_type)}</Typography>
+                      <Typography variant="body2"><strong>Commodity:</strong> {effectiveCreateSession.commodity_group || "—"}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {effectiveCreateSession.status_display || effectiveCreateSession.derived_status || effectiveCreateSession.status || "—"}</Typography>
+                      <Typography variant="body2"><strong>Queued Count:</strong> {effectiveCreateSession.queued_count ?? 0}</Typography>
+                      <Typography variant="body2"><strong>Active Lot:</strong> {effectiveCreateSession.active_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {effectiveCreateSession.next_queued_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Ready to Close:</strong> {effectiveCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
                     </Stack>
-                    {selectedCreateSession.overloaded && (
+                    {effectiveCreateSession.overloaded && (
                       <Alert severity="warning" sx={{ mt: 1.25 }}>
-                        {selectedCreateSession.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
+                        {effectiveCreateSession.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
                       </Alert>
                     )}
                   </Paper>
@@ -2381,10 +2405,23 @@ export const AuctionLots: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   If left blank, product will follow lane timing.
                 </Typography>
-                {selectedCreateSession && (
-                  <Typography variant="body2" sx={{ mb: 1.5 }}>
-                    <strong>Lane Window:</strong> {formatDate(selectedCreateSession.scheduled_start_time)} to {formatDate(selectedCreateSession.scheduled_end_time)}
-                  </Typography>
+                {effectiveCreateSession && (
+                  <Stack spacing={0.4} sx={{ mb: 1.5 }}>
+                    <Typography variant="body2">
+                      <strong>Lane Window:</strong>
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Start:</strong> {formatDate(effectiveCreateSession.scheduled_start_time) || "—"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>End:</strong> {formatDate(effectiveCreateSession.scheduled_end_time) || "—"}
+                    </Typography>
+                    {!effectiveCreateSession.scheduled_end_time && (
+                      <Typography variant="caption" color="warning.main">
+                        Lane end time is not configured. Product timing will follow lane defaults.
+                      </Typography>
+                    )}
+                  </Stack>
                 )}
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                   <TextField
@@ -2395,6 +2432,7 @@ export const AuctionLots: React.FC = () => {
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, product_start_time: e.target.value }))}
                     InputLabelProps={{ shrink: true }}
                     inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
+                    helperText={selectedLaneStartTime ? `Must be on or after lane start: ${formatDate(selectedLaneStartDate)}` : undefined}
                     fullWidth
                   />
                   <TextField
@@ -2404,7 +2442,8 @@ export const AuctionLots: React.FC = () => {
                     value={createForm.product_end_time}
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, product_end_time: e.target.value }))}
                     InputLabelProps={{ shrink: true }}
-                    inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
+                    inputProps={{ min: productEndMinTime, max: selectedLaneEndTime || undefined }}
+                    helperText={selectedLaneEndTime ? `Must be on or before lane end: ${formatDate(selectedLaneEndDate)}` : "Lane end time is not configured. Product timing will follow lane defaults."}
                     fullWidth
                   />
                 </Stack>

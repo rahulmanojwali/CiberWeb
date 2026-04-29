@@ -633,7 +633,7 @@ export const AuctionLots: React.FC = () => {
     if (!openingRatePerQtl || !selectedTotalQtl) return null;
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
-  const createSubmitValid = Boolean(createForm.lot_id && createBasePriceValid);
+  const createSubmitValid = Boolean(createForm.lot_id && effectiveCreateSession && createBasePriceValid);
   const noOrgAllocationConfigured = !capacitySummary.testing_mode_enabled && !capacitySummary.org_allocation_configured;
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
@@ -1744,6 +1744,7 @@ export const AuctionLots: React.FC = () => {
       const resp: any = await postEncrypted("/admin/createLaneAndAssignLot", {
         api: "createLaneAndAssignLot",
         api_name: "createLaneAndAssignLot",
+        mode: "CREATE_LANE_ONLY",
         username,
         country,
         language,
@@ -1758,11 +1759,6 @@ export const AuctionLots: React.FC = () => {
           scheduled_end_time: createAssignForm.scheduled_end_time,
           max_queue_size: Number(createAssignForm.max_queue_size || inlineLanePrefill?.max_queue_size || 25),
         },
-        auction_lot: {
-          product_start_time: createForm.product_start_time || createAssignForm.scheduled_start_time || undefined,
-          product_end_time: createForm.product_end_time || createAssignForm.scheduled_end_time || undefined,
-          opening_price_per_qtl: createBasePriceRaw,
-        },
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
@@ -1773,17 +1769,18 @@ export const AuctionLots: React.FC = () => {
       const data = resp?.data || resp?.response?.data || {};
       setCreateSuccess(
         data?.lane_created
-          ? `Lane created and product assigned successfully. Lane: ${data?.session_code || data?.session_id || "—"}`
-          : "A matching lane already existed. Product assigned to that lane.",
+          ? `Lane created successfully. Lane: ${data?.session_code || data?.session_id || "—"}`
+          : "A matching lane already existed. Using that lane.",
       );
       setCreateForm((prev) => ({
         ...prev,
+        auto_assign_lane: false,
+        session_id: String(data?.session_id || prev.session_id || ""),
         product_start_time: prev.product_start_time || createAssignForm.scheduled_start_time,
         product_end_time: prev.product_end_time || createAssignForm.scheduled_end_time,
       }));
       setOpenCreateAssignConfirm(false);
-      setOpenCreate(false);
-      await loadData();
+      await Promise.all([loadData(), loadSessionsForDropdown()]);
     } catch (err: any) {
       setCreateError(err?.message || "Unable to create lane. Please try again.");
     } finally {
@@ -2656,7 +2653,7 @@ export const AuctionLots: React.FC = () => {
                           onClick={() => setOpenCreateAssignConfirm(true)}
                           disabled={createAssignDisabled}
                         >
-                          Create &amp; Assign Lane
+                          Create Lane &amp; Use This Lane
                         </Button>
                       </Box>
                       {createAssignDisableReason && (
@@ -2780,7 +2777,7 @@ export const AuctionLots: React.FC = () => {
                   type="number"
                   value={createForm.base_price}
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, base_price: e.target.value }))}
-                  helperText="Opening bid rate for this lot (per quintal)."
+                  helperText="Opening bid rate for this lot (per quintal). Opening price is required before assigning product to lane."
                   inputProps={{ step: "0.01", min: "0" }}
                   fullWidth
                 />
@@ -2876,7 +2873,7 @@ export const AuctionLots: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setOpenCreateAssignConfirm(false)} disabled={createAssignLoading}>Cancel</Button>
           <Button variant="contained" onClick={handleCreateAndAssignLane} disabled={createAssignDisabled}>
-            {createAssignLoading ? "Creating..." : "Create Lane & Assign Product"}
+            {createAssignLoading ? "Creating..." : "Create Lane & Use This Lane"}
           </Button>
         </DialogActions>
       </Dialog>

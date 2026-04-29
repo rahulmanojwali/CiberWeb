@@ -96,6 +96,13 @@ type LotRow = {
 type Option = { value: string; label: string };
 type SessionOption = Option & {
   session: any;
+  rank_meta?: {
+    isCompatible: boolean;
+    rank: number;
+    queueAvailable: boolean;
+    queueRemaining: number | null;
+    why: string;
+  };
 };
 type LotOption = { value: string; label: string; shortCode?: string; lot: any };
 type CapacitySummary = {
@@ -233,6 +240,8 @@ const buildSessionCode = () => {
   return `SESS_${yyyy}${mm}${dd}_${hh}${min}`;
 };
 
+const normalizeLaneTextUpper = (value: any) => String(value || "").trim().toUpperCase();
+
 const toDateTimeLocal = (date: Date) => {
   const pad = (num: number) => String(num).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -269,6 +278,11 @@ const humanizeLaneType = (value: string | null | undefined) => {
     .split("_")
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
     .join(" ");
+};
+
+const normalizeLaneType = (value: any): string => {
+  const key = String(value || "").trim().toUpperCase();
+  return key || "COMMODITY_LANE";
 };
 
 const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number) => {
@@ -497,9 +511,13 @@ export const AuctionLots: React.FC = () => {
   );
   const autoAssignedCreateSession = useMemo(() => {
     if (!createForm.auto_assign_lane) return null;
-    const suggested = sessionOptions.find((opt) => Boolean(opt?.session?.suggested_for_selected_lot));
-    return suggested?.session || sessionOptions[0]?.session || null;
+    const bestCompatible = sessionOptions.find((opt) => Boolean(opt?.rank_meta?.isCompatible));
+    return bestCompatible?.session || null;
   }, [createForm.auto_assign_lane, sessionOptions]);
+  const autoAssignedSessionOption = useMemo(() => {
+    if (!createForm.auto_assign_lane || !autoAssignedCreateSession) return null;
+    return sessionOptions.find((opt) => String(opt?.value || "") === String(autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || "")) || null;
+  }, [createForm.auto_assign_lane, autoAssignedCreateSession, sessionOptions]);
   const effectiveCreateSession = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
   const selectedLotCommodityGroup = useMemo(() => (
     String(
@@ -583,7 +601,8 @@ export const AuctionLots: React.FC = () => {
     )
   ), [capacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
-  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch;
+  const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !autoAssignedCreateSession);
+  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch || noAutoCompatibleLane;
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
@@ -966,28 +985,102 @@ export const AuctionLots: React.FC = () => {
     const mandiId = lot?.mandi_id !== undefined && lot?.mandi_id !== null ? Number(lot.mandi_id) : null;
     const mandiCode = lot?.mandi_code ? String(lot.mandi_code) : null;
     const allowedStatuses = new Set(["PLANNED", "LIVE"]);
+    const wantedLaneType = normalizeLaneType(lot?.lane_type) || "COMMODITY_LANE";
+    const wantedCode = normalizeLaneTextUpper(
+      lot?.commodity_group_code || lot?.commodity_code || "",
+    );
+    const wantedLabel = normalizeLaneTextUpper(
+      lot?.commodity_group || lot?.commodity_name_en || lot?.commodity_name || lot?.commodity || "",
+    );
 
-    return sessions
-      .filter((s) => {
+    const ranked = sessions
+      .map((s) => {
         const status = String(s?.derived_status || s?.status || "").toUpperCase();
-        if (!allowedStatuses.has(status)) return false;
         const sOrgId = s?.org_id ? String(s.org_id) : null;
         const sOrgCode = s?.org_code ? String(s.org_code) : null;
         const sMandiId = s?.mandi_id !== undefined && s?.mandi_id !== null ? Number(s.mandi_id) : null;
         const sMandiCode = s?.mandi_code ? String(s.mandi_code) : null;
-
         const orgMatch = orgId ? sOrgId === orgId : orgCode ? sOrgCode === orgCode : true;
         const mandiMatch = mandiId !== null ? sMandiId === mandiId : mandiCode ? sMandiCode === mandiCode : true;
-        return orgMatch && mandiMatch;
+        const laneType = normalizeLaneType(s?.lane_type);
+        const laneCode = normalizeLaneTextUpper(s?.commodity_group_code);
+        const laneLabel = normalizeLaneTextUpper(s?.commodity_group);
+        const laneTypeMatch = laneType === wantedLaneType;
+        const exactCodeMatch = Boolean(wantedCode && laneCode && wantedCode === laneCode);
+        const exactLabelMatch = Boolean(wantedLabel && laneLabel && wantedLabel === laneLabel);
+        const rank = exactCodeMatch ? 0 : exactLabelMatch ? 1 : 9;
+        const queueLimit = Number(s?.max_queue_size || 0) > 0
+          ? Number(s?.max_queue_size || 0)
+          : Number(capacitySummary?.mandi_effective?.max_queue_per_lane || 25);
+        const queuedCount = Number(s?.queued_count || 0);
+        const queueRemaining = Number.isFinite(queueLimit) ? Math.max(0, queueLimit - queuedCount) : null;
+        const queueAvailable = queueLimit <= 0 || queuedCount < queueLimit;
+        const compatible = laneTypeMatch && (exactCodeMatch || exactLabelMatch);
+        const endMs = s?.scheduled_end_time ? new Date(s.scheduled_end_time).getTime() : Number.MAX_SAFE_INTEGER;
+        const why = exactCodeMatch
+          ? "Exact commodity group code match"
+          : exactLabelMatch
+          ? "Exact commodity group match"
+          : laneTypeMatch
+          ? "Lane type matches but commodity group differs"
+          : "Lane type mismatch";
+        return {
+          raw: s,
+          status,
+          orgMatch,
+          mandiMatch,
+          compatible,
+          rank,
+          queueAvailable,
+          queueRemaining,
+          queuedCount,
+          queueLimit,
+          endMs: Number.isFinite(endMs) ? endMs : Number.MAX_SAFE_INTEGER,
+          why,
+        };
       })
-      .map((s: any) => ({
-        value: s._id || s.session_id || "",
+      .filter((entry) => entry.orgMatch && entry.mandiMatch && allowedStatuses.has(entry.status))
+      .sort((a, b) => {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        if (a.queueAvailable !== b.queueAvailable) return Number(b.queueAvailable) - Number(a.queueAvailable);
+        if (a.endMs !== b.endMs) return a.endMs - b.endMs;
+        return Number(a.queuedCount || 0) - Number(b.queuedCount || 0);
+      });
+
+    if (import.meta.env.DEV) {
+      console.debug("[AUCTION_LOTS][laneRankingUI]", {
+        selected_lot_commodity_group: wantedLabel || null,
+        selected_lot_commodity_group_code: wantedCode || null,
+        candidates: ranked.map((entry) => ({
+          session_id: entry?.raw?._id || entry?.raw?.session_id || null,
+          session_name: entry?.raw?.session_name || entry?.raw?.session_code || null,
+          lane_type: entry?.raw?.lane_type || null,
+          commodity_group: entry?.raw?.commodity_group || null,
+          commodity_group_code: entry?.raw?.commodity_group_code || null,
+          rank: entry.rank,
+          queue_available: entry.queueAvailable,
+          queue_remaining: entry.queueRemaining,
+          reason: entry.why,
+        })),
+      });
+    }
+
+    return ranked
+      .map((entry: any) => ({
+        value: entry.raw._id || entry.raw.session_id || "",
         label: [
-          s.session_name || s.session_code || s._id || s.session_id || "",
-          s.commodity_group ? `• ${s.commodity_group}` : "",
-          s.lane_type ? `• ${humanizeLaneType(s.lane_type)}` : "",
+          entry.raw.session_name || entry.raw.session_code || entry.raw._id || entry.raw.session_id || "",
+          entry.raw.commodity_group ? `• ${entry.raw.commodity_group}` : "",
+          entry.raw.lane_type ? `• ${humanizeLaneType(entry.raw.lane_type)}` : "",
         ].filter(Boolean).join(" "),
-        session: s,
+        session: entry.raw,
+        rank_meta: {
+          isCompatible: Boolean(entry.compatible),
+          rank: Number(entry.rank),
+          queueAvailable: Boolean(entry.queueAvailable),
+          queueRemaining: entry.queueRemaining,
+          why: entry.why,
+        },
       }))
       .filter((s: SessionOption) => s.value);
   };
@@ -1408,6 +1501,9 @@ export const AuctionLots: React.FC = () => {
       console.debug("[AUCTION_LOTS_CREATE] submit_state", {
         selected_lot_id: createForm.lot_id || null,
         selected_session_id: createForm.session_id || null,
+        selected_auto_lane_id: autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || null,
+        selected_auto_lane_name: autoAssignedCreateSession?.session_name || autoAssignedCreateSession?.session_code || null,
+        mismatch_reason: selectedLaneCommodityMismatch ? "commodity_group_or_lane_type_mismatch" : null,
         opening_price: createBasePriceRaw || null,
         session_status: String(selectedCreateSession?.status || "").toUpperCase() || null,
         validation_result: createSubmitValid,
@@ -1420,6 +1516,10 @@ export const AuctionLots: React.FC = () => {
     }
     if (!createForm.auto_assign_lane && !createForm.session_id) {
       setCreateError("Select a preferred lane or enable Auto assign best lane.");
+      return;
+    }
+    if (createForm.auto_assign_lane && !autoAssignedCreateSession) {
+      setCreateError("No matching lane found for this product. Please create/select a matching lane.");
       return;
     }
     if (selectedLaneCommodityMismatch) {
@@ -2319,14 +2419,14 @@ export const AuctionLots: React.FC = () => {
                       <MenuItem
                         key={s.value}
                         value={s.value}
-                        sx={s.session?.suggested_for_selected_lot ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
+                        sx={s.rank_meta?.isCompatible ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
                       >
                         <Stack spacing={0.35} sx={{ py: 0.3, width: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
                               {s.session?.session_name || s.session?.session_code || s.label}
                             </Typography>
-                            {s.session?.suggested_for_selected_lot && (
+                            {s.rank_meta?.isCompatible && (
                               <Chip size="small" color="success" label="Suggested" />
                             )}
                             {s.session?.is_overflow_lane && (
@@ -2339,15 +2439,20 @@ export const AuctionLots: React.FC = () => {
                           <Typography variant="caption" color="text.secondary">
                             Queue: {s.session?.queued_count ?? 0} · Active: {s.session?.active_lot_code || "-"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "-"} · Overflow: {s.session?.is_overflow_lane ? "Yes" : "No"}
                           </Typography>
-                          {s.session?.suggestion_reason && (
+                          {s.rank_meta?.why && (
                             <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
-                              {s.session.suggested_for_selected_lot ? `Best match for selected lot · ${s.session.suggestion_reason}` : s.session.suggestion_reason}
+                              {s.rank_meta?.isCompatible ? `Best match for selected lot · ${s.rank_meta.why}` : s.rank_meta.why}
                             </Typography>
                           )}
                         </Stack>
                       </MenuItem>
                     ))}
                   </TextField>
+                )}
+                {noAutoCompatibleLane && (
+                  <Alert severity="warning" sx={{ mt: 1.25 }}>
+                    No matching lane found for this product. Please create/select a matching lane.
+                  </Alert>
                 )}
                 {selectedLaneCommodityMismatch && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
@@ -2383,6 +2488,9 @@ export const AuctionLots: React.FC = () => {
                       <Typography variant="body2"><strong>Lane Name:</strong> {effectiveCreateSession.session_name || effectiveCreateSession.session_code || "—"}</Typography>
                       <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(effectiveCreateSession.lane_type)}</Typography>
                       <Typography variant="body2"><strong>Commodity:</strong> {effectiveCreateSession.commodity_group || "—"}</Typography>
+                      {createForm.auto_assign_lane && autoAssignedSessionOption?.rank_meta?.why && (
+                        <Typography variant="body2"><strong>Why selected:</strong> {autoAssignedSessionOption.rank_meta.why}</Typography>
+                      )}
                       <Typography variant="body2"><strong>Status:</strong> {effectiveCreateSession.status_display || effectiveCreateSession.derived_status || effectiveCreateSession.status || "—"}</Typography>
                       <Typography variant="body2"><strong>Queued Count:</strong> {effectiveCreateSession.queued_count ?? 0}</Typography>
                       <Typography variant="body2"><strong>Active Lot:</strong> {effectiveCreateSession.active_lot_code || "—"}</Typography>

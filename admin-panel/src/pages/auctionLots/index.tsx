@@ -510,6 +510,12 @@ export const AuctionLots: React.FC = () => {
     () => can(uiConfig.resources, "auction_lots.create", "CREATE"),
     [uiConfig.resources],
   );
+  const canCreateLaneInline = useMemo(
+    () => can(uiConfig.resources, "auction_sessions.create", "CREATE")
+      || can(uiConfig.resources, "auction_sessions.update", "UPDATE")
+      || can(uiConfig.resources, "auction_lots.update", "UPDATE"),
+    [uiConfig.resources],
+  );
   const canSessionsList = useMemo(
     () => can(uiConfig.resources, "auction_sessions.list", "VIEW"),
     [uiConfig.resources],
@@ -613,7 +619,6 @@ export const AuctionLots: React.FC = () => {
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !autoAssignedCreateSession);
   const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch || noAutoCompatibleLane;
-  const createAssignDisabled = createAssignLoading || noOrgAllocationConfigured || !createBasePriceValid || !selectedLot || !noAutoCompatibleLane;
   const inlineLanePrefill = useMemo(() => {
     if (!selectedLot) return null;
     const start = roundToNearestFiveMinutes(new Date());
@@ -648,6 +653,31 @@ export const AuctionLots: React.FC = () => {
       closure_mode: "MANUAL_OR_AUTO",
     };
   }, [selectedLot, capacitySummary]);
+  const createAssignMissingMandi = Boolean(selectedLot && !(inlineLanePrefill?.mandi_id));
+  const createAssignMissingCommodity = Boolean(selectedLot && !inlineLanePrefill?.commodity_group && !inlineLanePrefill?.commodity_group_code);
+  const createAssignPermissionDenied = !canCreateLaneInline;
+  const createAssignDisabled = createAssignLoading || !selectedLot || createAssignMissingMandi || createAssignMissingCommodity || createAssignPermissionDenied;
+  const createAssignDisableReason = !selectedLot
+    ? null
+    : createAssignMissingMandi
+    ? "Cannot create lane: selected lot has no mandi."
+    : createAssignMissingCommodity
+    ? "Cannot create lane: commodity group is missing."
+    : createAssignPermissionDenied
+    ? "You do not have permission to create lane."
+    : null;
+  useEffect(() => {
+    if (!openCreate || !noAutoCompatibleLane) return;
+    const debugPayload = {
+      hasSelectedLot: Boolean(selectedLot),
+      selectedLotMandiId: selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? null,
+      selectedLotCommodityGroup: selectedLot?.commodity_group || null,
+      selectedLotCommodityGroupCode: selectedLot?.commodity_group_code || null,
+      canCreateLane: canCreateLaneInline,
+      createAssignLaneDisabledReason: createAssignDisableReason,
+    };
+    console.debug("[AUCTION_LOTS][createAssignLaneDebug]", debugPayload);
+  }, [openCreate, noAutoCompatibleLane, selectedLot, canCreateLaneInline, createAssignDisableReason]);
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
@@ -2574,7 +2604,7 @@ export const AuctionLots: React.FC = () => {
                     <Stack spacing={1}>
                       <Typography variant="body2">No matching lane found for this product.</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        This will create a new lane for the selected mandi and commodity group, then assign this product to it.
+                        No lane exists for this product. A new lane will be created for 4 hours by default. You can edit timing before confirming.
                       </Typography>
                       <Box>
                         <Button
@@ -2586,6 +2616,14 @@ export const AuctionLots: React.FC = () => {
                           Create &amp; Assign Lane
                         </Button>
                       </Box>
+                      {createAssignDisableReason && (
+                        <Typography variant="caption" color="error">
+                          {createAssignDisableReason}
+                        </Typography>
+                      )}
+                      <Typography variant="caption" color="text.secondary">
+                        hasSelectedLot={String(Boolean(selectedLot))} | selectedLot.mandi_id={String(selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? "null")} | selectedLot.commodity_group={String(selectedLot?.commodity_group || "null")} | selectedLot.commodity_group_code={String(selectedLot?.commodity_group_code || "null")} | canCreateLane={String(canCreateLaneInline)} | createAssignLaneDisabledReason={String(createAssignDisableReason || "null")}
+                      </Typography>
                     </Stack>
                   </Alert>
                 )}
@@ -2751,13 +2789,14 @@ export const AuctionLots: React.FC = () => {
             <Typography variant="body2"><strong>Lane Type:</strong> {inlineLanePrefill?.lane_type || "—"}</Typography>
             <Typography variant="body2"><strong>Start:</strong> {inlineLanePrefill?.scheduled_start_time ? formatDate(new Date(inlineLanePrefill.scheduled_start_time)) : "—"}</Typography>
             <Typography variant="body2"><strong>End:</strong> {inlineLanePrefill?.scheduled_end_time ? formatDate(new Date(inlineLanePrefill.scheduled_end_time)) : "—"}</Typography>
+            <Typography variant="body2"><strong>Max Queue Size:</strong> {inlineLanePrefill?.max_queue_size ?? 25}</Typography>
             <Typography variant="body2"><strong>Why selected:</strong> No matching compatible lane exists currently.</Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCreateAssignConfirm(false)} disabled={createAssignLoading}>Cancel</Button>
           <Button variant="contained" onClick={handleCreateAndAssignLane} disabled={createAssignDisabled}>
-            {createAssignLoading ? "Creating..." : "Confirm Create & Assign"}
+            {createAssignLoading ? "Creating..." : "Create Lane & Assign Product"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -224,7 +224,12 @@ const buildLotLabel = (lot: any) => {
       ? `${totalWeight}kg`
       : "-";
 
-  const label = `${partyDisplay} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}`;
+  const previousStatus = String(lot?.previous_attempt_status || "").trim().toUpperCase();
+  const isReauctionEligible = String(lot?.reauction_eligible || "").toUpperCase() === "Y";
+  const reauctionBadge = isReauctionEligible
+    ? ` \u2022 Re-auction eligible${previousStatus ? ` \u2022 Previous attempt ${previousStatus.toLowerCase()}` : ""}`
+    : "";
+  const label = `${partyDisplay} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}${reauctionBadge}`;
   const lotCode = lot?.lot_code || lot?.token_code || lot?._id || "";
   const shortCode = lotCode ? String(lotCode).slice(-6) : "";
   return { label, shortCode };

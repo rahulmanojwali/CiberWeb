@@ -16,6 +16,7 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -352,6 +353,14 @@ const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number)
   };
 };
 
+const formatDurationHms = (diffMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
 const normalizeSessionStatus = (value: string | null | undefined) => {
   const key = String(value || "").trim().toUpperCase();
   if (["PLANNED", "LIVE", "PAUSED", "CLOSED", "CANCELLED"].includes(key)) return key;
@@ -359,11 +368,46 @@ const normalizeSessionStatus = (value: string | null | undefined) => {
 };
 
 const getTimeLeftPresentation = (
+  lotStatus: string | null | undefined,
   sessionStatus: string | null | undefined,
   scheduledEnd: string | null | undefined,
+  productStartTime: string | null | undefined,
+  queueReason: string | null | undefined,
   nowMs: number
 ) => {
+  const lot = String(lotStatus || "").trim().toUpperCase();
   const status = normalizeSessionStatus(sessionStatus);
+  const isTerminalLotStatus = [
+    "WITHDRAWN",
+    "CANCELLED",
+    "SOLD",
+    "UNSOLD",
+    "EXPIRED",
+    "CLOSED",
+    "FINALIZED",
+    "SETTLED",
+  ].includes(lot);
+  if (lot === "WITHDRAWN") return { label: "Withdrawn", tone: "muted" as const };
+  if (isTerminalLotStatus) return { label: "—", tone: "muted" as const };
+
+  if (lot === "QUEUED") {
+    const queueReasonCode = String(queueReason || "").trim().toUpperCase();
+    if (queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW") {
+      const start = productStartTime ? new Date(productStartTime) : null;
+      if (start && !Number.isNaN(start.getTime())) {
+        const diffMs = start.getTime() - nowMs;
+        if (diffMs > 0) return { label: `Starts in ${formatDurationHms(diffMs)}`, tone: "warning" as const };
+        return { label: `Scheduled start: ${formatDate(start) || "—"}`, tone: "muted" as const };
+      }
+      return { label: "Queued", tone: "warning" as const };
+    }
+    return { label: "Queued", tone: "warning" as const };
+  }
+
+  if (!["LIVE", "IN_AUCTION", "MAPPED_TO_AUCTION"].includes(lot)) {
+    return { label: "—", tone: "muted" as const };
+  }
+
   if (status === "PLANNED") return { label: "Not started", tone: "muted" as const };
   if (status === "PAUSED") return { label: "Paused", tone: "warning" as const };
   if (status === "CLOSED") return { label: "Ended", tone: "muted" as const };
@@ -383,6 +427,7 @@ const getTimeLeftPresentation = (
 
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
   const normalized = String(code || "").trim().toUpperCase();
+  if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Waiting for product window.";
   if (normalized === "CAPACITY_CAP") return "Capacity limit reached. Lot is queued until lane capacity is available.";
   if (normalized === "LIVE_CAPACITY_FULL") return "Live capacity is full. Lot is queued.";
   if (normalized === "OPEN_LANE_CAPACITY_FULL") return "Open lane capacity is full. Lot is queued.";
@@ -720,6 +765,8 @@ export const AuctionLots: React.FC = () => {
           const row = params.row;
           const lotStatus = String(row.status || "").toUpperCase();
           const sessionStatus = normalizeSessionStatus(String(row.session_status || ""));
+          const isWithdrawn = lotStatus === "WITHDRAWN";
+          const withdrawnTooltip = "This lot was withdrawn. Re-auction can be created from verified/source lot.";
           const canStart = lotStatus === "QUEUED" && sessionStatus === "LIVE";
           const canEdit = lotStatus === "QUEUED";
           return (
@@ -727,15 +774,27 @@ export const AuctionLots: React.FC = () => {
               <IconButton size="small" title="View lot details" onClick={() => openRowDialogFor(row, "VIEW")}>
                 <VisibilityIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" title="Edit queued lot" onClick={() => openRowDialogFor(row, "EDIT")} disabled={!canEdit}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" title="Withdraw from queue" onClick={() => handleWithdrawQueuedLot(row)} disabled={!canEdit}>
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" title="Start/Promote lot" onClick={() => handleStartSelectedLot(row)} disabled={!canStart}>
-                <PlayArrowIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title={isWithdrawn ? withdrawnTooltip : "Edit queued lot"}>
+                <span>
+                  <IconButton size="small" onClick={() => openRowDialogFor(row, "EDIT")} disabled={!canEdit}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={isWithdrawn ? withdrawnTooltip : "Withdraw from queue"}>
+                <span>
+                  <IconButton size="small" onClick={() => handleWithdrawQueuedLot(row)} disabled={!canEdit}>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={isWithdrawn ? withdrawnTooltip : "Start/Promote lot"}>
+                <span>
+                  <IconButton size="small" onClick={() => handleStartSelectedLot(row)} disabled={!canStart}>
+                    <PlayArrowIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Stack>
           );
         },
@@ -834,6 +893,9 @@ export const AuctionLots: React.FC = () => {
         width: 260,
         renderCell: (params) => {
           const lotStatus = String(params.row.status || "").toUpperCase();
+          if (lotStatus === "WITHDRAWN") {
+            return <Typography variant="body2" color="text.secondary">Withdrawn from auction</Typography>;
+          }
           if (lotStatus !== "QUEUED") return <Typography variant="body2" color="text.secondary">—</Typography>;
           const code = params.row.queue_reason || null;
           const message = String(code || "").toUpperCase() === "CAPACITY_CAP" && hasCapacitySummary
@@ -858,8 +920,14 @@ export const AuctionLots: React.FC = () => {
         headerName: "Time Left",
         width: 200,
         renderCell: (params) => {
-          const sessionStatus = String(params.row.session_status || params.row.status || "").toUpperCase();
-          const timeLeft = getTimeLeftPresentation(sessionStatus, params.row.session_scheduled_end_time, nowMs);
+          const timeLeft = getTimeLeftPresentation(
+            params.row.status,
+            params.row.session_status,
+            params.row.session_scheduled_end_time,
+            params.row.product_start_time,
+            params.row.queue_reason,
+            nowMs,
+          );
           const color =
             timeLeft.tone === "error"
               ? "error.main"

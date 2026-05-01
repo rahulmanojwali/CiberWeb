@@ -326,6 +326,22 @@ function sessionStatusHelperText(status?: string | null) {
   return "Session status is currently unavailable.";
 }
 
+type LaneStatusFilterKey = "LIVE" | "IN_PROGRESS" | "READY_TO_CLOSE" | "EXPIRED" | "CLOSED" | "ALL" | "OVERFLOW";
+
+function matchesLaneStatusFilter(row: SessionRow, filterKey: LaneStatusFilterKey, nowMs: number) {
+  const derivedStatus = deriveDisplayStatus(row, nowMs);
+  const isLive = derivedStatus === "LIVE";
+  const isReadyToClose = isLive && Boolean(row.ready_to_close);
+  const isInProgress = isLive && !Boolean(row.ready_to_close);
+  if (filterKey === "LIVE") return isLive;
+  if (filterKey === "IN_PROGRESS") return isInProgress;
+  if (filterKey === "READY_TO_CLOSE") return isReadyToClose;
+  if (filterKey === "EXPIRED") return derivedStatus === "EXPIRED";
+  if (filterKey === "CLOSED") return derivedStatus === "CLOSED";
+  if (filterKey === "OVERFLOW") return Boolean(row.is_overflow_lane);
+  return true;
+}
+
 const DetailField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <Stack spacing={0.35}>
     <Typography variant="caption" sx={{ color: "text.secondary", letterSpacing: 0.2 }}>
@@ -346,7 +362,7 @@ export const AuctionSessions: React.FC = () => {
   const [filters, setFilters] = useState({
     org_code: persistedScope.org_code || "",
     mandi_code: persistedScope.mandi_code || "",
-    status: "",
+    status: "LIVE",
     method: "",
     lane_type: "",
     commodity_group: "",
@@ -441,6 +457,9 @@ export const AuctionSessions: React.FC = () => {
   });
   const [helpRoute, setHelpRoute] = useState("/auction-sessions");
   const [helpTitle, setHelpTitle] = useState("Help");
+  const [liveCardSearch, setLiveCardSearch] = useState("");
+  const [liveCardFilter, setLiveCardFilter] = useState<"ALL" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW">("ALL");
+  const [visibleLiveCards, setVisibleLiveCards] = useState(6);
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
   const defaultOrgCode = uiConfig.role === "SUPER_ADMIN" ? "" : uiConfig.scope?.org_code || "";
@@ -495,6 +514,11 @@ export const AuctionSessions: React.FC = () => {
           return (
             <Stack spacing={0.3} sx={{ py: 0.4 }}>
               <Chip size="small" label={derivedStatus} color={statusColor(derivedStatus)} />
+              {derivedStatus === "EXPIRED" && (
+                <Typography variant="caption" color="error.main">
+                  Expired — waiting for scheduler/action
+                </Typography>
+              )}
               {countdownLabel && (
                 <Typography variant="caption" color={countdownLabel.includes("scheduler delay") ? "warning.main" : "text.secondary"}>
                   {countdownLabel}
@@ -654,7 +678,7 @@ export const AuctionSessions: React.FC = () => {
         filters: {
           org_code: filters.org_code || undefined,
           mandi_code: filters.mandi_code || undefined,
-          status: filters.status || undefined,
+          status: undefined,
           method: filters.method || undefined,
           lane_type: filters.lane_type || undefined,
           commodity_group: filters.commodity_group || undefined,
@@ -991,10 +1015,37 @@ export const AuctionSessions: React.FC = () => {
     String(selectedSession.status || "").toUpperCase() === "PLANNED" &&
     !selectedSession.start_time
   );
-  const liveLaneRows = useMemo(
-    () => rows.filter((row) => deriveDisplayStatus(row, nowMs) === "LIVE"),
-    [rows, nowMs],
+  const tableRows = useMemo(
+    () => rows.filter((row) => matchesLaneStatusFilter(row, (filters.status || "LIVE") as LaneStatusFilterKey, nowMs)),
+    [rows, filters.status, nowMs],
   );
+  const quickFilterCounts = useMemo(() => ({
+    LIVE: rows.filter((row) => matchesLaneStatusFilter(row, "LIVE", nowMs)).length,
+    READY_TO_CLOSE: rows.filter((row) => matchesLaneStatusFilter(row, "READY_TO_CLOSE", nowMs)).length,
+    EXPIRED: rows.filter((row) => matchesLaneStatusFilter(row, "EXPIRED", nowMs)).length,
+    OVERFLOW: rows.filter((row) => matchesLaneStatusFilter(row, "OVERFLOW", nowMs)).length,
+    ALL: rows.length,
+  }), [rows, nowMs]);
+  const filteredLiveLaneRows = useMemo(() => {
+    const searchNeedle = liveCardSearch.trim().toLowerCase();
+    return rows
+      .filter((row) => deriveDisplayStatus(row, nowMs) === "LIVE")
+      .filter((row) => {
+        if (liveCardFilter === "READY_TO_CLOSE") return Boolean(row.ready_to_close);
+        if (liveCardFilter === "IN_PROGRESS") return !Boolean(row.ready_to_close);
+        if (liveCardFilter === "OVERFLOW") return Boolean(row.is_overflow_lane);
+        return true;
+      })
+      .filter((row) => {
+        if (!searchNeedle) return true;
+        const laneName = String(row.session_name || row.session_code || "").toLowerCase();
+        const commodity = String(row.commodity_group || "").toLowerCase();
+        const activeLot = String(row.active_lot_code || "").toLowerCase();
+        return laneName.includes(searchNeedle) || commodity.includes(searchNeedle) || activeLot.includes(searchNeedle);
+      });
+  }, [rows, nowMs, liveCardFilter, liveCardSearch]);
+  const liveLaneRows = useMemo(() => filteredLiveLaneRows.slice(0, visibleLiveCards), [filteredLiveLaneRows, visibleLiveCards]);
+  const hasMoreLiveCards = filteredLiveLaneRows.length > visibleLiveCards;
   const selectedCommodityFamily = createLaneForm.commodity_family as CommodityFamily | "";
   const createLaneTemplateOptions = selectedCommodityFamily
     ? (LANE_TEMPLATE_MAP[selectedCommodityFamily] || [])
@@ -1199,12 +1250,13 @@ export const AuctionSessions: React.FC = () => {
             value={filters.status}
             onChange={(e) => updateFilter("status", e.target.value)}
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="PLANNED">Planned</MenuItem>
             <MenuItem value="LIVE">Live</MenuItem>
-            <MenuItem value="PAUSED">Paused</MenuItem>
+            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+            <MenuItem value="READY_TO_CLOSE">Ready to Close</MenuItem>
+            <MenuItem value="EXPIRED">Expired</MenuItem>
+            <MenuItem value="OVERFLOW">Overflow</MenuItem>
             <MenuItem value="CLOSED">Closed</MenuItem>
-            <MenuItem value="CANCELLED">Cancelled</MenuItem>
+            <MenuItem value="ALL">All</MenuItem>
           </TextField>
 
           <TextField
@@ -1342,15 +1394,42 @@ export const AuctionSessions: React.FC = () => {
               One live lot per session lane. Ready-to-close means no active or queued lot remains.
             </Typography>
           </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+            <TextField
+              size="small"
+              label="Search lane/product"
+              value={liveCardSearch}
+              onChange={(e) => { setLiveCardSearch(e.target.value); setVisibleLiveCards(6); }}
+              sx={{ minWidth: { xs: "100%", md: 280 } }}
+            />
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {[
+                { key: "ALL", label: "All" },
+                { key: "IN_PROGRESS", label: "In Progress" },
+                { key: "READY_TO_CLOSE", label: "Ready to Close" },
+                { key: "OVERFLOW", label: "Overflow" },
+              ].map((item) => (
+                <Chip
+                  key={item.key}
+                  label={item.label}
+                  size="small"
+                  clickable
+                  color={liveCardFilter === item.key ? "primary" : "default"}
+                  variant={liveCardFilter === item.key ? "filled" : "outlined"}
+                  onClick={() => { setLiveCardFilter(item.key as "ALL" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW"); setVisibleLiveCards(6); }}
+                />
+              ))}
+            </Stack>
+          </Stack>
           {liveLaneRows.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No live lanes for the selected filters.
+              No live lanes for the selected filters/search.
             </Typography>
           ) : (
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))", xl: "repeat(3, minmax(280px, 1fr))" },
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(280px, 1fr))", lg: "repeat(3, minmax(280px, 1fr))" },
                 gap: 1.5,
               }}
             >
@@ -1389,18 +1468,49 @@ export const AuctionSessions: React.FC = () => {
                     <Typography variant="caption" color="text.secondary">
                       Scheduled end: {displayValue(formatDate(lane.scheduled_end_time))}
                     </Typography>
+                    <Stack direction="row" justifyContent="flex-end">
+                      <Button size="small" onClick={() => { setSelectedSession(lane); setDetailError(null); setOpenDetail(true); }}>
+                        View Lane
+                      </Button>
+                    </Stack>
                   </Stack>
                 </Paper>
               ))}
+            </Box>
+          )}
+          {hasMoreLiveCards && (
+            <Box>
+              <Button variant="outlined" size="small" onClick={() => setVisibleLiveCards((prev) => prev + 6)}>
+                View more lanes
+              </Button>
             </Box>
           )}
         </Stack>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ p: 1 }}>
+          {[
+            { key: "LIVE" as const, label: `Live (${quickFilterCounts.LIVE})` },
+            { key: "READY_TO_CLOSE" as const, label: `Ready to Close (${quickFilterCounts.READY_TO_CLOSE})` },
+            { key: "EXPIRED" as const, label: `Expired (${quickFilterCounts.EXPIRED})` },
+            { key: "OVERFLOW" as const, label: `Overflow (${quickFilterCounts.OVERFLOW})` },
+            { key: "ALL" as const, label: `All (${quickFilterCounts.ALL})` },
+          ].map((chip) => (
+            <Chip
+              key={chip.key}
+              label={chip.label}
+              size="small"
+              clickable
+              color={filters.status === chip.key ? "primary" : "default"}
+              variant={filters.status === chip.key ? "filled" : "outlined"}
+              onClick={() => updateFilter("status", chip.key)}
+            />
+          ))}
+        </Stack>
         <Box sx={{ width: "100%" }}>
         <ResponsiveDataGrid
-          rows={rows}
+          rows={tableRows}
           columns={columns}
           loading={loading}
           getRowId={(r) => r.id}
@@ -1420,7 +1530,7 @@ export const AuctionSessions: React.FC = () => {
           }}
         />
         </Box>
-        {!loading && rows.length === 0 && (
+        {!loading && tableRows.length === 0 && (
           <Box sx={{ py: 4, textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary">
               No auction sessions found for selected filters.

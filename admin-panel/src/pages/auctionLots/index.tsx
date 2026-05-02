@@ -367,10 +367,29 @@ const normalizeSessionStatus = (value: string | null | undefined) => {
   return "";
 };
 
+const isProductWindowEnded = (productEndTime: string | null | undefined, nowMs: number) => {
+  if (!productEndTime) return false;
+  const parsed = new Date(productEndTime);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.getTime() <= nowMs;
+};
+
+const getEffectiveLotDisplayStatus = (
+  lotStatus: string | null | undefined,
+  productEndTime: string | null | undefined,
+  nowMs: number,
+): "LIVE" | "QUEUED" | "SOLD" | "UNSOLD" | "WITHDRAWN" | "READY_TO_CLOSE" | string => {
+  const normalized = String(lotStatus || "").trim().toUpperCase();
+  if (normalized === "WITHDRAWN") return "WITHDRAWN";
+  if (normalized === "LIVE" && isProductWindowEnded(productEndTime, nowMs)) return "READY_TO_CLOSE";
+  return normalized || "—";
+};
+
 const getTimeLeftPresentation = (
   lotStatus: string | null | undefined,
   sessionStatus: string | null | undefined,
   scheduledEnd: string | null | undefined,
+  productEndTime: string | null | undefined,
   productStartTime: string | null | undefined,
   queueReason: string | null | undefined,
   nowMs: number
@@ -389,6 +408,7 @@ const getTimeLeftPresentation = (
   ].includes(lot);
   if (lot === "WITHDRAWN") return { label: "Withdrawn", tone: "muted" as const };
   if (isTerminalLotStatus) return { label: "—", tone: "muted" as const };
+  if (lot === "LIVE" && isProductWindowEnded(productEndTime, nowMs)) return { label: "Ended / Awaiting Close", tone: "error" as const };
 
   if (lot === "QUEUED") {
     const queueReasonCode = String(queueReason || "").trim().toUpperCase();
@@ -574,12 +594,15 @@ export const AuctionLots: React.FC = () => {
   });
   const selectedSessionStatus = normalizeSessionStatus(String(selectedRow?.session_status || ""));
   const isSelectedSessionLive = selectedSessionStatus === "LIVE";
+  const selectedRowEffectiveStatus = getEffectiveLotDisplayStatus(selectedRow?.status, selectedRow?.product_end_time, nowMs);
   const canStartSelectedLot = Boolean(selectedRow && isSelectedSessionLive && String(selectedRow.status || "").toUpperCase() === "QUEUED");
   const canFinalizeSelectedLot = Boolean(
     selectedRow &&
     isSelectedSessionLive &&
-    String(selectedRow.status || "").toUpperCase() === "LIVE" &&
-    String(selectedRow.is_active_lot || "N").toUpperCase() === "Y"
+    (
+      selectedRowEffectiveStatus === "READY_TO_CLOSE"
+      || (String(selectedRow.status || "").toUpperCase() === "LIVE" && String(selectedRow.is_active_lot || "N").toUpperCase() === "Y")
+    )
   );
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
@@ -820,21 +843,24 @@ export const AuctionLots: React.FC = () => {
         width: 150,
         renderCell: (params) => {
           const lotStatus = String(params.row.status || "").toUpperCase() || "—";
+          const displayStatus = getEffectiveLotDisplayStatus(params.row.status, params.row.product_end_time, nowMs);
           const sessionStatusForLot = normalizeSessionStatus(String(params.row.session_status || ""));
-          const label = lotStatus === "WITHDRAWN" && sessionStatusForLot === "EXPIRED" ? "Expired" : lotStatus;
+          const label = lotStatus === "WITHDRAWN" && sessionStatusForLot === "EXPIRED" ? "Expired" : displayStatus;
           const color =
-            lotStatus === "LIVE"
+            displayStatus === "LIVE"
               ? "success"
-              : lotStatus === "QUEUED"
+              : displayStatus === "READY_TO_CLOSE"
               ? "warning"
-              : lotStatus === "SOLD"
+              : displayStatus === "QUEUED"
+              ? "warning"
+              : displayStatus === "SOLD"
               ? "success"
-              : lotStatus === "WITHDRAWN"
+              : displayStatus === "WITHDRAWN"
               ? "default"
-              : lotStatus === "UNSOLD"
+              : displayStatus === "UNSOLD"
               ? "default"
               : "default";
-          const variant = lotStatus === "LIVE" ? "filled" : "outlined";
+          const variant = displayStatus === "LIVE" ? "filled" : "outlined";
           return (
             <Box sx={{ height: "100%", width: "100%", display: "flex", alignItems: "center" }}>
               <Chip
@@ -893,8 +919,12 @@ export const AuctionLots: React.FC = () => {
         width: 260,
         renderCell: (params) => {
           const lotStatus = String(params.row.status || "").toUpperCase();
+          const effectiveStatus = getEffectiveLotDisplayStatus(params.row.status, params.row.product_end_time, nowMs);
           if (lotStatus === "WITHDRAWN") {
             return <Typography variant="body2" color="text.secondary">Withdrawn from auction</Typography>;
+          }
+          if (effectiveStatus === "READY_TO_CLOSE") {
+            return <Typography variant="body2" color="warning.main">Product bidding window ended. Close/finalize this lot.</Typography>;
           }
           if (lotStatus !== "QUEUED") return <Typography variant="body2" color="text.secondary">—</Typography>;
           const code = params.row.queue_reason || null;
@@ -924,6 +954,7 @@ export const AuctionLots: React.FC = () => {
             params.row.status,
             params.row.session_status,
             params.row.session_scheduled_end_time,
+            params.row.product_end_time,
             params.row.product_start_time,
             params.row.queue_reason,
             nowMs,
@@ -2187,15 +2218,19 @@ export const AuctionLots: React.FC = () => {
               >
                 Start Selected Lot
               </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                color="error"
-                onClick={handleFinalizeSelectedLot}
-                disabled={actionLoading || !canFinalizeSelectedLot}
-              >
-                Finalize Selected Lot
-              </Button>
+              <Tooltip title={selectedRowEffectiveStatus === "READY_TO_CLOSE" ? "Product window has ended. Close this lot to generate result." : "Finalize selected lot"}>
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="error"
+                    onClick={handleFinalizeSelectedLot}
+                    disabled={actionLoading || !canFinalizeSelectedLot}
+                  >
+                    {selectedRowEffectiveStatus === "READY_TO_CLOSE" ? "Close / Finalize Lot" : "Finalize Selected Lot"}
+                  </Button>
+                </span>
+              </Tooltip>
             </>
           )}
           {canCreate && (
@@ -2416,6 +2451,11 @@ export const AuctionLots: React.FC = () => {
           {String(selectedRow?.queue_reason || "").toUpperCase() === "CAPACITY_CAP" && hasCapacitySummary
             ? capacityCapDetailedMessage(capacitySummary)
             : queueReasonLabel(selectedRow?.queue_reason, selectedRow?.queue_reason_message)}
+        </Alert>
+      )}
+      {selectedRowEffectiveStatus === "READY_TO_CLOSE" && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Product bidding window ended. Close/finalize this lot.
         </Alert>
       )}
 

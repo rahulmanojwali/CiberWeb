@@ -58,6 +58,19 @@ function formatDateTime(value?: string | Date | null) {
   return d.toLocaleString();
 }
 
+function resolveCreateLotErrorMessage(resp: any): string {
+  const data = resp?.data || resp?.response?.data || resp?.data?.data || null;
+  const messageKey = String(data?.message_key || "").trim().toUpperCase();
+  if (messageKey === "DUPLICATE_ACTIVE_LOT" || data?.existing_lot_id) {
+    return "This product already exists for this token. Cancel or edit the existing lot before adding it again.";
+  }
+  return (
+    resp?.response?.description ||
+    resp?.data?.response?.description ||
+    "Unable to create lot."
+  );
+}
+
 const disabledFieldSx = {
   "& .MuiInputBase-root.Mui-disabled": {
     opacity: 1,
@@ -570,10 +583,7 @@ export const LotsCreate: React.FC = () => {
         enqueueSnackbar("Lot created successfully.", { variant: "success" });
         navigate("/lots");
       } else {
-        const msg =
-          resp?.response?.description ||
-          resp?.data?.response?.description ||
-          "Unable to create lot.";
+        const msg = resolveCreateLotErrorMessage(resp);
         enqueueSnackbar(msg, { variant: "error" });
       }
     } finally {

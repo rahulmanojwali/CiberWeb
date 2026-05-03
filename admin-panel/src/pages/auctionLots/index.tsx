@@ -2204,7 +2204,7 @@ export const AuctionLots: React.FC = () => {
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Monitor mapped lots, active sessions, and opening rates before live auction.
+            Only live and queued auction lots are shown by default. Sold, unsold, withdrawn and closed lots are available through status filter for audit.
           </Typography>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -2466,7 +2466,7 @@ export const AuctionLots: React.FC = () => {
             Auction Lots List
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-            Historical rows are retained: older withdrawn attempts remain visible for audit, and remapped attempts appear as new rows. Actual End appears only after session closure.
+            Only live and queued auction lots are shown by default. Sold, unsold, withdrawn and closed lots are available through status filter for audit.
           </Typography>
         </Box>
         {!showMandiInstruction && (

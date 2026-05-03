@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Autocomplete,
   Alert,
   Box,
   Button,
@@ -182,11 +183,27 @@ const formatInr = (value: number | null): string => {
   }
 };
 
+const firstNonEmpty = (...values: any[]) => {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+};
+
 const buildLotLabel = (lot: any) => {
-  const partyDisplay =
-    lot?.party_display_name ||
-    `${lot?.party_type || ""} ${lot?.party_ref || ""}`.trim() ||
-    "";
+  const partyDisplay = firstNonEmpty(
+    lot?.party_contact,
+    lot?.party_mobile,
+    lot?.farmer_mobile,
+    lot?.party_display_name,
+    lot?.party?.username,
+    lot?.party_ref,
+    lot?.farmer_username,
+    lot?.trader_username,
+    `${lot?.party_type || ""} ${lot?.party_ref || ""}`.trim(),
+    "-"
+  );
 
   const commodity =
     lot?.commodity_name_en ||
@@ -216,6 +233,7 @@ const buildLotLabel = (lot: any) => {
     null;
 
   const gateCode = lot?.gate_code || lot?.gate?.code || lot?.gate || "-";
+  const quality = lot?.quality_grade || "-";
   const lotSeq = lot?.lot_seq || lot?.lot_sequence || lot?.lot_no || lot?.lot_number || "-";
 
   const qtyPart =
@@ -230,7 +248,7 @@ const buildLotLabel = (lot: any) => {
   const reauctionBadge = isReauctionEligible
     ? ` \u2022 Re-auction eligible${previousStatus ? ` \u2022 Previous attempt ${previousStatus.toLowerCase()}` : ""}`
     : "";
-  const label = `${partyDisplay} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 Gate ${gateCode} \u2022 Lot#${lotSeq}${reauctionBadge}`;
+  const label = `${partyDisplay} \u2022 ${commodity}/${product} \u2022 ${qtyPart} \u2022 ${quality} \u2022 ${gateCode} \u2022 #${lotSeq}${reauctionBadge}`;
   const lotCode = lot?.lot_code || lot?.token_code || lot?._id || "";
   const shortCode = lotCode ? String(lotCode).slice(-6) : "";
   return { label, shortCode };
@@ -483,6 +501,7 @@ export const AuctionLots: React.FC = () => {
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [testCapacityLoading, setTestCapacityLoading] = useState(false);
   const [createOptionsLoading, setCreateOptionsLoading] = useState(false);
+  const [sourceLotSearch, setSourceLotSearch] = useState("");
   const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
   const [lotOptions, setLotOptions] = useState<LotOption[]>([]);
@@ -1458,14 +1477,16 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
-  const loadCreateOptions = async () => {
+  const loadCreateOptions = async (opts?: { search?: string; includeSessions?: boolean }) => {
     const username = currentUsername();
     if (!username) return;
     setCreateError(null);
     setCreateOptionsLoading(true);
     try {
+      const searchRaw = String(opts?.search || "").trim();
+      const search = searchRaw.length >= 2 ? searchRaw : "";
       const [sessionsResp, lotsResp] = await Promise.all([
-        canSessionsList ? getAuctionSessions({
+        canSessionsList && opts?.includeSessions ? getAuctionSessions({
           username,
           language,
           filters: {
@@ -1476,12 +1497,24 @@ export const AuctionLots: React.FC = () => {
             lot_id: selectedLot?._id || selectedLot?.lot_id || undefined,
           }
         }) : Promise.resolve(null),
-        getLotList({ username, language, filters: { org_code: filters.org_code || undefined, mandi_code: filters.mandi_code || undefined, status: "VERIFIED", page_size: 100 } }),
+        getLotList({
+          username,
+          language,
+          filters: {
+            org_code: filters.org_code || undefined,
+            mandi_code: filters.mandi_code || undefined,
+            status: "VERIFIED",
+            page_size: 25,
+            search: search || undefined,
+          }
+        }),
       ]);
       const sessions = sessionsResp?.data?.items ?? sessionsResp?.response?.data?.items ?? [];
       const lots = lotsResp?.data?.items || lotsResp?.response?.data?.items || [];
 
-      setSessionItems(sessions);
+      if (opts?.includeSessions) {
+        setSessionItems(sessions);
+      }
       const lotMapped: LotOption[] = lots
         .map((l: any) => {
           const { label, shortCode } = buildLotLabel(l);
@@ -1498,9 +1531,13 @@ export const AuctionLots: React.FC = () => {
       if (selectedLot) {
         setSessionOptions(buildSessionOptionsForLot(selectedLot, sessions));
       } else if (lotMapped.length > 0) {
-        setSessionOptions(buildSessionOptionsForLot(lotMapped[0].lot, sessions));
+        if (opts?.includeSessions) {
+          setSessionOptions(buildSessionOptionsForLot(lotMapped[0].lot, sessions));
+        }
       } else {
-        setSessionOptions([]);
+        if (opts?.includeSessions) {
+          setSessionOptions([]);
+        }
       }
     } catch (err: any) {
       setCreateError(err?.message || "Failed to load sessions/lots.");
@@ -2121,6 +2158,7 @@ export const AuctionLots: React.FC = () => {
       });
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       setSelectedLot(null);
+      setSourceLotSearch("");
       setSessionOptions([]);
       setCreateError(null);
       setCreateSessionForm({
@@ -2143,9 +2181,18 @@ export const AuctionLots: React.FC = () => {
         notes: "",
         allow_manual_close_when_auto_enabled: true,
       });
-      loadCreateOptions();
+      loadCreateOptions({ includeSessions: true, search: "" });
     }
   }, [openCreate, language]);
+
+  useEffect(() => {
+    if (!openCreate) return;
+    const q = String(sourceLotSearch || "");
+    const timer = window.setTimeout(() => {
+      loadCreateOptions({ includeSessions: false, search: q });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [openCreate, sourceLotSearch]);
 
   useEffect(() => {
     if (!selectedLot) return;
@@ -2617,35 +2664,46 @@ export const AuctionLots: React.FC = () => {
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   Section A — Source Lot
                 </Typography>
-                <TextField
-                  select
-                  label="Select VERIFIED Lot"
-                  size="small"
-                  value={createForm.lot_id}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
-                    const next = lotOptions.find((l) => l.value === value);
-                    setSelectedLot(next?.lot || null);
+                <Autocomplete
+                  options={lotOptions}
+                  filterOptions={(x) => x}
+                  loading={createOptionsLoading}
+                  value={lotOptions.find((l) => l.value === createForm.lot_id) || null}
+                  inputValue={sourceLotSearch}
+                  onInputChange={(_e, value, reason) => {
+                    if (reason === "input" || reason === "clear") setSourceLotSearch(value || "");
                   }}
-                  fullWidth
-                >
-                  <MenuItem value="">Select</MenuItem>
-                  {lotOptions.map((l) => (
-                    <MenuItem key={l.value} value={l.value}>
+                  onChange={(_e, option) => {
+                    const value = option?.value || "";
+                    setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
+                    setSelectedLot(option?.lot || null);
+                  }}
+                  getOptionLabel={(option) => option?.label || ""}
+                  isOptionEqualToValue={(opt, val) => String(opt?.value || "") === String(val?.value || "")}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select VERIFIED Lot"
+                      size="small"
+                      placeholder="Search by farmer mobile, token, lot, commodity, product"
+                      helperText="Type at least 2 characters to search. Showing max 25 results."
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
                       <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
                         <Typography variant="body2" sx={{ flex: 1 }}>
-                          {l.label}
+                          {option.label}
                         </Typography>
-                        {l.shortCode && (
+                        {option.shortCode && (
                           <Typography variant="caption" color="text.secondary">
-                            #{l.shortCode}
+                            #{option.shortCode}
                           </Typography>
                         )}
                       </Stack>
-                    </MenuItem>
-                  ))}
-                </TextField>
+                    </Box>
+                  )}
+                />
                 {!createOptionsLoading && lotOptions.length === 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     No VERIFIED lots available. Complete lot verification first.

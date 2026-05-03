@@ -26,6 +26,9 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -474,6 +477,79 @@ const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: str
   if (normalized === "PLATFORM_CAPACITY_FULL") return "Platform capacity is full. Lot is queued.";
   if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE") return "Waiting for active lot to close in this lane.";
   return String(fallbackMessage || "").trim() || "Queued";
+};
+
+const safeText = (value: any) => {
+  const text = String(value ?? "").trim();
+  return text || "—";
+};
+
+const formatStatusLabel = (status: string | null | undefined) => {
+  const key = String(status || "").trim().toUpperCase();
+  if (!key) return "—";
+  if (key === "IN_AUCTION") return "LIVE";
+  if (key === "MAPPED_TO_AUCTION") return "MAPPED";
+  if (key === "READY_TO_CLOSE") return "READY TO CLOSE";
+  return key.replace(/_/g, " ");
+};
+
+const getStatusTone = (status: string | null | undefined): "success" | "warning" | "error" | "default" => {
+  const key = String(status || "").trim().toUpperCase();
+  if (["LIVE", "IN_AUCTION", "SOLD"].includes(key)) return "success";
+  if (["QUEUED", "MAPPED_TO_AUCTION", "READY_TO_CLOSE"].includes(key)) return "warning";
+  if (["CANCELLED", "WITHDRAWN"].includes(key)) return "error";
+  return "default";
+};
+
+const formatDateTime = (value?: string | Date | null) => formatDate(value) || "—";
+
+const formatQuantity = (lot: any) => {
+  const qtyKg = toNumber(
+    lot?.quantity
+    ?? lot?.quantity_kg
+    ?? lot?.estimated_qty_kg
+    ?? lot?.quantity?.weight_kg
+    ?? lot?.quantity?.net_kg
+    ?? lot?.quantity?.gross_kg
+    ?? lot?.quantity?.total_kg
+  );
+  const qtyQtl = toNumber(lot?.quantity_qtl) ?? (qtyKg != null ? qtyKg / 100 : null);
+  if (qtyKg == null && qtyQtl == null) return "—";
+  if (qtyKg != null && qtyQtl != null) return `${formatInr(qtyKg)} kg (${formatInr(qtyQtl)} qtl)`;
+  if (qtyKg != null) return `${formatInr(qtyKg)} kg`;
+  return `${formatInr(qtyQtl)} qtl`;
+};
+
+const getQueueReasonText = (reason: string | null | undefined) => {
+  const normalized = String(reason || "").trim().toUpperCase();
+  if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Product cannot start yet because its configured start time has not arrived.";
+  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE") return "Another lot is currently active in this lane.";
+  return queueReasonLabel(reason);
+};
+
+const getLifecycleSteps = (status: string | null | undefined) => {
+  const key = String(status || "").trim().toUpperCase();
+  const terminalCancelled = key === "CANCELLED" || key === "WITHDRAWN";
+  const completedIdx = terminalCancelled
+    ? 3
+    : key === "CREATED"
+      ? 0
+      : key === "VERIFIED"
+        ? 1
+        : key === "MAPPED_TO_AUCTION"
+          ? 2
+          : key === "QUEUED"
+            ? 3
+            : (key === "LIVE" || key === "IN_AUCTION")
+              ? 4
+              : ["SOLD", "UNSOLD", "CLOSED", "SETTLED", "DISPATCHED"].includes(key)
+                ? 5
+                : -1;
+  const base = ["Created", "Verified", "Mapped", "Queued", "Live", terminalCancelled ? "Cancelled/Withdrawn" : "Completed"];
+  return base.map((label, idx) => ({
+    label,
+    state: idx < completedIdx ? "done" : idx === completedIdx ? "active" : "pending",
+  }));
 };
 
 const capacityCapDetailedMessage = (summary: CapacitySummary) => {
@@ -2562,19 +2638,149 @@ export const AuctionLots: React.FC = () => {
       )}
 
       {openRowDialog && selectedRow && (
-        <Dialog open={openRowDialog} onClose={() => setOpenRowDialog(false)} fullWidth maxWidth="sm">
-          <DialogTitle>{rowDialogMode === "EDIT" ? "Edit Queued Lot" : "Auction Lot Details"}</DialogTitle>
+        <Dialog
+          open={openRowDialog}
+          onClose={() => setOpenRowDialog(false)}
+          fullWidth
+          maxWidth="md"
+          PaperProps={{ sx: { maxWidth: 800 } }}
+        >
+          <DialogTitle>
+            {rowDialogMode === "EDIT" ? "Edit Queued Lot" : "Auction Lot Details"}
+          </DialogTitle>
           <DialogContent>
-            <Stack spacing={1.25} mt={0.5}>
-              <Typography variant="body2"><strong>Lot:</strong> {selectedRow.lot_id}</Typography>
-              <Typography variant="body2"><strong>Session:</strong> {selectedRow.session_name || selectedRow.session_code || "—"}</Typography>
-              <Typography variant="body2"><strong>Status:</strong> {selectedRow.status || "—"}</Typography>
-              <Typography variant="body2"><strong>Active Lot:</strong> {String(selectedRow.is_active_lot || "N").toUpperCase() === "Y" ? "Yes" : "No"}</Typography>
-              {String(selectedRow.status || "").toUpperCase() === "QUEUED" && (
-                <Alert severity="info">
-                  {queueReasonLabel(selectedRow.queue_reason, selectedRow.queue_reason_message)}
-                </Alert>
+            <Stack spacing={1.5} mt={0.5}>
+              {rowDialogMode === "VIEW" && (
+                <>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1.5 }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                        {safeText(selectedRow.product)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Lot: {safeText(selectedRow.lot_id || (selectedRow as any).lot_code)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Lane: {safeText(selectedRow.lane_name)}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={formatStatusLabel(selectedRowEffectiveStatus)}
+                      color={getStatusTone(selectedRowEffectiveStatus)}
+                      variant={String(selectedRowEffectiveStatus || "").toUpperCase() === "SOLD" ? "outlined" : "filled"}
+                      size="small"
+                    />
+                  </Box>
+
+                  {(() => {
+                    const lotStatus = String(selectedRow.status || "").toUpperCase();
+                    const queueReason = String(selectedRow.queue_reason || "").toUpperCase();
+                    if (lotStatus === "QUEUED" && queueReason === "WAITING_FOR_PRODUCT_WINDOW") {
+                      const startAt = selectedRow.product_start_time || selectedRow.session_start_time || null;
+                      const startTs = startAt ? new Date(startAt).getTime() : null;
+                      const expectedWait = startTs && Number.isFinite(startTs) && startTs > nowMs ? formatDurationHms(startTs - nowMs) : null;
+                      return (
+                        <Alert severity="warning">
+                          <Typography variant="subtitle2">Queued – Waiting for Product Window</Typography>
+                          <Typography variant="body2">This lot is scheduled but not yet active.</Typography>
+                          <Typography variant="body2">Start time: {formatDateTime(startAt)}</Typography>
+                          <Typography variant="body2">Expected wait: {expectedWait || "—"}</Typography>
+                        </Alert>
+                      );
+                    }
+                    if (lotStatus === "QUEUED") {
+                      return (
+                        <Alert severity="warning">
+                          <Typography variant="subtitle2">Queued – Waiting for Current Lot</Typography>
+                          <Typography variant="body2">This lot will start after the active lot is completed.</Typography>
+                        </Alert>
+                      );
+                    }
+                    if (lotStatus === "LIVE" || lotStatus === "IN_AUCTION") {
+                      return (
+                        <Alert severity="success">
+                          <Typography variant="subtitle2">Live Auction</Typography>
+                          <Typography variant="body2">Bidding is currently active for this lot.</Typography>
+                        </Alert>
+                      );
+                    }
+                    if (lotStatus === "SOLD") {
+                      return (
+                        <Alert severity="success">
+                          <Typography variant="subtitle2">Sold</Typography>
+                          <Typography variant="body2">This lot has been finalized with a winning trader.</Typography>
+                        </Alert>
+                      );
+                    }
+                    if (lotStatus === "UNSOLD") {
+                      return (
+                        <Alert severity="info">
+                          <Typography variant="subtitle2">Unsold</Typography>
+                          <Typography variant="body2">No valid winning bid was recorded.</Typography>
+                        </Alert>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                    {[
+                      ["Quantity", formatQuantity(selectedRow)],
+                      ["Start Price", selectedRow.base_price != null ? `₹${formatInr(toNumber(selectedRow.base_price) || 0)} / qtl` : "—"],
+                      ["Commodity", safeText(selectedRow.commodity)],
+                      ["Product", safeText(selectedRow.product)],
+                      ["Quality Grade", safeText((selectedRow as any).quality_grade)],
+                      ["Farmer / Party", safeText((selectedRow as any).party_display_name || (selectedRow as any).farmer_name || (selectedRow as any).party_ref)],
+                      ["Mandi", safeText((selectedRow as any).mandi_name || (selectedRow as any).mandi_code)],
+                      ["Gate", safeText((selectedRow as any).gate_code)],
+                    ].map(([label, value]) => (
+                      <Paper key={label} variant="outlined" sx={{ p: 1.2, borderRadius: 1.5, borderColor: "divider" }}>
+                        <Typography variant="caption" color="text.secondary">{label}</Typography>
+                        <Typography variant="body2">{value}</Typography>
+                      </Paper>
+                    ))}
+                  </Box>
+
+                  <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Auction Flow</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      {getLifecycleSteps(selectedRow.status).map((step) => (
+                        <Chip
+                          key={step.label}
+                          icon={step.state === "done" ? <CheckCircleOutlineIcon /> : step.state === "active" ? <HourglassEmptyIcon /> : <RadioButtonUncheckedIcon />}
+                          label={step.label}
+                          color={step.state === "active" ? "warning" : step.state === "done" ? "success" : "default"}
+                          variant={step.state === "pending" ? "outlined" : "filled"}
+                          size="small"
+                        />
+                      ))}
+                    </Stack>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Lane Context</Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 0.8 }}>
+                      <Typography variant="body2"><strong>Lane Status:</strong> {safeText(selectedRow.session_status)}</Typography>
+                      <Typography variant="body2"><strong>Active Lot:</strong> {safeText(selectedRow.session_active_lot_code)}</Typography>
+                      <Typography variant="body2"><strong>Queue Position:</strong> {selectedRow.queue_position ?? "—"}</Typography>
+                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {safeText(selectedRow.session_next_queued_lot_code)}</Typography>
+                      <Typography variant="body2"><strong>Ready To Close:</strong> {selectedRow.session_ready_to_close ? "Yes" : "No"}</Typography>
+                    </Box>
+                  </Paper>
+
+                  {String(selectedRow.status || "").toUpperCase() === "QUEUED" && (
+                    <Alert severity="warning">
+                      <Typography variant="body2"><strong>Reason:</strong> {safeText(selectedRow.queue_reason)}</Typography>
+                      <Typography variant="body2">
+                        {safeText(selectedRow.queue_reason_message) !== "—"
+                          ? safeText(selectedRow.queue_reason_message)
+                          : getQueueReasonText(selectedRow.queue_reason)}
+                      </Typography>
+                    </Alert>
+                  )}
+                </>
               )}
+
               {rowDialogMode === "EDIT" ? (
                 <Stack spacing={1}>
                   <TextField
@@ -2606,12 +2812,7 @@ export const AuctionLots: React.FC = () => {
                   />
                 </Stack>
               ) : (
-                <Stack spacing={0.8}>
-                  <Typography variant="body2"><strong>Commodity:</strong> {selectedRow.commodity || "—"}</Typography>
-                  <Typography variant="body2"><strong>Product:</strong> {selectedRow.product || "—"}</Typography>
-                  <Typography variant="body2"><strong>Qty:</strong> {selectedRow.quantity != null ? `${formatInr(selectedRow.quantity)} kg` : "—"}</Typography>
-                  <Typography variant="body2"><strong>Start Price:</strong> {selectedRow.base_price != null ? `₹${formatInr(selectedRow.base_price)}/qtl` : "—"}</Typography>
-                </Stack>
+                <></>
               )}
             </Stack>
           </DialogContent>
@@ -2632,13 +2833,60 @@ export const AuctionLots: React.FC = () => {
                 Save
               </Button>
             ) : (
-              <Button
-                variant="contained"
-                onClick={() => handleStartSelectedLot(selectedRow)}
-                disabled={actionLoading || String(selectedRow.status || "").toUpperCase() !== "QUEUED" || normalizeSessionStatus(selectedRow.session_status) !== "LIVE"}
-              >
-                Start Lot
-              </Button>
+              <>
+                {(() => {
+                  const status = String(selectedRow.status || "").toUpperCase();
+                  const sessionLive = normalizeSessionStatus(selectedRow.session_status) === "LIVE";
+                  const canForce = canLotUpdate && sessionLive && status === "QUEUED";
+                  const requiresForceConfirm = String(selectedRow.queue_reason || "").toUpperCase() === "WAITING_FOR_PRODUCT_WINDOW";
+                  if (status === "QUEUED") {
+                    return (
+                      <>
+                        <Button variant="outlined" color="error" onClick={() => handleWithdrawQueuedLot(selectedRow)} disabled={actionLoading || !canLotUpdate}>
+                          Cancel Lot
+                        </Button>
+                        <Button
+                          variant="contained"
+                          onClick={() => {
+                            if (requiresForceConfirm) {
+                              const confirmed = window.confirm("Force start this lot?\nThis may override queue/product timing rules. Use only when mandi admin confirms the change.");
+                              if (!confirmed) return;
+                            }
+                            handleStartSelectedLot(selectedRow);
+                          }}
+                          disabled={actionLoading || !canForce}
+                        >
+                          Force Start
+                        </Button>
+                      </>
+                    );
+                  }
+                  if (status === "LIVE" || status === "IN_AUCTION") {
+                    return (
+                      <>
+                        <Tooltip title="Action API not available yet."><span><Button variant="outlined" disabled>View Bids</Button></span></Tooltip>
+                        <Tooltip title="Action API not available yet."><span><Button variant="contained" color="warning" disabled>End Auction</Button></span></Tooltip>
+                      </>
+                    );
+                  }
+                  if (status === "SOLD" || status === "UNSOLD") {
+                    return (
+                      <>
+                        <Tooltip title="Action API not available yet."><span><Button variant="outlined" disabled>View Result</Button></span></Tooltip>
+                        <Tooltip title="Action API not available yet."><span><Button variant="contained" disabled>Re-Auction</Button></span></Tooltip>
+                      </>
+                    );
+                  }
+                  if (status === "CANCELLED" || status === "WITHDRAWN") {
+                    return (
+                      <Tooltip title="Action API not available yet."><span><Button variant="contained" disabled>Re-Auction</Button></span></Tooltip>
+                    );
+                  }
+                  return (
+                    <Tooltip title="Action API not available yet."><span><Button variant="contained" disabled>Action</Button></span></Tooltip>
+                  );
+                })()}
+              </>
             )}
           </DialogActions>
         </Dialog>

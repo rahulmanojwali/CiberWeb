@@ -261,8 +261,8 @@ function laneTypeOptionLabel(value?: string | null) {
 function closureModeLabel(mode?: string | null) {
   const normalized = String(mode || "").trim().toUpperCase();
   if (normalized === "MANUAL_ONLY") return "Manual";
-  if (normalized === "AUTO_AT_END_TIME") return "Auto";
-  if (normalized === "MANUAL_OR_AUTO") return "Manual + Auto";
+  if (normalized === "AUTO_AT_END_TIME") return "Auto Only";
+  if (normalized === "MANUAL_OR_AUTO") return "Auto with Manual Override";
   return displayValue(mode);
 }
 
@@ -2086,17 +2086,24 @@ export const AuctionSessions: React.FC = () => {
                     label="Start Mode"
                     value={createLaneForm.start_mode}
                     onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, start_mode: normalizeStartMode(e.target.value) }))}
-                    helperText="AUTO and MANUAL_OR_AUTO sessions can auto-start at scheduled start."
+                    helperText="Default mode auto-starts by schedule while still allowing manual intervention."
                     fullWidth
                   >
-                    <MenuItem value="MANUAL">MANUAL</MenuItem>
-                    <MenuItem value="AUTO">AUTO</MenuItem>
-                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
+                    <MenuItem value="AUTO">Auto Only</MenuItem>
+                    <MenuItem value="MANUAL">Manual Only</MenuItem>
                   </TextField>
-                  <TextField select label="Closure Mode" value={createLaneForm.closure_mode} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))} fullWidth>
-                    <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
-                    <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
-                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                  <TextField
+                    select
+                    label="Closure Mode"
+                    value={createLaneForm.closure_mode}
+                    onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
+                    helperText="System starts and closes lots automatically. Admin can still intervene when required."
+                    fullWidth
+                  >
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
+                    <MenuItem value="AUTO_AT_END_TIME">Auto Only</MenuItem>
+                    <MenuItem value="MANUAL_ONLY">Manual Only</MenuItem>
                   </TextField>
                   <TextField label="Scheduled Start" type="datetime-local" value={createLaneForm.scheduled_start_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
                   <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />

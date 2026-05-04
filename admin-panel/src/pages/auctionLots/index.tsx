@@ -328,16 +328,16 @@ const toDateTimeInputValue = (value?: string | Date | null) => {
 };
 
 const closureModeHelperText = (closureMode: string) => {
-  if (closureMode === "MANUAL_ONLY") return "Manual close only. Scheduled end is optional.";
-  if (closureMode === "AUTO_AT_END_TIME") return "Auto close at scheduled end time. Scheduled end is required.";
-  return "Auto close at scheduled end time or manual close earlier. Scheduled end is required.";
+  if (closureMode === "MANUAL_ONLY") return "Manual control only. Admin must start and close lots.";
+  if (closureMode === "AUTO_AT_END_TIME") return "Automatic by schedule only. Manual override is restricted.";
+  return "Auto with Manual Override. System starts/closes lots automatically; admin can still intervene when required.";
 };
 
 const closureModeLabel = (mode: string | null | undefined) => {
   const key = String(mode || "").trim().toUpperCase();
   if (key === "MANUAL_ONLY") return "Manual";
-  if (key === "AUTO_AT_END_TIME") return "Auto";
-  if (key === "MANUAL_OR_AUTO") return "Manual + Auto";
+  if (key === "AUTO_AT_END_TIME") return "Auto Only";
+  if (key === "MANUAL_OR_AUTO") return "Auto with Manual Override";
   return "—";
 };
 
@@ -3503,9 +3503,9 @@ export const AuctionLots: React.FC = () => {
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
                     fullWidth
                   >
-                    <MenuItem value="MANUAL_ONLY">MANUAL_ONLY</MenuItem>
-                    <MenuItem value="AUTO_AT_END_TIME">AUTO_AT_END_TIME</MenuItem>
-                    <MenuItem value="MANUAL_OR_AUTO">MANUAL_OR_AUTO</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
+                    <MenuItem value="AUTO_AT_END_TIME">Auto Only</MenuItem>
+                    <MenuItem value="MANUAL_ONLY">Manual Only</MenuItem>
                   </TextField>
                   <Typography variant="caption" color="text.secondary">
                     {closureModeHelperText(createSessionForm.closure_mode)}

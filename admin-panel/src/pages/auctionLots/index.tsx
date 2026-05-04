@@ -402,16 +402,16 @@ const getEffectiveLotDisplayStatus = (
   lotStatus: string | null | undefined,
   productEndTime: string | null | undefined,
   nowMs: number,
-): "LIVE" | "QUEUED" | "SOLD" | "UNSOLD" | "WITHDRAWN" | "READY_TO_CLOSE" | string => {
+): "LIVE" | "QUEUED" | "SOLD" | "UNSOLD" | "WITHDRAWN" | string => {
   const normalized = String(lotStatus || "").trim().toUpperCase();
   if (normalized === "WITHDRAWN") return "WITHDRAWN";
-  if (normalized === "LIVE" && isProductWindowEnded(productEndTime, nowMs)) return "READY_TO_CLOSE";
   return normalized || "—";
 };
 
 const getTimeLeftPresentation = (
   lotStatus: string | null | undefined,
   sessionStatus: string | null | undefined,
+  closureMode: string | null | undefined,
   lotScheduledEnd: string | null | undefined,
   scheduledEnd: string | null | undefined,
   productEndTime: string | null | undefined,
@@ -433,8 +433,6 @@ const getTimeLeftPresentation = (
   ].includes(lot);
   if (lot === "WITHDRAWN") return { label: "Withdrawn", tone: "muted" as const };
   if (isTerminalLotStatus) return { label: "—", tone: "muted" as const };
-  if (lot === "LIVE" && isProductWindowEnded(productEndTime, nowMs)) return { label: "Ended / Awaiting Close", tone: "error" as const };
-
   if (lot === "QUEUED") {
     const queueReasonCode = String(queueReason || "").trim().toUpperCase();
     if (queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW") {
@@ -459,13 +457,20 @@ const getTimeLeftPresentation = (
   if (status === "CANCELLED") return { label: "Cancelled", tone: "error" as const };
   if (status !== "LIVE") return { label: "No session timing available", tone: "muted" as const };
 
-  const preferredLotEnd = productEndTime || lotScheduledEnd || scheduledEnd;
+  const preferredLotEnd = lotScheduledEnd || productEndTime || scheduledEnd;
   const countdown = formatCountdown(preferredLotEnd, nowMs);
   if (countdown.label === "No session timing available") return { label: "No lot timing available", tone: "muted" as const };
-  if (countdown.label === "Ended / Awaiting Close") return { label: countdown.label, tone: "error" as const };
   const end = new Date(String(preferredLotEnd || ""));
   const diffMs = end.getTime() - nowMs;
   if (!Number.isFinite(diffMs)) return { label: countdown.label, tone: "muted" as const };
+  const closure = String(closureMode || "").trim().toUpperCase();
+  if (diffMs <= 0) {
+    if (closure === "MANUAL" || closure === "MANUAL_ONLY") {
+      return { label: "Ended / Manual Close Required", tone: "error" as const };
+    }
+    return { label: "Auto close overdue", tone: "error" as const };
+  }
+  if (diffMs <= 5 * 60 * 1000) return { label: "Closing Soon", tone: "warning" as const };
   if (diffMs < 2 * 60 * 1000) return { label: countdown.label, tone: "error" as const };
   if (diffMs < 10 * 60 * 1000) return { label: countdown.label, tone: "warning" as const };
   return { label: countdown.label, tone: "live" as const };
@@ -480,7 +485,8 @@ const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: str
   if (normalized === "MANDI_CAPACITY_FULL") return "Mandi capacity is full. Lot is queued.";
   if (normalized === "ORG_CAPACITY_FULL") return "Organisation capacity is full. Lot is queued.";
   if (normalized === "PLATFORM_CAPACITY_FULL") return "Platform capacity is full. Lot is queued.";
-  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE") return "Waiting for active lot to close in this lane.";
+  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE" || normalized === "WAITING_FOR_ACTIVE_LOT_TO_FINISH") return "Waiting for active lot to close in this lane.";
+  if (normalized === "MISSING_OPENING_PRICE") return "Opening price is required before auction can start.";
   return String(fallbackMessage || "").trim() || "Queued";
 };
 
@@ -1070,6 +1076,7 @@ export const AuctionLots: React.FC = () => {
           const timeLeft = getTimeLeftPresentation(
             params.row.status,
             params.row.session_status,
+            params.row.session_closure_mode,
             params.row.lot_end_time || params.row.scheduled_end_time || params.row.auto_close_deadline,
             params.row.session_scheduled_end_time,
             params.row.product_end_time,

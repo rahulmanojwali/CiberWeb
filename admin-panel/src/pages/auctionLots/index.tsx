@@ -73,6 +73,9 @@ type LotRow = {
   session_scheduled_end_time?: string | null;
   product_start_time?: string | null;
   product_end_time?: string | null;
+  lot_end_time?: string | null;
+  scheduled_end_time?: string | null;
+  auto_close_deadline?: string | null;
   product_schedule_status?: string | null;
   session_closure_mode?: string | null;
   session_status?: string | null;
@@ -409,6 +412,7 @@ const getEffectiveLotDisplayStatus = (
 const getTimeLeftPresentation = (
   lotStatus: string | null | undefined,
   sessionStatus: string | null | undefined,
+  lotScheduledEnd: string | null | undefined,
   scheduledEnd: string | null | undefined,
   productEndTime: string | null | undefined,
   productStartTime: string | null | undefined,
@@ -455,10 +459,11 @@ const getTimeLeftPresentation = (
   if (status === "CANCELLED") return { label: "Cancelled", tone: "error" as const };
   if (status !== "LIVE") return { label: "No session timing available", tone: "muted" as const };
 
-  const countdown = formatCountdown(scheduledEnd, nowMs);
-  if (countdown.label === "No session timing available") return { label: countdown.label, tone: "muted" as const };
+  const preferredLotEnd = productEndTime || lotScheduledEnd || scheduledEnd;
+  const countdown = formatCountdown(preferredLotEnd, nowMs);
+  if (countdown.label === "No session timing available") return { label: "No lot timing available", tone: "muted" as const };
   if (countdown.label === "Ended / Awaiting Close") return { label: countdown.label, tone: "error" as const };
-  const end = new Date(String(scheduledEnd || ""));
+  const end = new Date(String(preferredLotEnd || ""));
   const diffMs = end.getTime() - nowMs;
   if (!Number.isFinite(diffMs)) return { label: countdown.label, tone: "muted" as const };
   if (diffMs < 2 * 60 * 1000) return { label: countdown.label, tone: "error" as const };
@@ -789,6 +794,18 @@ export const AuctionLots: React.FC = () => {
       null;
     return toNumber(kgCandidate);
   }, [selectedLot]);
+  const selectedLotOption = useMemo(() => {
+    if (!createForm.lot_id) return null;
+    const direct = lotOptions.find((l) => String(l?.value || "") === String(createForm.lot_id));
+    if (direct) return direct;
+    if (!selectedLot) return null;
+    return {
+      value: String(createForm.lot_id),
+      label: selectedLot?.token_code || selectedLot?.lot_code || String(createForm.lot_id),
+      shortCode: selectedLot?.lot_code || selectedLot?.token_code || "",
+      lot: selectedLot,
+    } as LotOption;
+  }, [createForm.lot_id, lotOptions, selectedLot]);
   const selectedTotalQtl = useMemo(() => {
     if (!selectedTotalKg || selectedTotalKg <= 0) return null;
     return selectedTotalKg / 100;
@@ -1042,12 +1059,13 @@ export const AuctionLots: React.FC = () => {
       },
       {
         field: "time_left",
-        headerName: "Time Left",
+        headerName: "Lot Time Left",
         width: 200,
         renderCell: (params) => {
           const timeLeft = getTimeLeftPresentation(
             params.row.status,
             params.row.session_status,
+            params.row.lot_end_time || params.row.scheduled_end_time || params.row.auto_close_deadline,
             params.row.session_scheduled_end_time,
             params.row.product_end_time,
             params.row.product_start_time,
@@ -1448,6 +1466,9 @@ export const AuctionLots: React.FC = () => {
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
         product_start_time: item?.product_start_time || null,
         product_end_time: item?.product_end_time || null,
+        lot_end_time: item?.lot_end_time || item?.product_end_time || item?.scheduled_end_time || item?.auto_close_deadline || null,
+        scheduled_end_time: item?.scheduled_end_time || null,
+        auto_close_deadline: item?.auto_close_deadline || null,
         product_schedule_status: item?.product_schedule_status || null,
         session_closure_mode: item?.session?.closure_mode || item?.session_closure_mode || item?.closure_mode || null,
         session_status: item?.session?.status || item?.session_status || null,
@@ -2916,7 +2937,7 @@ export const AuctionLots: React.FC = () => {
                   options={lotOptions}
                   filterOptions={(x) => x}
                   loading={createOptionsLoading}
-                  value={lotOptions.find((l) => l.value === createForm.lot_id) || null}
+                  value={selectedLotOption}
                   inputValue={sourceLotSearch}
                   onInputChange={(_e, value, reason) => {
                     if (reason === "input" || reason === "clear") setSourceLotSearch(value || "");
@@ -2970,14 +2991,15 @@ export const AuctionLots: React.FC = () => {
                         gap: 1,
                       }}
                     >
-                      <Typography variant="body2"><strong>Party:</strong> {selectedLot?.party?.ref || selectedLot?.party?.username || selectedLot?.party_username || selectedLot?.party_ref || selectedLot?.farmer_username || selectedLot?.trader_username || "-"}</Typography>
-                      <Typography variant="body2"><strong>Token / Lot:</strong> {selectedLot?.token_code || selectedLot?.lot_code || selectedLot?._id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Lot code:</strong> {selectedLot?.lot_code || selectedLot?.token_code || selectedLot?._id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Farmer:</strong> {selectedLot?.farmer_name || selectedLot?.party?.name || selectedLot?.party?.ref || selectedLot?.party?.username || selectedLot?.party_username || selectedLot?.party_ref || "-"}</Typography>
+                      <Typography variant="body2"><strong>Farmer mobile:</strong> {selectedLot?.farmer_mobile || selectedLot?.party?.mobile || selectedLot?.party_mobile || "-"}</Typography>
                       <Typography variant="body2"><strong>Commodity:</strong> {selectedLot?.commodity_name_en || selectedLot?.commodity_name || selectedLot?.commodity || selectedLot?.commodity_code || selectedLot?.commodity_id || "-"}</Typography>
                       <Typography variant="body2"><strong>Product:</strong> {selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || selectedLot?.product_code || selectedLot?.commodity_product_id || "-"}</Typography>
-                      <Typography variant="body2"><strong>Bags:</strong> {selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-"}</Typography>
-                      <Typography variant="body2"><strong>Weight/Bag:</strong> {selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-"} kg</Typography>
+                      <Typography variant="body2"><strong>Bags × weight:</strong> {(selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-")} × {(selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-")} kg</Typography>
+                      <Typography variant="body2"><strong>Quality:</strong> {selectedLot?.quality_grade || selectedLot?.quality || selectedLot?.grade || "-"}</Typography>
                       <Typography variant="body2"><strong>Total Weight:</strong> {selectedTotalKg != null ? `${formatInr(selectedTotalKg)} kg` : "-"}</Typography>
-                      <Typography variant="body2"><strong>Gate / Mandi:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"} / {selectedLot?.mandi_name || selectedLot?.mandi_name_en || selectedLot?.mandi_code || selectedLot?.mandi_id || "-"}</Typography>
+                      <Typography variant="body2"><strong>Gate:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"}</Typography>
                     </Box>
                   </Paper>
                 )}

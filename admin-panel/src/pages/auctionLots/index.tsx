@@ -3271,12 +3271,20 @@ export const AuctionLots: React.FC = () => {
       )}
 
       <Dialog open={openCreateAssignConfirm} onClose={() => setOpenCreateAssignConfirm(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create &amp; Assign Lane</DialogTitle>
+        <DialogTitle>Create Auto Lane</DialogTitle>
         <DialogContent>
           <Stack spacing={1.2} mt={1}>
             <Alert severity="info">
-              This will create a new lane for the selected mandi and commodity group, then assign this product to it.
+              This will create a lane with automatic start and close. Admin can override when needed.
             </Alert>
+            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.04)" }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Auto Engine Enabled</Typography>
+              <Typography variant="caption" sx={{ display: "block" }}>✓ Lots start automatically</Typography>
+              <Typography variant="caption" sx={{ display: "block" }}>✓ Lots close automatically</Typography>
+              <Typography variant="caption" sx={{ display: "block" }}>✓ Winner is finalized automatically</Typography>
+              <Typography variant="caption" sx={{ display: "block" }}>✓ Next queued lot starts automatically</Typography>
+              <Typography variant="caption" sx={{ display: "block" }}>✓ Admin can override when required</Typography>
+            </Paper>
             <Typography variant="body2"><strong>Mandi:</strong> {inlineLanePrefill?.mandi_name || inlineLanePrefill?.mandi_id || "—"}</Typography>
             <Typography variant="body2"><strong>Commodity Group:</strong> {resolvedLotCommodity?.label || inlineLanePrefill?.commodity_group || "—"}</Typography>
             <TextField
@@ -3322,6 +3330,19 @@ export const AuctionLots: React.FC = () => {
               inputProps={{ min: "1", step: "1" }}
               fullWidth
             />
+            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 0.75 }}>
+                <Typography variant="body2"><strong>Closure Mode:</strong> Auto with Manual Override</Typography>
+                <Typography variant="body2"><strong>Auction Method:</strong> OPEN_OUTCRY</Typography>
+                <Typography variant="body2"><strong>Auto Start:</strong> Yes</Typography>
+                <Typography variant="body2"><strong>Auto Close:</strong> Yes</Typography>
+                <Typography variant="body2"><strong>Manual Override:</strong> Yes</Typography>
+                <Typography variant="body2"><strong>Queue Per Lane / Max Queue Size:</strong> {createAssignForm.max_queue_size || "—"}</Typography>
+                <Typography variant="body2"><strong>Opening Price Source:</strong> Daily Product Price / Manual Override / Missing</Typography>
+                <Typography variant="body2"><strong>Bid Increment Source:</strong> Org/Product/Daily Price config</Typography>
+                <Typography variant="body2"><strong>Guard State:</strong> {capacitySummary?.guard_state || "—"}</Typography>
+              </Box>
+            </Paper>
             <Typography variant="caption" color="text.secondary">
               Suggested timing is auto-filled. You may change it before creating the lane.
             </Typography>

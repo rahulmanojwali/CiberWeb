@@ -590,7 +590,7 @@ export const AuctionSessions: React.FC = () => {
         ),
       },
       { field: "method", headerName: "Method", width: 130 },
-      { field: "closure_mode", headerName: "Closure Mode", width: 170, valueGetter: (v) => v || "MANUAL_OR_AUTO" },
+      { field: "closure_mode", headerName: "Closure Mode", width: 220, valueGetter: (_v, row) => closureModeLabel((row as any)?.closure_mode || "MANUAL_OR_AUTO") },
       {
         field: "scheduled_end_time",
         headerName: "Scheduled End",

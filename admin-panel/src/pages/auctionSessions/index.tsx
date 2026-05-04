@@ -260,8 +260,8 @@ function laneTypeOptionLabel(value?: string | null) {
 
 function closureModeLabel(mode?: string | null) {
   const normalized = String(mode || "").trim().toUpperCase();
-  if (normalized === "MANUAL_ONLY") return "Manual";
-  if (normalized === "AUTO_AT_END_TIME") return "Auto Only";
+  if (normalized === "MANUAL_ONLY" || normalized === "MANUAL") return "Manual Only";
+  if (normalized === "AUTO_AT_END_TIME" || normalized === "AUTO") return "Fully Auto";
   if (normalized === "MANUAL_OR_AUTO") return "Auto with Manual Override";
   return displayValue(mode);
 }
@@ -1150,7 +1150,7 @@ export const AuctionSessions: React.FC = () => {
   const scheduledEndMs = scheduledEndDate ? scheduledEndDate.getTime() : null;
   const isScheduledStartInvalid = Boolean(scheduledStartDate && Number.isNaN(scheduledStartDate.getTime()));
   const isScheduledEndInvalid = Boolean(scheduledEndDate && Number.isNaN(scheduledEndDate.getTime()));
-  const requiresScheduledEnd = createLaneForm.closure_mode === "AUTO_AT_END_TIME" || createLaneForm.closure_mode === "MANUAL_OR_AUTO";
+  const requiresScheduledEnd = createLaneForm.closure_mode === "AUTO_AT_END_TIME" || createLaneForm.closure_mode === "AUTO" || createLaneForm.closure_mode === "MANUAL_OR_AUTO";
   const missingScheduledEnd = requiresScheduledEnd && !createLaneForm.scheduled_end_time;
   const isScheduleRangeInvalid =
     scheduledStartMs !== null
@@ -2089,8 +2089,8 @@ export const AuctionSessions: React.FC = () => {
                     helperText="Default mode auto-starts by schedule while still allowing manual intervention."
                     fullWidth
                   >
-                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
-                    <MenuItem value="AUTO">Auto Only</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Admin Override (Recommended)</MenuItem>
+                    <MenuItem value="AUTO">Fully Auto</MenuItem>
                     <MenuItem value="MANUAL">Manual Only</MenuItem>
                   </TextField>
                   <TextField
@@ -2101,9 +2101,9 @@ export const AuctionSessions: React.FC = () => {
                     helperText="System starts and closes lots automatically. Admin can still intervene when required."
                     fullWidth
                   >
-                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
-                    <MenuItem value="AUTO_AT_END_TIME">Auto Only</MenuItem>
-                    <MenuItem value="MANUAL_ONLY">Manual Only</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Admin Override (Recommended)</MenuItem>
+                    <MenuItem value="AUTO">Fully Auto</MenuItem>
+                    <MenuItem value="MANUAL">Manual Only</MenuItem>
                   </TextField>
                   <TextField label="Scheduled Start" type="datetime-local" value={createLaneForm.scheduled_start_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_start_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
                   <TextField label="Scheduled End" type="datetime-local" value={createLaneForm.scheduled_end_time} onChange={(e) => setCreateLaneForm((prev) => ({ ...prev, scheduled_end_time: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />

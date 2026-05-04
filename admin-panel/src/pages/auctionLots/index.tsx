@@ -328,15 +328,15 @@ const toDateTimeInputValue = (value?: string | Date | null) => {
 };
 
 const closureModeHelperText = (closureMode: string) => {
-  if (closureMode === "MANUAL_ONLY") return "Manual control only. Admin must start and close lots.";
-  if (closureMode === "AUTO_AT_END_TIME") return "Automatic by schedule only. Manual override is restricted.";
-  return "Auto with Manual Override. System starts/closes lots automatically; admin can still intervene when required.";
+  if (closureMode === "MANUAL_ONLY" || closureMode === "MANUAL") return "Admin must start and close lots manually. Use only for special cases.";
+  if (closureMode === "AUTO_AT_END_TIME" || closureMode === "AUTO") return "System controls start/close automatically. Manual override restricted.";
+  return "System starts/closes lots automatically. Admin can intervene when required.";
 };
 
 const closureModeLabel = (mode: string | null | undefined) => {
   const key = String(mode || "").trim().toUpperCase();
-  if (key === "MANUAL_ONLY") return "Manual";
-  if (key === "AUTO_AT_END_TIME") return "Auto Only";
+  if (key === "MANUAL_ONLY" || key === "MANUAL") return "Manual Only";
+  if (key === "AUTO_AT_END_TIME" || key === "AUTO") return "Fully Auto";
   if (key === "MANUAL_OR_AUTO") return "Auto with Manual Override";
   return "—";
 };
@@ -891,7 +891,7 @@ export const AuctionLots: React.FC = () => {
   const showMandiInstruction = !loading && requiresMandiSelection;
   const showNoRowsForFilters = !loading && !showMandiInstruction && rows.length === 0;
   const createSessionRequiresEnd =
-    createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO";
+    createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "AUTO" || createSessionForm.closure_mode === "MANUAL_OR_AUTO";
 
   const columns = useMemo<GridColDef<LotRow>[]>(
     () => [
@@ -2065,7 +2065,7 @@ export const AuctionLots: React.FC = () => {
           ? new Date(createSessionForm.scheduled_start_time).toISOString()
           : undefined,
         scheduled_end_time:
-          createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "MANUAL_OR_AUTO"
+          createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "AUTO" || createSessionForm.closure_mode === "MANUAL_OR_AUTO"
             ? (createSessionForm.scheduled_end_time ? new Date(createSessionForm.scheduled_end_time).toISOString() : undefined)
             : undefined,
         is_overflow_lane: Boolean(createSessionForm.is_overflow_lane),
@@ -2075,7 +2075,7 @@ export const AuctionLots: React.FC = () => {
         allow_manual_close_when_auto_enabled: Boolean(createSessionForm.allow_manual_close_when_auto_enabled),
       };
       if (
-        (payload.closure_mode === "AUTO_AT_END_TIME" || payload.closure_mode === "MANUAL_OR_AUTO") &&
+        (payload.closure_mode === "AUTO_AT_END_TIME" || payload.closure_mode === "AUTO" || payload.closure_mode === "MANUAL_OR_AUTO") &&
         !payload.scheduled_end_time
       ) {
         setCreateSessionError("Scheduled end time is required for selected closure mode.");
@@ -3519,9 +3519,9 @@ export const AuctionLots: React.FC = () => {
                     onChange={(e) => setCreateSessionForm((prev) => ({ ...prev, closure_mode: e.target.value }))}
                     fullWidth
                   >
-                    <MenuItem value="MANUAL_OR_AUTO">Auto with Manual Override (Default)</MenuItem>
-                    <MenuItem value="AUTO_AT_END_TIME">Auto Only</MenuItem>
-                    <MenuItem value="MANUAL_ONLY">Manual Only</MenuItem>
+                    <MenuItem value="MANUAL_OR_AUTO">Auto with Admin Override (Recommended)</MenuItem>
+                    <MenuItem value="AUTO">Fully Auto</MenuItem>
+                    <MenuItem value="MANUAL">Manual Only</MenuItem>
                   </TextField>
                   <Typography variant="caption" color="text.secondary">
                     {closureModeHelperText(createSessionForm.closure_mode)}
@@ -3554,7 +3554,7 @@ export const AuctionLots: React.FC = () => {
                       fullWidth
                     />
                   </Box>
-                  {createSessionForm.closure_mode === "AUTO_AT_END_TIME" && (
+                  {(createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "AUTO") && (
                     <TextField
                       select
                       label="Allow Manual Close"

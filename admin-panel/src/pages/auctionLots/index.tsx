@@ -806,6 +806,11 @@ export const AuctionLots: React.FC = () => {
       lot: selectedLot,
     } as LotOption;
   }, [createForm.lot_id, lotOptions, selectedLot]);
+  const selectedLotLabel = useMemo(() => {
+    if (selectedLotOption?.label) return selectedLotOption.label;
+    if (!selectedLot) return "";
+    return buildLotLabel(selectedLot).label;
+  }, [selectedLotOption, selectedLot]);
   const selectedTotalQtl = useMemo(() => {
     if (!selectedTotalKg || selectedTotalKg <= 0) return null;
     return selectedTotalKg / 100;
@@ -2940,12 +2945,21 @@ export const AuctionLots: React.FC = () => {
                   value={selectedLotOption}
                   inputValue={sourceLotSearch}
                   onInputChange={(_e, value, reason) => {
-                    if (reason === "input" || reason === "clear") setSourceLotSearch(value || "");
+                    if (reason === "input") {
+                      setSourceLotSearch(value || "");
+                      return;
+                    }
+                    if (reason === "clear") {
+                      setSourceLotSearch("");
+                      setSelectedLot(null);
+                      setCreateForm((prev) => ({ ...prev, lot_id: "", session_id: "" }));
+                    }
                   }}
                   onChange={(_e, option) => {
                     const value = option?.value || "";
                     setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
                     setSelectedLot(option?.lot || null);
+                    setSourceLotSearch(option?.label || "");
                   }}
                   getOptionLabel={(option) => option?.label || ""}
                   isOptionEqualToValue={(opt, val) => String(opt?.value || "") === String(val?.value || "")}
@@ -2973,6 +2987,11 @@ export const AuctionLots: React.FC = () => {
                     </Box>
                   )}
                 />
+                {!!selectedLotLabel && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: "block" }}>
+                    Selected: {selectedLotLabel}
+                  </Typography>
+                )}
                 {!createOptionsLoading && lotOptions.length === 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     No VERIFIED lots available. Complete lot verification first.
@@ -2982,24 +3001,21 @@ export const AuctionLots: React.FC = () => {
                 {selectedLot && (
                   <Paper variant="outlined" sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.03)" }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Selected Lot Summary
+                      Selected Lot
                     </Typography>
                     <Box
                       sx={{
                         display: "grid",
                         gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                        gap: 1,
+                        gap: 0.75,
                       }}
                     >
-                      <Typography variant="body2"><strong>Lot code:</strong> {selectedLot?.lot_code || selectedLot?.token_code || selectedLot?._id || "-"}</Typography>
-                      <Typography variant="body2"><strong>Farmer:</strong> {selectedLot?.farmer_name || selectedLot?.party?.name || selectedLot?.party?.ref || selectedLot?.party?.username || selectedLot?.party_username || selectedLot?.party_ref || "-"}</Typography>
-                      <Typography variant="body2"><strong>Farmer mobile:</strong> {selectedLot?.farmer_mobile || selectedLot?.party?.mobile || selectedLot?.party_mobile || "-"}</Typography>
-                      <Typography variant="body2"><strong>Commodity:</strong> {selectedLot?.commodity_name_en || selectedLot?.commodity_name || selectedLot?.commodity || selectedLot?.commodity_code || selectedLot?.commodity_id || "-"}</Typography>
-                      <Typography variant="body2"><strong>Product:</strong> {selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || selectedLot?.product_code || selectedLot?.commodity_product_id || "-"}</Typography>
-                      <Typography variant="body2"><strong>Bags × weight:</strong> {(selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-")} × {(selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-")} kg</Typography>
+                      <Typography variant="body2"><strong>Farmer:</strong> {selectedLot?.farmer_mobile || selectedLot?.party?.mobile || selectedLot?.party_mobile || selectedLot?.farmer_name || selectedLot?.party?.name || selectedLot?.party?.ref || selectedLot?.party?.username || selectedLot?.party_username || selectedLot?.party_ref || "-"}</Typography>
+                      <Typography variant="body2"><strong>Product:</strong> {(selectedLot?.commodity_name_en || selectedLot?.commodity_name || selectedLot?.commodity || selectedLot?.commodity_code || selectedLot?.commodity_id || "-")} / {(selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || selectedLot?.product_code || selectedLot?.commodity_product_id || "-")}</Typography>
+                      <Typography variant="body2"><strong>Quantity:</strong> {(selectedLot?.quantity?.bags ?? selectedLot?.bags ?? "-")} bags × {(selectedLot?.quantity?.weight_per_bag_kg ?? selectedLot?.weight_per_bag_kg ?? "-")}kg = {selectedTotalKg != null ? `${formatInr(selectedTotalKg)}kg` : "-"}</Typography>
                       <Typography variant="body2"><strong>Quality:</strong> {selectedLot?.quality_grade || selectedLot?.quality || selectedLot?.grade || "-"}</Typography>
-                      <Typography variant="body2"><strong>Total Weight:</strong> {selectedTotalKg != null ? `${formatInr(selectedTotalKg)} kg` : "-"}</Typography>
                       <Typography variant="body2"><strong>Gate:</strong> {selectedLot?.gate_code || selectedLot?.gate?.code || "-"}</Typography>
+                      <Typography variant="body2"><strong>Lot:</strong> {selectedLot?.lot_code || selectedLot?.token_code || selectedLot?._id || "-"}</Typography>
                     </Box>
                   </Paper>
                 )}

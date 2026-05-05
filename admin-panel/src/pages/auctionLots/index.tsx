@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Alert,
@@ -294,12 +294,46 @@ function normalizeCommodityGroupCode(value: any): string {
     .replace(/^_+|_+$/g, "");
 }
 
+const LANE_KEY_ALIASES: Record<string, string> = {
+  vegetable: "vegetables",
+  vegetables: "vegetables",
+  hardware: "hardware",
+  cereals: "cereals",
+};
+
+function normalizeLaneKey(value: any): string {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  const normalized = raw
+    .replace(/[_\s-]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!normalized) return "";
+  return LANE_KEY_ALIASES[normalized] || normalized;
+}
+
+function resolveCommodityMatchValue(input: any): string {
+  const candidates = [
+    input?.commodity_group,
+    input?.commodity_group_code,
+    input?.commodity_code,
+    input?.commodity_name,
+    input?.commodity_name_en,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeLaneKey(candidate);
+    if (normalized) return normalized;
+  }
+  return "";
+}
+
 function resolveLotCommodityGroup(lot: any) {
   const rawCodeOrSlug = String(
-    lot?.commodity_group_code
-    || lot?.commodity_group
-    || lot?.commodity_slug
-    || lot?.commodity
+    lot?.commodity_group
+    || lot?.commodity_group_code
+    || lot?.commodity_code
+    || lot?.commodity_name
     || lot?.commodity_name_en
     || "",
   ).trim();
@@ -591,8 +625,11 @@ export const AuctionLots: React.FC = () => {
   const [sourceLotSearch, setSourceLotSearch] = useState("");
   const [sessionItems, setSessionItems] = useState<any[]>([]);
   const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
+  const [lanePreviewLoading, setLanePreviewLoading] = useState(false);
+  const [lanePreviewError, setLanePreviewError] = useState<string | null>(null);
   const [lotOptions, setLotOptions] = useState<LotOption[]>([]);
   const [selectedLot, setSelectedLot] = useState<any | null>(null);
+  const lanePreviewRequestIdRef = useRef(0);
   const [openCreateSession, setOpenCreateSession] = useState(false);
   const [createSessionLoading, setCreateSessionLoading] = useState(false);
   const [createSessionError, setCreateSessionError] = useState<string | null>(null);
@@ -844,8 +881,8 @@ export const AuctionLots: React.FC = () => {
     )
   ), [capacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
-  const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !autoAssignedCreateSession);
-  const createSubmitDisabled = createLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch || noAutoCompatibleLane;
+  const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && !autoAssignedCreateSession);
+  const createSubmitDisabled = createLoading || lanePreviewLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch || noAutoCompatibleLane;
   const inlineLanePrefill = useMemo(() => {
     if (!selectedLot) return null;
     const start = roundToNearestFiveMinutes(new Date());
@@ -1308,12 +1345,9 @@ export const AuctionLots: React.FC = () => {
     const mandiCode = lot?.mandi_code ? String(lot.mandi_code) : null;
     const allowedStatuses = new Set(["PLANNED", "LIVE"]);
     const wantedLaneType = normalizeLaneType(lot?.lane_type) || "COMMODITY_LANE";
-    const wantedCode = normalizeLaneTextUpper(
-      lot?.commodity_group_code || lot?.commodity_code || "",
-    );
-    const wantedLabel = normalizeLaneTextUpper(
-      lot?.commodity_group || lot?.commodity_name_en || lot?.commodity_name || lot?.commodity || "",
-    );
+    const wantedCode = normalizeLaneTextUpper(lot?.commodity_group_code || lot?.commodity_code || "");
+    const wantedLabel = normalizeLaneTextUpper(lot?.commodity_group || lot?.commodity_name || lot?.commodity_name_en || lot?.commodity || "");
+    const wantedCommodityKey = resolveCommodityMatchValue(lot);
 
     const ranked = sessions
       .map((s) => {
@@ -1328,21 +1362,28 @@ export const AuctionLots: React.FC = () => {
         const laneCode = normalizeLaneTextUpper(s?.commodity_group_code);
         const laneLabel = normalizeLaneTextUpper(s?.commodity_group);
         const laneTypeMatch = laneType === wantedLaneType;
+        const isCommodityLane = laneType === "COMMODITY_LANE";
+        const isGeneralLane = laneType === "GENERAL_LANE";
+        const isOverflowLane = Boolean(s?.is_overflow_lane);
+        const laneCommodityKey = resolveCommodityMatchValue(s);
+        const commodityGroupMatch = Boolean(wantedCommodityKey && laneCommodityKey && wantedCommodityKey === laneCommodityKey);
         const exactCodeMatch = Boolean(wantedCode && laneCode && wantedCode === laneCode);
         const exactLabelMatch = Boolean(wantedLabel && laneLabel && wantedLabel === laneLabel);
-        const rank = exactCodeMatch ? 0 : exactLabelMatch ? 1 : 9;
+        const isCommodityCompatible = isCommodityLane && commodityGroupMatch;
+        const isGenericFallback = isOverflowLane || isGeneralLane;
+        const compatible = isCommodityCompatible || isGenericFallback;
+        const rank = isCommodityCompatible ? 0 : isGenericFallback ? 1 : (exactCodeMatch ? 2 : exactLabelMatch ? 3 : 9);
         const queueLimit = Number(s?.max_queue_size || 0) > 0
           ? Number(s?.max_queue_size || 0)
           : Number(capacitySummary?.mandi_effective?.max_queue_per_lane || 25);
         const queuedCount = Number(s?.queued_count || 0);
         const queueRemaining = Number.isFinite(queueLimit) ? Math.max(0, queueLimit - queuedCount) : null;
         const queueAvailable = queueLimit <= 0 || queuedCount < queueLimit;
-        const compatible = laneTypeMatch && (exactCodeMatch || exactLabelMatch);
         const endMs = s?.scheduled_end_time ? new Date(s.scheduled_end_time).getTime() : Number.MAX_SAFE_INTEGER;
-        const why = exactCodeMatch
-          ? "Exact commodity group code match"
-          : exactLabelMatch
-          ? "Exact commodity group match"
+        const why = isCommodityCompatible
+          ? "Commodity group match"
+          : isGenericFallback
+          ? "Generic mandi lane fallback"
           : laneTypeMatch
           ? "Lane type matches but commodity group differs"
           : "Lane type mismatch";
@@ -1382,6 +1423,7 @@ export const AuctionLots: React.FC = () => {
           rank: entry.rank,
           queue_available: entry.queueAvailable,
           queue_remaining: entry.queueRemaining,
+          commodity_group_match: Boolean(entry?.compatible && entry?.rank === 0),
           reason: entry.why,
         })),
       });
@@ -1830,6 +1872,41 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
+  const fetchLanePreviewForSelectedLot = async (lot: any) => {
+    const username = currentUsername();
+    if (!username || !lot || !canSessionsList) return;
+    const requestId = ++lanePreviewRequestIdRef.current;
+    setLanePreviewLoading(true);
+    setLanePreviewError(null);
+    setSessionOptions([]);
+    try {
+      const resp = await getAuctionSessions({
+        username,
+        language,
+        filters: {
+          org_id: lot?.org_id || undefined,
+          mandi_id: lot?.mandi_id ?? lot?.mandi_id_value ?? (filters.mandi_code ? Number(filters.mandi_code) : undefined),
+          page_size: 100,
+          usable_for_mapping: true,
+          lot_id: lot?._id || lot?.lot_id || undefined,
+        },
+      });
+      if (requestId !== lanePreviewRequestIdRef.current) return;
+      const sessions = resp?.data?.items ?? resp?.response?.data?.items ?? [];
+      setSessionItems(sessions);
+      setSessionOptions(buildSessionOptionsForLot(lot, sessions));
+    } catch (_err: any) {
+      if (requestId !== lanePreviewRequestIdRef.current) return;
+      setSessionItems([]);
+      setSessionOptions([]);
+      setLanePreviewError("Unable to check lane assignment. Please refresh or create lane manually.");
+    } finally {
+      if (requestId === lanePreviewRequestIdRef.current) {
+        setLanePreviewLoading(false);
+      }
+    }
+  };
+
   const handleCreateSubmit = async () => {
     const username = currentUsername();
     const country = currentCountry();
@@ -1859,6 +1936,14 @@ export const AuctionLots: React.FC = () => {
     }
     if (!createForm.auto_assign_lane && !createForm.session_id) {
       setCreateError("Select a preferred lane or enable Auto assign best lane.");
+      return;
+    }
+    if (createForm.auto_assign_lane && lanePreviewLoading) {
+      setCreateError("Finding best lane. Please wait.");
+      return;
+    }
+    if (createForm.auto_assign_lane && lanePreviewError) {
+      setCreateError("Unable to check lane assignment. Please refresh or create lane manually.");
       return;
     }
     if (createForm.auto_assign_lane && !autoAssignedCreateSession) {
@@ -1940,8 +2025,11 @@ export const AuctionLots: React.FC = () => {
       if (String(createdItem?.queue_reason || "").toUpperCase() === "CAPACITY_CAP") {
         setCreateSuccess("Lane assigned successfully, but lot is queued because capacity is full. Auto-start will happen after capacity is available.");
       } else {
+        const autoAssignPrefix = createForm.auto_assign_lane
+          ? `Auto-assigned to ${assignedLane}. Reason: Commodity group match. `
+          : "";
         setCreateSuccess(
-          `Assigned Lane: ${assignedLane} | Lane Type: ${assignedLaneType} | Queue Position: ${queuePos} | Queue Reason: ${queueReasonMsg} | Auto-start: ${willAutoStart}`,
+          `${autoAssignPrefix}Assigned Lane: ${assignedLane} | Lane Type: ${assignedLaneType} | Queue Position: ${queuePos} | Queue Reason: ${queueReasonMsg} | Auto-start: ${willAutoStart}`,
         );
       }
       setOpenCreate(false);
@@ -2269,6 +2357,9 @@ export const AuctionLots: React.FC = () => {
       setSelectedLot(null);
       setSourceLotSearch("");
       setSessionOptions([]);
+      setLanePreviewLoading(false);
+      setLanePreviewError(null);
+      lanePreviewRequestIdRef.current += 1;
       setCreateError(null);
       setCreateSessionForm({
         method_code: "OPEN_OUTCRY",
@@ -2316,6 +2407,34 @@ export const AuctionLots: React.FC = () => {
       return exists ? prev : { ...prev, session_id: "" };
     });
   }, [selectedLot, sessionItems]);
+
+  useEffect(() => {
+    if (!openCreate) return;
+    if (!createForm.auto_assign_lane || !selectedLot) {
+      setLanePreviewLoading(false);
+      setLanePreviewError(null);
+      return;
+    }
+    console.log("[autoAssignLane][sourceLotChanged]", {
+      selected_lot_code: selectedLot?.lot_code || selectedLot?.token_code || selectedLot?._id || null,
+      selected_commodity_group: selectedLot?.commodity_group || selectedLot?.commodity_name || selectedLot?.commodity_name_en || null,
+      selected_product_name: selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || null,
+      auto_assign_enabled: Boolean(createForm.auto_assign_lane),
+    });
+    void fetchLanePreviewForSelectedLot(selectedLot);
+  }, [
+    openCreate,
+    createForm.auto_assign_lane,
+    selectedLot?._id,
+    selectedLot?.lot_id,
+    selectedLot?.lot_code,
+    selectedLot?.commodity_group,
+    selectedLot?.commodity_group_code,
+    selectedLot?.product_code,
+    selectedLot?.mandi_id,
+    selectedLot?.mandi_id_value,
+    filters.mandi_code,
+  ]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -2967,6 +3086,14 @@ export const AuctionLots: React.FC = () => {
                     setCreateForm((prev) => ({ ...prev, lot_id: value, session_id: "" }));
                     setSelectedLot(option?.lot || null);
                     setSourceLotSearch(option?.label || "");
+                    setSessionOptions([]);
+                    setLanePreviewError(null);
+                    console.log("[autoAssignLane][sourceLotChanged]", {
+                      selected_lot_code: option?.lot?.lot_code || option?.lot?.token_code || option?.lot?._id || null,
+                      selected_commodity_group: option?.lot?.commodity_group || option?.lot?.commodity_name || option?.lot?.commodity_name_en || null,
+                      selected_product_name: option?.lot?.product_name_en || option?.lot?.commodity_product_name_en || option?.lot?.product || null,
+                      auto_assign_enabled: Boolean(createForm.auto_assign_lane),
+                    });
                   }}
                   getOptionLabel={(option) => option?.label || ""}
                   isOptionEqualToValue={(opt, val) => String(opt?.value || "") === String(val?.value || "")}
@@ -3048,6 +3175,16 @@ export const AuctionLots: React.FC = () => {
                 <Alert severity="info" sx={{ mt: 1.25 }}>
                   Auto assignment recommended.
                 </Alert>
+                {createForm.auto_assign_lane && lanePreviewLoading && (
+                  <Alert severity="info" sx={{ mt: 1.25 }}>
+                    Finding best lane...
+                  </Alert>
+                )}
+                {createForm.auto_assign_lane && lanePreviewError && (
+                  <Alert severity="error" sx={{ mt: 1.25 }}>
+                    {lanePreviewError}
+                  </Alert>
+                )}
                 {!createForm.auto_assign_lane && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     Manual lane selection is enabled. Choose carefully to avoid commodity mismatch.
@@ -3163,7 +3300,7 @@ export const AuctionLots: React.FC = () => {
                       <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(effectiveCreateSession.lane_type)}</Typography>
                       <Typography variant="body2"><strong>Commodity:</strong> {effectiveCreateSession.commodity_group || "—"}</Typography>
                       {createForm.auto_assign_lane && autoAssignedSessionOption?.rank_meta?.why && (
-                        <Typography variant="body2"><strong>Why selected:</strong> {autoAssignedSessionOption.rank_meta.why}</Typography>
+                        <Typography variant="body2"><strong>Why selected:</strong> {autoAssignedSessionOption.rank_meta.rank === 0 ? "Commodity group match" : autoAssignedSessionOption.rank_meta.why}</Typography>
                       )}
                       <Typography variant="body2"><strong>Status:</strong> {effectiveCreateSession.status_display || effectiveCreateSession.derived_status || effectiveCreateSession.status || "—"}</Typography>
                       <Typography variant="body2"><strong>Queued Count:</strong> {effectiveCreateSession.queued_count ?? 0}</Typography>

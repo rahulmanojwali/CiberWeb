@@ -866,7 +866,7 @@ export const AuctionLots: React.FC = () => {
     if (!openingRatePerQtl || !selectedTotalQtl) return null;
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
-  const createSubmitValid = Boolean(createForm.lot_id && effectiveCreateSession && createBasePriceValid);
+  const createSubmitValid = Boolean(createForm.lot_id && createBasePriceValid);
   const noOrgAllocationConfigured = !capacitySummary.testing_mode_enabled && !capacitySummary.org_allocation_configured;
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
@@ -882,7 +882,22 @@ export const AuctionLots: React.FC = () => {
   ), [capacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && !autoAssignedCreateSession);
-  const createSubmitDisabled = createLoading || lanePreviewLoading || !createSubmitValid || noOrgAllocationConfigured || selectedLaneCommodityMismatch || noAutoCompatibleLane;
+  const submitDisabledReason = useMemo(() => {
+    if (!createForm.lot_id) return "SELECT_LOT";
+    if (!createBasePriceValid) return "ENTER_OPENING_PRICE";
+    if (createLoading) return "IS_SUBMITTING";
+    if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
+    if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
+    return null;
+  }, [
+    createForm.lot_id,
+    createBasePriceValid,
+    createLoading,
+    lanePreviewLoading,
+    createForm.auto_assign_lane,
+    createForm.session_id,
+  ]);
+  const createSubmitDisabled = Boolean(submitDisabledReason);
   const inlineLanePrefill = useMemo(() => {
     if (!selectedLot) return null;
     const start = roundToNearestFiveMinutes(new Date());
@@ -1874,7 +1889,11 @@ export const AuctionLots: React.FC = () => {
 
   const fetchLanePreviewForSelectedLot = async (lot: any) => {
     const username = currentUsername();
-    if (!username || !lot || !canSessionsList) return;
+    if (!username || !lot || !canSessionsList) {
+      setLanePreviewLoading(false);
+      setLanePreviewError(!canSessionsList ? "Missing permission: auction_sessions.list (VIEW)." : null);
+      return;
+    }
     const requestId = ++lanePreviewRequestIdRef.current;
     setLanePreviewLoading(true);
     setLanePreviewError(null);
@@ -1910,6 +1929,15 @@ export const AuctionLots: React.FC = () => {
   const handleCreateSubmit = async () => {
     const username = currentUsername();
     const country = currentCountry();
+    console.info("[CreateAuctionLot][submitClicked]", {
+      selectedLotId: createForm.lot_id || null,
+      autoAssignLane: Boolean(createForm.auto_assign_lane),
+      selectedSessionId: createForm.session_id || null,
+      openingPrice: createBasePriceRaw || null,
+      lanePreviewLoading: Boolean(lanePreviewLoading),
+      isSubmitting: Boolean(createLoading),
+      submitDisabledReason,
+    });
     if (!username) return;
     if (noOrgAllocationConfigured) {
       setCreateError(orgAllocationWarning);
@@ -1930,16 +1958,20 @@ export const AuctionLots: React.FC = () => {
         submit_disabled: createSubmitDisabled,
       });
     }
-    if (!createForm.lot_id || !createBasePriceRaw) {
-      setCreateError("Lot and opening price are required.");
+    if (!createForm.lot_id) {
+      setCreateError("Select a lot.");
+      return;
+    }
+    if (!createBasePriceRaw) {
+      setCreateError("Enter opening price.");
       return;
     }
     if (!createForm.auto_assign_lane && !createForm.session_id) {
-      setCreateError("Select a preferred lane or enable Auto assign best lane.");
+      setCreateError("Select or auto-assign lane.");
       return;
     }
     if (createForm.auto_assign_lane && lanePreviewLoading) {
-      setCreateError("Finding best lane. Please wait.");
+      setCreateError("Wait for lane check to finish.");
       return;
     }
     if (createForm.auto_assign_lane && lanePreviewError) {
@@ -1963,11 +1995,11 @@ export const AuctionLots: React.FC = () => {
     const laneStart = selectedLaneStartDate;
     const laneEnd = selectedLaneEndDate;
     if (laneStart && selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
-      setCreateError(`Product start time must be on or after lane start: ${formatDate(laneStart)}.`);
+      setCreateError(`Product timing invalid: start must be on or after lane start (${formatDate(laneStart)}).`);
       return;
     }
     if (laneEnd && selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
-      setCreateError(`Product end time cannot be after lane end time: ${formatDate(laneEnd)}.`);
+      setCreateError(`Product timing invalid: end cannot be after lane end (${formatDate(laneEnd)}).`);
       return;
     }
     if (selectedProductStart && selectedProductEnd && selectedProductStart.getTime() >= selectedProductEnd.getTime()) {
@@ -2003,19 +2035,25 @@ export const AuctionLots: React.FC = () => {
         start_price_per_qtl: createBasePriceRaw,
         product_start_time: createForm.product_start_time || undefined,
         product_end_time: createForm.product_end_time || undefined,
+        commodity_group: resolvedLotCommodity?.label || undefined,
+        commodity_group_code: resolvedLotCommodity?.normalizedCode || undefined,
       };
+      console.info("[CreateAuctionLot][submitPayload]", payload);
       if (import.meta.env.DEV) {
         console.debug("[AUCTION_LOTS_CREATE] payload", payload);
       }
+      console.info("[CreateAuctionLot][apiStarted]", { api: payload.api });
       const resp: any = await postEncrypted("/admin/mapLotToAuctionSession", {
         ...payload,
       });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
+        console.error("[CreateAuctionLot][apiError]", { api: payload.api, responseCode: rc, description: desc || null });
         setCreateError(desc || "Failed to create auction lot.");
         return;
       }
+      console.info("[CreateAuctionLot][apiSuccess]", { api: payload.api, responseCode: rc });
       const createdItem = resp?.data?.item || resp?.response?.data?.item || null;
       const assignedLane = createdItem?.lane_name || createdItem?.session?.session_name || createdItem?.session?.session_code || "—";
       const assignedLaneType = humanizeLaneType(createdItem?.lane_type || createdItem?.session?.lane_type || null);
@@ -2036,6 +2074,7 @@ export const AuctionLots: React.FC = () => {
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       await loadData();
     } catch (err: any) {
+      console.error("[CreateAuctionLot][apiError]", { api: "mapLotToAuctionSession", message: err?.message || "Unknown error" });
       setCreateError(err?.message || "Failed to create auction lot.");
     } finally {
       setCreateLoading(false);
@@ -3404,6 +3443,7 @@ export const AuctionLots: React.FC = () => {
           <DialogActions>
             <Button onClick={() => setOpenCreate(false)} disabled={createLoading}>Close</Button>
             <Button
+              type="button"
               variant="contained"
               onClick={handleCreateSubmit}
               disabled={createSubmitDisabled}

@@ -45,6 +45,7 @@ import { updateOrgAuctionCapacityAllocation } from "../../services/systemCapacit
 import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
+import { useSnackbar } from "notistack";
 
 type LotRow = {
   id: string;
@@ -615,6 +616,7 @@ export const AuctionLots: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
   const uiConfig = useAdminUiConfig();
+  const { enqueueSnackbar } = useSnackbar();
   const [openCreate, setOpenCreate] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createAssignLoading, setCreateAssignLoading] = useState(false);
@@ -825,6 +827,21 @@ export const AuctionLots: React.FC = () => {
   );
   const selectedProductStart = useMemo(() => (createForm.product_start_time ? new Date(createForm.product_start_time) : null), [createForm.product_start_time]);
   const selectedProductEnd = useMemo(() => (createForm.product_end_time ? new Date(createForm.product_end_time) : null), [createForm.product_end_time]);
+  const timingValidationMessage = useMemo(() => {
+    if (!selectedProductStart && !selectedProductEnd) {
+      return { valid: true, color: "success.main", text: "Product timing is valid for selected lane." };
+    }
+    if (selectedProductStart && selectedLaneStartDate && selectedProductStart.getTime() < selectedLaneStartDate.getTime()) {
+      return { valid: false, color: "error.main", text: "Product start time is before lane start time." };
+    }
+    if (selectedProductEnd && selectedLaneEndDate && selectedProductEnd.getTime() > selectedLaneEndDate.getTime()) {
+      return { valid: false, color: "error.main", text: "Product end time exceeds lane end time." };
+    }
+    if (selectedProductStart && selectedProductEnd && selectedProductEnd.getTime() <= selectedProductStart.getTime()) {
+      return { valid: false, color: "error.main", text: "Product end time must be after product start time." };
+    }
+    return { valid: true, color: "success.main", text: "Product timing is valid for selected lane." };
+  }, [selectedProductStart, selectedProductEnd, selectedLaneStartDate, selectedLaneEndDate]);
   const selectedTotalKg = useMemo(() => {
     const lot: any = selectedLot || null;
     const kgCandidate =
@@ -890,6 +907,7 @@ export const AuctionLots: React.FC = () => {
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
     if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
     if (noOrgAllocationConfigured) return "NO_ORG_ALLOCATION_CONFIGURED";
+    if (!timingValidationMessage.valid) return "PRODUCT_TIMING_INVALID";
     return null;
   }, [
     createForm.lot_id,
@@ -900,6 +918,7 @@ export const AuctionLots: React.FC = () => {
     createForm.session_id,
     selectedLaneCommodityMismatch,
     noOrgAllocationConfigured,
+    timingValidationMessage.valid,
   ]);
   const createSubmitDisabled = Boolean(submitDisabledReason);
   const inlineLanePrefill = useMemo(() => {
@@ -2062,8 +2081,13 @@ export const AuctionLots: React.FC = () => {
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
+        const readableError =
+          resp?.response?.description
+          || resp?.description
+          || "Auction lot creation failed.";
         console.error("[CreateAuctionLot][apiError]", { api: payload.api, responseCode: rc, description: desc || null });
-        setCreateError(desc || "Failed to create auction lot.");
+        enqueueSnackbar(readableError, { variant: "error" });
+        setCreateError(readableError);
         return;
       }
       console.info("[CreateAuctionLot][apiSuccess]", { api: payload.api, responseCode: rc });
@@ -2087,8 +2111,14 @@ export const AuctionLots: React.FC = () => {
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       await loadData();
     } catch (err: any) {
+      const readableError =
+        err?.response?.data?.response?.description
+        || err?.response?.data?.description
+        || err?.message
+        || "Auction lot creation failed.";
       console.error("[CreateAuctionLot][apiError]", { api: "mapLotToAuctionSession", message: err?.message || "Unknown error" });
-      setCreateError(err?.message || "Failed to create auction lot.");
+      enqueueSnackbar(readableError, { variant: "error" });
+      setCreateError(readableError);
     } finally {
       setCreateLoading(false);
     }
@@ -3395,29 +3425,46 @@ export const AuctionLots: React.FC = () => {
                   </Stack>
                 )}
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
-                  <TextField
-                    label="Product Start Date/Time"
-                    type="datetime-local"
-                    size="small"
-                    value={createForm.product_start_time}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, product_start_time: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
-                    helperText={selectedLaneStartTime ? `Must be on or after lane start: ${formatDate(selectedLaneStartDate)}` : undefined}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Product End Date/Time"
-                    type="datetime-local"
-                    size="small"
-                    value={createForm.product_end_time}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, product_end_time: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{ min: productEndMinTime, max: selectedLaneEndTime || undefined }}
-                    helperText={selectedLaneEndTime ? `Must be on or before lane end: ${formatDate(selectedLaneEndDate)}` : "Lane end time is not configured. Product timing will follow lane defaults."}
-                    fullWidth
-                  />
+                  <Box sx={{ width: "100%" }}>
+                    <TextField
+                      label="Product Start Date/Time"
+                      type="datetime-local"
+                      size="small"
+                      value={createForm.product_start_time}
+                      onChange={(e) => setCreateForm((prev) => ({ ...prev, product_start_time: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{ min: selectedLaneStartTime || undefined, max: selectedLaneEndTime || undefined }}
+                      helperText={selectedLaneStartTime ? `Must be on or after lane start: ${formatDate(selectedLaneStartDate)}` : undefined}
+                      fullWidth
+                    />
+                    <Typography variant="caption" sx={{ color: (!selectedProductStart || (selectedLaneStartDate && selectedProductStart.getTime() >= selectedLaneStartDate.getTime())) ? "success.main" : "error.main" }}>
+                      {(!selectedProductStart || (selectedLaneStartDate && selectedProductStart.getTime() >= selectedLaneStartDate.getTime()))
+                        ? "✔ Within lane schedule"
+                        : "✖ Outside lane schedule"}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ width: "100%" }}>
+                    <TextField
+                      label="Product End Date/Time"
+                      type="datetime-local"
+                      size="small"
+                      value={createForm.product_end_time}
+                      onChange={(e) => setCreateForm((prev) => ({ ...prev, product_end_time: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{ min: productEndMinTime, max: selectedLaneEndTime || undefined }}
+                      helperText={selectedLaneEndTime ? `Must be on or before lane end: ${formatDate(selectedLaneEndDate)}` : "Lane end time is not configured. Product timing will follow lane defaults."}
+                      fullWidth
+                    />
+                    <Typography variant="caption" sx={{ color: (!selectedProductEnd || ((selectedLaneEndDate && selectedProductEnd.getTime() <= selectedLaneEndDate.getTime()) && (!selectedProductStart || selectedProductEnd.getTime() > selectedProductStart.getTime()))) ? "success.main" : "error.main" }}>
+                      {(!selectedProductEnd || ((selectedLaneEndDate && selectedProductEnd.getTime() <= selectedLaneEndDate.getTime()) && (!selectedProductStart || selectedProductEnd.getTime() > selectedProductStart.getTime())))
+                        ? "✔ Within lane schedule"
+                        : "✖ Outside lane schedule"}
+                    </Typography>
+                  </Box>
                 </Stack>
+                <Typography variant="caption" sx={{ color: timingValidationMessage.color, display: "block", mt: 0.75 }}>
+                  {timingValidationMessage.text}
+                </Typography>
               </Paper>
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>

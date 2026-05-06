@@ -888,6 +888,8 @@ export const AuctionLots: React.FC = () => {
     if (createLoading) return "IS_SUBMITTING";
     if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
+    if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
+    if (noOrgAllocationConfigured) return "NO_ORG_ALLOCATION_CONFIGURED";
     return null;
   }, [
     createForm.lot_id,
@@ -896,6 +898,8 @@ export const AuctionLots: React.FC = () => {
     lanePreviewLoading,
     createForm.auto_assign_lane,
     createForm.session_id,
+    selectedLaneCommodityMismatch,
+    noOrgAllocationConfigured,
   ]);
   const createSubmitDisabled = Boolean(submitDisabledReason);
   const inlineLanePrefill = useMemo(() => {
@@ -1161,10 +1165,16 @@ export const AuctionLots: React.FC = () => {
         },
       },
       {
-        field: "end_time",
+        field: "scheduled_start_time",
+        headerName: "Scheduled Start",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.scheduled_start_time) || "—",
+      },
+      {
+        field: "scheduled_end_time",
         headerName: "Scheduled End",
         width: 180,
-        valueGetter: (_value, row) => formatDate((row as any)?.session_scheduled_end_time) || "—",
+        valueGetter: (_value, row) => formatDate((row as any)?.scheduled_end_time) || "—",
       },
       {
         field: "product_start_time",
@@ -1532,6 +1542,7 @@ export const AuctionLots: React.FC = () => {
         is_active_lot: String(item.is_active_lot || "").toUpperCase() === "Y" ? "Y" : "N",
         lot_phase: item.lot_phase || null,
         session_start_time: item?.session?.start_time || item?.session_start_time || item?.start_time || null,
+        scheduled_start_time: item?.scheduled_start_time || null,
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
         product_start_time: item?.product_start_time || null,
         product_end_time: item?.product_end_time || null,
@@ -1978,12 +1989,6 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Unable to check lane assignment. Please refresh or create lane manually.");
       return;
     }
-    if (createForm.auto_assign_lane && !autoAssignedCreateSession) {
-      setCreateError(
-        `No matching lane found for ${resolvedLotCommodity?.label || "this commodity"} / ${selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || "this product"}.`,
-      );
-      return;
-    }
     if (selectedLaneCommodityMismatch) {
       setCreateError("Selected lane does not match lot commodity group. Use Auto assignment recommended or choose a matching lane.");
       return;
@@ -2038,6 +2043,14 @@ export const AuctionLots: React.FC = () => {
         commodity_group: resolvedLotCommodity?.label || undefined,
         commodity_group_code: resolvedLotCommodity?.normalizedCode || undefined,
       };
+      console.info("[CreateAuctionLot][productTiming]", {
+        lot_id: createForm.lot_id || null,
+        lane_session_id: createForm.auto_assign_lane
+          ? (autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || null)
+          : (createForm.session_id || null),
+        product_start_time: payload.product_start_time || null,
+        product_end_time: payload.product_end_time || null,
+      });
       console.info("[CreateAuctionLot][submitPayload]", payload);
       if (import.meta.env.DEV) {
         console.debug("[AUCTION_LOTS_CREATE] payload", payload);

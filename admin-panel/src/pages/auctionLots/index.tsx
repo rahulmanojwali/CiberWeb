@@ -1681,6 +1681,14 @@ export const AuctionLots: React.FC = () => {
       setLoading(false);
     }
   };
+  const hasQueuedRows = useMemo(
+    () => rows.some((row) => String(row?.status || row?.lot_status || "").toUpperCase() === "QUEUED"),
+    [rows],
+  );
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  }, [loadData]);
 
   const loadCreateOptions = async (opts?: { search?: string; includeSessions?: boolean }) => {
     const username = currentUsername();
@@ -2389,6 +2397,14 @@ export const AuctionLots: React.FC = () => {
     }
     loadData();
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lane, filters.lane_type, filters.commodity_group, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
+
+  useEffect(() => {
+    if (!hasQueuedRows || !canView) return;
+    const timer = window.setInterval(() => {
+      void loadDataRef.current();
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [hasQueuedRows, canView]);
 
   useEffect(() => {
     if (!canView || !filters.session_id) return;

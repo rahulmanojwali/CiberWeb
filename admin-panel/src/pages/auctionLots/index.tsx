@@ -706,7 +706,8 @@ export const AuctionLots: React.FC = () => {
   const [helpTitle, setHelpTitle] = useState("Help");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [clockTick, setClockTick] = React.useState(() => Date.now());
+  const nowMs = clockTick;
   const [capacitySummary, setCapacitySummary] = useState<CapacitySummary>({
     testing_mode_enabled: false,
     org_allocation_configured: false,
@@ -2343,9 +2344,12 @@ export const AuctionLots: React.FC = () => {
     loadMandis();
   }, [language, uiConfig.role]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(timer);
+  React.useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClockTick(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {

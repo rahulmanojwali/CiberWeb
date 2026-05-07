@@ -458,7 +458,7 @@ export const AuctionSessions: React.FC = () => {
   const [helpRoute, setHelpRoute] = useState("/auction-sessions");
   const [helpTitle, setHelpTitle] = useState("Help");
   const [liveCardSearch, setLiveCardSearch] = useState("");
-  const [liveCardFilter, setLiveCardFilter] = useState<"ALL" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW">("ALL");
+  const [liveCardFilter, setLiveCardFilter] = useState<"ALL" | "PLANNED_OPEN" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW">("ALL");
   const [visibleLiveCards, setVisibleLiveCards] = useState(6);
 
   const scopedMandiCodes = useMemo(() => (Array.isArray(uiConfig.scope?.mandi_codes) ? uiConfig.scope?.mandi_codes.filter(Boolean) : []), [uiConfig.scope?.mandi_codes]);
@@ -1028,11 +1028,18 @@ export const AuctionSessions: React.FC = () => {
   }), [rows, nowMs]);
   const filteredLiveLaneRows = useMemo(() => {
     const searchNeedle = liveCardSearch.trim().toLowerCase();
+    const isAuctionLaneOpenState = (row: SessionRow) => {
+      const status = deriveDisplayStatus(row, nowMs);
+      return ["PLANNED", "LIVE", "PAUSED", "READY_TO_CLOSE"].includes(status);
+    };
     return rows
-      .filter((row) => deriveDisplayStatus(row, nowMs) === "LIVE")
       .filter((row) => {
-        if (liveCardFilter === "READY_TO_CLOSE") return Boolean(row.ready_to_close);
-        if (liveCardFilter === "IN_PROGRESS") return !Boolean(row.ready_to_close);
+        if (liveCardFilter === "IN_PROGRESS") return deriveDisplayStatus(row, nowMs) === "LIVE" && !Boolean(row.ready_to_close);
+        if (liveCardFilter === "READY_TO_CLOSE") return deriveDisplayStatus(row, nowMs) === "READY_TO_CLOSE" || (deriveDisplayStatus(row, nowMs) === "LIVE" && Boolean(row.ready_to_close));
+        if (liveCardFilter === "PLANNED_OPEN") return ["PLANNED", "LIVE", "PAUSED", "READY_TO_CLOSE"].includes(deriveDisplayStatus(row, nowMs));
+        return isAuctionLaneOpenState(row);
+      })
+      .filter((row) => {
         if (liveCardFilter === "OVERFLOW") return Boolean(row.is_overflow_lane);
         return true;
       })
@@ -1388,7 +1395,7 @@ export const AuctionSessions: React.FC = () => {
         <Stack spacing={1.5}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              Live Auction Lanes
+              Auction Lanes
             </Typography>
             <Typography variant="caption" color="text.secondary">
               One live lot per session lane. Ready-to-close means no active or queued lot remains.
@@ -1405,6 +1412,7 @@ export const AuctionSessions: React.FC = () => {
             <Stack direction="row" spacing={1} flexWrap="wrap">
               {[
                 { key: "ALL", label: "All" },
+                { key: "PLANNED_OPEN", label: "Planned/Open" },
                 { key: "IN_PROGRESS", label: "In Progress" },
                 { key: "READY_TO_CLOSE", label: "Ready to Close" },
                 { key: "OVERFLOW", label: "Overflow" },
@@ -1416,14 +1424,14 @@ export const AuctionSessions: React.FC = () => {
                   clickable
                   color={liveCardFilter === item.key ? "primary" : "default"}
                   variant={liveCardFilter === item.key ? "filled" : "outlined"}
-                  onClick={() => { setLiveCardFilter(item.key as "ALL" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW"); setVisibleLiveCards(6); }}
+                  onClick={() => { setLiveCardFilter(item.key as "ALL" | "PLANNED_OPEN" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW"); setVisibleLiveCards(6); }}
                 />
               ))}
             </Stack>
           </Stack>
           {liveLaneRows.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No live lanes for the selected filters/search.
+              No auction lanes for the selected filters/search.
             </Typography>
           ) : (
             <Box
@@ -1448,7 +1456,11 @@ export const AuctionSessions: React.FC = () => {
                       <Stack direction="row" spacing={0.75} flexWrap="wrap" justifyContent="flex-end">
                         {lane.is_overflow_lane && <Chip size="small" label="Overflow" color="warning" variant="outlined" />}
                         {lane.overloaded && <Chip size="small" label="Overloaded" color="error" />}
-                        <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
+                        {deriveDisplayStatus(lane, nowMs) === "PLANNED" ? (
+                          <Chip size="small" label="Planned" color="warning" variant="outlined" />
+                        ) : (
+                          <Chip size="small" label={lane.ready_to_close ? "Ready To Close" : "In Progress"} color={lane.ready_to_close ? "success" : "warning"} />
+                        )}
                       </Stack>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">

@@ -69,6 +69,7 @@ type LotRow = {
   product?: string | null;
   quantity?: number | null;
   status?: string | null;
+  lot_status?: string | null;
   base_price?: number | null;
   session_start_time?: string | null;
   session_scheduled_end_time?: string | null;
@@ -455,6 +456,9 @@ const getTimeLeftPresentation = (
   nowMs: number
 ) => {
   const lot = String(lotStatus || "").trim().toUpperCase();
+  const queueReasonCode = String(queueReason || "").trim().toUpperCase();
+  const isQueuedWaitingForProductWindow =
+    lot === "QUEUED" && queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW";
   const status = normalizeSessionStatus(sessionStatus);
   const isTerminalLotStatus = [
     "WITHDRAWN",
@@ -468,9 +472,7 @@ const getTimeLeftPresentation = (
   ].includes(lot);
   if (lot === "WITHDRAWN") return { label: "Withdrawn", tone: "muted" as const };
   if (isTerminalLotStatus) return { label: "—", tone: "muted" as const };
-  if (lot === "QUEUED") {
-    const queueReasonCode = String(queueReason || "").trim().toUpperCase();
-    if (queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW") {
+  if (isQueuedWaitingForProductWindow) {
       const start = productStartTime ? new Date(productStartTime) : null;
       if (start && !Number.isNaN(start.getTime())) {
         const diffMs = start.getTime() - nowMs;
@@ -478,7 +480,8 @@ const getTimeLeftPresentation = (
         return { label: `Scheduled start: ${formatDate(start) || "—"}`, tone: "muted" as const };
       }
       return { label: "Queued", tone: "warning" as const };
-    }
+  }
+  if (lot === "QUEUED") {
     return { label: "Queued", tone: "warning" as const };
   }
 
@@ -1116,7 +1119,10 @@ export const AuctionLots: React.FC = () => {
         headerName: "Queue Reason",
         width: 260,
         renderCell: (params) => {
-          const lotStatus = String(params.row.status || "").toUpperCase();
+          const lotStatus = String(params.row.status || params.row.lot_status || "").toUpperCase();
+          const queueReasonCode = String(params.row.queue_reason || "").toUpperCase();
+          const isQueuedWaitingForProductWindow =
+            lotStatus === "QUEUED" && queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW";
           const effectiveStatus = getEffectiveLotDisplayStatus(params.row.status, params.row.product_end_time, nowMs);
           if (lotStatus === "WITHDRAWN") {
             return <Typography variant="body2" color="text.secondary">Withdrawn from auction</Typography>;
@@ -1130,11 +1136,13 @@ export const AuctionLots: React.FC = () => {
             ? (capacitySummary.testing_mode_enabled
               ? "Testing mode is active. Lot remains queued until operational conditions allow auto-start."
               : `Org open ${capacitySummary.org_usage.used_open_lanes}/${capacitySummary.org_allocation.allocated_max_open_lanes}, live ${capacitySummary.org_usage.used_live_lanes}/${capacitySummary.org_allocation.allocated_max_live_lanes}. Increase Section F org allocation or close a lane.`)
-            : queueReasonLabel(code, params.row.queue_reason_message);
+            : (isQueuedWaitingForProductWindow
+              ? "Waiting for product window."
+              : queueReasonLabel(code, params.row.queue_reason_message));
           return (
             <Stack spacing={0.2} sx={{ py: 0.3 }}>
               <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                {code || "QUEUED"}
+                {isQueuedWaitingForProductWindow ? "WAITING_FOR_PRODUCT_WINDOW" : (code || "QUEUED")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {message}
@@ -1149,7 +1157,7 @@ export const AuctionLots: React.FC = () => {
         width: 200,
         renderCell: (params) => {
           const timeLeft = getTimeLeftPresentation(
-            params.row.status,
+            params.row.status || params.row.lot_status,
             params.row.session_status,
             params.row.session_closure_mode,
             params.row.lot_end_time || params.row.scheduled_end_time || params.row.auto_close_deadline,

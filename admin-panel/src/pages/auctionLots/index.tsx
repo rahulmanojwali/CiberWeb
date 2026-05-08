@@ -75,6 +75,9 @@ type LotRow = {
   session_scheduled_end_time?: string | null;
   product_start_time?: string | null;
   product_end_time?: string | null;
+  actual_start_time?: string | null;
+  actual_end_time?: string | null;
+  live_slot_number?: number | null;
   lot_end_time?: string | null;
   scheduled_end_time?: string | null;
   auto_close_deadline?: string | null;
@@ -693,6 +696,7 @@ export const AuctionLots: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [hasCapacitySummary, setHasCapacitySummary] = useState(false);
   const [selectedRow, setSelectedRow] = useState<LotRow | null>(null);
   const [openRowDialog, setOpenRowDialog] = useState(false);
@@ -1217,6 +1221,27 @@ export const AuctionLots: React.FC = () => {
         valueGetter: (_value, row) => formatDate((row as any)?.product_end_time) || "—",
       },
       {
+        field: "actual_start_time",
+        headerName: "Actual Start",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.actual_start_time) || "—",
+      },
+      {
+        field: "actual_end_time",
+        headerName: "Actual End",
+        width: 180,
+        valueGetter: (_value, row) => formatDate((row as any)?.actual_end_time) || "—",
+      },
+      {
+        field: "live_slot_number",
+        headerName: "Live Slot",
+        width: 120,
+        valueGetter: (_value, row) => {
+          const slot = (row as any)?.live_slot_number;
+          return slot !== undefined && slot !== null ? String(slot) : "—";
+        },
+      },
+      {
         field: "product_schedule_status",
         headerName: "Product Schedule",
         width: 170,
@@ -1502,7 +1527,7 @@ export const AuctionLots: React.FC = () => {
       .filter((s: SessionOption) => s.value);
   };
 
-  const loadData = async () => {
+  const loadData = async (opts?: { showLoader?: boolean }) => {
     const username = currentUsername();
     if (!username || !canView) return;
     if (!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN") {
@@ -1515,7 +1540,9 @@ export const AuctionLots: React.FC = () => {
       setRows([]);
       return;
     }
-    setLoading(true);
+    // Background auction refresh must not show global loader to avoid flicker.
+    const showGlobalLoader = Boolean(opts?.showLoader) || !hasLoadedOnceRef.current;
+    if (showGlobalLoader) setLoading(true);
     try {
       const resp = await getAuctionLots({
         username,
@@ -1574,6 +1601,9 @@ export const AuctionLots: React.FC = () => {
         session_scheduled_end_time: item?.session?.scheduled_end_time || item?.session_scheduled_end_time || item?.scheduled_end_time || null,
         product_start_time: item?.product_start_time || null,
         product_end_time: item?.product_end_time || null,
+        actual_start_time: item?.actual_start_time || null,
+        actual_end_time: item?.actual_end_time || null,
+        live_slot_number: item?.live_slot_number !== undefined && item?.live_slot_number !== null ? Number(item.live_slot_number) : null,
         lot_end_time: item?.lot_end_time || item?.product_end_time || item?.scheduled_end_time || item?.auto_close_deadline || null,
         scheduled_end_time: item?.scheduled_end_time || null,
         auto_close_deadline: item?.auto_close_deadline || null,
@@ -1678,7 +1708,8 @@ export const AuctionLots: React.FC = () => {
       }
       setSelectedRow((prev) => mapped.find((row) => row.id === prev?.id) || null);
     } finally {
-      setLoading(false);
+      if (showGlobalLoader) setLoading(false);
+      hasLoadedOnceRef.current = true;
     }
   };
   const hasQueuedRows = useMemo(
@@ -2395,14 +2426,14 @@ export const AuctionLots: React.FC = () => {
         appliedFilters: filters,
       });
     }
-    loadData();
+    void loadData();
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lane, filters.lane_type, filters.commodity_group, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
 
   useEffect(() => {
     if (!hasQueuedRows || !canView) return;
     const timer = window.setInterval(() => {
-      void loadDataRef.current();
-    }, 10000);
+      void loadDataRef.current({ showLoader: false });
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [hasQueuedRows, canView]);
 
@@ -2412,7 +2443,7 @@ export const AuctionLots: React.FC = () => {
     let unsubLot: null | (() => void) = null;
     const refreshForSession = (payload: any) => {
       if (!payload?.session_id || String(payload.session_id) !== String(filters.session_id)) return;
-      void loadData();
+      void loadData({ showLoader: false });
     };
     subscribeAuctionSession(
       { sessionId: filters.session_id, mandiId: filters.mandi_code || undefined },
@@ -2623,7 +2654,7 @@ export const AuctionLots: React.FC = () => {
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}
-          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || actionLoading}>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => { void loadData({ showLoader: true }); }} disabled={loading || actionLoading}>
             Refresh
           </Button>
           <IconButton color="primary" size="small" onClick={() => { setHelpTitle("Auction Lot Mapping Help"); setOpenHelp(true); }} title="Help">
@@ -2720,7 +2751,7 @@ export const AuctionLots: React.FC = () => {
             <Button size="small" variant="text" onClick={clearFilters}>
               Clear
             </Button>
-            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => { void loadData({ showLoader: true }); }} disabled={loading}>
               Apply / Refresh
             </Button>
           </Stack>

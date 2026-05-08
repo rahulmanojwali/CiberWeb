@@ -1085,6 +1085,23 @@ export const AuctionLots: React.FC = () => {
         width: 240,
         renderCell: (params) => {
           const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
+          const lotStatus = String(params.row.status || "").toUpperCase();
+          const queueReason = String(params.row.queue_reason || "").toUpperCase();
+          const productStartMs = params.row.product_start_time ? new Date(params.row.product_start_time).getTime() : null;
+          const isFutureProductWindow =
+            lotStatus === "QUEUED"
+            && queueReason === "WAITING_FOR_PRODUCT_WINDOW"
+            && Number.isFinite(productStartMs as number)
+            && (productStartMs as number) > nowMs;
+          const effectiveAutoStartState = isFutureProductWindow
+            ? "PENDING"
+            : String(params.row.session_auto_start_state || "").toUpperCase();
+          const effectiveAutoStartLabel = isFutureProductWindow
+            ? "Auto start pending"
+            : params.row.session_auto_start_label;
+          const effectiveAutoStartReason = isFutureProductWindow
+            ? `Product window starts at ${formatDate(params.row.product_start_time) || "—"}`
+            : params.row.session_auto_start_reason;
           const label = sessionStatus || "—";
           const color =
             sessionStatus === "LIVE"
@@ -1105,14 +1122,14 @@ export const AuctionLots: React.FC = () => {
                 color={color as "default" | "success" | "warning" | "error"}
                 variant={variant}
               />
-              {sessionStatus === "PLANNED" && params.row.session_auto_start_label && (
-                <Typography variant="caption" color={String(params.row.session_auto_start_state || "").toUpperCase() === "OVERDUE" ? "error.main" : "text.secondary"}>
-                  {params.row.session_auto_start_label}
+              {sessionStatus === "PLANNED" && effectiveAutoStartLabel && (
+                <Typography variant="caption" color={effectiveAutoStartState === "OVERDUE" ? "error.main" : "text.secondary"}>
+                  {effectiveAutoStartLabel}
                 </Typography>
               )}
-              {sessionStatus === "PLANNED" && params.row.session_auto_start_reason && String(params.row.session_auto_start_state || "").toUpperCase() === "OVERDUE" && (
+              {sessionStatus === "PLANNED" && effectiveAutoStartReason && effectiveAutoStartState === "OVERDUE" && (
                 <Typography variant="caption" color="error.main">
-                  {params.row.session_auto_start_reason}
+                  {effectiveAutoStartReason}
                 </Typography>
               )}
             </Stack>

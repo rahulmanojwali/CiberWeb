@@ -536,10 +536,10 @@ const getTimeLeftPresentation = (
     }
     return { label: "Auto close overdue", tone: "error" as const };
   }
-  if (diffMs <= 5 * 60 * 1000) return { label: "Closing Soon", tone: "warning" as const };
+  if (diffMs <= 5 * 60 * 1000) return { label: `Closes in ${countdown.label}`, tone: "warning" as const };
   if (diffMs < 2 * 60 * 1000) return { label: countdown.label, tone: "error" as const };
   if (diffMs < 10 * 60 * 1000) return { label: countdown.label, tone: "warning" as const };
-  return { label: countdown.label, tone: "live" as const };
+  return { label: `Closes in ${countdown.label}`, tone: "live" as const };
 };
 
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {

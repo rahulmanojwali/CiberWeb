@@ -202,6 +202,31 @@ const firstNonEmpty = (...values: any[]) => {
   return "";
 };
 
+function toValidDateOrNull(value: any): Date | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getResolvedLaneWindow(selectedLane: any, autoAssignedLane: any, formValues: any) {
+  const lane = formValues?.auto_assign_lane ? autoAssignedLane : selectedLane;
+  const laneStart = toValidDateOrNull(
+    lane?.scheduled_start_time
+    || lane?.start_time
+    || lane?.lane_start_time
+    || lane?.product_start_time
+    || null,
+  );
+  const laneEnd = toValidDateOrNull(
+    lane?.scheduled_end_time
+    || lane?.end_time
+    || lane?.lane_end_time
+    || lane?.product_end_time
+    || null,
+  );
+  return { laneStart, laneEnd };
+}
+
 const buildLotLabel = (lot: any) => {
   const partyDisplay = firstNonEmpty(
     lot?.party_contact,
@@ -817,18 +842,14 @@ export const AuctionLots: React.FC = () => {
   }, [effectiveCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
-  const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(effectiveCreateSession?.scheduled_start_time || null), [effectiveCreateSession]);
-  const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(effectiveCreateSession?.scheduled_end_time || null), [effectiveCreateSession]);
-  const selectedLaneStartDate = useMemo(() => {
-    if (!effectiveCreateSession?.scheduled_start_time) return null;
-    const parsed = new Date(effectiveCreateSession.scheduled_start_time);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }, [effectiveCreateSession]);
-  const selectedLaneEndDate = useMemo(() => {
-    if (!effectiveCreateSession?.scheduled_end_time) return null;
-    const parsed = new Date(effectiveCreateSession.scheduled_end_time);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }, [effectiveCreateSession]);
+  const resolvedLaneWindow = useMemo(
+    () => getResolvedLaneWindow(selectedCreateSession, autoAssignedCreateSession, createForm),
+    [selectedCreateSession, autoAssignedCreateSession, createForm],
+  );
+  const selectedLaneStartDate = resolvedLaneWindow.laneStart;
+  const selectedLaneEndDate = resolvedLaneWindow.laneEnd;
+  const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedLaneStartDate || null), [selectedLaneStartDate]);
+  const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedLaneEndDate || null), [selectedLaneEndDate]);
   const productEndMinTime = useMemo(
     () => createForm.product_start_time || selectedLaneStartTime || undefined,
     [createForm.product_start_time, selectedLaneStartTime],
@@ -3488,12 +3509,12 @@ export const AuctionLots: React.FC = () => {
                       <strong>Lane Window:</strong>
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Start:</strong> {formatDate(effectiveCreateSession.scheduled_start_time) || "—"}
+                      <strong>Start:</strong> {formatDate(selectedLaneStartDate) || "—"}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>End:</strong> {formatDate(effectiveCreateSession.scheduled_end_time) || "—"}
+                      <strong>End:</strong> {formatDate(selectedLaneEndDate) || "—"}
                     </Typography>
-                    {!effectiveCreateSession.scheduled_end_time && (
+                    {!selectedLaneEndDate && (
                       <Typography variant="caption" color="warning.main">
                         Lane end time is not configured. Product timing will follow lane defaults.
                       </Typography>

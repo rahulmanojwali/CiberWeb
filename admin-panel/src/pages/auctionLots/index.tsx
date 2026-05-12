@@ -913,19 +913,21 @@ export const AuctionLots: React.FC = () => {
     return openingRatePerQtl * selectedTotalQtl;
   }, [openingRatePerQtl, selectedTotalQtl]);
   const createSubmitValid = Boolean(createForm.lot_id && createBasePriceValid);
-  const noOrgAllocationConfigured = !capacitySummary.testing_mode_enabled && !capacitySummary.org_allocation_configured;
+  const noOrgAllocationConfigured = hasCapacitySummary && !capacitySummary.testing_mode_enabled && !capacitySummary.org_allocation_configured;
   const orgAllocationWarning = capacitySummary.no_org_allocation_message
     || "No auction capacity allocation is configured for your organisation. Please configure System -> Capacity Control -> Section F.";
-  const canCreateSessionWithinCapacity = Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled);
+  const canCreateSessionWithinCapacity = hasCapacitySummary
+    ? Boolean(capacitySummary.can_create_new_lane && capacitySummary.auction_lanes_enabled)
+    : true;
   const capacityBlockingFull = useMemo(() => (
-    !capacitySummary.testing_mode_enabled && (
+    hasCapacitySummary && !capacitySummary.testing_mode_enabled && (
     Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_open_lanes || 0)
     || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.org_allocation.allocated_max_live_lanes || 0)
     || Number(capacitySummary.org_usage.used_open_lanes || 0) >= Number(capacitySummary.mandi_effective.max_open_lanes || 0)
     || Number(capacitySummary.org_usage.used_live_lanes || 0) >= Number(capacitySummary.mandi_effective.max_live_lanes || 0)
     || !Boolean(capacitySummary.can_create_new_lane)
     )
-  ), [capacitySummary]);
+  ), [capacitySummary, hasCapacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && !autoAssignedCreateSession);
   const submitDisabledReason = useMemo(() => {
@@ -1000,6 +1002,7 @@ export const AuctionLots: React.FC = () => {
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
   const showNoRowsForFilters = !loading && !showMandiInstruction && rows.length === 0;
+  const createButtonDisabled = requiresMandiSelection || (hasCapacitySummary && !canCreateSessionWithinCapacity);
   const createSessionRequiresEnd =
     createSessionForm.closure_mode === "AUTO_AT_END_TIME" || createSessionForm.closure_mode === "AUTO" || createSessionForm.closure_mode === "MANUAL_OR_AUTO";
 
@@ -1565,7 +1568,7 @@ export const AuctionLots: React.FC = () => {
       .filter((s: SessionOption) => s.value);
   };
 
-  const loadData = async (opts?: { showLoader?: boolean }) => {
+  const loadData = async (opts?: { showLoader?: boolean; includeCapacitySummary?: boolean }) => {
     const username = currentUsername();
     if (!username || !canView) return;
     if (!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN") {
@@ -1605,6 +1608,7 @@ export const AuctionLots: React.FC = () => {
           lot_status: filters.lot_status || undefined,
           date_from: filters.date_from || undefined,
           date_to: filters.date_to || undefined,
+          include_capacity_summary: opts?.includeCapacitySummary ? "Y" : undefined,
           page_size: 100,
         },
       });
@@ -1716,8 +1720,11 @@ export const AuctionLots: React.FC = () => {
         setCapacitySummary((prev) => ({
           ...prev,
           testing_mode_enabled: false,
-          org_allocation_configured: false,
-          can_create_new_lane: false,
+          org_allocation_configured: true,
+          can_create_new_lane: true,
+          auction_lanes_enabled: true,
+          guard_enabled: false,
+          guard_state: "GREEN",
           blocking_reason: null,
           org_allocation: {
             allocated_max_live_lanes: 0,
@@ -2561,6 +2568,7 @@ export const AuctionLots: React.FC = () => {
         allow_manual_close_when_auto_enabled: true,
       });
       loadCreateOptions({ includeSessions: true, search: "" });
+      void loadData({ showLoader: false, includeCapacitySummary: true });
     }
   }, [openCreate, language]);
 
@@ -2688,7 +2696,7 @@ export const AuctionLots: React.FC = () => {
             </>
           )}
           {canCreate && (
-            <Button variant="contained" size="small" onClick={() => setOpenCreate(true)} disabled={noOrgAllocationConfigured}>
+            <Button variant="contained" size="small" onClick={() => setOpenCreate(true)} disabled={createButtonDisabled}>
               {t("actions.create", { defaultValue: "Create" })}
             </Button>
           )}

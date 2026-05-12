@@ -831,6 +831,10 @@ export const AuctionLots: React.FC = () => {
     const bestCompatible = sessionOptions.find((opt) => Boolean(opt?.rank_meta?.isCompatible));
     return bestCompatible?.session || null;
   }, [createForm.auto_assign_lane, sessionOptions]);
+  const compatibleSessionOptions = useMemo(
+    () => sessionOptions.filter((opt) => Boolean(opt?.rank_meta?.isCompatible)),
+    [sessionOptions],
+  );
   const autoAssignedSessionOption = useMemo(() => {
     if (!createForm.auto_assign_lane || !autoAssignedCreateSession) return null;
     return sessionOptions.find((opt) => String(opt?.value || "") === String(autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || "")) || null;
@@ -940,12 +944,22 @@ export const AuctionLots: React.FC = () => {
     )
   ), [capacitySummary, hasCapacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
-  const noAutoCompatibleLane = Boolean(createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && !autoAssignedCreateSession);
+  const noAutoCompatibleLane = Boolean(
+    createForm.auto_assign_lane
+    && selectedLot
+    && !lanePreviewLoading
+    && !lanePreviewError
+    && compatibleSessionOptions.length === 0
+  );
   const submitDisabledReason = useMemo(() => {
     if (!createForm.lot_id) return "SELECT_LOT";
+    if (!selectedLot) return "SELECT_LOT";
+    if (!filters.mandi_code) return "SELECT_MANDI";
+    if (!canLotUpdate) return "NO_PERMISSION";
     if (!createBasePriceValid) return "ENTER_OPENING_PRICE";
     if (createLoading) return "IS_SUBMITTING";
     if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
+    if (createForm.auto_assign_lane && !autoAssignedCreateSession) return "NO_COMPATIBLE_LANE";
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
     if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
     if (noOrgAllocationConfigured) return "NO_ORG_ALLOCATION_CONFIGURED";
@@ -953,10 +967,14 @@ export const AuctionLots: React.FC = () => {
     return null;
   }, [
     createForm.lot_id,
+    selectedLot,
+    filters.mandi_code,
+    canLotUpdate,
     createBasePriceValid,
     createLoading,
     lanePreviewLoading,
     createForm.auto_assign_lane,
+    autoAssignedCreateSession,
     createForm.session_id,
     selectedLaneCommodityMismatch,
     noOrgAllocationConfigured,
@@ -3336,7 +3354,7 @@ export const AuctionLots: React.FC = () => {
                     Selected: {selectedLotLabel}
                   </Typography>
                 )}
-                {!createOptionsLoading && lotOptions.length === 0 && (
+                {!createOptionsLoading && lotOptions.length === 0 && !selectedLot && (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     No VERIFIED lots available. Complete lot verification first.
                   </Typography>
@@ -3395,6 +3413,11 @@ export const AuctionLots: React.FC = () => {
                     {lanePreviewError}
                   </Alert>
                 )}
+                {createForm.auto_assign_lane && !lanePreviewLoading && !lanePreviewError && autoAssignedCreateSession && (
+                  <Alert severity="success" sx={{ mt: 1.25 }}>
+                    Auto-assigned to {autoAssignedCreateSession?.session_name || autoAssignedCreateSession?.session_code || "selected lane"}.
+                  </Alert>
+                )}
                 {!createForm.auto_assign_lane && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     Manual lane selection is enabled. Choose carefully to avoid commodity mismatch.
@@ -3414,7 +3437,7 @@ export const AuctionLots: React.FC = () => {
                     helperText="Manual selection only. Lane must match lot commodity group and lane type."
                   >
                     <MenuItem value="">Select</MenuItem>
-                    {sessionOptions.map((s) => (
+                    {compatibleSessionOptions.map((s) => (
                       <MenuItem
                         key={s.value}
                         value={s.value}
@@ -3452,10 +3475,10 @@ export const AuctionLots: React.FC = () => {
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     <Stack spacing={1}>
                       <Typography variant="body2">
-                        No matching lane found for {resolvedLotCommodity?.label || "this commodity"} / {selectedLot?.product_name_en || selectedLot?.commodity_product_name_en || selectedLot?.product || "this product"}.
+                        No matching lane found for {resolvedLotCommodity?.label || "this commodity group"}.
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        You can create a new lane for {inlineLanePrefill?.mandi_name || "selected mandi"} mandi and assign this product to it.
+                        You can create a new lane for {inlineLanePrefill?.mandi_name || "selected mandi"} mandi and assign this lot to it.
                       </Typography>
                       <Box>
                         <Button
@@ -3485,10 +3508,10 @@ export const AuctionLots: React.FC = () => {
                     Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.
                   </Alert>
                 )}
-                {selectedLot && sessionOptions.length === 0 && (
+                {selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
-                      <Typography variant="body2">No active auction lane is available for this mandi. Please create a lane before mapping this lot.</Typography>
+                      <Typography variant="body2">No compatible auction lane is available for this mandi and commodity group. Please create a lane before mapping this lot.</Typography>
                       <Button
                         variant="outlined"
                         size="small"

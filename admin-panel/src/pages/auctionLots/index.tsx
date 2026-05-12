@@ -2655,13 +2655,24 @@ export const AuctionLots: React.FC = () => {
   }
 
   return (
-    <PageContainer>
+    <PageContainer sx={{ pt: { xs: 2.5, md: 3 } }}>
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
         alignItems={{ xs: "flex-start", md: "center" }}
         spacing={2}
         mb={2}
+        sx={(theme) => ({
+          position: "sticky",
+          top: { xs: 76, md: 86 },
+          zIndex: (theme.zIndex.appBar || 1100) - 1,
+          bgcolor: "background.default",
+          py: 1,
+          px: 0.5,
+          borderRadius: 1.5,
+          border: "1px solid",
+          borderColor: "divider",
+        })}
       >
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</Typography>

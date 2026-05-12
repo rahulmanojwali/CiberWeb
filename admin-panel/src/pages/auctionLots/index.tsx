@@ -79,6 +79,7 @@ type LotRow = {
   actual_end_time?: string | null;
   live_slot_number?: number | null;
   lot_end_time?: string | null;
+  effective_close_time?: string | null;
   scheduled_end_time?: string | null;
   auto_close_deadline?: string | null;
   product_schedule_status?: string | null;
@@ -1206,7 +1207,7 @@ export const AuctionLots: React.FC = () => {
             params.row.status || params.row.lot_status,
             params.row.session_status,
             params.row.session_closure_mode,
-            params.row.lot_end_time || params.row.scheduled_end_time || params.row.auto_close_deadline,
+            params.row.effective_close_time || params.row.lot_end_time || params.row.scheduled_end_time || params.row.auto_close_deadline,
             params.row.session_scheduled_end_time,
             params.row.product_end_time,
             params.row.product_start_time,
@@ -1646,7 +1647,8 @@ export const AuctionLots: React.FC = () => {
         actual_start_time: item?.actual_start_time || null,
         actual_end_time: item?.actual_end_time || null,
         live_slot_number: item?.live_slot_number !== undefined && item?.live_slot_number !== null ? Number(item.live_slot_number) : null,
-        lot_end_time: item?.lot_end_time || item?.product_end_time || item?.scheduled_end_time || item?.auto_close_deadline || null,
+        effective_close_time: item?.effective_close_time || item?.lot_end_time || item?.product_end_time || item?.scheduled_end_time || item?.actual_end_time || item?.auto_close_deadline || item?.end_time || null,
+        lot_end_time: item?.effective_close_time || item?.lot_end_time || item?.product_end_time || item?.scheduled_end_time || item?.actual_end_time || item?.auto_close_deadline || item?.end_time || null,
         scheduled_end_time: item?.scheduled_end_time || null,
         auto_close_deadline: item?.auto_close_deadline || null,
         product_schedule_status: item?.product_schedule_status || null,

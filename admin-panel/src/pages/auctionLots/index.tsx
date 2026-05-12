@@ -344,13 +344,23 @@ function normalizeLaneKey(value: any): string {
   return LANE_KEY_ALIASES[normalized] || normalized;
 }
 
+function normalizeCommodityGroupLabel(value: any): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const primary = raw
+    .split(/[\/|>]/)
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)[0];
+  return primary || raw;
+}
+
 function resolveCommodityMatchValue(input: any): string {
   const candidates = [
     input?.commodity_group,
     input?.commodity_group_code,
     input?.commodity_code,
-    input?.commodity_name,
-    input?.commodity_name_en,
+    normalizeCommodityGroupLabel(input?.commodity_name),
+    normalizeCommodityGroupLabel(input?.commodity_name_en),
   ];
   for (const candidate of candidates) {
     const normalized = normalizeLaneKey(candidate);
@@ -1463,7 +1473,7 @@ export const AuctionLots: React.FC = () => {
     const orgCode = lot?.org_code ? String(lot.org_code) : null;
     const mandiId = lot?.mandi_id !== undefined && lot?.mandi_id !== null ? Number(lot.mandi_id) : null;
     const mandiCode = lot?.mandi_code ? String(lot.mandi_code) : null;
-    const allowedStatuses = new Set(["PLANNED", "LIVE"]);
+    const allowedStatuses = new Set(["PLANNED", "LIVE", "READY_TO_CLOSE"]);
     const wantedLaneType = normalizeLaneType(lot?.lane_type) || "COMMODITY_LANE";
     const wantedCode = normalizeLaneTextUpper(lot?.commodity_group_code || lot?.commodity_code || "");
     const wantedLabel = normalizeLaneTextUpper(lot?.commodity_group || lot?.commodity_name || lot?.commodity_name_en || lot?.commodity || "");

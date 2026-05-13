@@ -892,6 +892,16 @@ export const AuctionLots: React.FC = () => {
   );
   const selectedLaneStartDate = resolvedLaneWindow.laneStart;
   const selectedLaneEndDate = resolvedLaneWindow.laneEnd;
+  useEffect(() => {
+    console.info("[CreateAuctionLot][selectedLaneWindowShownInUI]", {
+      selectedLaneWindowShownInUI: {
+        start: selectedLaneStartDate ? selectedLaneStartDate.toISOString() : null,
+        end: selectedLaneEndDate ? selectedLaneEndDate.toISOString() : null,
+      },
+      selected_session_id: createForm.session_id || null,
+      auto_assign_lane: Boolean(createForm.auto_assign_lane),
+    });
+  }, [selectedLaneStartDate, selectedLaneEndDate, createForm.session_id, createForm.auto_assign_lane]);
   const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedLaneStartDate || null), [selectedLaneStartDate]);
   const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedLaneEndDate || null), [selectedLaneEndDate]);
   const productEndMinTime = useMemo(
@@ -2358,6 +2368,10 @@ export const AuctionLots: React.FC = () => {
     setCreateAssignLoading(true);
     setCreateError(null);
     try {
+      console.info("[CreateAuctionLot][submittedLaneWindow]", {
+        userSubmittedLaneStart: createAssignForm.scheduled_start_time || null,
+        userSubmittedLaneEnd: createAssignForm.scheduled_end_time || null,
+      });
       const resp: any = await postEncrypted("/admin/createLaneAndAssignLot", {
         api: "createLaneAndAssignLot",
         api_name: "createLaneAndAssignLot",
@@ -2377,6 +2391,10 @@ export const AuctionLots: React.FC = () => {
           max_queue_size: Number(createAssignForm.max_queue_size || inlineLanePrefill?.max_queue_size || 25),
         },
       });
+      console.info("[CreateAuctionLot][submittedLanePayloadWindow]", {
+        payload_scheduled_start_time: createAssignForm.scheduled_start_time || null,
+        payload_scheduled_end_time: createAssignForm.scheduled_end_time || null,
+      });
       const rc = resp?.response?.responsecode ?? resp?.responsecode;
       const desc = resp?.response?.description ?? resp?.description;
       if (String(rc) !== "0") {
@@ -2388,6 +2406,10 @@ export const AuctionLots: React.FC = () => {
       const createdLaneId = normalizeLaneSessionId(createdLane) || normalizeLaneSessionId(data);
       const createdLaneName = createdLane?.lane_name || createdLane?.session_name || data?.lane_name || data?.session_name || data?.session_code || "—";
       const matchingLaneAlreadyExisted = String(desc || "").toLowerCase().includes("already existed");
+      console.info("[CreateAuctionLot][persistedSessionWindow]", {
+        persistedSession_scheduled_start_time: data?.scheduled_start_time || createdLane?.scheduled_start_time || null,
+        persistedSession_scheduled_end_time: data?.scheduled_end_time || createdLane?.scheduled_end_time || null,
+      });
       console.info("[CreateAuctionLot][createdLaneFromApi]", {
         createdLane,
         createdLaneId: createdLaneId || null,
@@ -2403,7 +2425,7 @@ export const AuctionLots: React.FC = () => {
       setCreateSuccess(
         data?.lane_created
           ? `Using newly created lane: ${createdLaneName}`
-          : "A matching lane already existed. Using that lane.",
+          : `A matching lane already existed. Using that lane. Existing window: ${formatDate(data?.scheduled_start_time || createdLane?.scheduled_start_time) || "—"} to ${formatDate(data?.scheduled_end_time || createdLane?.scheduled_end_time) || "—"}.`,
       );
       setOpenCreateAssignConfirm(false);
       // Mandatory explicit lane refresh from backend after lane creation.
@@ -2456,6 +2478,7 @@ export const AuctionLots: React.FC = () => {
           : hasCreatedLaneInOptions
             ? createdLaneId
             : String(firstCompatible?.value || "");
+      const selectedLaneAfterRefresh = refreshedOptions.find((opt) => String(opt?.value || "") === String(finalLaneId))?.session || null;
       setCreateForm((prev) => ({
         ...prev,
         auto_assign_lane: prev.auto_assign_lane,
@@ -2474,6 +2497,10 @@ export const AuctionLots: React.FC = () => {
       console.info("[CreateAuctionLot][selectedLaneIdAfterRefresh]", {
         selected_lane_id: finalLaneId || null,
         matching_lane_already_existed: matchingLaneAlreadyExisted,
+        selectedLaneWindowShownInUI: {
+          start: selectedLaneAfterRefresh?.scheduled_start_time || selectedLaneAfterRefresh?.start_time || null,
+          end: selectedLaneAfterRefresh?.scheduled_end_time || selectedLaneAfterRefresh?.end_time || null,
+        },
       });
     } catch (err: any) {
       setCreateError(err?.message || "Unable to create lane. Please try again.");

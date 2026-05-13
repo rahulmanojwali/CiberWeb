@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-//hi
+
 import {
   Autocomplete,
   Alert,
@@ -411,6 +411,25 @@ const normalizeLaneSessionId = (lane: any): string => String(
   || lane?.lane_session_id
   || "",
 ).trim();
+
+const extractSessionsFromMappingResponse = (resp: any): any[] => {
+  const candidates = [
+    resp?.items,
+    resp?.sessions,
+    resp?.data,
+    resp?.data?.items,
+    resp?.data?.sessions,
+    resp?.response?.items,
+    resp?.response?.sessions,
+    resp?.response?.data,
+    resp?.response?.data?.items,
+    resp?.response?.data?.sessions,
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+  return [];
+};
 
 const closureModeHelperText = (closureMode: string) => {
   if (closureMode === "MANUAL_ONLY" || closureMode === "MANUAL") return "Admin must start and close lots manually. Use only for special cases.";
@@ -970,6 +989,7 @@ export const AuctionLots: React.FC = () => {
     && !lanePreviewLoading
     && !lanePreviewError
     && !autoAssignedCreateSession
+    && !createForm.session_id
     && compatibleSessionOptions.length === 0
   );
   const submitDisabledReason = useMemo(() => {
@@ -2092,11 +2112,21 @@ export const AuctionLots: React.FC = () => {
           lot_id: includeLotId ? (lot?._id || lot?.lot_id || undefined) : undefined,
         },
       });
+      console.log("[CreateAuctionLot][mappingSessionsResponse]", resp);
       if (requestId !== lanePreviewRequestIdRef.current) return { sessions: [] as any[], options: [] as SessionOption[] };
-      const sessions = resp?.data?.items ?? resp?.response?.data?.items ?? [];
+      const sessions = extractSessionsFromMappingResponse(resp);
       setSessionItems(sessions);
       const options = buildSessionOptionsForLot(lot, sessions);
       setSessionOptions(options);
+      console.info("[CreateAuctionLot][compatibleSessionsRawCount]", {
+        count: sessions.length,
+        include_lot_id: includeLotId,
+      });
+      console.info("[CreateAuctionLot][compatibleLaneOptions]", options.map((opt) => ({
+        lane_id: String(opt?.value || ""),
+        lane_name: opt?.session?.session_name || opt?.session?.session_code || null,
+        compatible: Boolean(opt?.rank_meta?.isCompatible),
+      })));
       console.info("[CreateAuctionLot][lanePreview]", {
         selected_lot_id: lot?._id || lot?.lot_id || null,
         selected_lot_commodity_group: lot?.commodity_group || lot?.commodity_name || lot?.commodity_name_en || null,
@@ -2356,6 +2386,7 @@ export const AuctionLots: React.FC = () => {
       const createdLane = data?.lane || data?.session || data || {};
       const createdLaneId = normalizeLaneSessionId(createdLane) || normalizeLaneSessionId(data);
       const createdLaneName = createdLane?.lane_name || createdLane?.session_name || data?.lane_name || data?.session_name || data?.session_code || "—";
+      const matchingLaneAlreadyExisted = String(desc || "").toLowerCase().includes("already existed");
       console.info("[CreateAuctionLot][createdLaneFromApi]", {
         createdLane,
         createdLaneId: createdLaneId || null,
@@ -2412,19 +2443,36 @@ export const AuctionLots: React.FC = () => {
             reason: opt?.rank_meta?.why || 'NOT_COMPATIBLE',
           })),
       });
-      const finalLaneId = hasCreatedLaneInOptions
-        ? createdLaneId
-        : normalizeLaneSessionId(refreshedOptions.find((opt) => Boolean(opt?.rank_meta?.isCompatible))?.session || {});
+      const createdLaneOption = createdLaneId
+        ? refreshedOptions.find((opt) => String(opt?.value || "") === String(createdLaneId))
+        : null;
+      const firstCompatible = refreshedOptions.find((opt) => Boolean(opt?.rank_meta?.isCompatible));
+      const firstAny = refreshedOptions[0] || null;
+      const finalLaneId = createdLaneOption
+        ? String(createdLaneOption.value || "")
+        : matchingLaneAlreadyExisted
+          ? String(firstCompatible?.value || firstAny?.value || "")
+          : hasCreatedLaneInOptions
+            ? createdLaneId
+            : String(firstCompatible?.value || "");
       setCreateForm((prev) => ({
         ...prev,
-        auto_assign_lane: false,
-        session_id: finalLaneId || "",
+        auto_assign_lane: prev.auto_assign_lane,
+        session_id: finalLaneId || prev.session_id || "",
         product_start_time: prev.product_start_time || createAssignForm.scheduled_start_time,
         product_end_time: prev.product_end_time || createAssignForm.scheduled_end_time,
       }));
+      if (finalLaneId) {
+        setLanePreviewError(null);
+        setCreateError(null);
+      }
       console.info("[CreateAuctionLot][laneSelectedAfterCreate]", {
         selected_lane_id: finalLaneId || null,
         selected_lane_name: createdLaneName,
+      });
+      console.info("[CreateAuctionLot][selectedLaneIdAfterRefresh]", {
+        selected_lane_id: finalLaneId || null,
+        matching_lane_already_existed: matchingLaneAlreadyExisted,
       });
     } catch (err: any) {
       setCreateError(err?.message || "Unable to create lane. Please try again.");

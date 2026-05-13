@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+//hi
 import {
   Autocomplete,
   Alert,
@@ -401,6 +402,15 @@ const toDateTimeInputValue = (value?: string | Date | null) => {
   if (Number.isNaN(date.getTime())) return "";
   return toDateTimeLocal(date);
 };
+
+const normalizeLaneSessionId = (lane: any): string => String(
+  lane?._id
+  || lane?.id
+  || lane?.session_id
+  || lane?.auction_session_id
+  || lane?.lane_session_id
+  || "",
+).trim();
 
 const closureModeHelperText = (closureMode: string) => {
   if (closureMode === "MANUAL_ONLY" || closureMode === "MANUAL") return "Admin must start and close lots manually. Use only for special cases.";
@@ -959,6 +969,7 @@ export const AuctionLots: React.FC = () => {
     && selectedLot
     && !lanePreviewLoading
     && !lanePreviewError
+    && !autoAssignedCreateSession
     && compatibleSessionOptions.length === 0
   );
   const submitDisabledReason = useMemo(() => {
@@ -970,7 +981,7 @@ export const AuctionLots: React.FC = () => {
     if (!createBasePriceValid) return "ENTER_OPENING_PRICE";
     if (createLoading) return "IS_SUBMITTING";
     if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
-    if (createForm.auto_assign_lane && !autoAssignedCreateSession) return "NO_COMPATIBLE_LANE";
+    if (createForm.auto_assign_lane && !autoAssignedCreateSession && !createForm.session_id) return "NO_COMPATIBLE_LANE";
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
     if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
     if (!timingValidationMessage.valid) return "PRODUCT_TIMING_INVALID";
@@ -990,6 +1001,14 @@ export const AuctionLots: React.FC = () => {
     timingValidationMessage.valid,
   ]);
   const createSubmitDisabled = Boolean(submitDisabledReason);
+  useEffect(() => {
+    console.info("[CreateAuctionLot][submitDisabledReason]", {
+      reason: submitDisabledReason || null,
+      disabled: createSubmitDisabled,
+      selected_lane_id: createForm.session_id || null,
+      auto_assign_lane: Boolean(createForm.auto_assign_lane),
+    });
+  }, [submitDisabledReason, createSubmitDisabled, createForm.session_id, createForm.auto_assign_lane]);
   const inlineLanePrefill = useMemo(() => {
     if (!selectedLot) return null;
     const start = roundToNearestFiveMinutes(new Date());
@@ -1500,7 +1519,7 @@ export const AuctionLots: React.FC = () => {
     const orgCode = lot?.org_code ? String(lot.org_code) : null;
     const mandiId = lot?.mandi_id !== undefined && lot?.mandi_id !== null ? Number(lot.mandi_id) : null;
     const mandiCode = lot?.mandi_code ? String(lot.mandi_code) : null;
-    const allowedStatuses = new Set(["PLANNED", "LIVE", "READY_TO_CLOSE"]);
+    const allowedStatuses = new Set(["PLANNED", "LIVE", "READY_TO_CLOSE", "PAUSED", "OPEN"]);
     const wantedLaneType = normalizeLaneType(lot?.lane_type) || "COMMODITY_LANE";
     const wantedCode = normalizeLaneTextUpper(lot?.commodity_group_code || lot?.commodity_code || "");
     const wantedLabel = normalizeLaneTextUpper(lot?.commodity_group || lot?.commodity_name || lot?.commodity_name_en || lot?.commodity || "");
@@ -2049,17 +2068,18 @@ export const AuctionLots: React.FC = () => {
     }
   };
 
-  const fetchLanePreviewForSelectedLot = async (lot: any) => {
+  const fetchLanePreviewForSelectedLot = async (lot: any, opts?: { includeLotId?: boolean }) => {
     const username = currentUsername();
     if (!username || !lot || !canSessionsList) {
       setLanePreviewLoading(false);
       setLanePreviewError(!canSessionsList ? "Missing permission: auction_sessions.list (VIEW)." : null);
-      return;
+      return { sessions: [] as any[], options: [] as SessionOption[] };
     }
     const requestId = ++lanePreviewRequestIdRef.current;
     setLanePreviewLoading(true);
     setLanePreviewError(null);
     setSessionOptions([]);
+    const includeLotId = opts?.includeLotId !== false;
     try {
       const resp = await getAuctionSessions({
         username,
@@ -2069,10 +2089,10 @@ export const AuctionLots: React.FC = () => {
           mandi_id: lot?.mandi_id ?? lot?.mandi_id_value ?? (filters.mandi_code ? Number(filters.mandi_code) : undefined),
           page_size: 100,
           usable_for_mapping: true,
-          lot_id: lot?._id || lot?.lot_id || undefined,
+          lot_id: includeLotId ? (lot?._id || lot?.lot_id || undefined) : undefined,
         },
       });
-      if (requestId !== lanePreviewRequestIdRef.current) return;
+      if (requestId !== lanePreviewRequestIdRef.current) return { sessions: [] as any[], options: [] as SessionOption[] };
       const sessions = resp?.data?.items ?? resp?.response?.data?.items ?? [];
       setSessionItems(sessions);
       const options = buildSessionOptionsForLot(lot, sessions);
@@ -2091,11 +2111,13 @@ export const AuctionLots: React.FC = () => {
             rejection_reason: opt?.rank_meta?.why || 'NOT_COMPATIBLE',
           })),
       });
+      return { sessions, options };
     } catch (_err: any) {
-      if (requestId !== lanePreviewRequestIdRef.current) return;
+      if (requestId !== lanePreviewRequestIdRef.current) return { sessions: [] as any[], options: [] as SessionOption[] };
       setSessionItems([]);
       setSessionOptions([]);
       setLanePreviewError("Unable to check lane assignment. Please refresh or create lane manually.");
+      return { sessions: [] as any[], options: [] as SessionOption[] };
     } finally {
       if (requestId === lanePreviewRequestIdRef.current) {
         setLanePreviewLoading(false);
@@ -2190,6 +2212,9 @@ export const AuctionLots: React.FC = () => {
     setCreateError(null);
     setCreateSuccess(null);
     try {
+      const selectedLaneIdForSubmit = createForm.session_id
+        || normalizeLaneSessionId(autoAssignedCreateSession)
+        || "";
       const payload = {
         api: "mapLotToAuctionSession",
         api_name: "mapLotToAuctionSession",
@@ -2198,7 +2223,7 @@ export const AuctionLots: React.FC = () => {
         language,
         lot_id: createForm.lot_id,
         auto_assign_lane: Boolean(createForm.auto_assign_lane),
-        session_id: createForm.auto_assign_lane ? undefined : (createForm.session_id || undefined),
+        session_id: selectedLaneIdForSubmit || undefined,
         start_price_per_qtl: createBasePriceRaw,
         product_start_time: createForm.product_start_time || undefined,
         product_end_time: createForm.product_end_time || undefined,
@@ -2207,9 +2232,7 @@ export const AuctionLots: React.FC = () => {
       };
       console.info("[CreateAuctionLot][productTiming]", {
         lot_id: createForm.lot_id || null,
-        lane_session_id: createForm.auto_assign_lane
-          ? (autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || null)
-          : (createForm.session_id || null),
+        lane_session_id: selectedLaneIdForSubmit || null,
         product_start_time: payload.product_start_time || null,
         product_end_time: payload.product_end_time || null,
       });
@@ -2330,8 +2353,13 @@ export const AuctionLots: React.FC = () => {
         return;
       }
       const data = resp?.data || resp?.response?.data || {};
-      const createdLaneId = String(data?.session_id || "");
-      const createdLaneName = data?.lane_name || data?.session_code || "—";
+      const createdLane = data?.lane || data?.session || data || {};
+      const createdLaneId = normalizeLaneSessionId(createdLane) || normalizeLaneSessionId(data);
+      const createdLaneName = createdLane?.lane_name || createdLane?.session_name || data?.lane_name || data?.session_name || data?.session_code || "—";
+      console.info("[CreateAuctionLot][createdLaneFromApi]", {
+        createdLane,
+        createdLaneId: createdLaneId || null,
+      });
       console.info("[CreateAuctionLot][laneCreateResult]", {
         selected_lot_id: selectedLot?._id || selectedLot?.lot_id || null,
         selected_lot_commodity_group: selectedLot?.commodity_group || selectedLot?.commodity_name || selectedLot?.commodity_name_en || null,
@@ -2345,23 +2373,31 @@ export const AuctionLots: React.FC = () => {
           ? `Using newly created lane: ${createdLaneName}`
           : "A matching lane already existed. Using that lane.",
       );
-      const refreshResp = await getAuctionSessions({
-        username,
-        language,
-        filters: {
-          org_id: selectedLot?.org_id || undefined,
-          mandi_id: selectedLot?.mandi_id ?? selectedLot?.mandi_id_value ?? undefined,
-          page_size: 100,
-          usable_for_mapping: true,
-          lot_id: selectedLot?._id || selectedLot?.lot_id || undefined,
-        },
+      setOpenCreateAssignConfirm(false);
+      // Mandatory explicit lane refresh from backend after lane creation.
+      let refreshed = await fetchLanePreviewForSelectedLot(selectedLot, { includeLotId: true });
+      let refreshedOptions = refreshed.options;
+      console.info("[CreateAuctionLot][compatibleLaneApiResponse]", {
+        pass: "with_lot_id",
+        count: refreshedOptions.length,
       });
-      const refreshedSessions = refreshResp?.data?.items ?? refreshResp?.response?.data?.items ?? [];
-      const refreshedOptions = buildSessionOptionsForLot(selectedLot, refreshedSessions);
-      setSessionItems(refreshedSessions);
-      setSessionOptions(refreshedOptions);
-      const hasCreatedLaneInOptions = refreshedOptions.some((opt) => String(opt?.value || "") === createdLaneId);
+      let hasCreatedLaneInOptions = Boolean(
+        createdLaneId
+        && refreshedOptions.some((opt) => String(opt?.value || "") === createdLaneId),
+      );
+      // Fallback re-fetch without lot_id filter in case usable_for_mapping backend filter is strict.
+      if (createdLaneId && !hasCreatedLaneInOptions) {
+        refreshed = await fetchLanePreviewForSelectedLot(selectedLot, { includeLotId: false });
+        refreshedOptions = refreshed.options;
+        console.info("[CreateAuctionLot][compatibleLaneApiResponse]", {
+          pass: "without_lot_id",
+          count: refreshedOptions.length,
+        });
+        hasCreatedLaneInOptions = refreshedOptions.some((opt) => String(opt?.value || "") === createdLaneId);
+      }
       console.info("[CreateAuctionLot][laneRefreshAfterCreate]", {
+        created_lane_id: createdLaneId || null,
+        created_lane_name: createdLaneName,
         selected_lot_commodity_group: selectedLot?.commodity_group || selectedLot?.commodity_name || selectedLot?.commodity_name_en || null,
         selected_lot_commodity_group_code: selectedLot?.commodity_group_code || selectedLot?.commodity_code || null,
         compatible_lane_count: refreshedOptions.filter((opt) => Boolean(opt?.rank_meta?.isCompatible)).length,
@@ -2376,42 +2412,20 @@ export const AuctionLots: React.FC = () => {
             reason: opt?.rank_meta?.why || 'NOT_COMPATIBLE',
           })),
       });
-      if (createdLaneId && !hasCreatedLaneInOptions) {
-        const fallbackLane = {
-          _id: createdLaneId,
-          session_id: createdLaneId,
-          session_name: createdLaneName,
-          session_code: data?.session_code || null,
-          commodity_group: resolvedLotCommodity?.label || inlineLanePrefill?.commodity_group || null,
-          commodity_group_code: resolvedLotCommodity?.normalizedCode || inlineLanePrefill?.commodity_group_code || null,
-          lane_type: createAssignForm.lane_type || "COMMODITY_LANE",
-          status: "PLANNED",
-          derived_status: "PLANNED",
-          queued_count: 0,
-        };
-        const mergedSessions = [...sessionItems, fallbackLane];
-        const mergedOptions = buildSessionOptionsForLot(selectedLot, mergedSessions);
-        setSessionItems(mergedSessions);
-        setSessionOptions(mergedOptions);
-        console.info("[CreateAuctionLot][laneRefreshFallbackInjected]", {
-          lane_id: createdLaneId,
-          lane_name: createdLaneName,
-          compatible_lane_count: mergedOptions.filter((opt) => Boolean(opt?.rank_meta?.isCompatible)).length,
-        });
-      }
+      const finalLaneId = hasCreatedLaneInOptions
+        ? createdLaneId
+        : normalizeLaneSessionId(refreshedOptions.find((opt) => Boolean(opt?.rank_meta?.isCompatible))?.session || {});
       setCreateForm((prev) => ({
         ...prev,
         auto_assign_lane: false,
-        session_id: createdLaneId || String(prev.session_id || ""),
+        session_id: finalLaneId || "",
         product_start_time: prev.product_start_time || createAssignForm.scheduled_start_time,
         product_end_time: prev.product_end_time || createAssignForm.scheduled_end_time,
       }));
       console.info("[CreateAuctionLot][laneSelectedAfterCreate]", {
-        selected_lane_id: createdLaneId || null,
+        selected_lane_id: finalLaneId || null,
         selected_lane_name: createdLaneName,
       });
-      setOpenCreateAssignConfirm(false);
-      await loadData();
     } catch (err: any) {
       setCreateError(err?.message || "Unable to create lane. Please try again.");
     } finally {
@@ -3525,7 +3539,7 @@ export const AuctionLots: React.FC = () => {
                     helperText="Manual selection only. Lane must match lot commodity group and lane type."
                   >
                     <MenuItem value="">Select</MenuItem>
-                    {compatibleSessionOptions.map((s) => (
+                    {sessionOptions.map((s) => (
                       <MenuItem
                         key={s.value}
                         value={s.value}
@@ -3550,8 +3564,8 @@ export const AuctionLots: React.FC = () => {
                             Queue: {s.session?.queued_count ?? 0} · Active: {s.session?.active_lot_code || "-"} · Status: {s.session?.status_display || s.session?.derived_status || s.session?.status || "-"} · Overflow: {s.session?.is_overflow_lane ? "Yes" : "No"}
                           </Typography>
                           {s.rank_meta?.why && (
-                            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
-                              {s.rank_meta?.isCompatible ? `Best match for selected lot · ${s.rank_meta.why}` : s.rank_meta.why}
+                            <Typography variant="caption" sx={{ color: s.rank_meta?.isCompatible ? "success.main" : "text.secondary", fontWeight: 600 }}>
+                              {s.rank_meta?.isCompatible ? `Best match for selected lot · ${s.rank_meta.why}` : `Lane available · ${s.rank_meta.why}`}
                             </Typography>
                           )}
                         </Stack>
@@ -3596,7 +3610,7 @@ export const AuctionLots: React.FC = () => {
                     Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.
                   </Alert>
                 )}
-                {selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && (
+                {selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && !effectiveCreateSession && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
                       <Typography variant="body2">No compatible auction lane is available for this mandi and commodity group. Please create a lane before mapping this lot.</Typography>

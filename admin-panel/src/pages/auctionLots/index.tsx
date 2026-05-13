@@ -1017,6 +1017,7 @@ export const AuctionLots: React.FC = () => {
     createForm.auto_assign_lane,
     autoAssignedCreateSession,
     createForm.session_id,
+    createForm.session_id,
     selectedLaneCommodityMismatch,
     timingValidationMessage.valid,
   ]);

@@ -210,8 +210,7 @@ function toValidDateOrNull(value: any): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getResolvedLaneWindow(selectedLane: any, autoAssignedLane: any, formValues: any) {
-  const lane = formValues?.auto_assign_lane ? autoAssignedLane : selectedLane;
+function getResolvedLaneWindow(lane: any) {
   const laneStart = toValidDateOrNull(
     lane?.scheduled_start_time
     || lane?.start_time
@@ -888,21 +887,24 @@ export const AuctionLots: React.FC = () => {
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
   const resolvedLaneWindow = useMemo(
-    () => getResolvedLaneWindow(selectedCreateSession, autoAssignedCreateSession, createForm),
-    [selectedCreateSession, autoAssignedCreateSession, createForm],
+    () => getResolvedLaneWindow(effectiveCreateSession),
+    [effectiveCreateSession],
   );
   const selectedLaneStartDate = resolvedLaneWindow.laneStart;
   const selectedLaneEndDate = resolvedLaneWindow.laneEnd;
   useEffect(() => {
-    console.info("[CreateAuctionLot][selectedLaneWindowShownInUI]", {
-      selectedLaneWindowShownInUI: {
-        start: selectedLaneStartDate ? selectedLaneStartDate.toISOString() : null,
-        end: selectedLaneEndDate ? selectedLaneEndDate.toISOString() : null,
-      },
-      selected_session_id: createForm.session_id || null,
-      auto_assign_lane: Boolean(createForm.auto_assign_lane),
+    console.info("[LaneWindow][render]", {
+      selectedLaneId: String(
+        effectiveCreateSession?._id
+        || effectiveCreateSession?.session_id
+        || createForm.session_id
+        || "",
+      ) || null,
+      selectedLaneStart: effectiveCreateSession?.scheduled_start_time || null,
+      selectedLaneEnd: effectiveCreateSession?.scheduled_end_time || null,
+      source: "selectedLane",
     });
-  }, [selectedLaneStartDate, selectedLaneEndDate, createForm.session_id, createForm.auto_assign_lane]);
+  }, [effectiveCreateSession, createForm.session_id]);
   const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedLaneStartDate || null), [selectedLaneStartDate]);
   const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedLaneEndDate || null), [selectedLaneEndDate]);
   const productEndMinTime = useMemo(
@@ -2384,6 +2386,7 @@ export const AuctionLots: React.FC = () => {
         api: "createLaneAndAssignLot",
         api_name: "createLaneAndAssignLot",
         mode: "CREATE_LANE_ONLY",
+        force_create_new_lane: true,
         username,
         country,
         language,
@@ -2396,10 +2399,15 @@ export const AuctionLots: React.FC = () => {
           commodity_group_code: resolvedLotCommodity?.normalizedCode || inlineLanePrefill?.commodity_group_code || normalizeCommodityGroupCode(resolvedLotCommodity?.label),
           scheduled_start_time: createAssignForm.scheduled_start_time,
           scheduled_end_time: createAssignForm.scheduled_end_time,
+          force_create_new_lane: true,
           max_queue_size: Number(createAssignForm.max_queue_size || inlineLanePrefill?.max_queue_size || 25),
         },
       };
-      console.info("[CreateAutoLane][payload]", createLanePayload);
+      console.info("[CreateAutoLane][payload]", {
+        scheduled_start_time: createLanePayload?.lane?.scheduled_start_time || null,
+        scheduled_end_time: createLanePayload?.lane?.scheduled_end_time || null,
+        force_create_new_lane: Boolean(createLanePayload?.lane?.force_create_new_lane),
+      });
       const resp: any = await postEncrypted("/admin/createLaneAndAssignLot", createLanePayload);
       console.info("[CreateAutoLane][apiResponse]", resp);
       console.info("[CreateAuctionLot][submittedLanePayloadWindow]", {
@@ -2490,9 +2498,35 @@ export const AuctionLots: React.FC = () => {
             ? createdLaneId
             : String(firstCompatible?.value || "");
       const selectedLaneAfterRefresh = refreshedOptions.find((opt) => String(opt?.value || "") === String(finalLaneId))?.session || null;
+      const selectedLaneFromBackend = finalLaneId
+        ? {
+            ...(selectedLaneAfterRefresh || createdLane || {}),
+            _id: normalizeLaneSessionId(selectedLaneAfterRefresh || createdLane || data) || finalLaneId,
+            session_id: normalizeLaneSessionId(selectedLaneAfterRefresh || createdLane || data) || finalLaneId,
+            scheduled_start_time:
+              data?.scheduled_start_time
+              || createdLane?.scheduled_start_time
+              || selectedLaneAfterRefresh?.scheduled_start_time
+              || null,
+            scheduled_end_time:
+              data?.scheduled_end_time
+              || createdLane?.scheduled_end_time
+              || selectedLaneAfterRefresh?.scheduled_end_time
+              || null,
+          }
+        : null;
+      if (selectedLaneFromBackend) {
+        setSessionItems((prev) => {
+          const next = Array.isArray(prev) ? [...prev] : [];
+          const idx = next.findIndex((row: any) => String(normalizeLaneSessionId(row)) === String(finalLaneId));
+          if (idx >= 0) next[idx] = { ...next[idx], ...selectedLaneFromBackend };
+          else next.unshift(selectedLaneFromBackend);
+          return next;
+        });
+      }
       setCreateForm((prev) => ({
         ...prev,
-        auto_assign_lane: prev.auto_assign_lane,
+        auto_assign_lane: false,
         session_id: finalLaneId || prev.session_id || "",
         product_start_time: prev.product_start_time || createAssignForm.scheduled_start_time,
         product_end_time: prev.product_end_time || createAssignForm.scheduled_end_time,
@@ -2509,8 +2543,8 @@ export const AuctionLots: React.FC = () => {
         selected_lane_id: finalLaneId || null,
         matching_lane_already_existed: matchingLaneAlreadyExisted,
         selectedLaneWindowShownInUI: {
-          start: selectedLaneAfterRefresh?.scheduled_start_time || selectedLaneAfterRefresh?.start_time || null,
-          end: selectedLaneAfterRefresh?.scheduled_end_time || selectedLaneAfterRefresh?.end_time || null,
+          start: selectedLaneFromBackend?.scheduled_start_time || null,
+          end: selectedLaneFromBackend?.scheduled_end_time || null,
         },
       });
     } catch (err: any) {
@@ -3746,7 +3780,7 @@ export const AuctionLots: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   If left blank, product will follow lane timing.
                 </Typography>
-                {effectiveCreateSession && (
+                {effectiveCreateSession ? (
                   <Stack spacing={0.4} sx={{ mb: 1.5 }}>
                     <Typography variant="body2">
                       <strong>Lane Window:</strong>
@@ -3763,6 +3797,10 @@ export const AuctionLots: React.FC = () => {
                       </Typography>
                     )}
                   </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    No lane selected
+                  </Typography>
                 )}
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
                   <Box sx={{ width: "100%" }}>

@@ -742,6 +742,7 @@ export const AuctionLots: React.FC = () => {
     max_queue_size: "25",
   });
   const createAutoLanePrefillInitializedRef = useRef(false);
+  const lastLaneResetLotIdRef = useRef<string>("");
 
   const persistedScope = readAuctionScope();
   const [filters, setFilters] = useState({
@@ -851,6 +852,24 @@ export const AuctionLots: React.FC = () => {
     [uiConfig.resources],
   );
   const canLotUpdate = useMemo(() => can(uiConfig.resources, "auction_lots.update", "UPDATE"), [uiConfig.resources]);
+  const resetLaneState = React.useCallback((reason: "modal_open" | "source_lot_changed", selectedLotId?: string | null) => {
+    setSessionItems([]);
+    setSessionOptions([]);
+    setLanePreviewError(null);
+    setLanePreviewLoading(false);
+    lanePreviewRequestIdRef.current += 1;
+    setCreateForm((prev) => ({
+      ...prev,
+      session_id: "",
+      auto_assign_lane: true,
+      product_start_time: "",
+      product_end_time: "",
+    }));
+    console.info("[CreateAuctionLot][resetLaneState]", {
+      reason,
+      selectedLotId: selectedLotId || null,
+    });
+  }, []);
   const selectedCreateSession = useMemo(
     () => sessionItems.find((s: any) => String(s._id || s.session_id || "") === String(createForm.session_id || "")) || null,
     [sessionItems, createForm.session_id],
@@ -894,6 +913,7 @@ export const AuctionLots: React.FC = () => {
   const selectedLaneEndDate = resolvedLaneWindow.laneEnd;
   useEffect(() => {
     console.info("[LaneWindow][render]", {
+      selectedLotId: String(selectedLot?._id || selectedLot?.lot_id || createForm.lot_id || "") || null,
       selectedLaneId: String(
         effectiveCreateSession?._id
         || effectiveCreateSession?.session_id
@@ -904,7 +924,7 @@ export const AuctionLots: React.FC = () => {
       selectedLaneEnd: effectiveCreateSession?.scheduled_end_time || null,
       source: "selectedLane",
     });
-  }, [effectiveCreateSession, createForm.session_id]);
+  }, [effectiveCreateSession, createForm.session_id, selectedLot?._id, selectedLot?.lot_id, createForm.lot_id]);
   const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedLaneStartDate || null), [selectedLaneStartDate]);
   const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedLaneEndDate || null), [selectedLaneEndDate]);
   const productEndMinTime = useMemo(
@@ -2783,6 +2803,7 @@ export const AuctionLots: React.FC = () => {
 
   useEffect(() => {
     if (openCreate) {
+      resetLaneState("modal_open", null);
       setOpenCreateAssignConfirm(false);
       setCreateAssignLoading(false);
       setCreateAssignForm({
@@ -2795,10 +2816,7 @@ export const AuctionLots: React.FC = () => {
       setCreateForm({ auto_assign_lane: true, session_id: "", lot_id: "", base_price: "", product_start_time: "", product_end_time: "" });
       setSelectedLot(null);
       setSourceLotSearch("");
-      setSessionOptions([]);
-      setLanePreviewLoading(false);
-      setLanePreviewError(null);
-      lanePreviewRequestIdRef.current += 1;
+      lastLaneResetLotIdRef.current = "";
       setCreateError(null);
       setCreateSessionForm({
         method_code: "OPEN_OUTCRY",
@@ -2823,7 +2841,7 @@ export const AuctionLots: React.FC = () => {
       loadCreateOptions({ includeSessions: true, search: "" });
       void loadData({ showLoader: false, includeCapacitySummary: true });
     }
-  }, [openCreate, language]);
+  }, [openCreate, language, resetLaneState]);
 
   useEffect(() => {
     if (!openCreate) return;
@@ -2847,6 +2865,18 @@ export const AuctionLots: React.FC = () => {
       return exists ? prev : { ...prev, session_id: "" };
     });
   }, [selectedLot, sessionItems]);
+
+  useEffect(() => {
+    if (!openCreate) return;
+    const selectedLotId = String(selectedLot?._id || selectedLot?.lot_id || "");
+    if (!selectedLotId) {
+      lastLaneResetLotIdRef.current = "";
+      return;
+    }
+    if (lastLaneResetLotIdRef.current === selectedLotId) return;
+    resetLaneState("source_lot_changed", selectedLotId);
+    lastLaneResetLotIdRef.current = selectedLotId;
+  }, [openCreate, selectedLot?._id, selectedLot?.lot_id, resetLaneState]);
 
   useEffect(() => {
     if (!openCreate) return;
@@ -3799,7 +3829,7 @@ export const AuctionLots: React.FC = () => {
                   </Stack>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    No lane selected
+                    No lane selected yet.
                   </Typography>
                 )}
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>

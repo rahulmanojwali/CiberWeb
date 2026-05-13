@@ -742,6 +742,7 @@ export const AuctionLots: React.FC = () => {
     scheduled_end_time: "",
     max_queue_size: "25",
   });
+  const createAutoLanePrefillInitializedRef = useRef(false);
 
   const persistedScope = readAuctionScope();
   const [filters, setFilters] = useState({
@@ -1077,7 +1078,7 @@ export const AuctionLots: React.FC = () => {
     ? "You do not have permission to create lane."
     : null;
   useEffect(() => {
-    if (!openCreateAssignConfirm || !inlineLanePrefill) return;
+    if (!openCreateAssignConfirm || !inlineLanePrefill || createAutoLanePrefillInitializedRef.current) return;
     setCreateAssignForm({
       lane_name: inlineLanePrefill.lane_name || "",
       lane_type: inlineLanePrefill.lane_type || "COMMODITY_LANE",
@@ -1085,7 +1086,13 @@ export const AuctionLots: React.FC = () => {
       scheduled_end_time: inlineLanePrefill.scheduled_end_time || "",
       max_queue_size: String(inlineLanePrefill.max_queue_size || 25),
     });
+    createAutoLanePrefillInitializedRef.current = true;
   }, [openCreateAssignConfirm, inlineLanePrefill]);
+  useEffect(() => {
+    if (!openCreateAssignConfirm) {
+      createAutoLanePrefillInitializedRef.current = false;
+    }
+  }, [openCreateAssignConfirm]);
   const noSingleMandiDefault = scopedMandiCodes.length > 1 || (scopedMandiCodes.length === 0 && mandiOptions.length > 1);
   const requiresMandiSelection = uiConfig.role !== "SUPER_ADMIN" && noSingleMandiDefault && !filters.mandi_code;
   const showMandiInstruction = !loading && requiresMandiSelection;
@@ -2368,11 +2375,12 @@ export const AuctionLots: React.FC = () => {
     setCreateAssignLoading(true);
     setCreateError(null);
     try {
-      console.info("[CreateAuctionLot][submittedLaneWindow]", {
+      console.info("[CreateAutoLane][stateBeforeSubmit]", {
         userSubmittedLaneStart: createAssignForm.scheduled_start_time || null,
         userSubmittedLaneEnd: createAssignForm.scheduled_end_time || null,
+        form: createAssignForm,
       });
-      const resp: any = await postEncrypted("/admin/createLaneAndAssignLot", {
+      const createLanePayload = {
         api: "createLaneAndAssignLot",
         api_name: "createLaneAndAssignLot",
         mode: "CREATE_LANE_ONLY",
@@ -2390,7 +2398,10 @@ export const AuctionLots: React.FC = () => {
           scheduled_end_time: createAssignForm.scheduled_end_time,
           max_queue_size: Number(createAssignForm.max_queue_size || inlineLanePrefill?.max_queue_size || 25),
         },
-      });
+      };
+      console.info("[CreateAutoLane][payload]", createLanePayload);
+      const resp: any = await postEncrypted("/admin/createLaneAndAssignLot", createLanePayload);
+      console.info("[CreateAutoLane][apiResponse]", resp);
       console.info("[CreateAuctionLot][submittedLanePayloadWindow]", {
         payload_scheduled_start_time: createAssignForm.scheduled_start_time || null,
         payload_scheduled_end_time: createAssignForm.scheduled_end_time || null,

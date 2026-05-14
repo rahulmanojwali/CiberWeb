@@ -86,13 +86,25 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Auction",
+    "resource_key": "auction_policy_settings.menu",
+    "menu_name": "Auction Policy Settings",
+    "name_source": "screen",
+    "i18n_key": "menu.auctionPolicySettings",
+    "route": "/auction-policy-settings",
+    "icon_key": "settings",
+    "order": 83,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Auction",
     "resource_key": "auction_results.menu",
     "menu_name": "Auction Results",
     "name_source": "screen",
     "i18n_key": "menu.auctionResults",
     "route": "/auction-results",
     "icon_key": "auction_results",
-    "order": 83,
+    "order": 84,
     "metadata_group": "main_sidebar",
     "is_active": true
   },

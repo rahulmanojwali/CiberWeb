@@ -370,21 +370,24 @@ function resolveCommodityMatchValue(input: any): string {
 }
 
 function resolveLotCommodityGroup(lot: any) {
-  const rawCodeOrSlug = String(
+  const groupSeed = normalizeCommodityGroupLabel(
     lot?.commodity_group
-    || lot?.commodity_group_code
-    || lot?.commodity_code
+    || lot?.commodity_group_name
+    || lot?.commodity_group_name_en
     || lot?.commodity_name
     || lot?.commodity_name_en
-    || "",
-  ).trim();
-  const label = String(
-    lot?.commodity_group
     || lot?.commodity
-    || lot?.commodity_name_en
     || lot?.commodity_slug
-    || "Selected Commodity",
-  ).trim();
+    || "",
+  );
+  const codeSeed = normalizeCommodityGroupLabel(
+    lot?.commodity_group_code
+    || lot?.commodity_code
+    || groupSeed
+    || "",
+  );
+  const label = String(groupSeed || "Selected Commodity").trim();
+  const rawCodeOrSlug = String(codeSeed || label).trim();
   return {
     codeOrSlug: rawCodeOrSlug || "",
     label: label || "Selected Commodity",
@@ -1054,8 +1057,11 @@ export const AuctionLots: React.FC = () => {
   const createSubmitDisabled = Boolean(
     createLoading
     || !createForm.lot_id
+    || !selectedLot
+    || !canLotUpdate
     || !createBasePriceValid
     || (!createForm.auto_assign_lane && !createForm.session_id)
+    || (!createForm.auto_assign_lane && selectedLaneCommodityMismatch)
     || shouldBlockSubmitForTiming
   );
   useEffect(() => {
@@ -1610,8 +1616,15 @@ export const AuctionLots: React.FC = () => {
         const exactLabelMatch = Boolean(wantedLabel && laneLabel && wantedLabel === laneLabel);
         const isCommodityCompatible = isCommodityLane && commodityGroupMatch;
         const isGenericFallback = isOverflowLane || isGeneralLane;
-        const compatible = isCommodityCompatible || isGenericFallback;
-        const rank = isCommodityCompatible ? 0 : isGenericFallback ? 1 : (exactCodeMatch ? 2 : exactLabelMatch ? 3 : 9);
+        const backendCompatible =
+          s?.is_compatible === true
+          || s?.suggested_for_selected_lot === true
+          || (
+            s?.queue_available === true
+            && String(s?.suggestion_reason || "").toLowerCase().includes("reusable")
+          );
+        const compatible = backendCompatible || isCommodityCompatible || isGenericFallback;
+        const rank = backendCompatible ? 0 : isCommodityCompatible ? 0 : isGenericFallback ? 1 : 9;
         const queueLimit = Number(s?.max_queue_size || 0) > 0
           ? Number(s?.max_queue_size || 0)
           : Number(capacitySummary?.mandi_effective?.max_queue_per_lane || 25);
@@ -1619,7 +1632,9 @@ export const AuctionLots: React.FC = () => {
         const queueRemaining = Number.isFinite(queueLimit) ? Math.max(0, queueLimit - queuedCount) : null;
         const queueAvailable = queueLimit <= 0 || queuedCount < queueLimit;
         const endMs = s?.scheduled_end_time ? new Date(s.scheduled_end_time).getTime() : Number.MAX_SAFE_INTEGER;
-        const why = isCommodityCompatible
+        const why = backendCompatible
+          ? (String(s?.suggestion_reason || "").trim() || "Backend reusable/compatible lane")
+          : isCommodityCompatible
           ? "Commodity group match"
           : isGenericFallback
           ? "Generic mandi lane fallback"
@@ -2248,11 +2263,11 @@ export const AuctionLots: React.FC = () => {
     }
     const laneStart = selectedLaneStartDate;
     const laneEnd = selectedLaneEndDate;
-    if (laneStart && selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
+    if (!createForm.auto_assign_lane && laneStart && selectedProductStart && selectedProductStart.getTime() < laneStart.getTime()) {
       setCreateError(`Product timing invalid: start must be on or after lane start (${formatDate(laneStart)}).`);
       return;
     }
-    if (laneEnd && selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
+    if (!createForm.auto_assign_lane && laneEnd && selectedProductEnd && selectedProductEnd.getTime() > laneEnd.getTime()) {
       setCreateError(`Product timing invalid: end cannot be after lane end (${formatDate(laneEnd)}).`);
       return;
     }
@@ -2260,7 +2275,7 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Product start time must be before product end time.");
       return;
     }
-    if (laneStart && laneEnd) {
+    if (!createForm.auto_assign_lane && laneStart && laneEnd) {
       const effectiveStart = selectedProductStart || laneStart;
       const effectiveEnd = selectedProductEnd || laneEnd;
       if (effectiveStart.getTime() >= effectiveEnd.getTime()) {

@@ -661,6 +661,16 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
     },
     {
+      key: "auctionPolicySettings",
+      labelKey: "menu.auctionPolicySettings",
+      labelOverride: "Auction Policy Settings",
+      path: "/auction-policy-settings",
+      icon: React.createElement(SettingsOutlinedIcon),
+      resourceKey: "auction_policy_settings.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+    },
+    {
       key: "auctionSettings",
       labelKey: "menu.auctionSettings",
       labelOverride: "Auction Settings",

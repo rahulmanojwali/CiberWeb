@@ -283,10 +283,27 @@ function formatDurationHms(diffMs: number) {
 
 function getStartCountdownLabel(session: SessionRow, nowMs: number) {
   const status = String(session.status || "").trim().toUpperCase();
+  if (status === "LIVE") {
+    const scheduledEndRaw = session.scheduled_end_time || null;
+    if (!scheduledEndRaw) return "";
+    const scheduledEnd = new Date(scheduledEndRaw);
+    if (Number.isNaN(scheduledEnd.getTime())) return "";
+    const diffMs = scheduledEnd.getTime() - nowMs;
+    if (diffMs > 0) return `Ends in ${formatDurationHms(diffMs)}`;
+    return `Ended ${formatDurationHms(Math.abs(diffMs))} ago`;
+  }
   if (status !== "PLANNED") return "";
   if (session.auto_start_label) {
     if (String(session.auto_start_state || "").toUpperCase() === "OVERDUE") {
-      return "Auto start overdue";
+      const scheduledStartRaw = session.scheduled_start_time;
+      if (scheduledStartRaw) {
+        const scheduledStart = new Date(scheduledStartRaw);
+        if (!Number.isNaN(scheduledStart.getTime())) {
+          const overdueMs = nowMs - scheduledStart.getTime();
+          if (overdueMs > 0) return `Start overdue by ${formatDurationHms(overdueMs)}`;
+        }
+      }
+      return "Start overdue";
     }
     if (String(session.auto_start_state || "").toUpperCase() === "PENDING") {
       const scheduledStartRaw = session.scheduled_start_time;
@@ -308,11 +325,7 @@ function getStartCountdownLabel(session: SessionRow, nowMs: number) {
   if (diffMs > 0) {
     return `Starts in ${formatDurationHms(diffMs)}`;
   }
-  const mode = normalizeStartMode(session.start_mode);
-  if (mode === "AUTO" || mode === "MANUAL_OR_AUTO") {
-    return "Waiting to start (scheduler delay)";
-  }
-  return "Start time reached";
+  return `Start overdue by ${formatDurationHms(Math.abs(diffMs))}`;
 }
 
 function sessionStatusHelperText(status?: string | null) {
@@ -520,13 +533,13 @@ export const AuctionSessions: React.FC = () => {
                 </Typography>
               )}
               {countdownLabel && (
-                <Typography variant="caption" color={countdownLabel.includes("scheduler delay") ? "warning.main" : "text.secondary"}>
+                <Typography variant="caption" color={countdownLabel.toLowerCase().includes("overdue") ? "warning.main" : "text.secondary"}>
                   {countdownLabel}
                 </Typography>
               )}
-              {row.auto_start_reason && String(row.auto_start_state || "").toUpperCase() === "OVERDUE" && (
+              {(row.auto_start_reason || row.lifecycle_state_reason || row.close_reason) && (
                 <Typography variant="caption" color="error.main">
-                  {row.auto_start_reason}
+                  {row.close_reason || row.auto_start_reason || row.lifecycle_state_reason}
                 </Typography>
               )}
             </Stack>
@@ -1614,7 +1627,7 @@ export const AuctionSessions: React.FC = () => {
                   <Chip
                     size="small"
                     variant="outlined"
-                    label={`Scheduled to end at ${formatDate(selectedSession.scheduled_end_time)}`}
+                    label={getStartCountdownLabel(selectedSession, nowMs) || `Scheduled to end at ${formatDate(selectedSession.scheduled_end_time)}`}
                     sx={{ mt: 1.5 }}
                   />
                 )}

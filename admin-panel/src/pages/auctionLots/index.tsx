@@ -584,13 +584,15 @@ const getTimeLeftPresentation = (
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
   const normalized = String(code || "").trim().toUpperCase();
   if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Waiting for product window.";
+  if (normalized === "LIVE_SLOT_FULL") return "Live slot full.";
+  if (normalized === "PRODUCT_WINDOW_EXPIRED") return "Product window expired.";
+  if (normalized === "INVALID_SOURCE_LOT") return "Invalid source lot.";
   if (normalized === "CAPACITY_CAP") return "Capacity limit reached. Lot is queued until lane capacity is available.";
   if (normalized === "LIVE_CAPACITY_FULL") return "Live capacity is full. Lot is queued.";
   if (normalized === "OPEN_LANE_CAPACITY_FULL") return "Open lane capacity is full. Lot is queued.";
   if (normalized === "MANDI_CAPACITY_FULL") return "Mandi capacity is full. Lot is queued.";
   if (normalized === "ORG_CAPACITY_FULL") return "Organisation capacity is full. Lot is queued.";
   if (normalized === "PLATFORM_CAPACITY_FULL") return "Platform capacity is full. Lot is queued.";
-  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE" || normalized === "WAITING_FOR_ACTIVE_LOT_TO_FINISH") return "Waiting for active lot to close in this lane.";
   if (normalized === "MISSING_OPENING_PRICE") return "Opening price is required before auction can start.";
   return String(fallbackMessage || "").trim() || "Queued";
 };
@@ -639,7 +641,6 @@ const formatQuantity = (lot: any) => {
 const getQueueReasonText = (reason: string | null | undefined) => {
   const normalized = String(reason || "").trim().toUpperCase();
   if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Product cannot start yet because its configured start time has not arrived.";
-  if (normalized === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE") return "Another lot is currently active in this lane.";
   return queueReasonLabel(reason);
 };
 
@@ -2332,7 +2333,12 @@ export const AuctionLots: React.FC = () => {
       const assignedLaneType = humanizeLaneType(createdItem?.lane_type || createdItem?.session?.lane_type || null);
       const queuePos = createdItem?.queue_position ?? "—";
       const queueReasonMsg = queueReasonLabel(createdItem?.queue_reason, createdItem?.queue_reason_message);
-      const willAutoStart = String(createdItem?.status || "").toUpperCase() === "LIVE" ? "Yes" : (String(createdItem?.queue_reason || "").toUpperCase() === "WAITING_FOR_ACTIVE_LOT_TO_CLOSE" ? "Yes" : "No");
+      const queueCode = String(createdItem?.queue_reason || "").toUpperCase();
+      const willAutoStart = String(createdItem?.status || "").toUpperCase() === "LIVE"
+        || queueCode === "WAITING_FOR_PRODUCT_WINDOW"
+        || queueCode === "LIVE_SLOT_FULL"
+        ? "Yes"
+        : "No";
       if (String(createdItem?.queue_reason || "").toUpperCase() === "CAPACITY_CAP") {
         setCreateSuccess("Lane assigned successfully, but lot is queued because capacity is full. Auto-start will happen after capacity is available.");
       } else {
@@ -3324,8 +3330,8 @@ export const AuctionLots: React.FC = () => {
                     if (lotStatus === "QUEUED") {
                       return (
                         <Alert severity="warning">
-                          <Typography variant="subtitle2">Queued – Waiting for Current Lot</Typography>
-                          <Typography variant="body2">This lot will start after the active lot is completed.</Typography>
+                          <Typography variant="subtitle2">Queued</Typography>
+                          <Typography variant="body2">{queueReasonLabel(selectedRow.queue_reason, selectedRow.queue_reason_message)}</Typography>
                         </Alert>
                       );
                     }

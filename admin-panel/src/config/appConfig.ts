@@ -203,6 +203,10 @@ export const API_TAGS = {
     get: "get_Mandi_Settings01",
     upsert: "upsert_Mandi_Settings02",
   },
+  AUCTION_POLICY_SETTINGS: {
+    get: "get_Auction_Policy_Settings01",
+    update: "update_Auction_Policy_Settings02",
+  },
   ORG_SETTINGS: {
     get: "get_Org_Settings01",
     upsert: "upsert_Org_Settings02",
@@ -462,6 +466,8 @@ export const API_ROUTES = {
     deactivateMandiPricePolicy: "/admin/deactivateMandiPricePolicy",
     getMandiSettings: "/admin/getMandiSettings",
     upsertMandiSettings: "/admin/upsertMandiSettings",
+    getAuctionPolicySettings: "/admin/auction-policy-settings",
+    updateAuctionPolicySettings: "/admin/auction-policy-settings/update",
     getOrgSettings: "/admin/getOrgSettings",
     upsertOrgSettings: "/admin/upsertOrgSettings",
     getMandiFacilitiesMasters: "/admin/getMandiFacilitiesMasters",

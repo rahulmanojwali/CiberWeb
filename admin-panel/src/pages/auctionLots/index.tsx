@@ -1035,7 +1035,6 @@ export const AuctionLots: React.FC = () => {
     if (!createBasePriceValid) return "ENTER_OPENING_PRICE";
     if (createLoading) return "IS_SUBMITTING";
     if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
-    if (createForm.auto_assign_lane && !autoAssignedCreateSession && !createForm.session_id) return "NO_COMPATIBLE_LANE";
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
     if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
     if (!timingValidationMessage.valid) return "PRODUCT_TIMING_INVALID";
@@ -3660,7 +3659,7 @@ export const AuctionLots: React.FC = () => {
                   />
                 </Stack>
                 <Alert severity="info" sx={{ mt: 1.25 }}>
-                  Auto assignment recommended.
+                  Auto assignment recommended. Auto assignment will select the best available lane during submit.
                 </Alert>
                 {createForm.auto_assign_lane && lanePreviewLoading && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
@@ -3737,7 +3736,7 @@ export const AuctionLots: React.FC = () => {
                         No matching lane found for {resolvedLotCommodity?.label || "this commodity group"}.
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        You can create a new lane for {inlineLanePrefill?.mandi_name || "selected mandi"} mandi and assign this lot to it.
+                        Auto assignment will still try to select the best reusable lane at submit time. You can also create a new lane for {inlineLanePrefill?.mandi_name || "selected mandi"} mandi.
                       </Typography>
                       <Box>
                         <Button

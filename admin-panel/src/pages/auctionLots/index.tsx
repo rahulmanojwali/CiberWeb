@@ -959,6 +959,8 @@ export const AuctionLots: React.FC = () => {
     }
     return { valid: true, color: "success.main", text: "Product timing is valid for selected lane." };
   }, [selectedProductStart, selectedProductEnd, selectedLaneStartDate, selectedLaneEndDate]);
+  const hasManualProductWindow = Boolean(createForm.product_start_time && createForm.product_end_time);
+  const shouldBlockSubmitForTiming = Boolean(hasManualProductWindow && !timingValidationMessage.valid);
   const selectedTotalKg = useMemo(() => {
     const lot: any = selectedLot || null;
     const kgCandidate =
@@ -1018,12 +1020,11 @@ export const AuctionLots: React.FC = () => {
   ), [capacitySummary, hasCapacitySummary]);
   const showTestCapacityHelper = Boolean(import.meta.env.DEV || String(import.meta.env.VITE_ENABLE_TEST_CAPACITY_HELPER || "").toLowerCase() === "true");
   const noAutoCompatibleLane = Boolean(
-    createForm.auto_assign_lane
+    !createForm.auto_assign_lane
     && selectedLot
     && !lanePreviewLoading
     && !lanePreviewError
-    && !autoAssignedCreateSession
-    && !createForm.session_id
+    && !effectiveCreateSession
     && compatibleSessionOptions.length === 0
   );
   const submitDisabledReason = useMemo(() => {
@@ -1034,10 +1035,9 @@ export const AuctionLots: React.FC = () => {
     if (!canLotUpdate) return "NO_PERMISSION";
     if (!createBasePriceValid) return "ENTER_OPENING_PRICE";
     if (createLoading) return "IS_SUBMITTING";
-    if (lanePreviewLoading) return "LANE_PREVIEW_LOADING";
     if (!createForm.auto_assign_lane && !createForm.session_id) return "SELECT_OR_AUTO_ASSIGN_LANE";
-    if (selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
-    if (!timingValidationMessage.valid) return "PRODUCT_TIMING_INVALID";
+    if (!createForm.auto_assign_lane && selectedLaneCommodityMismatch) return "SELECTED_LANE_COMMODITY_MISMATCH";
+    if (shouldBlockSubmitForTiming) return "PRODUCT_TIMING_INVALID";
     return null;
   }, [
     createForm.lot_id,
@@ -1046,15 +1046,18 @@ export const AuctionLots: React.FC = () => {
     canLotUpdate,
     createBasePriceValid,
     createLoading,
-    lanePreviewLoading,
     createForm.auto_assign_lane,
-    autoAssignedCreateSession,
-    createForm.session_id,
     createForm.session_id,
     selectedLaneCommodityMismatch,
-    timingValidationMessage.valid,
+    shouldBlockSubmitForTiming,
   ]);
-  const createSubmitDisabled = Boolean(submitDisabledReason);
+  const createSubmitDisabled = Boolean(
+    createLoading
+    || !createForm.lot_id
+    || !createBasePriceValid
+    || (!createForm.auto_assign_lane && !createForm.session_id)
+    || shouldBlockSubmitForTiming
+  );
   useEffect(() => {
     console.info("[CreateAuctionLot][submitDisabledReason]", {
       reason: submitDisabledReason || null,
@@ -2235,15 +2238,7 @@ export const AuctionLots: React.FC = () => {
       setCreateError("Select or auto-assign lane.");
       return;
     }
-    if (createForm.auto_assign_lane && lanePreviewLoading) {
-      setCreateError("Wait for lane check to finish.");
-      return;
-    }
-    if (createForm.auto_assign_lane && lanePreviewError) {
-      setCreateError("Unable to check lane assignment. Please refresh or create lane manually.");
-      return;
-    }
-    if (selectedLaneCommodityMismatch) {
+    if (!createForm.auto_assign_lane && selectedLaneCommodityMismatch) {
       setCreateError("Selected lane does not match lot commodity group. Use Auto assignment recommended or choose a matching lane.");
       return;
     }
@@ -2282,9 +2277,9 @@ export const AuctionLots: React.FC = () => {
     setCreateError(null);
     setCreateSuccess(null);
     try {
-      const selectedLaneIdForSubmit = createForm.session_id
-        || normalizeLaneSessionId(autoAssignedCreateSession)
-        || "";
+      const selectedLaneIdForSubmit = createForm.auto_assign_lane
+        ? ""
+        : (createForm.session_id || normalizeLaneSessionId(autoAssignedCreateSession) || "");
       const payload = {
         api: "mapLotToAuctionSession",
         api_name: "mapLotToAuctionSession",
@@ -3756,7 +3751,7 @@ export const AuctionLots: React.FC = () => {
                     </Stack>
                   </Alert>
                 )}
-                {selectedLaneCommodityMismatch && (
+                {!createForm.auto_assign_lane && selectedLaneCommodityMismatch && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     Selected lane commodity group does not match the selected lot. Choose a matching lane or keep Preferred Lane empty.
                   </Alert>
@@ -3766,7 +3761,7 @@ export const AuctionLots: React.FC = () => {
                     Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.
                   </Alert>
                 )}
-                {selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && !effectiveCreateSession && (
+                {!createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && !effectiveCreateSession && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
                       <Typography variant="body2">No compatible auction lane is available for this mandi and commodity group. Please create a lane before mapping this lot.</Typography>
@@ -3832,6 +3827,10 @@ export const AuctionLots: React.FC = () => {
                       </Typography>
                     )}
                   </Stack>
+                ) : createForm.auto_assign_lane ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    Auto assignment is enabled. Product timing is optional and will be validated after backend selects the lane.
+                  </Typography>
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                     No lane selected yet.

@@ -24,6 +24,7 @@ import {
   getAuctionPolicySettings,
   updateAuctionPolicySettings,
 } from "../../services/auctionPolicySettingsApi";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 
 type Policy = Record<string, any>;
 
@@ -209,10 +210,16 @@ export const AuctionPolicySettingsPage: React.FC = () => {
   const [policy, setPolicy] = useState<Policy>({});
   const [scope, setScope] = useState<"PLATFORM" | "ORG">("PLATFORM");
   const [orgId, setOrgId] = useState("");
+  const [orgOptions, setOrgOptions] = useState<Array<{ id: string; label: string }>>([]);
 
   const readOnly = !canEdit;
+  const roleSlug = String(uiConfig.role || currentRoleSlug()).toUpperCase();
+  const isSuperAdmin = roleSlug === "SUPER_ADMIN";
+  const isOrgAdmin = roleSlug === "ORG_ADMIN";
+  const scopedOrgId = String(uiConfig.scope?.org_id || "").trim();
+  const scopedOrgCode = String(uiConfig.scope?.org_code || "").trim();
 
-  const load = async () => {
+  const load = async (opts?: { nextScope?: "PLATFORM" | "ORG"; nextOrgId?: string }) => {
     const username = currentUsername();
     if (!username) {
       setError("Missing login context.");
@@ -221,15 +228,22 @@ export const AuctionPolicySettingsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const roleSlug = currentRoleSlug();
-      const requestedOrgId = roleSlug === "SUPER_ADMIN" && orgId.trim() ? orgId.trim() : undefined;
+      const effectiveScope = opts?.nextScope || scope;
+      const effectiveOrgId = (opts?.nextOrgId ?? orgId).trim();
+      const requestedOrgId = effectiveScope === "ORG" ? effectiveOrgId || undefined : undefined;
       const resp = await getAuctionPolicySettings({ username, org_id: requestedOrgId });
       if (resp?.response?.responsecode !== "0") {
         throw new Error(resp?.response?.description || "Failed to load policy settings.");
       }
       const data = resp?.data || {};
       setPolicy(data.effective_policy || {});
-      setScope(data.org_policy ? "ORG" : "PLATFORM");
+      if (isOrgAdmin) {
+        setScope("ORG");
+      } else if (opts?.nextScope) {
+        setScope(opts.nextScope);
+      } else if (isSuperAdmin) {
+        setScope((data.org_policy ? "ORG" : "PLATFORM") as "PLATFORM" | "ORG");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to load policy settings.");
     } finally {
@@ -238,10 +252,45 @@ export const AuctionPolicySettingsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (canMenu && canView) {
-      load();
+    if (!canMenu || !canView) return;
+    if (isOrgAdmin) {
+      const ownOrgId = scopedOrgId || String((JSON.parse(localStorage.getItem("cd_user") || "{}")?.org_id || "")).trim();
+      setScope("ORG");
+      setOrgId(ownOrgId);
+      if (ownOrgId) {
+        load({ nextScope: "ORG", nextOrgId: ownOrgId });
+      } else {
+        setError("Unable to resolve organisation scope for current user.");
+      }
+      return;
     }
-  }, [canMenu, canView]);
+    if (isSuperAdmin) {
+      setScope("PLATFORM");
+      load({ nextScope: "PLATFORM" });
+      return;
+    }
+    load();
+  }, [canMenu, canView, isOrgAdmin, isSuperAdmin, scopedOrgId]);
+
+  useEffect(() => {
+    const loadOrgOptions = async () => {
+      if (!isSuperAdmin) return;
+      const username = currentUsername();
+      if (!username) return;
+      try {
+        const resp = await fetchOrganisations({ username });
+        const list = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+        const normalized = (list || []).map((o: any) => ({
+          id: String(o.org_id || o._id || "").trim(),
+          label: o.org_name || o.org_code || String(o.org_id || ""),
+        })).filter((o: any) => o.id);
+        setOrgOptions(normalized);
+      } catch (_) {
+        setOrgOptions([]);
+      }
+    };
+    loadOrgOptions();
+  }, [isSuperAdmin]);
 
   const handleSave = async () => {
     const username = currentUsername();
@@ -253,6 +302,14 @@ export const AuctionPolicySettingsPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
+      if (!isSuperAdmin && scope !== "ORG") {
+        setError("Org admins can update only organisation policy.");
+        return;
+      }
+      if (scope === "ORG" && !orgId.trim()) {
+        setError("Organisation is required for ORG policy.");
+        return;
+      }
       const payloadPolicy = { ...policy };
       booleanFields.forEach((key) => {
         if (payloadPolicy[key] !== undefined) payloadPolicy[key] = Boolean(payloadPolicy[key]);
@@ -266,8 +323,8 @@ export const AuctionPolicySettingsPage: React.FC = () => {
       const resp = await updateAuctionPolicySettings({
         username,
         payload: {
-          policy_scope: scope,
-          org_id: scope === "ORG" && orgId.trim() ? orgId.trim() : undefined,
+          policy_scope: isOrgAdmin ? "ORG" : scope,
+          org_id: (isOrgAdmin ? orgId : (scope === "ORG" ? orgId : "")).trim() || undefined,
           policy: payloadPolicy,
         },
       });
@@ -313,23 +370,41 @@ export const AuctionPolicySettingsPage: React.FC = () => {
               label="Policy Scope"
               value={scope}
               onChange={(e) => setScope(e.target.value as "PLATFORM" | "ORG")}
-              disabled={readOnly || currentRoleSlug() !== "SUPER_ADMIN"}
+              disabled={readOnly || !isSuperAdmin || isOrgAdmin}
             >
-              <MenuItem value="PLATFORM">PLATFORM</MenuItem>
+              {isSuperAdmin ? <MenuItem value="PLATFORM">PLATFORM</MenuItem> : null}
               <MenuItem value="ORG">ORG</MenuItem>
             </Select>
           </FormControl>
-          {currentRoleSlug() === "SUPER_ADMIN" && scope === "ORG" && (
+          {isSuperAdmin && scope === "ORG" && (
+            <FormControl size="small" sx={{ minWidth: 280 }}>
+              <InputLabel>Organisation</InputLabel>
+              <Select
+                label="Organisation"
+                value={orgId}
+                onChange={(e) => setOrgId(String(e.target.value || ""))}
+                disabled={readOnly}
+              >
+                {orgOptions.map((org) => (
+                  <MenuItem key={org.id} value={org.id}>{org.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          {isOrgAdmin && (
             <TextField
               size="small"
-              label="Org ID"
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
-              placeholder="ObjectId"
-              disabled={readOnly}
+              label="Organisation"
+              value={scopedOrgCode || "Current Organisation"}
+              disabled
+              sx={{ minWidth: 280 }}
             />
           )}
-          <Button variant="outlined" onClick={load} disabled={loading || saving}>
+          <Button
+            variant="outlined"
+            onClick={() => load({ nextScope: scope, nextOrgId: orgId })}
+            disabled={loading || saving || (scope === "ORG" && !orgId.trim())}
+          >
             Load
           </Button>
           <Box sx={{ flex: 1 }} />

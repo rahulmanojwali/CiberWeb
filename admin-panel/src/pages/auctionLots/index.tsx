@@ -891,27 +891,27 @@ export const AuctionLots: React.FC = () => {
     if (!createForm.auto_assign_lane || !autoAssignedCreateSession) return null;
     return sessionOptions.find((opt) => String(opt?.value || "") === String(autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || "")) || null;
   }, [createForm.auto_assign_lane, autoAssignedCreateSession, sessionOptions]);
-  const effectiveCreateSession = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
+  const effectiveCreateLane = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
   const resolvedLotCommodity = useMemo(() => resolveLotCommodityGroup(selectedLot || {}), [selectedLot]);
   const selectedLotCommodityGroup = useMemo(() => resolvedLotCommodity.label, [resolvedLotCommodity]);
   const selectedLaneCommodityGroup = useMemo(() => (
     String(
-      effectiveCreateSession?.commodity_group
-      || effectiveCreateSession?.commodity_group_code
+      effectiveCreateLane?.commodity_group
+      || effectiveCreateLane?.commodity_group_code
       || "",
     ).trim()
-  ), [effectiveCreateSession]);
+  ), [effectiveCreateLane]);
   const selectedLaneCommodityMismatch = useMemo(() => {
-    if (!effectiveCreateSession || !selectedLotCommodityGroup || !selectedLaneCommodityGroup) return false;
+    if (!effectiveCreateLane || !selectedLotCommodityGroup || !selectedLaneCommodityGroup) return false;
     const laneGroup = selectedLaneCommodityGroup.toUpperCase();
     const lotGroup = selectedLotCommodityGroup.toUpperCase();
     return !(laneGroup === lotGroup || laneGroup.includes(lotGroup) || lotGroup.includes(laneGroup));
-  }, [effectiveCreateSession, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
+  }, [effectiveCreateLane, selectedLotCommodityGroup, selectedLaneCommodityGroup]);
   const createBasePriceRaw = String(createForm.base_price || "").trim();
   const createBasePriceValid = /^\d+(\.\d{1,2})?$/.test(createBasePriceRaw) && Number(createBasePriceRaw) > 0;
   const resolvedLaneWindow = useMemo(
-    () => getResolvedLaneWindow(effectiveCreateSession),
-    [effectiveCreateSession],
+    () => getResolvedLaneWindow(effectiveCreateLane),
+    [effectiveCreateLane],
   );
   const selectedLaneStartDate = resolvedLaneWindow.laneStart;
   const selectedLaneEndDate = resolvedLaneWindow.laneEnd;
@@ -919,16 +919,16 @@ export const AuctionLots: React.FC = () => {
     console.info("[LaneWindow][render]", {
       selectedLotId: String(selectedLot?._id || selectedLot?.lot_id || createForm.lot_id || "") || null,
       selectedLaneId: String(
-        effectiveCreateSession?._id
-        || effectiveCreateSession?.session_id
+        effectiveCreateLane?._id
+        || effectiveCreateLane?.session_id
         || createForm.session_id
         || "",
       ) || null,
-      selectedLaneStart: effectiveCreateSession?.scheduled_start_time || null,
-      selectedLaneEnd: effectiveCreateSession?.scheduled_end_time || null,
+      selectedLaneStart: effectiveCreateLane?.scheduled_start_time || null,
+      selectedLaneEnd: effectiveCreateLane?.scheduled_end_time || null,
       source: "selectedLane",
     });
-  }, [effectiveCreateSession, createForm.session_id, selectedLot?._id, selectedLot?.lot_id, createForm.lot_id]);
+  }, [effectiveCreateLane, createForm.session_id, selectedLot?._id, selectedLot?.lot_id, createForm.lot_id]);
   const selectedLaneStartTime = useMemo(() => toDateTimeInputValue(selectedLaneStartDate || null), [selectedLaneStartDate]);
   const selectedLaneEndTime = useMemo(() => toDateTimeInputValue(selectedLaneEndDate || null), [selectedLaneEndDate]);
   const productEndMinTime = useMemo(
@@ -951,17 +951,19 @@ export const AuctionLots: React.FC = () => {
     if (!selectedProductStart && !selectedProductEnd) {
       return { valid: true, color: "success.main", text: "Product timing is valid for selected lane." };
     }
-    if (selectedProductStart && selectedLaneStartDate && selectedProductStart.getTime() < selectedLaneStartDate.getTime()) {
-      return { valid: false, color: "error.main", text: "Product start time is before lane start time." };
-    }
-    if (selectedProductEnd && selectedLaneEndDate && selectedProductEnd.getTime() > selectedLaneEndDate.getTime()) {
-      return { valid: false, color: "error.main", text: "Product end time exceeds lane end time." };
-    }
     if (selectedProductStart && selectedProductEnd && selectedProductEnd.getTime() <= selectedProductStart.getTime()) {
       return { valid: false, color: "error.main", text: "Product end time must be after product start time." };
     }
+    if (!createForm.auto_assign_lane) {
+      if (selectedProductStart && selectedLaneStartDate && selectedProductStart.getTime() < selectedLaneStartDate.getTime()) {
+        return { valid: false, color: "error.main", text: "Product start time is before lane start time." };
+      }
+      if (selectedProductEnd && selectedLaneEndDate && selectedProductEnd.getTime() > selectedLaneEndDate.getTime()) {
+        return { valid: false, color: "error.main", text: "Product end time exceeds lane end time." };
+      }
+    }
     return { valid: true, color: "success.main", text: "Product timing is valid for selected lane." };
-  }, [selectedProductStart, selectedProductEnd, selectedLaneStartDate, selectedLaneEndDate]);
+  }, [createForm.auto_assign_lane, selectedProductStart, selectedProductEnd, selectedLaneStartDate, selectedLaneEndDate]);
   const hasManualProductWindow = Boolean(createForm.product_start_time && createForm.product_end_time);
   const shouldBlockSubmitForTiming = Boolean(hasManualProductWindow && !timingValidationMessage.valid);
   const selectedTotalKg = useMemo(() => {
@@ -1027,7 +1029,7 @@ export const AuctionLots: React.FC = () => {
     && selectedLot
     && !lanePreviewLoading
     && !lanePreviewError
-    && !effectiveCreateSession
+    && !effectiveCreateLane
     && compatibleSessionOptions.length === 0
   );
   const submitDisabledReason = useMemo(() => {
@@ -3776,7 +3778,7 @@ export const AuctionLots: React.FC = () => {
                     Missing permission: `auction_sessions.list` (VIEW). Session list cannot be loaded.
                   </Alert>
                 )}
-                {!createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && !effectiveCreateSession && (
+                {!createForm.auto_assign_lane && selectedLot && !lanePreviewLoading && !lanePreviewError && compatibleSessionOptions.length === 0 && !effectiveCreateLane && (
                   <Alert severity="info" sx={{ mt: 1.25 }}>
                     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1}>
                       <Typography variant="body2">No compatible auction lane is available for this mandi and commodity group. Please create a lane before mapping this lot.</Typography>
@@ -3791,27 +3793,27 @@ export const AuctionLots: React.FC = () => {
                     </Stack>
                   </Alert>
                 )}
-                {effectiveCreateSession && (
+                {effectiveCreateLane && (
                   <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       {createForm.auto_assign_lane ? "Auto-Assigned Lane Summary" : "Selected Lane Summary"}
                     </Typography>
                     <Stack spacing={0.6}>
-                      <Typography variant="body2"><strong>Lane Name:</strong> {effectiveCreateSession.session_name || effectiveCreateSession.session_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(effectiveCreateSession.lane_type)}</Typography>
-                      <Typography variant="body2"><strong>Commodity:</strong> {effectiveCreateSession.commodity_group || "—"}</Typography>
+                      <Typography variant="body2"><strong>Lane Name:</strong> {effectiveCreateLane.session_name || effectiveCreateLane.session_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Type:</strong> {humanizeLaneType(effectiveCreateLane.lane_type)}</Typography>
+                      <Typography variant="body2"><strong>Commodity:</strong> {effectiveCreateLane.commodity_group || "—"}</Typography>
                       {createForm.auto_assign_lane && autoAssignedSessionOption?.rank_meta?.why && (
                         <Typography variant="body2"><strong>Why selected:</strong> {autoAssignedSessionOption.rank_meta.rank === 0 ? "Commodity group match" : autoAssignedSessionOption.rank_meta.why}</Typography>
                       )}
-                      <Typography variant="body2"><strong>Status:</strong> {effectiveCreateSession.status_display || effectiveCreateSession.derived_status || effectiveCreateSession.status || "—"}</Typography>
-                      <Typography variant="body2"><strong>Queued Count:</strong> {effectiveCreateSession.queued_count ?? 0}</Typography>
-                      <Typography variant="body2"><strong>Active Lot:</strong> {effectiveCreateSession.active_lot_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {effectiveCreateSession.next_queued_lot_code || "—"}</Typography>
-                      <Typography variant="body2"><strong>Ready to Close:</strong> {effectiveCreateSession.ready_to_close ? "Yes" : "No"}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {effectiveCreateLane.status_display || effectiveCreateLane.derived_status || effectiveCreateLane.status || "—"}</Typography>
+                      <Typography variant="body2"><strong>Queued Count:</strong> {effectiveCreateLane.queued_count ?? 0}</Typography>
+                      <Typography variant="body2"><strong>Active Lot:</strong> {effectiveCreateLane.active_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Next Queued Lot:</strong> {effectiveCreateLane.next_queued_lot_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Ready to Close:</strong> {effectiveCreateLane.ready_to_close ? "Yes" : "No"}</Typography>
                     </Stack>
-                    {effectiveCreateSession.overloaded && (
+                    {effectiveCreateLane.overloaded && (
                       <Alert severity="warning" sx={{ mt: 1.25 }}>
-                        {effectiveCreateSession.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
+                        {effectiveCreateLane.overload_reason || "Queue exceeds configured limit. Consider creating an overflow lane."}
                       </Alert>
                     )}
                   </Paper>
@@ -3825,7 +3827,7 @@ export const AuctionLots: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   If left blank, product will follow lane timing.
                 </Typography>
-                {effectiveCreateSession ? (
+                {effectiveCreateLane ? (
                   <Stack spacing={0.4} sx={{ mb: 1.5 }}>
                     <Typography variant="body2">
                       <strong>Lane Window:</strong>

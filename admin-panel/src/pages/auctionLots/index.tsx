@@ -483,12 +483,12 @@ const formatCountdown = (scheduledEnd: string | null | undefined, nowMs: number)
   };
 };
 
-const formatDurationHms = (diffMs: number) => {
-  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+const formatDurationHms = (totalSeconds: number) => {
+  const safe = Math.max(0, Math.floor(Number(totalSeconds || 0)));
+  const hh = String(Math.floor(safe / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((safe % 3600) / 60)).padStart(2, "0");
+  const ss = String(safe % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
 };
 
 const normalizeSessionStatus = (value: string | null | undefined) => {
@@ -526,6 +526,7 @@ const getTimeLeftPresentation = (
   nowMs: number
 ) => {
   const lot = String(lotStatus || "").trim().toUpperCase();
+  const isLiveLot = lot === "LIVE" || lot === "IN_AUCTION";
   const queueReasonCode = String(queueReason || "").trim().toUpperCase();
   const isQueuedWaitingForProductWindow =
     lot === "QUEUED" && queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW";
@@ -540,48 +541,53 @@ const getTimeLeftPresentation = (
     "FINALIZED",
     "SETTLED",
   ].includes(lot);
-  if (lot === "WITHDRAWN") return { label: "Withdrawn", tone: "muted" as const };
-  if (isTerminalLotStatus) return { label: "—", tone: "muted" as const };
+  if (isTerminalLotStatus || lot === "WITHDRAWN") return { label: "Ended", tone: "muted" as const };
   if (isQueuedWaitingForProductWindow) {
       const start = productStartTime ? new Date(productStartTime) : null;
       if (start && !Number.isNaN(start.getTime())) {
         const diffMs = start.getTime() - nowMs;
-        if (diffMs > 0) return { label: `Starts in ${formatDurationHms(diffMs)}`, tone: "warning" as const };
-        return { label: `Scheduled start: ${formatDate(start) || "—"}`, tone: "muted" as const };
+        if (diffMs > 0) return { label: `Starts in ${formatDurationHms(diffMs / 1000)}`, tone: "warning" as const };
+        return { label: "Ended", tone: "muted" as const };
       }
-      return { label: "Queued", tone: "warning" as const };
+      return { label: "Starts in 00:00:00", tone: "warning" as const };
   }
   if (lot === "QUEUED") {
-    return { label: "Queued", tone: "warning" as const };
+    const start = productStartTime ? new Date(productStartTime) : null;
+    if (start && !Number.isNaN(start.getTime())) {
+      const diffMs = start.getTime() - nowMs;
+      if (diffMs > 0) return { label: `Starts in ${formatDurationHms(diffMs / 1000)}`, tone: "warning" as const };
+    }
+    return { label: "Starts in 00:00:00", tone: "warning" as const };
   }
 
-  if (!["LIVE", "IN_AUCTION", "MAPPED_TO_AUCTION"].includes(lot)) {
-    return { label: "—", tone: "muted" as const };
+  if (!isLiveLot) {
+    return { label: "Ended", tone: "muted" as const };
   }
 
-  if (status === "PLANNED") return { label: "Not started", tone: "muted" as const };
+  if (status === "PLANNED") return { label: "Starts in 00:00:00", tone: "warning" as const };
   if (status === "PAUSED") return { label: "Paused", tone: "warning" as const };
   if (status === "CLOSED") return { label: "Ended", tone: "muted" as const };
   if (status === "CANCELLED") return { label: "Cancelled", tone: "error" as const };
-  if (status !== "LIVE") return { label: "No session timing available", tone: "muted" as const };
+  if (status !== "LIVE") return { label: "Closes in 00:00:00", tone: "live" as const };
 
   const preferredLotEnd = lotScheduledEnd || productEndTime || scheduledEnd;
   const countdown = formatCountdown(preferredLotEnd, nowMs);
-  if (countdown.label === "No session timing available") return { label: "No lot timing available", tone: "muted" as const };
+  if (countdown.label === "No session timing available") return { label: "Closes in 00:00:00", tone: "live" as const };
   const end = new Date(String(preferredLotEnd || ""));
   const diffMs = end.getTime() - nowMs;
-  if (!Number.isFinite(diffMs)) return { label: countdown.label, tone: "muted" as const };
+  if (!Number.isFinite(diffMs)) return { label: "Closes in 00:00:00", tone: "live" as const };
   const closure = String(closureMode || "").trim().toUpperCase();
   if (diffMs <= 0) {
     if (closure === "MANUAL" || closure === "MANUAL_ONLY") {
-      return { label: "Ended / Manual Close Required", tone: "error" as const };
+      return { label: "Auto close overdue", tone: "error" as const };
     }
     return { label: "Auto close overdue", tone: "error" as const };
   }
-  if (diffMs <= 5 * 60 * 1000) return { label: `Closes in ${countdown.label}`, tone: "warning" as const };
-  if (diffMs < 2 * 60 * 1000) return { label: countdown.label, tone: "error" as const };
-  if (diffMs < 10 * 60 * 1000) return { label: countdown.label, tone: "warning" as const };
-  return { label: `Closes in ${countdown.label}`, tone: "live" as const };
+  const closeIn = formatDurationHms(diffMs / 1000);
+  if (diffMs <= 5 * 60 * 1000) return { label: `Closes in ${closeIn}`, tone: "warning" as const };
+  if (diffMs < 2 * 60 * 1000) return { label: `Closes in ${closeIn}`, tone: "error" as const };
+  if (diffMs < 10 * 60 * 1000) return { label: `Closes in ${closeIn}`, tone: "warning" as const };
+  return { label: `Closes in ${closeIn}`, tone: "live" as const };
 };
 
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
@@ -891,6 +897,11 @@ export const AuctionLots: React.FC = () => {
     if (!createForm.auto_assign_lane || !autoAssignedCreateSession) return null;
     return sessionOptions.find((opt) => String(opt?.value || "") === String(autoAssignedCreateSession?._id || autoAssignedCreateSession?.session_id || "")) || null;
   }, [createForm.auto_assign_lane, autoAssignedCreateSession, sessionOptions]);
+  const autoAssignedPreviewReason = useMemo(() => {
+    const raw = String(autoAssignedSessionOption?.rank_meta?.why || "").trim();
+    if (!raw) return "Reusable commodity lane found";
+    return raw;
+  }, [autoAssignedSessionOption]);
   const effectiveCreateLane = createForm.auto_assign_lane ? autoAssignedCreateSession : selectedCreateSession;
   const resolvedLotCommodity = useMemo(() => resolveLotCommodityGroup(selectedLot || {}), [selectedLot]);
   const selectedLotCommodityGroup = useMemo(() => resolvedLotCommodity.label, [resolvedLotCommodity]);
@@ -1450,16 +1461,31 @@ export const AuctionLots: React.FC = () => {
         field: "session_lane",
         headerName: "Lane Summary",
         width: 250,
-        renderCell: (params) => (
-          <Stack spacing={0.2} sx={{ py: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {params.row.lane_name || params.row.session_name || params.row.session_code || "—"}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              [params.row.commodity_group || params.row.session_commodity_group, (params.row.lane_type || params.row.session_lane_type)?.replace(/_/g, " ")].filter(Boolean).join(" • ") || "—"
-            </Typography>
-          </Stack>
-        ),
+        renderCell: (params) => {
+          const liveLotsCurrent = Number(
+            params.row.session_live_count
+            ?? (params.row as any).current_live_count
+            ?? 0
+          );
+          const liveLotsMax =
+            Number((params.row as any).max_live_lots_per_lane
+              ?? (params.row as any).session_max_live_lots_per_lane
+              ?? capacitySummary?.mandi_effective?.max_live_lanes
+              ?? 0) || 0;
+          return (
+            <Stack spacing={0.2} sx={{ py: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {params.row.lane_name || params.row.session_name || params.row.session_code || "—"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {[params.row.commodity_group || params.row.session_commodity_group, (params.row.lane_type || params.row.session_lane_type)?.replace(/_/g, " ")].filter(Boolean).join(" • ") || "—"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Live Lots: {liveLotsCurrent} / {liveLotsMax > 0 ? liveLotsMax : "—"}
+              </Typography>
+            </Stack>
+          );
+        },
       },
       {
         field: "is_active_lot",
@@ -3328,7 +3354,7 @@ export const AuctionLots: React.FC = () => {
                     if (lotStatus === "QUEUED" && queueReason === "WAITING_FOR_PRODUCT_WINDOW") {
                       const startAt = selectedRow.product_start_time || selectedRow.session_start_time || null;
                       const startTs = startAt ? new Date(startAt).getTime() : null;
-                      const expectedWait = startTs && Number.isFinite(startTs) && startTs > nowMs ? formatDurationHms(startTs - nowMs) : null;
+                      const expectedWait = startTs && Number.isFinite(startTs) && startTs > nowMs ? formatDurationHms((startTs - nowMs) / 1000) : null;
                       return (
                         <Alert severity="warning">
                           <Typography variant="subtitle2">Queued – Waiting for Product Window</Typography>
@@ -3688,6 +3714,11 @@ export const AuctionLots: React.FC = () => {
                     Auto-assigned to {autoAssignedCreateSession?.session_name || autoAssignedCreateSession?.session_code || "selected lane"}.
                   </Alert>
                 )}
+                {createForm.auto_assign_lane && !lanePreviewLoading && !lanePreviewError && !autoAssignedCreateSession && (
+                  <Alert severity="info" sx={{ mt: 1.25 }}>
+                    Backend will select/create lane on submit.
+                  </Alert>
+                )}
                 {!createForm.auto_assign_lane && (
                   <Alert severity="warning" sx={{ mt: 1.25 }}>
                     Manual lane selection is enabled. Choose carefully to avoid commodity mismatch.
@@ -3793,7 +3824,24 @@ export const AuctionLots: React.FC = () => {
                     </Stack>
                   </Alert>
                 )}
-                {effectiveCreateLane && (
+                {createForm.auto_assign_lane && autoAssignedCreateSession && (
+                  <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Recommended lane selected for preview
+                    </Typography>
+                    <Stack spacing={0.6}>
+                      <Typography variant="body2"><strong>Lane Name:</strong> {autoAssignedCreateSession?.session_name || autoAssignedCreateSession?.session_code || "—"}</Typography>
+                      <Typography variant="body2"><strong>Lane Type:</strong> {humanizeLaneType(autoAssignedCreateSession?.lane_type)}</Typography>
+                      <Typography variant="body2"><strong>Commodity:</strong> {autoAssignedCreateSession?.commodity_group || "—"}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {autoAssignedCreateSession?.status_display || autoAssignedCreateSession?.derived_status || autoAssignedCreateSession?.status || "—"}</Typography>
+                      <Typography variant="body2"><strong>Scheduled Start:</strong> {formatDate(autoAssignedCreateSession?.scheduled_start_time || autoAssignedCreateSession?.start_time || autoAssignedCreateSession?.lane_start_time) || "—"}</Typography>
+                      <Typography variant="body2"><strong>Scheduled End:</strong> {formatDate(autoAssignedCreateSession?.scheduled_end_time || autoAssignedCreateSession?.end_time || autoAssignedCreateSession?.lane_end_time) || "—"}</Typography>
+                      <Typography variant="body2"><strong>Queue:</strong> {(autoAssignedCreateSession?.queued_count ?? 0)} / {(autoAssignedCreateSession?.max_queue_size ?? autoAssignedCreateSession?.queue_capacity ?? autoAssignedCreateSession?.max_queue_per_lane ?? "—")}</Typography>
+                      <Typography variant="body2"><strong>Reason:</strong> {autoAssignedPreviewReason}</Typography>
+                    </Stack>
+                  </Paper>
+                )}
+                {!createForm.auto_assign_lane && effectiveCreateLane && (
                   <Paper variant="outlined" sx={{ mt: 1.25, p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       {createForm.auto_assign_lane ? "Auto-Assigned Lane Summary" : "Selected Lane Summary"}

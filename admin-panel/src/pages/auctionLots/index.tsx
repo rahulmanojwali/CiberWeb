@@ -2866,6 +2866,7 @@ export const AuctionLots: React.FC = () => {
     const selectedMandiNumber = Number(selectedMandiRaw);
     const hasSelectedMandi = selectedMandiRaw.length > 0 && Number.isFinite(selectedMandiNumber);
     const refreshForRealtimeEvent = (payload: any) => {
+      console.debug("[auctionLots][realtimeEvent]", payload);
       const payloadMandiRaw = payload?.mandi_id;
       if (payloadMandiRaw === undefined || payloadMandiRaw === null || payloadMandiRaw === "") {
         void loadDataRef.current({ showLoader: false });

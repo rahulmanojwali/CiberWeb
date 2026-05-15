@@ -1211,7 +1211,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "lot_id",
         headerName: "Lot / Product",
-        width: 240,
+        width: 220,
         renderCell: (params) => (
           <Stack spacing={0.2} sx={{ py: 0.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -1222,6 +1222,38 @@ export const AuctionLots: React.FC = () => {
             </Typography>
           </Stack>
         ),
+      },
+      {
+        field: "base_price",
+        headerName: "Reference Rate",
+        width: 145,
+        valueGetter: (value) => {
+          const rate = toNumber(value);
+          if (!rate || rate <= 0) return "—";
+          return `₹${formatInr(rate)} / qtl`;
+        },
+      },
+      {
+        field: "rate_per_kg",
+        headerName: "Rate/kg",
+        width: 95,
+        valueGetter: (_value, row) => {
+          const rate = toNumber((row as any)?.base_price);
+          if (!rate || rate <= 0) return "—";
+          return `₹${formatInr(rate / 100)}`;
+        },
+      },
+      {
+        field: "opening_value",
+        headerName: "Opening Bid (Lot)",
+        width: 135,
+        valueGetter: (_value, row) => {
+          const kg = toNumber((row as any)?.quantity);
+          const rate = toNumber((row as any)?.base_price);
+          if (!kg || kg <= 0 || !rate || rate <= 0) return "—";
+          const value = (kg / 100) * rate;
+          return `₹${formatInr(value)}`;
+        },
       },
       {
         field: "lot_status",
@@ -1262,7 +1294,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "session_status",
         headerName: "Session Status",
-        width: 240,
+        width: 220,
         renderCell: (params) => {
           const sessionStatus = normalizeSessionStatus(String(params.row.session_status || ""));
           const lotStatus = String(params.row.status || "").toUpperCase();
@@ -1319,7 +1351,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "queue_reason",
         headerName: "Queue Reason",
-        width: 260,
+        width: 235,
         renderCell: (params) => {
           const lotStatus = String(params.row.status || params.row.lot_status || "").toUpperCase();
           const queueReasonCode = String(params.row.queue_reason || "").toUpperCase();
@@ -1356,7 +1388,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "time_left",
         headerName: "Lot Time Left",
-        width: 200,
+        width: 170,
         renderCell: (params) => {
           const timeLeft = getTimeLeftPresentation(
             params.row.status || params.row.lot_status,
@@ -1396,37 +1428,37 @@ export const AuctionLots: React.FC = () => {
       {
         field: "scheduled_start_time",
         headerName: "Scheduled Start",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.scheduled_start_time) || "—",
       },
       {
         field: "scheduled_end_time",
         headerName: "Scheduled End",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.scheduled_end_time) || "—",
       },
       {
         field: "product_start_time",
         headerName: "Product Start",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.product_start_time) || "—",
       },
       {
         field: "product_end_time",
         headerName: "Product End",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.product_end_time) || "—",
       },
       {
         field: "actual_start_time",
         headerName: "Actual Start",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.actual_start_time) || "—",
       },
       {
         field: "actual_end_time",
         headerName: "Actual End",
-        width: 180,
+        width: 165,
         valueGetter: (_value, row) => formatDate((row as any)?.actual_end_time) || "—",
       },
       {
@@ -1453,7 +1485,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "lane_name",
         headerName: "Lane Name",
-        width: 220,
+        width: 190,
         valueGetter: (_value, row) => row.lane_name || row.session_name || row.session_code || "—",
       },
       {
@@ -1465,7 +1497,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "commodity_group",
         headerName: "Commodity Group",
-        width: 170,
+        width: 155,
         valueGetter: (_value, row) => row.commodity_group || row.session_commodity_group || "—",
       },
       {
@@ -1477,7 +1509,7 @@ export const AuctionLots: React.FC = () => {
       {
         field: "session_lane",
         headerName: "Lane Summary",
-        width: 250,
+        width: 220,
         renderCell: (params) => {
           const liveLotsCurrent = Number(
             params.row.session_live_count
@@ -1533,38 +1565,6 @@ export const AuctionLots: React.FC = () => {
           if (!kg || kg <= 0) return "—";
           const qtl = kg / 100;
           return `${formatInr(kg)} kg / ${qtl.toFixed(2)} qtl`;
-        },
-      },
-      {
-        field: "base_price",
-        headerName: "Reference Rate",
-        width: 160,
-        valueGetter: (value) => {
-          const rate = toNumber(value);
-          if (!rate || rate <= 0) return "—";
-          return `₹${formatInr(rate)} / qtl`;
-        },
-      },
-      {
-        field: "rate_per_kg",
-        headerName: "Rate/kg",
-        width: 120,
-        valueGetter: (_value, row) => {
-          const rate = toNumber((row as any)?.base_price);
-          if (!rate || rate <= 0) return "—";
-          return `₹${formatInr(rate / 100)}`;
-        },
-      },
-      {
-        field: "opening_value",
-        headerName: "Opening Bid (Lot)",
-        width: 140,
-        valueGetter: (_value, row) => {
-          const kg = toNumber((row as any)?.quantity);
-          const rate = toNumber((row as any)?.base_price);
-          if (!kg || kg <= 0 || !rate || rate <= 0) return "—";
-          const value = (kg / 100) * rate;
-          return `₹${formatInr(value)}`;
         },
       },
       {

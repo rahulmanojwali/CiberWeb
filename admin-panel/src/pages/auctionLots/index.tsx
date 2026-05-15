@@ -72,6 +72,8 @@ type LotRow = {
   status?: string | null;
   lot_status?: string | null;
   base_price?: number | null;
+  current_highest_bid_amount?: number | null;
+  bid_count?: number | null;
   session_start_time?: string | null;
   session_scheduled_end_time?: string | null;
   product_start_time?: string | null;
@@ -1246,13 +1248,39 @@ export const AuctionLots: React.FC = () => {
       {
         field: "opening_value",
         headerName: "Opening Bid (Lot)",
-        width: 135,
+        width: 130,
         valueGetter: (_value, row) => {
           const kg = toNumber((row as any)?.quantity);
           const rate = toNumber((row as any)?.base_price);
           if (!kg || kg <= 0 || !rate || rate <= 0) return "—";
           const value = (kg / 100) * rate;
           return `₹${formatInr(value)}`;
+        },
+      },
+      {
+        field: "current_highest_bid_amount",
+        headerName: "Current Highest Bid",
+        width: 145,
+        valueGetter: (_value, row) => {
+          const amount = toNumber(
+            (row as any)?.current_highest_bid_amount
+            ?? (row as any)?.winning_bid_amount
+            ?? (row as any)?.highest_bid_amount
+            ?? (row as any)?.current_bid_amount
+            ?? (row as any)?.latest_bid_amount
+          );
+          if (!amount || amount <= 0) return "—";
+          return `₹${formatInr(amount)}`;
+        },
+      },
+      {
+        field: "bid_count",
+        headerName: "Bid Count",
+        width: 95,
+        valueGetter: (_value, row) => {
+          const count = toNumber((row as any)?.bid_count ?? (row as any)?.total_bid_count);
+          if (!count || count < 0) return "0";
+          return String(Math.trunc(count));
         },
       },
       {
@@ -1815,6 +1843,17 @@ export const AuctionLots: React.FC = () => {
         product: item.product_name_en || item.product || item.product_code || null,
         quantity: item.estimated_qty_kg ?? item.quantity ?? null,
         base_price: parseDecimal(item.start_price_per_qtl) ?? item.base_price ?? null,
+        current_highest_bid_amount:
+          parseDecimal(item.current_highest_bid_amount)
+          ?? parseDecimal(item.winning_bid_amount)
+          ?? parseDecimal(item.highest_bid_amount)
+          ?? parseDecimal(item.current_bid_amount)
+          ?? parseDecimal(item.latest_bid_amount)
+          ?? null,
+        bid_count:
+          item.bid_count !== undefined && item.bid_count !== null
+            ? Number(item.bid_count)
+            : (item.total_bid_count !== undefined && item.total_bid_count !== null ? Number(item.total_bid_count) : 0),
         status: item.status || null,
         is_active_lot: String(item.is_active_lot || "").toUpperCase() === "Y" ? "Y" : "N",
         lot_phase: item.lot_phase || null,
@@ -1938,8 +1977,12 @@ export const AuctionLots: React.FC = () => {
       hasLoadedOnceRef.current = true;
     }
   };
-  const hasQueuedRows = useMemo(
-    () => rows.some((row) => String(row?.status || row?.lot_status || "").toUpperCase() === "QUEUED"),
+  const hasLiveOrQueuedRows = useMemo(
+    () => rows.some((row) => {
+      const status = String(row?.status || row?.lot_status || "").toUpperCase();
+      const sessionStatus = String(row?.session_status || "").toUpperCase();
+      return status === "LIVE" || status === "QUEUED" || sessionStatus === "LIVE";
+    }),
     [rows],
   );
   const loadDataRef = useRef(loadData);
@@ -2808,29 +2851,43 @@ export const AuctionLots: React.FC = () => {
   }, [filters.org_code, filters.mandi_code, filters.commodity, filters.product, filters.session_id, filters.lane, filters.lane_type, filters.commodity_group, filters.lot_status, filters.date_from, filters.date_to, language, canView]);
 
   useEffect(() => {
-    if (!hasQueuedRows || !canView) return;
+    if (!hasLiveOrQueuedRows || !canView) return;
     const timer = window.setInterval(() => {
       void loadDataRef.current({ showLoader: false });
-    }, 15000);
+    }, 5000);
     return () => window.clearInterval(timer);
-  }, [hasQueuedRows, canView]);
+  }, [hasLiveOrQueuedRows, canView]);
 
   useEffect(() => {
-    if (!canView || !filters.session_id) return;
+    if (!canView) return;
     let unsubSession: null | (() => void) = null;
     let unsubLot: null | (() => void) = null;
-    const refreshForSession = (payload: any) => {
-      if (!payload?.session_id || String(payload.session_id) !== String(filters.session_id)) return;
-      void loadData({ showLoader: false });
+    const selectedMandiRaw = String(filters.mandi_code || "").trim();
+    const selectedMandiNumber = Number(selectedMandiRaw);
+    const hasSelectedMandi = selectedMandiRaw.length > 0 && Number.isFinite(selectedMandiNumber);
+    const refreshForRealtimeEvent = (payload: any) => {
+      const payloadMandiRaw = payload?.mandi_id;
+      if (payloadMandiRaw === undefined || payloadMandiRaw === null || payloadMandiRaw === "") {
+        void loadDataRef.current({ showLoader: false });
+        return;
+      }
+      const payloadMandiNumber = Number(payloadMandiRaw);
+      if (!Number.isFinite(payloadMandiNumber)) {
+        void loadDataRef.current({ showLoader: false });
+        return;
+      }
+      if (!hasSelectedMandi || payloadMandiNumber === selectedMandiNumber) {
+        void loadDataRef.current({ showLoader: false });
+      }
     };
     subscribeAuctionSession(
-      { sessionId: filters.session_id, mandiId: filters.mandi_code || undefined },
+      { sessionId: filters.session_id || "", mandiId: filters.mandi_code || undefined },
       {
-        "auction.bid.placed": refreshForSession,
-        "auction.leaderboard.updated": refreshForSession,
-        "auction.lot.updated": refreshForSession,
-        "auction.result.finalized": refreshForSession,
-        "auction.session.updated": refreshForSession,
+        "auction.bid.placed": refreshForRealtimeEvent,
+        "auction.leaderboard.updated": refreshForRealtimeEvent,
+        "auction.lot.updated": refreshForRealtimeEvent,
+        "auction.result.finalized": refreshForRealtimeEvent,
+        "auction.session.updated": refreshForRealtimeEvent,
       }
     ).then((cleanup) => {
       unsubSession = cleanup;
@@ -2841,12 +2898,12 @@ export const AuctionLots: React.FC = () => {
     const selectedRealtimeLotId = selectedLot?._id || selectedLot?.lot_id || selectedLot?.lot_code || null;
     if (selectedRealtimeLotId) {
       subscribeAuctionLot(
-        { lotId: String(selectedRealtimeLotId), sessionId: filters.session_id },
+        { lotId: String(selectedRealtimeLotId), sessionId: filters.session_id || undefined },
         {
-          "auction.bid.placed": refreshForSession,
-          "auction.leaderboard.updated": refreshForSession,
-          "auction.lot.updated": refreshForSession,
-          "auction.result.finalized": refreshForSession,
+          "auction.bid.placed": refreshForRealtimeEvent,
+          "auction.leaderboard.updated": refreshForRealtimeEvent,
+          "auction.lot.updated": refreshForRealtimeEvent,
+          "auction.result.finalized": refreshForRealtimeEvent,
         }
       ).then((cleanup) => {
         unsubLot = cleanup;

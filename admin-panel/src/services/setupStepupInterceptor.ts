@@ -28,6 +28,34 @@ function clearStepupSessionId() {
   localStorage.removeItem(STEPUP_SESSION_KEY); // defensive cleanup
 }
 
+function isSessionExpiredResponse(error: any): boolean {
+  const status = Number(error?.response?.status || 0);
+  if (status === 401 || status === 403) return true;
+  const payload = error?.response?.data;
+  const text = String(
+    payload?.response?.description
+    || payload?.description
+    || payload?.message
+    || payload?.error
+    || ""
+  ).toLowerCase();
+  if (!text) return false;
+  return [
+    "token expired",
+    "session expired",
+    "invalid session",
+    "invalid token",
+    "missing auth",
+    "unauthorized",
+    "forbidden",
+  ].some((x) => text.includes(x));
+}
+
+function emitSessionExpiredEvent() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("cd:session-expired"));
+}
+
 axios.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
@@ -62,6 +90,16 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error),
+);
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (isSessionExpiredResponse(error)) {
+      emitSessionExpiredEvent();
+    }
+    return Promise.reject(error);
+  },
 );
 
 // import axios, { AxiosHeaders } from "axios";

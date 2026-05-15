@@ -18,6 +18,7 @@ import routerProvider, {
 } from "@refinedev/react-router";
 import dataProvider from "@refinedev/simple-rest";
 import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom";
+import { useSnackbar } from "notistack";
 
 import { authProvider } from "./authProvider";
 import { Header } from "./components/header";
@@ -113,6 +114,24 @@ import { AdminUiConfigProvider } from "./contexts/admin-ui-config";
 import { PermissionsDebugPanel } from "./components/PermissionsDebugPanel";
 import { StepUpProvider } from "./security/stepup/StepUpContext";
 import { StepUpRouteEnforcer } from "./components/StepUpRouteEnforcer";
+import { GlobalErrorBoundary } from "./components/layout/GlobalErrorBoundary";
+import { TOKEN_KEY } from "./authProvider";
+
+function SessionExpiryHandler() {
+  const { enqueueSnackbar } = useSnackbar();
+  useEffect(() => {
+    const handler = () => {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+      } catch (_) {}
+      enqueueSnackbar("Your session has expired. Please sign in again.", { variant: "error" });
+      window.location.assign("/admin/login");
+    };
+    window.addEventListener("cd:session-expired", handler as EventListener);
+    return () => window.removeEventListener("cd:session-expired", handler as EventListener);
+  }, [enqueueSnackbar]);
+  return null;
+}
 
 const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mutate: logout } = useLogout();
@@ -138,7 +157,8 @@ const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   return (
-    <BrowserRouter basename="/admin">
+    <GlobalErrorBoundary>
+      <BrowserRouter basename="/admin">
       <RefineKbarProvider>
         <ColorModeContextProvider>
           <CssBaseline />
@@ -150,6 +170,7 @@ function App() {
             }}
           />
           <SnackbarProvider anchorOrigin={{ vertical: "top", horizontal: "center" }}>
+            <SessionExpiryHandler />
             <RefineSnackbarProvider>
               <Refine
               dataProvider={dataProvider("https://api.fake-rest.refine.dev")}
@@ -165,18 +186,20 @@ function App() {
               <Routes>
                 <Route
                   element={
-                    <AdminRoleGuard>
-                <AdminUiConfigProvider>
-                  <StepUpProvider>
-                    <PermissionsDebugPanel />
-                    <ThemedLayout Header={Header} Sider={CustomSider}>
-                      <StepUpRouteEnforcer>
-                        <Outlet />
-                      </StepUpRouteEnforcer>
-                    </ThemedLayout>
-                  </StepUpProvider>
-                </AdminUiConfigProvider>
-                    </AdminRoleGuard>
+                    <Authenticated key="protected-routes" fallback={<Navigate to="/login" replace />}>
+                      <AdminRoleGuard>
+                        <AdminUiConfigProvider>
+                          <StepUpProvider>
+                            <PermissionsDebugPanel />
+                            <ThemedLayout Header={Header} Sider={CustomSider}>
+                              <StepUpRouteEnforcer>
+                                <Outlet />
+                              </StepUpRouteEnforcer>
+                            </ThemedLayout>
+                          </StepUpProvider>
+                        </AdminUiConfigProvider>
+                      </AdminRoleGuard>
+                    </Authenticated>
                   }
                 >
                   <Route index element={<Navigate to="/dashboard" replace />} />
@@ -279,7 +302,8 @@ function App() {
           </SnackbarProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </GlobalErrorBoundary>
   );
 }
 

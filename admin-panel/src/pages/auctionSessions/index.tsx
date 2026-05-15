@@ -339,6 +339,18 @@ function sessionStatusHelperText(status?: string | null) {
   return "Session status is currently unavailable.";
 }
 
+function formatPromotionBlockedReason(reason?: string | null) {
+  const normalized = String(reason || "").trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized.includes("WAITING_FOR_PRODUCT_WINDOW")) return "Waiting for product window";
+  if (normalized.includes("LANE_WINDOW_NOT_STARTED")) return "Waiting for lane window";
+  if (normalized.includes("LANE_WINDOW_ENDED")) return "Lane window ended";
+  if (normalized.includes("LIVE_SLOT_FULL")) return "Live slot full";
+  if (normalized.includes("FARMER_CONFLICT")) return "Same farmer already has live lot";
+  if (normalized.includes("PRODUCT_CONFLICT")) return "Same product already live";
+  return null;
+}
+
 type LaneStatusFilterKey = "LIVE" | "IN_PROGRESS" | "READY_TO_CLOSE" | "EXPIRED" | "CLOSED" | "ALL" | "OVERFLOW";
 
 function matchesLaneStatusFilter(row: SessionRow, filterKey: LaneStatusFilterKey, nowMs: number) {
@@ -1411,7 +1423,7 @@ export const AuctionSessions: React.FC = () => {
               Auction Lanes
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              One live lot per session lane. Ready-to-close means no active or queued lot remains.
+              A session lane can run multiple live lots in parallel up to the configured max_live_lots_per_lane policy.
             </Typography>
           </Stack>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
@@ -1652,7 +1664,7 @@ export const AuctionSessions: React.FC = () => {
                 </Typography>
                 {selectedSessionDisplayStatus === "LIVE" && !selectedSession.has_active_lot && Boolean(selectedSession.next_queued_lot_code) && (
                   <Alert severity="warning" sx={{ mt: 1 }}>
-                    Live lane has no active lot. Next queued lot could not be activated.
+                    {`Live lane has no active lot. ${formatPromotionBlockedReason(selectedSession.lifecycle_state_reason) || "Next queued lot is blocked."}`}
                   </Alert>
                 )}
                 {isExpiredPlanned && (

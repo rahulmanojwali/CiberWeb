@@ -531,6 +531,7 @@ const getTimeLeftPresentation = (
   const isQueuedWaitingForProductWindow =
     lot === "QUEUED" && queueReasonCode === "WAITING_FOR_PRODUCT_WINDOW";
   const status = normalizeSessionStatus(sessionStatus);
+  const isClosedSession = ["CLOSED", "CANCELLED", "EXPIRED", "COMPLETED"].includes(status);
   const isTerminalLotStatus = [
     "WITHDRAWN",
     "CANCELLED",
@@ -542,6 +543,9 @@ const getTimeLeftPresentation = (
     "SETTLED",
   ].includes(lot);
   if (isTerminalLotStatus || lot === "WITHDRAWN") return { label: "Ended", tone: "muted" as const };
+  if (lot === "QUEUED" && isClosedSession) {
+    return { label: "Session closed", tone: "muted" as const };
+  }
   if (isQueuedWaitingForProductWindow) {
       const start = productStartTime ? new Date(productStartTime) : null;
       if (start && !Number.isNaN(start.getTime())) {
@@ -592,8 +596,21 @@ const getTimeLeftPresentation = (
 
 const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: string | null) => {
   const normalized = String(code || "").trim().toUpperCase();
-  if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Waiting for product window.";
-  if (normalized === "LIVE_SLOT_FULL") return "Live slot full.";
+  if (normalized === "STARTS_IN") return "Waiting for product start time";
+  if (normalized === "WAITING_FOR_PRODUCT_WINDOW") return "Waiting for product window";
+  if (normalized === "WAITING_FOR_FREE_LANE") return "Waiting for free lane";
+  if (normalized === "WAITING_FOR_CAPACITY") return "Waiting for capacity";
+  if (normalized === "WAITING_FOR_PREVIOUS_SLOT") return "Waiting for previous slot";
+  if (normalized === "WAITING_FOR_PREVIOUS_LOT") return "Waiting for previous lot";
+  if (normalized === "WAITING_FOR_MANUAL_APPROVAL") return "Waiting for manual approval";
+  if (normalized === "SESSION_CLOSED") return "Session closed before start";
+  if (normalized === "SESSION_CANCELLED") return "Session cancelled";
+  if (normalized === "LANE_WINDOW_NOT_STARTED") return "Waiting for lane window";
+  if (normalized === "LANE_WINDOW_ENDED") return "Lane window ended";
+  if (normalized === "LIVE_SLOT_FULL") return "All live slots are occupied";
+  if (normalized === "LIVE_CAPACITY_FULL") return "Live capacity is full";
+  if (normalized === "FARMER_CONFLICT") return "Same farmer already has a live lot";
+  if (normalized === "PRODUCT_CONFLICT") return "Same product already live";
   if (normalized === "PRODUCT_WINDOW_EXPIRED") return "Product window expired.";
   if (normalized === "INVALID_SOURCE_LOT") return "Invalid source lot.";
   if (normalized === "CAPACITY_CAP") return "Capacity limit reached. Lot is queued until lane capacity is available.";
@@ -603,7 +620,7 @@ const queueReasonLabel = (code: string | null | undefined, fallbackMessage?: str
   if (normalized === "ORG_CAPACITY_FULL") return "Organisation capacity is full. Lot is queued.";
   if (normalized === "PLATFORM_CAPACITY_FULL") return "Platform capacity is full. Lot is queued.";
   if (normalized === "MISSING_OPENING_PRICE") return "Opening price is required before auction can start.";
-  return String(fallbackMessage || "").trim() || "Queued";
+  return String(fallbackMessage || "").trim() || "Queued — reason under review";
 };
 
 const safeText = (value: any) => {
@@ -1326,8 +1343,8 @@ export const AuctionLots: React.FC = () => {
               : queueReasonLabel(code, params.row.queue_reason_message));
           return (
             <Stack spacing={0.2} sx={{ py: 0.3 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                {isQueuedWaitingForProductWindow ? "WAITING_FOR_PRODUCT_WINDOW" : (code || "QUEUED")}
+              <Typography variant="caption" sx={{ fontWeight: 700 }} title={String(code || "QUEUED")}>
+                {queueReasonLabel(code, params.row.queue_reason_message)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {message}
@@ -3446,7 +3463,7 @@ export const AuctionLots: React.FC = () => {
 
                   {String(selectedRow.status || "").toUpperCase() === "QUEUED" && (
                     <Alert severity="warning">
-                      <Typography variant="body2"><strong>Reason:</strong> {safeText(selectedRow.queue_reason)}</Typography>
+                      <Typography variant="body2"><strong>Reason:</strong> {queueReasonLabel(selectedRow.queue_reason, selectedRow.queue_reason_message)}</Typography>
                       <Typography variant="body2">
                         {safeText(selectedRow.queue_reason_message) !== "—"
                           ? safeText(selectedRow.queue_reason_message)

@@ -2174,7 +2174,7 @@ export const Lots: React.FC = () => {
       <ScreenHelpDrawer
         open={openHelp}
         onClose={() => setOpenHelp(false)}
-        route="/lots"
+        route="/admin/lots"
         language={language}
       />
     </PageContainer>

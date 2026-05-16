@@ -480,7 +480,7 @@ export const AuctionSessions: React.FC = () => {
     capacity_guard_state: "GREEN",
     blocking_reason: null,
   });
-  const [helpRoute, setHelpRoute] = useState("/auction-sessions");
+  const [helpRoute, setHelpRoute] = useState("/admin/auction-sessions");
   const [helpTitle, setHelpTitle] = useState("Help");
   const [liveCardSearch, setLiveCardSearch] = useState("");
   const [liveCardFilter, setLiveCardFilter] = useState<"ALL" | "PLANNED_OPEN" | "IN_PROGRESS" | "READY_TO_CLOSE" | "OVERFLOW">("ALL");
@@ -1221,7 +1221,7 @@ export const AuctionSessions: React.FC = () => {
               Create Lane
             </Button>
           )}
-          <IconButton color="primary" onClick={() => { setHelpRoute("/auction-sessions"); setHelpTitle("Auction Sessions Help"); setOpenHelp(true); }} title="Help">
+          <IconButton color="primary" onClick={() => { setHelpRoute("/admin/auction-sessions"); setHelpTitle("Auction Sessions Help"); setOpenHelp(true); }} title="Help">
             <HelpOutlineIcon />
           </IconButton>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
@@ -1928,7 +1928,7 @@ export const AuctionSessions: React.FC = () => {
           <DialogTitle>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="h6">Create Auction Lane</Typography>
-              <IconButton size="small" onClick={() => { setHelpRoute("/auction-sessions"); setHelpTitle("Create Auction Lane Help"); setOpenHelp(true); }}>
+              <IconButton size="small" onClick={() => { setHelpRoute("/admin/auction-sessions"); setHelpTitle("Create Auction Lane Help"); setOpenHelp(true); }}>
                 <HelpOutlineIcon fontSize="small" />
               </IconButton>
             </Stack>

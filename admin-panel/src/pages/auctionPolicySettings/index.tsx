@@ -9,6 +9,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -17,7 +18,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
+import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
+import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import {
@@ -188,6 +193,7 @@ function renderEnumField(
 }
 
 export const AuctionPolicySettingsPage: React.FC = () => {
+  const { i18n } = useTranslation();
   const uiConfig = useAdminUiConfig();
 
   const canMenu = useMemo(
@@ -211,6 +217,8 @@ export const AuctionPolicySettingsPage: React.FC = () => {
   const [scope, setScope] = useState<"PLATFORM" | "ORG">("PLATFORM");
   const [orgId, setOrgId] = useState("");
   const [orgOptions, setOrgOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [openHelp, setOpenHelp] = useState(false);
+  const language = normalizeLanguageCode(i18n.language || "en");
 
   const readOnly = !canEdit;
   const roleSlug = String(uiConfig.role || currentRoleSlug()).toUpperCase();
@@ -408,6 +416,9 @@ export const AuctionPolicySettingsPage: React.FC = () => {
             Load
           </Button>
           <Box sx={{ flex: 1 }} />
+          <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
+            <HelpOutlineIcon />
+          </IconButton>
           <Button variant="contained" onClick={handleSave} disabled={readOnly || saving || loading}>
             {saving ? "Saving..." : "Save"}
           </Button>
@@ -488,6 +499,12 @@ export const AuctionPolicySettingsPage: React.FC = () => {
           </Box>
         )}
       </Stack>
+      <ScreenHelpDrawer
+        open={openHelp}
+        onClose={() => setOpenHelp(false)}
+        route="/admin/auction-policy-settings"
+        language={language}
+      />
     </PageContainer>
   );
 };

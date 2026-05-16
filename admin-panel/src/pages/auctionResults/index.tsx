@@ -755,7 +755,7 @@ export const AuctionResults: React.FC = () => {
       <ScreenHelpDrawer
         open={openHelp}
         onClose={() => setOpenHelp(false)}
-        route="/auction-results"
+        route="/admin/auction-results"
         language={language}
       />
     </PageContainer>

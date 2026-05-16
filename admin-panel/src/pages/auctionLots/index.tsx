@@ -69,9 +69,15 @@ type LotRow = {
   commodity?: string | null;
   product?: string | null;
   quantity?: number | null;
+  estimated_qty_kg?: number | null;
   status?: string | null;
   lot_status?: string | null;
   base_price?: number | null;
+  start_price_per_qtl?: number | null;
+  opening_bid_lot_amount?: number | null;
+  opening_bid_lot_value?: number | null;
+  opening_bid_amount?: number | null;
+  opening_bid_value?: number | null;
   current_highest_bid_amount?: number | null;
   bid_count?: number | null;
   session_start_time?: string | null;
@@ -1250,11 +1256,19 @@ export const AuctionLots: React.FC = () => {
         headerName: "Opening Bid (Lot)",
         width: 130,
         valueGetter: (_value, row) => {
-          const kg = toNumber((row as any)?.quantity);
-          const rate = toNumber((row as any)?.base_price);
-          if (!kg || kg <= 0 || !rate || rate <= 0) return "—";
-          const value = (kg / 100) * rate;
-          return `₹${formatInr(value)}`;
+          const openingFromApi = toNumber(
+            (row as any)?.opening_bid_lot_amount
+            ?? (row as any)?.opening_bid_lot_value
+            ?? (row as any)?.opening_bid_amount
+            ?? (row as any)?.opening_bid_value
+          );
+          if (openingFromApi && openingFromApi > 0) return `₹${formatInr(openingFromApi)}`;
+
+          const rate = Number((row as any)?.start_price_per_qtl ?? (row as any)?.base_price ?? 0);
+          const qtyKg = Number((row as any)?.estimated_qty_kg ?? (row as any)?.quantity ?? 0);
+          const amount = rate > 0 && qtyKg > 0 ? (rate * qtyKg) / 100 : null;
+          if (!amount || amount <= 0) return "—";
+          return `₹${formatInr(amount)}`;
         },
       },
       {
@@ -1842,7 +1856,13 @@ export const AuctionLots: React.FC = () => {
         commodity: item.commodity_name_en || item.commodity || item.commodity_code || null,
         product: item.product_name_en || item.product || item.product_code || null,
         quantity: item.estimated_qty_kg ?? item.quantity ?? null,
+        estimated_qty_kg: parseDecimal(item.estimated_qty_kg) ?? parseDecimal(item.quantity) ?? null,
         base_price: parseDecimal(item.start_price_per_qtl) ?? item.base_price ?? null,
+        start_price_per_qtl: parseDecimal(item.start_price_per_qtl) ?? parseDecimal(item.base_price) ?? null,
+        opening_bid_lot_amount: parseDecimal(item.opening_bid_lot_amount) ?? null,
+        opening_bid_lot_value: parseDecimal(item.opening_bid_lot_value) ?? null,
+        opening_bid_amount: parseDecimal(item.opening_bid_amount) ?? null,
+        opening_bid_value: parseDecimal(item.opening_bid_value) ?? null,
         current_highest_bid_amount:
           parseDecimal(item.current_highest_bid_amount)
           ?? parseDecimal(item.winning_bid_amount)
@@ -4431,7 +4451,7 @@ export const AuctionLots: React.FC = () => {
       <ScreenHelpDrawer
         open={openHelp}
         onClose={() => setOpenHelp(false)}
-        route="/auction-lots"
+        route="/admin/auction-lots"
         language={language}
         title={helpTitle}
       />

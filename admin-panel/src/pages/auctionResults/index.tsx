@@ -77,6 +77,10 @@ type ResultRow = {
   session_status?: string | null;
   lot_current_status?: string | null;
   settlement_status?: string | null;
+  attempt_no?: number | null;
+  is_latest_attempt?: boolean;
+  is_superseded_attempt?: boolean;
+  final_source_lot_status?: string | null;
 };
 
 type BidAuditRow = {
@@ -232,6 +236,21 @@ export const AuctionResults: React.FC = () => {
       { field: "session_code", headerName: "Session", width: 160, valueGetter: (_v, row) => display(row.session_code || row.session_id) },
       { field: "lot_code", headerName: "Lot", width: 150, valueGetter: (_v, row) => display(row.lot_code || row.lot_id) },
       {
+        field: "attempt_no",
+        headerName: "Attempt",
+        width: 110,
+        valueGetter: (_v, row) => {
+          const n = toNumber(row.attempt_no);
+          return n && n > 0 ? `Attempt ${Math.trunc(n)}` : "Attempt 1";
+        },
+      },
+      {
+        field: "attempt_status",
+        headerName: "Attempt Status",
+        width: 210,
+        valueGetter: (_v, row) => (row.is_superseded_attempt ? "Superseded / Re-auctioned" : "Latest"),
+      },
+      {
         field: "result_status",
         headerName: "Result",
         width: 130,
@@ -245,13 +264,17 @@ export const AuctionResults: React.FC = () => {
         field: "winning_trader",
         headerName: "Winning Trader",
         width: 210,
-        valueGetter: (_v, row) => display(row.winning_trader_name || row.winning_trader_username),
+        valueGetter: (_v, row) =>
+          normalizeStatus(row.result_status) === "UNSOLD"
+            ? "UNSOLD"
+            : display(row.winning_trader_name || row.winning_trader_username),
       },
       {
         field: "final_amount_lot",
         headerName: "Final Amount (Lot)",
         width: 190,
-        valueGetter: (_v, row) => formatCurrency(row.final_amount_lot),
+        valueGetter: (_v, row) =>
+          normalizeStatus(row.result_status) === "UNSOLD" ? "—" : formatCurrency(row.final_amount_lot),
       },
       { field: "qty_kg", headerName: "Qty (kg)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_kg) },
       { field: "qty_qtl", headerName: "Qty (qtl)", width: 130, valueGetter: (_v, row) => formatNumber(row.qty_qtl, 4) },
@@ -400,6 +423,10 @@ export const AuctionResults: React.FC = () => {
         session_status: item.session_status || null,
         lot_current_status: item.lot_current_status || null,
         settlement_status: item.settlement_status || null,
+        attempt_no: toNumber(item.attempt_no),
+        is_latest_attempt: Boolean(item.is_latest_attempt),
+        is_superseded_attempt: Boolean(item.is_superseded_attempt),
+        final_source_lot_status: item.final_source_lot_status || null,
       }));
 
       setRows(mapped);
@@ -637,7 +664,9 @@ export const AuctionResults: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Final Amount</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatCurrency(selectedRow?.final_amount_lot)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {normalizeStatus(selectedRow?.result_status) === "UNSOLD" ? "—" : formatCurrency(selectedRow?.final_amount_lot)}
+                  </Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">Gain/Loss</Typography>
@@ -680,12 +709,12 @@ export const AuctionResults: React.FC = () => {
               <Typography variant="body2" sx={{ fontWeight: 700, mt: 1.2, mb: 0.4 }}>Final</Typography>
               <Typography variant="body2"><strong>Final Rate (/qtl):</strong> {formatCurrency(selectedRow?.final_rate_qtl)}</Typography>
               <Typography variant="body2"><strong>Final Rate (/kg):</strong> {formatCurrency(selectedRow?.final_rate_kg)}</Typography>
-              <Typography variant="body2"><strong>Final Amount (Lot):</strong> {formatCurrency(selectedRow?.final_amount_lot)}</Typography>
+              <Typography variant="body2"><strong>Final Amount (Lot):</strong> {normalizeStatus(selectedRow?.result_status) === "UNSOLD" ? "—" : formatCurrency(selectedRow?.final_amount_lot)}</Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, mt: 1.2, mb: 0.4 }}>Comparison</Typography>
               <Typography variant="body2"><strong>Gain Over Opening:</strong> <Box component="span" sx={{ color: gainColor, fontWeight: 700 }}>{formatSignedCurrency(selectedRow?.gain_over_opening)}</Box></Typography>
               <Typography variant="body2"><strong>Improvement (%):</strong> {gainPctText}</Typography>
-              <Typography variant="body2"><strong>Winning Trader:</strong> {display(selectedRow?.winning_trader_name)}</Typography>
-              <Typography variant="body2"><strong>Winning Trader Username:</strong> {display(selectedRow?.winning_trader_username)}</Typography>
+              <Typography variant="body2"><strong>Winning Trader:</strong> {normalizeStatus(selectedRow?.result_status) === "UNSOLD" ? "UNSOLD" : display(selectedRow?.winning_trader_name)}</Typography>
+              <Typography variant="body2"><strong>Winning Trader Username:</strong> {normalizeStatus(selectedRow?.result_status) === "UNSOLD" ? "UNSOLD" : display(selectedRow?.winning_trader_username)}</Typography>
             </Paper>
 
             <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>

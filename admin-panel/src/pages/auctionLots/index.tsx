@@ -23,11 +23,17 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
+import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
+import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import { type GridColDef } from "@mui/x-data-grid";
@@ -35,6 +41,7 @@ import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -3077,6 +3084,11 @@ export const AuctionLots: React.FC = () => {
 
   return (
     <PageContainer sx={{ pt: { xs: 2.5, md: 3 } }}>
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</h1>
+        <div className="cm-page-subtitle">Live and queued lot operations with lifecycle control and audit visibility.</div>
+      </div>
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -3096,7 +3108,6 @@ export const AuctionLots: React.FC = () => {
         })}
       >
         <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</Typography>
           <Typography variant="body2" color="text.secondary">
             Only live and queued auction lots are shown by default. Sold, unsold, withdrawn and closed lots are available through status filter for audit.
           </Typography>
@@ -3147,7 +3158,7 @@ export const AuctionLots: React.FC = () => {
       </Alert>
       )}
       {hasCapacitySummary && (
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+      <Paper variant="outlined" className="cm-filter-shell cm-premium-filters" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
         <Stack spacing={1.5}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Auction Capacity Summary
@@ -3220,27 +3231,20 @@ export const AuctionLots: React.FC = () => {
         </Paper>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Filter Auction Lots
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="text" onClick={clearFilters}>
-              Clear
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => { void loadData({ showLoader: true }); }} disabled={loading}>
-              Apply / Refresh
-            </Button>
-          </Stack>
-        </Stack>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(180px, 1fr))", lg: "repeat(4, minmax(180px, 1fr))" },
-            gap: 1.5,
-          }}
-        >
+      <Paper variant="outlined" className="cm-filter-shell cm-premium-filters" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Box className="cm-filter-title-row">
+          <Box className="cm-filter-title">
+            <FilterListIcon fontSize="small" />
+            Filters
+          </Box>
+          <Box className="cm-filter-actions">
+            <Button size="small" variant="outlined" onClick={clearFilters}>Clear</Button>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => { void loadData({ showLoader: true }); }} disabled={loading}>Refresh</Button>
+            <Button size="small" variant="contained" onClick={() => { void loadData({ showLoader: true }); }} disabled={loading}>Apply Filters</Button>
+          </Box>
+        </Box>
+        {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
+        <Box className="cm-filter-row">
           {uiConfig.role === "SUPER_ADMIN" && (
             <TextField
               select
@@ -3248,6 +3252,7 @@ export const AuctionLots: React.FC = () => {
               size="small"
               value={filters.org_code}
               onChange={(e) => updateFilter("org_code", e.target.value)}
+              InputProps={{ startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} /> }}
               fullWidth
             >
               <MenuItem value="">All</MenuItem>
@@ -3265,6 +3270,7 @@ export const AuctionLots: React.FC = () => {
             size="small"
             value={filters.mandi_code}
             onChange={(e) => updateFilter("mandi_code", e.target.value)}
+            InputProps={{ startAdornment: <FilterInputAdornment icon={StorefrontIcon} /> }}
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
@@ -3275,14 +3281,15 @@ export const AuctionLots: React.FC = () => {
             ))}
           </TextField>
 
-          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth />
-          <TextField label="Lane" size="small" value={filters.lane} onChange={(e) => updateFilter("lane", e.target.value)} fullWidth />
+          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={QrCodeScannerOutlinedIcon} /> }} />
+          <TextField label="Lane" size="small" value={filters.lane} onChange={(e) => updateFilter("lane", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={LayersOutlinedIcon} /> }} />
           <TextField
             select
             label="Lane Type"
             size="small"
             value={filters.lane_type}
             onChange={(e) => updateFilter("lane_type", e.target.value)}
+            InputProps={{ startAdornment: <FilterInputAdornment icon={LayersOutlinedIcon} /> }}
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
@@ -3293,15 +3300,16 @@ export const AuctionLots: React.FC = () => {
             <MenuItem value="OVERFLOW_LANE">Overflow Lane</MenuItem>
             <MenuItem value="SPECIAL_EVENT_LANE">Special Event Lane</MenuItem>
           </TextField>
-          <TextField label="Commodity Group" size="small" value={filters.commodity_group} onChange={(e) => updateFilter("commodity_group", e.target.value)} fullWidth />
-          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth />
-          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth />
+          <TextField label="Commodity Group" size="small" value={filters.commodity_group} onChange={(e) => updateFilter("commodity_group", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CategoryOutlinedIcon} /> }} />
+          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CategoryOutlinedIcon} /> }} />
+          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CategoryOutlinedIcon} /> }} />
           <TextField
             select
             label="Lot Status"
             size="small"
             value={filters.lot_status}
             onChange={(e) => updateFilter("lot_status", e.target.value)}
+            InputProps={{ startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} /> }}
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
@@ -3377,7 +3385,7 @@ export const AuctionLots: React.FC = () => {
               onRowClick={(params) => setSelectedRow(params.row as LotRow)}
               sx={{
                 "& .MuiDataGrid-row": { cursor: "pointer" },
-                "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(47,166,82,0.05)" },
+                "& .MuiDataGrid-row:hover": { backgroundColor: "var(--cm-primary-soft)" },
                 "& .MuiDataGrid-columnHeaders": { position: "sticky", top: 0, zIndex: 1 },
                 "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
               }}
@@ -3387,7 +3395,7 @@ export const AuctionLots: React.FC = () => {
       </Paper>
 
       {showMandiInstruction && (
-        <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: "rgba(47,166,82,0.04)" }}>
+        <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: "var(--cm-primary-soft)" }}>
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
             Select a mandi to continue
           </Typography>
@@ -3752,7 +3760,7 @@ export const AuctionLots: React.FC = () => {
                 )}
 
                 {selectedLot && (
-                  <Paper variant="outlined" sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.03)" }}>
+                  <Paper variant="outlined" sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: "var(--cm-primary-soft)" }}>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
                       Selected Lot
                     </Typography>
@@ -3837,7 +3845,7 @@ export const AuctionLots: React.FC = () => {
                       <MenuItem
                         key={s.value}
                         value={s.value}
-                        sx={s.rank_meta?.isCompatible ? { bgcolor: "rgba(110, 124, 58, 0.08)" } : undefined}
+                        sx={s.rank_meta?.isCompatible ? { bgcolor: "var(--cm-primary-soft)" } : undefined}
                       >
                         <Stack spacing={0.35} sx={{ py: 0.3, width: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -4093,7 +4101,7 @@ export const AuctionLots: React.FC = () => {
             <Alert severity="info">
               This will create a lane with automatic start and close. Admin can override when needed.
             </Alert>
-            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.04)" }}>
+            <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "var(--cm-primary-soft)" }}>
               <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Auto Engine Enabled</Typography>
               <Typography variant="caption" sx={{ display: "block" }}>✓ Lots start automatically</Typography>
               <Typography variant="caption" sx={{ display: "block" }}>✓ Lots close automatically</Typography>
@@ -4455,6 +4463,7 @@ export const AuctionLots: React.FC = () => {
         language={language}
         title={helpTitle}
       />
+      </div>
     </PageContainer>
   );
 };

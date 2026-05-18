@@ -7,6 +7,12 @@ export default defineConfig({
 
   // Ensure Vite always builds the workspace root index.html
   root: path.resolve(__dirname),
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
+  },
 
   build: {
     emptyOutDir: true,

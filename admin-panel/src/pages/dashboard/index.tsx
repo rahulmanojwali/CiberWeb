@@ -94,7 +94,7 @@ export const Dashboard: React.FC = () => {
   ];
 
   const renderCard = (card: { title: string; content: { primary: string; secondary: string } }) => (
-    <Card sx={{ flex: "1 1 230px", minWidth: 230, bgcolor: "#f4fbf6" }} key={card.title}>
+    <Card sx={{ flex: "1 1 230px", minWidth: 230, bgcolor: "var(--cm-surface-muted)" }} key={card.title}>
       <CardContent>
         <Typography variant="subtitle2" color="text.secondary">
           {card.title}
@@ -109,9 +109,13 @@ export const Dashboard: React.FC = () => {
 
   return (
     <PageContainer>
+      <div className="cm-page">
+        <div className="cm-page-header">
+          <h1 className="cm-page-title">CiberMandi Command Center</h1>
+          <div className="cm-page-subtitle">Live operations overview across auctions, settlements, trade and alerts.</div>
+        </div>
       <Stack spacing={3}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="h5">CiberMandi Command Center</Typography>
           <Button variant="contained" color="secondary" onClick={fetchSummary} disabled={!canView}>
             Refresh
           </Button>
@@ -130,7 +134,7 @@ export const Dashboard: React.FC = () => {
                 display: "flex",
                 overflowX: "auto",
                 gap: 2,
-                bgcolor: "#1b6b3d",
+                bgcolor: "var(--cm-primary-dark)",
                 color: "#fff",
                 p: 1,
                 borderRadius: 2,
@@ -146,7 +150,7 @@ export const Dashboard: React.FC = () => {
                     label={`${item.change_percent.toFixed(2)}%`}
                     size="small"
                     sx={{
-                      bgcolor: item.change_percent >= 0 ? "#2fa652" : "#d32f2f",
+                      bgcolor: item.change_percent >= 0 ? "var(--cm-success)" : "var(--cm-danger)",
                       color: "#fff",
                     }}
                   />
@@ -169,7 +173,7 @@ export const Dashboard: React.FC = () => {
                           <Box
                             sx={{
                               p: 1,
-                              bgcolor: "#e8f5e9",
+                              bgcolor: "var(--cm-primary-soft)",
                               borderRadius: 1,
                               textAlign: "center",
                             }}
@@ -180,7 +184,7 @@ export const Dashboard: React.FC = () => {
                             <Typography variant="body2">{cell.price}</Typography>
                             <Typography
                               variant="caption"
-                              sx={{ color: cell.diff_percent >= 0 ? "#2fa652" : "#d32f2f" }}
+                              sx={{ color: cell.diff_percent >= 0 ? "var(--cm-success)" : "var(--cm-danger)" }}
                             >
                               {cell.diff_percent}%
                             </Typography>
@@ -254,7 +258,7 @@ export const Dashboard: React.FC = () => {
                                 label={alert.severity}
                                 size="small"
                                 sx={{
-                                  bgcolor: alert.severity === "HIGH" ? "#d32f2f" : "#ffc107",
+                                  bgcolor: alert.severity === "HIGH" ? "var(--cm-danger)" : "var(--cm-secondary)",
                                   color: "#fff",
                                   mr: 1,
                                 }}
@@ -290,6 +294,7 @@ export const Dashboard: React.FC = () => {
           </>
         )}
       </Stack>
+      </div>
     </PageContainer>
   );
 };

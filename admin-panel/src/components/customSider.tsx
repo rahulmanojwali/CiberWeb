@@ -125,13 +125,13 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               disabled={(item as any).disabled === true}
               onClick={() => item.path && menuNavigate(item.path, item.resourceKey)}
               sx={{
-                minHeight: 48,
-                py: 0.75,
+                minHeight: 38,
+                py: 0.5,
                 justifyContent: collapsed ? "center" : "flex-start",
                 px: collapsed ? 1.25 : 2,
                 "&.Mui-selected": {
                   backgroundColor: CM.bg,
-                  borderRadius: 1,
+                  borderRadius: "10px",
                   color: CM.primaryDark,
                   "& .MuiListItemIcon-root": { color: CM.secondary },
                   "& .MuiListItemText-primary": { color: CM.primaryDark },
@@ -209,13 +209,13 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
                         disabled={(child as any).disabled === true}
                         onClick={() => child.path && menuNavigate(child.path, child.resourceKey)}
                         sx={{
-                          minHeight: 48,
-                          py: 0.75,
+                          minHeight: 38,
+                          py: 0.5,
                           justifyContent: "flex-start",
                           px: 2.5,
                           "&.Mui-selected": {
                             backgroundColor: CM.bg,
-                            borderRadius: 1,
+                            borderRadius: "10px",
                             color: CM.primaryDark,
                             "& .MuiListItemIcon-root": { color: CM.secondary },
                             "& .MuiListItemText-primary": { color: CM.primaryDark },
@@ -270,11 +270,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       sx={{
         width: siderWidth,
         flexShrink: 0,
-        height: "100vh",
+        height: "calc(100vh - var(--cm-header-height))",
         position: "sticky",
-        top: 0,
-        borderRight: `1px solid ${theme.palette.divider}`,
-        bgcolor: theme.palette.background.paper,
+        top: "var(--cm-header-height)",
+        borderRight: "1px solid var(--cm-border)",
+        bgcolor: "var(--cm-surface)",
         display: "flex",
         flexDirection: "column",
         transition: "width 0.2s ease",

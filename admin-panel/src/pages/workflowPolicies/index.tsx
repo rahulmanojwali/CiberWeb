@@ -992,13 +992,13 @@ export const WorkflowPolicies: React.FC = () => {
 
   return (
     <PageContainer>
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Workflow Policies</h1>
+        <div className="cm-page-subtitle">Configure organisation defaults and mandi-specific overrides for auction, MSP, direct, contract and haat.</div>
+      </div>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h5">Workflow Policies</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Configure organisation defaults and mandi-specific overrides for auction, MSP, direct, contract and haat.
-          </Typography>
-        </Stack>
+        <Stack spacing={0.5} />
         <IconButton
           color="primary"
           onClick={() => {
@@ -1233,6 +1233,7 @@ export const WorkflowPolicies: React.FC = () => {
           )}
         </Box>
       </Drawer>
+      </div>
     </PageContainer>
   );
 };
@@ -2397,4 +2398,3 @@ export const WorkflowPolicies: React.FC = () => {
 //     </PageContainer>
 //   );
 // };
-

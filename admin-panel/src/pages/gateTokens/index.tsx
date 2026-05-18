@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Chip,
   MenuItem,
   Stack,
   Card,
@@ -13,6 +12,10 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
@@ -20,6 +23,11 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useNavigate } from "react-router-dom";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CMActionButton } from "../../components/ui/CMActionButton";
+import { CMDataTable } from "../../components/ui/CMDataTable";
+import { CMFilterCard } from "../../components/ui/CMFilterCard";
+import { CMFilterField } from "../../components/ui/CMFilterField";
+import { CMStatusChip } from "../../components/ui/CMStatusChip";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchOrganisations } from "../../services/adminUsersApi";
@@ -148,17 +156,14 @@ export const GateTokens: React.FC = () => {
         headerName: "Status",
         width: 140,
         renderCell: (params) => (
-          <Chip
-            size="small"
+          <CMStatusChip
             label={params.value || "-"}
-            color={
+            tone={
               params.value === "IN_YARD"
                 ? "success"
                 : params.value === "ISSUED"
                   ? "info"
-                  : params.value === "EXITED"
-                    ? "default"
-                    : "default"
+                  : "neutral"
             }
           />
         ),
@@ -184,23 +189,23 @@ export const GateTokens: React.FC = () => {
         width: 200,
         renderCell: (params) => (
           <Stack direction="row" spacing={1}>
-            <Button
+            <CMActionButton
               size="small"
               startIcon={<VisibilityOutlinedIcon fontSize="small" />}
               onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}`)}
             >
               View
-            </Button>
-            <Button size="small" onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}#movements`)}>
+            </CMActionButton>
+            <CMActionButton size="small" onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}#movements`)}>
               Movements
-            </Button>
+            </CMActionButton>
             {canUpdateEntry && params.row.token_type === "ENTRY" && (
-              <Button
+              <CMActionButton
                 size="small"
                 onClick={() => navigate(`/gate-tokens/${encodeURIComponent(params.row.token_code)}?mode=edit`)}
               >
                 Update
-              </Button>
+              </CMActionButton>
             )}
           </Stack>
         ),
@@ -408,33 +413,26 @@ export const GateTokens: React.FC = () => {
         </Stack>
         <Stack direction="row" spacing={1}>
           {(canCreateEntry || canCreatePass) && (
-            <Button
+            <CMActionButton
               variant="contained"
               onClick={() => navigate("/gate-entries/create")}
             >
               Create Token
-            </Button>
+            </CMActionButton>
           )}
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+          <CMActionButton variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
             Refresh
-          </Button>
+          </CMActionButton>
         </Stack>
       </Stack>
 
-      <Stack
-        direction={isMobile ? "column" : "row"}
-        spacing={2}
-        mb={2}
-        alignItems={isMobile ? "stretch" : "center"}
-        flexWrap="wrap"
-      >
+      <CMFilterCard actions={<CMActionButton variant="contained" onClick={loadData} disabled={loading}>Apply Filters</CMActionButton>}>
+      <Box className="cm-filter-row">
         {uiConfig.role === "SUPER_ADMIN" && (
-          <TextField
+          <CMFilterField
             select
             label="Organisation"
-            size="small"
-            sx={{ minWidth: isMobile ? "100%" : 220 }}
-            fullWidth={isMobile}
+            icon={BusinessOutlinedIcon}
             value={filters.org_id}
             onChange={(e) => updateFilter("org_id", e.target.value)}
           >
@@ -444,15 +442,13 @@ export const GateTokens: React.FC = () => {
                 {o.label}
               </MenuItem>
             ))}
-          </TextField>
+          </CMFilterField>
         )}
 
-        <TextField
+        <CMFilterField
           select
           label="Mandi"
-          size="small"
-          sx={{ minWidth: isMobile ? "100%" : 180 }}
-          fullWidth={isMobile}
+          icon={StorefrontIcon}
           value={filters.mandi_id}
           onChange={(e) => updateFilter("mandi_id", e.target.value)}
         >
@@ -462,14 +458,12 @@ export const GateTokens: React.FC = () => {
               {m.label}
             </MenuItem>
           ))}
-        </TextField>
+        </CMFilterField>
 
-        <TextField
+        <CMFilterField
           select
           label="Gate"
-          size="small"
-          sx={{ minWidth: isMobile ? "100%" : 160 }}
-          fullWidth={isMobile}
+          icon={StorefrontIcon}
           value={filters.gate_code}
           onChange={(e) => updateFilter("gate_code", e.target.value)}
         >
@@ -479,15 +473,13 @@ export const GateTokens: React.FC = () => {
               {g.label}
             </MenuItem>
           ))}
-        </TextField>
+        </CMFilterField>
 
         {tokenTypeOptions.length > 0 && (
-          <TextField
+          <CMFilterField
             select
             label="Token Type"
-            size="small"
-            sx={{ minWidth: isMobile ? "100%" : 150 }}
-            fullWidth={isMobile}
+            icon={ConfirmationNumberOutlinedIcon}
             value={filters.token_type}
             onChange={(e) => updateFilter("token_type", e.target.value as any)}
           >
@@ -496,15 +488,15 @@ export const GateTokens: React.FC = () => {
                 {opt.label}
               </MenuItem>
             ))}
-          </TextField>
+          </CMFilterField>
         )}
+      </Box>
 
-        <TextField
+      <Box className="cm-filter-row">
+        <CMFilterField
           select
           label="Status"
-          size="small"
-          sx={{ minWidth: isMobile ? "100%" : 150 }}
-          fullWidth={isMobile}
+          icon={CheckCircleOutlineIcon}
           value={filters.status}
           onChange={(e) => updateFilter("status", e.target.value)}
         >
@@ -513,32 +505,29 @@ export const GateTokens: React.FC = () => {
           <MenuItem value="IN_YARD">In Yard</MenuItem>
           <MenuItem value="EXITED">Exited</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>
-        </TextField>
+        </CMFilterField>
 
-        <TextField
+        <CMFilterField
           label="Date From"
           type="date"
-          size="small"
-          fullWidth={isMobile}
           value={filters.date_from}
           onChange={(e) => updateFilter("date_from", e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
-        <TextField
+        <CMFilterField
           label="Date To"
           type="date"
-          size="small"
-          fullWidth={isMobile}
           value={filters.date_to}
           onChange={(e) => updateFilter("date_to", e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
-      </Stack>
+        <Box className="cm-filter-actions-inline">
+          <span className="cm-filter-record-count">Showing {rows.length} records{totalCount ? ` (server total: ${totalCount})` : ""}</span>
+        </Box>
+      </Box>
+      </CMFilterCard>
 
       <Box sx={{ width: "100%" }}>
-        <Typography variant="body2" color="text.secondary" mb={1}>
-          Showing {rows.length} records{totalCount ? ` (server total: ${totalCount})` : ""}.
-        </Typography>
         {isMobile ? (
           <Stack spacing={2}>
             {rows.map((row) => (
@@ -548,17 +537,14 @@ export const GateTokens: React.FC = () => {
                     <Typography variant="subtitle1" fontWeight={600}>
                       {row.token_code || "-"}
                     </Typography>
-                    <Chip
-                      size="small"
+                    <CMStatusChip
                       label={row.status || "-"}
-                      color={
+                      tone={
                         row.status === "IN_YARD"
                           ? "success"
                           : row.status === "ISSUED"
                             ? "info"
-                            : row.status === "EXITED"
-                              ? "default"
-                              : "default"
+                            : "neutral"
                       }
                     />
                   </Stack>
@@ -601,18 +587,15 @@ export const GateTokens: React.FC = () => {
               </Card>
             ))}
             {rows.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                No tokens found for the selected filters.
-              </Typography>
+              <Box className="cm-empty-state">No records found</Box>
             )}
           </Stack>
         ) : (
-          <ResponsiveDataGrid
+          <CMDataTable
             rows={rows}
             columns={columns}
             loading={loading}
             getRowId={(r) => r.id || `${r.token_type}-${r.token_code}`}
-            disableRowSelectionOnClick
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
             minWidth={960}

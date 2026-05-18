@@ -9,7 +9,7 @@ export const securityUi = {
   container: {
     py: { xs: 2, md: 3 },
     px: { xs: 2, md: 4 },
-    backgroundColor: "background.default",
+    backgroundColor: "var(--cm-bg)",
   } as SxProps<Theme>,
   content: {
     maxWidth: 960,
@@ -27,11 +27,11 @@ export const securityUi = {
   } as SxProps<Theme>,
   title: {
     fontSize: { xs: "22px", sm: "24px" },
-    fontWeight: 600,
+    fontWeight: 800,
   } as SxProps<Theme>,
   subtitle: {
     fontSize: 14,
-    color: "text.secondary",
+    color: "var(--cm-muted)",
     mt: 0.5,
   } as SxProps<Theme>,
   card: baseCard,
@@ -69,9 +69,9 @@ export const securityUi = {
   } as SxProps<Theme>,
   codeBox: {
     fontFamily: '"IBM Plex Mono", "Roboto Mono", monospace',
-    backgroundColor: "#f7f7fb",
+    backgroundColor: "var(--cm-surface-muted)",
     border: "1px solid",
-    borderColor: "divider",
+    borderColor: "var(--cm-border)",
     borderRadius: 1,
     p: 1,
     fontSize: 14,

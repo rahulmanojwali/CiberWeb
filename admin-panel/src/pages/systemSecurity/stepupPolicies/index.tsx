@@ -368,8 +368,13 @@ const StepUpPoliciesPage: React.FC = () => {
 
   return (
     <StepUpGuard username={username} resourceKey="stepup_policy.view">
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Step-Up Policy Manager</h1>
+        <div className="cm-page-subtitle">Configure screen-level OTP enforcement and browser-session binding policy.</div>
+      </div>
       <Stack spacing={2}>
-        <Paper sx={actionBarSx}>
+        <Paper className="cm-card" sx={actionBarSx}>
           <Stack
             direction={{ xs: "column", sm: "row" }}
             justifyContent="space-between"
@@ -377,12 +382,7 @@ const StepUpPoliciesPage: React.FC = () => {
             flexWrap="wrap"
             gap={2}
           >
-            <Box>
-              <Typography variant="h5">Step-Up Policy Manager</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Toggle screen-level enforcement for SUPER_ADMIN screens.
-              </Typography>
-            </Box>
+            <Box />
             <Box
               display="flex"
               flexDirection="column"
@@ -441,13 +441,13 @@ const StepUpPoliciesPage: React.FC = () => {
         </Paper>
 
         {error && (
-          <Paper sx={{ p: 2 }}>
+          <Paper className="cm-card" sx={{ p: 2 }}>
             <Alert severity="error">{error}</Alert>
           </Paper>
         )}
 
         {lockedDefaults.length > 0 && (
-          <Paper sx={{ p: 2 }}>
+          <Paper className="cm-card" sx={{ p: 2 }}>
             <Alert severity="info">
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                 Locked by default (always enforced)
@@ -459,7 +459,7 @@ const StepUpPoliciesPage: React.FC = () => {
           </Paper>
         )}
 
-        <Paper sx={{ p: 2 }}>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           {status === "loading" ? (
             <Stack alignItems="center" py={6}>
               <CircularProgress />
@@ -572,6 +572,7 @@ const StepUpPoliciesPage: React.FC = () => {
           )}
         </Paper>
       </Stack>
+      </div>
     </StepUpGuard>
   );
 };

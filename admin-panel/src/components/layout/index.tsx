@@ -29,10 +29,12 @@ const CustomSider: React.FC<RefineThemedLayoutSiderProps> = (props) => {
  */
 export const Layout: React.FC<RefineThemedLayoutProps> = (props) => {
   return (
-    <ThemedLayout
-      Header={Header}
-      Sider={CustomSider}
-      {...props}
-    />
+    <div className="cm-layout-shell">
+      <ThemedLayout
+        Header={Header}
+        Sider={CustomSider}
+        {...props}
+      />
+    </div>
   );
 };

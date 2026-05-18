@@ -163,15 +163,19 @@ const ResourceHealthPage: React.FC = () => {
 
   return (
     <StepUpGuard username={username} resourceKey="resource_registry.menu">
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Resource Health</h1>
+        <div className="cm-page-subtitle">Detect registry and UI resource mismatches before they affect access control.</div>
+      </div>
       <Stack spacing={2}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h5">Resource Health</Typography>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           <Typography variant="body2" color="text.secondary">
             Detect UI resources missing in the registry, registry-only keys, and action mismatches.
           </Typography>
         </Paper>
 
-        <Paper sx={{ p: 2 }}>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           <Stack
             direction={{ xs: "column", md: "row" }}
             spacing={2}
@@ -197,12 +201,12 @@ const ResourceHealthPage: React.FC = () => {
         </Paper>
 
         {error && (
-          <Paper sx={{ p: 2 }}>
+          <Paper className="cm-card" sx={{ p: 2 }}>
             <Alert severity="error">{error}</Alert>
           </Paper>
         )}
 
-        <Paper sx={{ p: 2 }}>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           <Typography variant="h6">UI keys missing in Registry</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             These UI resources are not present in cm_resource_registry.
@@ -234,7 +238,7 @@ const ResourceHealthPage: React.FC = () => {
           </Stack>
         </Paper>
 
-        <Paper sx={{ p: 2 }}>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           <Typography variant="h6">Registry keys missing in UI</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             These registry keys are not present in cm_ui_resources.
@@ -268,7 +272,7 @@ const ResourceHealthPage: React.FC = () => {
           </Stack>
         </Paper>
 
-        <Paper sx={{ p: 2 }}>
+        <Paper className="cm-card" sx={{ p: 2 }}>
           <Typography variant="h6">Action mismatches</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             UI action_code is not included in registry allowed_actions.
@@ -305,6 +309,7 @@ const ResourceHealthPage: React.FC = () => {
 
         {loading && <Alert severity="info">Loading registry...</Alert>}
       </Stack>
+      </div>
     </StepUpGuard>
   );
 };

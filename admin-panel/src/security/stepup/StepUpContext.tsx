@@ -965,6 +965,7 @@ const StepUpModal: React.FC<{
   setBackupCode,
 }) => (
   <Dialog
+    className="cm-modal"
     open={open}
     onClose={(_, reason) => {
       if (verifying && reason === "backdropClick") return;
@@ -994,24 +995,19 @@ const StepUpModal: React.FC<{
       }}
     >
       <Box
+        className="cm-stepup-icon-wrap"
         sx={{
           width: 40,
           height: 40,
-          borderRadius: 2,
-          display: "grid",
-          placeItems: "center",
-          bgcolor: "action.hover",
-          border: "1px solid",
-          borderColor: "divider",
         }}
       >
         <SecurityIcon fontSize="small" />
       </Box>
       <Box sx={{ flex: 1 }}>
-        <Typography sx={{ fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
+        <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2 }}>
           Step-Up Verification
         </Typography>
-        <Typography sx={{ mt: 0.25, color: "text.secondary", fontSize: 12.5 }}>
+        <Typography className="cm-stepup-subtitle" sx={{ mt: 0.25 }}>
           Additional authentication required for SUPER_ADMIN actions.
         </Typography>
       </Box>

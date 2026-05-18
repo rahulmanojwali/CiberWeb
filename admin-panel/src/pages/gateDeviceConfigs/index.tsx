@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Autocomplete,
   Dialog,
   DialogActions,
@@ -22,11 +20,20 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
+import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CMActionButton } from "../../components/ui/CMActionButton";
+import { CMDataTable } from "../../components/ui/CMDataTable";
+import { CMFilterCard } from "../../components/ui/CMFilterCard";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../../config/languages";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandisWithGatesSummary } from "../../services/gateApi";
@@ -612,17 +619,20 @@ export const GateDeviceConfigs: React.FC = () => {
   return (
     <PageContainer
       title={t("Gate Device Configs")}
-      actions={
-        <ActionGate resourceKey="gate_device_configs.create" action="CREATE">
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            Add Config
-          </Button>
-        </ActionGate>
-      }
+      subtitle={<span className="cm-gdc-subtitle">Manage gate-device configuration mappings and activation status.</span>}
     >
-      <Card>
-        <CardContent>
-          <Stack direction={isMobile ? "column" : "row"} spacing={2}>
+      <CMFilterCard
+        className="cm-card cm-gdc-filters"
+        title="Filters"
+        actions={(
+          <ActionGate resourceKey="gate_device_configs.create" action="CREATE">
+            <CMActionButton variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+              Add Config
+            </CMActionButton>
+          </ActionGate>
+        )}
+      >
+        <Box className="cm-gdc-filter-grid">
             {!isOrgScoped && (
               <TextField
                 select
@@ -645,7 +655,8 @@ export const GateDeviceConfigs: React.FC = () => {
                   setDeviceOptions([]);
                 }}
                 size="small"
-                sx={{ minWidth: 180 }}
+                className="cm-filter-field"
+                InputProps={{ startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} /> }}
               >
                 <MenuItem value="">All</MenuItem>
                 {orgOptions.map((org) => (
@@ -661,7 +672,7 @@ export const GateDeviceConfigs: React.FC = () => {
                 value={orgName || orgCode || ""}
                 size="small"
                 InputProps={{ readOnly: true }}
-                sx={{ minWidth: 200 }}
+                className="cm-filter-field"
               />
             )}
             <TextField
@@ -670,7 +681,8 @@ export const GateDeviceConfigs: React.FC = () => {
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
               size="small"
-              sx={{ minWidth: 150 }}
+              className="cm-filter-field"
+              InputProps={{ startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} /> }}
             >
               <MenuItem value="ALL">All</MenuItem>
               <MenuItem value="Y">Active</MenuItem>
@@ -678,6 +690,7 @@ export const GateDeviceConfigs: React.FC = () => {
             </TextField>
             <Autocomplete
               size="small"
+              className="cm-filter-field"
               options={mandiOptions}
               loading={mandiLoading}
               getOptionLabel={(option: any) => option.name_i18n?.en || option.mandi_slug || String(option.mandi_id)}
@@ -714,7 +727,15 @@ export const GateDeviceConfigs: React.FC = () => {
                   label="Mandi"
                   placeholder="Search mandis"
                   size="small"
-                  sx={{ minWidth: 200 }}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <FilterInputAdornment icon={StorefrontIcon} />
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                  }}
                 />
               )}
             />
@@ -726,8 +747,9 @@ export const GateDeviceConfigs: React.FC = () => {
                 setFilters((f) => ({ ...f, gate_id: e.target.value, device_code: "" }))
               }
               size="small"
-              sx={{ minWidth: 140 }}
+              className="cm-filter-field"
               disabled={!filters.mandi_id}
+              InputProps={{ startAdornment: <FilterInputAdornment icon={MeetingRoomOutlinedIcon} /> }}
             >
               <MenuItem value="">All</MenuItem>
               {gateOptionsFilter.map((g: any) => (
@@ -745,8 +767,9 @@ export const GateDeviceConfigs: React.FC = () => {
               onChange={(e) => setFilters((f) => ({ ...f, device_code: e.target.value }))}
               select
               size="small"
-              sx={{ minWidth: 180 }}
+              className="cm-filter-field"
               disabled={!filters.gate_id}
+              InputProps={{ startAdornment: <FilterInputAdornment icon={QrCodeScannerOutlinedIcon} /> }}
             >
               <MenuItem value="">Select</MenuItem>
               {filteredDeviceOptionsFilter.map((d: any) => (
@@ -756,22 +779,35 @@ export const GateDeviceConfigs: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
-          </Stack>
-        </CardContent>
-      </Card>
+            <Box />
+        </Box>
+      </CMFilterCard>
 
       <Box mt={2}>
-        <ResponsiveDataGrid
-          autoHeight
+        <CMDataTable
           columns={columns}
           rows={rows}
           loading={loading}
           getRowId={(row) => row.id}
-          hideFooter
           density="compact"
+          emptyTitle="No gate device configs found"
+          emptySubtitle="Try changing filters or add a configuration."
+          sx={{
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "#ede4d6 !important",
+              color: "#453f34 !important",
+              fontWeight: 900,
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "1px solid var(--cm-border)",
+              backgroundColor: "var(--cm-surface-muted)",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              minHeight: rows.length > 0 ? 180 : 64,
+            },
+          }}
         />
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2}>
-          <Box />
+        <Stack className="cm-table-footer">
           <Pagination
             page={page}
             count={totalPages}

@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CMActionButton } from "../../components/ui/CMActionButton";
+import { CMDataTable } from "../../components/ui/CMDataTable";
+import { CMFilterCard } from "../../components/ui/CMFilterCard";
+import { CMFilterField } from "../../components/ui/CMFilterField";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -235,24 +242,18 @@ export const WeighmentTickets: React.FC = () => {
             Runtime weighment tickets for gates and weighbridges (read-only).
           </Typography>
         </Stack>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+        <CMActionButton variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
           Refresh
-        </Button>
+        </CMActionButton>
       </Stack>
 
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        mb={2}
-        alignItems={{ xs: "flex-start", md: "center" }}
-        flexWrap="wrap"
-      >
+      <CMFilterCard actions={<CMActionButton variant="contained" onClick={loadData} disabled={loading}>Apply Filters</CMActionButton>}>
+      <Box className="cm-filter-row">
         {uiConfig.role === "SUPER_ADMIN" && (
-          <TextField
+          <CMFilterField
             select
             label="Organisation"
-            size="small"
-            sx={{ minWidth: 220 }}
+            icon={BusinessOutlinedIcon}
             value={filters.org_id}
             onChange={(e) => updateFilter("org_id", e.target.value)}
           >
@@ -262,14 +263,13 @@ export const WeighmentTickets: React.FC = () => {
                 {o.label}
               </MenuItem>
             ))}
-          </TextField>
+          </CMFilterField>
         )}
 
-        <TextField
+        <CMFilterField
           select
           label="Mandi"
-          size="small"
-          sx={{ minWidth: 180 }}
+          icon={StorefrontIcon}
           value={filters.mandi_id}
           onChange={(e) => updateFilter("mandi_id", e.target.value)}
         >
@@ -279,13 +279,12 @@ export const WeighmentTickets: React.FC = () => {
               {m.label}
             </MenuItem>
           ))}
-        </TextField>
+        </CMFilterField>
 
-        <TextField
+        <CMFilterField
           select
           label="Gate / Weighbridge"
-          size="small"
-          sx={{ minWidth: 180 }}
+          icon={StorefrontIcon}
           value={filters.gate_code}
           onChange={(e) => updateFilter("gate_code", e.target.value)}
         >
@@ -295,13 +294,12 @@ export const WeighmentTickets: React.FC = () => {
               {g.label}
             </MenuItem>
           ))}
-        </TextField>
+        </CMFilterField>
 
-        <TextField
+        <CMFilterField
           select
           label="Status"
-          size="small"
-          sx={{ minWidth: 150 }}
+          icon={CheckCircleOutlineIcon}
           value={filters.status}
           onChange={(e) => updateFilter("status", e.target.value)}
         >
@@ -309,36 +307,36 @@ export const WeighmentTickets: React.FC = () => {
           <MenuItem value="OPEN">Open</MenuItem>
           <MenuItem value="CLOSED">Closed</MenuItem>
           <MenuItem value="CANCELLED">Cancelled</MenuItem>
-        </TextField>
+        </CMFilterField>
+      </Box>
 
-        <TextField
+      <Box className="cm-filter-row">
+        <CMFilterField
           label="Date From"
           type="date"
-          size="small"
           value={filters.date_from}
           onChange={(e) => updateFilter("date_from", e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
-        <TextField
+        <CMFilterField
           label="Date To"
           type="date"
-          size="small"
           value={filters.date_to}
           onChange={(e) => updateFilter("date_to", e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
-      </Stack>
+        <Box className="cm-filter-actions-inline">
+          <span className="cm-filter-record-count">Showing {rows.length} records{totalCount ? ` (server total: ${totalCount})` : ""}</span>
+        </Box>
+      </Box>
+      </CMFilterCard>
 
       <Box sx={{ width: "100%" }}>
-        <Typography variant="body2" color="text.secondary" mb={1}>
-          Showing {rows.length} records{totalCount ? ` (server total: ${totalCount})` : ""}.
-        </Typography>
-        <ResponsiveDataGrid
+        <CMDataTable
           rows={rows}
           columns={columns}
           loading={loading}
           getRowId={(r) => r.id || r.ticket_code}
-          disableRowSelectionOnClick
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           minWidth={960}

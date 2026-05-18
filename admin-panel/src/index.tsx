@@ -5,6 +5,7 @@ import "./services/setupStepupInterceptor";
 import App from "./App";
 import "./i18n";
 import "./global.css";
+import "./styles/cibermandi-theme.css";
 
 const container = document.getElementById("root") as HTMLElement;
 const root = createRoot(container);

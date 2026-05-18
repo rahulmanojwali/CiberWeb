@@ -691,6 +691,11 @@ export const PermissionsManager: React.FC = () => {
       action="VIEW"
     >
       <PageContainer title="Role Permission Manager">
+        <div className="cm-page">
+        <div className="cm-page-header">
+          <h1 className="cm-page-title">Role Permission Manager</h1>
+          <div className="cm-page-subtitle">Manage role permissions across modules with diff-aware save controls.</div>
+        </div>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {catalog.length === 0 && (
             <Box
@@ -1011,6 +1016,7 @@ export const PermissionsManager: React.FC = () => {
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </Box>
+        </div>
       </PageContainer>
     </StepUpGuard>
   );

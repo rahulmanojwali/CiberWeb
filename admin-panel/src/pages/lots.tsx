@@ -13,7 +13,6 @@ import {
   DialogTitle,
   FormControl,
   IconButton,
-  InputAdornment,
   InputLabel,
   LinearProgress,
   MenuItem,
@@ -32,14 +31,17 @@ import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import SearchIcon from "@mui/icons-material/Search";
 import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import SearchIcon from "@mui/icons-material/Search";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
 import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { ScreenHelpDrawer } from "../components/ScreenHelpDrawer";
+import { FilterInputAdornment } from "../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../config/languages";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { can } from "../utils/adminUiConfig";
@@ -1466,7 +1468,7 @@ export const Lots: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [language, canView, statusFilter, mandiFilter, tokenFilter]);
+  }, [language, canView]);
 
   if (!canView) {
     return (
@@ -1526,67 +1528,16 @@ export const Lots: React.FC = () => {
           </Stack>
         )}
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 1.5, md: 2 },
-            borderRadius: 2.5,
-            border: "1px solid",
-            borderColor: "divider",
-            bgcolor: alpha(theme.palette.background.paper, 0.98),
-          }}
-        >
-          <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25} alignItems={{ lg: "center" }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 170 }}>
-              <FilterAltOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                Filters
-              </Typography>
-            </Stack>
-
-            <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 170 } }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="">All</MenuItem>
-                {STATUS_OPTIONS.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {humanizeLotStatus(status)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Mandi ID"
-              size="small"
-              value={mandiFilter}
-              onChange={(e) => setMandiFilter(e.target.value)}
-              sx={{ minWidth: { xs: "100%", sm: 150 } }}
-            />
-
-            <TextField
-              label="Token Code"
-              size="small"
-              value={tokenFilter}
-              onChange={(e) => setTokenFilter(e.target.value)}
-              sx={{ minWidth: { xs: "100%", sm: 220 } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Box sx={{ flex: 1 }} />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+        <Box className="cm-filter-shell cm-premium-filters">
+          <Box className="cm-filter-title-row">
+            <Box className="cm-filter-title">
+              <FilterAltOutlinedIcon fontSize="small" />
+              Filters
+            </Box>
+            <Box className="cm-filter-actions">
               <Button
                 variant="outlined"
+                size="small"
                 onClick={() => {
                   setStatusFilter("");
                   setMandiFilter("");
@@ -1596,17 +1547,68 @@ export const Lots: React.FC = () => {
               >
                 Clear
               </Button>
-              <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
+              <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
                 Refresh
               </Button>
               {canCreateLot && (
-                <Button variant="contained" onClick={() => navigate("/lots/create")}>
+                <Button variant="contained" size="small" onClick={() => navigate("/lots/create")}>
                   {t("actions.createLot", { defaultValue: "Create Lot" })}
                 </Button>
               )}
-            </Stack>
-          </Stack>
-        </Paper>
+            </Box>
+          </Box>
+          {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
+
+          <Box className="cm-filter-row">
+            <Box className="cm-filter-field">
+              <TextField
+                select
+                size="small"
+                fullWidth
+                label="Status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} />,
+                }}
+              >
+                  <MenuItem value="">All</MenuItem>
+                  {STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {humanizeLotStatus(status)}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            </Box>
+
+            <Box className="cm-filter-field">
+              <TextField
+                label="Mandi"
+                placeholder="Enter mandi code or ID"
+                size="small"
+                value={mandiFilter}
+                onChange={(e) => setMandiFilter(e.target.value)}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
+                }}
+                fullWidth
+              />
+            </Box>
+
+            <Box className="cm-filter-field">
+              <TextField
+                label="Token Code"
+                size="small"
+                value={tokenFilter}
+                onChange={(e) => setTokenFilter(e.target.value)}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={SearchIcon} />,
+                }}
+                fullWidth
+              />
+            </Box>
+          </Box>
+        </Box>
 
         <Paper
           elevation={0}

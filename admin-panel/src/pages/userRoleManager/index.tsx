@@ -122,8 +122,8 @@ const UserRoleManagerPage: React.FC = () => {
         renderCell: (params) => {
           const flag = normalizeFlag(params.value);
           const label = flag === "Y" ? "Active" : "Inactive";
-          const color = flag === "Y" ? "success" : "default";
-          return <Chip size="small" label={label} color={color} variant="outlined" />;
+          const cls = flag === "Y" ? "cm-status cm-status-success" : "cm-status cm-status-muted";
+          return <Chip size="small" label={label} className={cls} />;
         },
       },
       {
@@ -140,8 +140,7 @@ const UserRoleManagerPage: React.FC = () => {
                   key={`${params.row.username}-${r.role_code}-${idx}`}
                   size="small"
                   label={r.role_code}
-                  color="primary"
-                  variant="outlined"
+                  className="cm-status cm-status-muted"
                 />
               ))}
             </Stack>
@@ -161,7 +160,12 @@ const UserRoleManagerPage: React.FC = () => {
           const isProtected = !!row.is_system_protected;
           return (
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" size="small" onClick={() => handleOpenAssign(row)}>
+              <Button
+                variant="outlined"
+                size="small"
+                className="cm-action-link"
+                onClick={() => handleOpenAssign(row)}
+              >
                 Assign Role
               </Button>
               <Tooltip title={hasActiveRole ? "" : "No active roles"} disableHoverListener={hasActiveRole}>
@@ -170,6 +174,7 @@ const UserRoleManagerPage: React.FC = () => {
                     variant="outlined"
                     size="small"
                     color="error"
+                    className="cm-action-link"
                     disabled={!hasActiveRole || isProtected}
                     onClick={() => handleOpenDeactivate(row)}
                   >
@@ -224,15 +229,15 @@ const UserRoleManagerPage: React.FC = () => {
   }, [language]);
 
   return (
-    <PageContainer>
-      <Stack spacing={1} mb={2}>
-        <Typography variant="h5">
-          {t("menu.userRoleManager", { defaultValue: "User Role Assignment" })}
-        </Typography>
+    <PageContainer
+      title={t("menu.userRoleManager", { defaultValue: "User Role Assignment" })}
+      subtitle="Assign and deactivate user roles without changing role policy definitions."
+    >
+      <div className="cm-card cm-filter-card">
         <Typography variant="body2" color="text.secondary">
           Assign roles to users. This does not change what roles can do.
         </Typography>
-      </Stack>
+      </div>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -240,7 +245,7 @@ const UserRoleManagerPage: React.FC = () => {
         </Alert>
       )}
 
-      <Card>
+      <Card className="cm-card cm-table-card">
         <CardContent>
           <Box sx={{ width: "100%", overflowX: "auto" }}>
             <ResponsiveDataGrid

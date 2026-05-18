@@ -400,16 +400,16 @@ function getSectionFTierPresetByCode(tierCode: string): (typeof SECTION_F_TIER_P
 
 function sectionFStatusChipSx(status: SectionFStatus) {
   if (status === "FULL" || status === "UNSAVED") {
-    return { bgcolor: "#ed6c02", color: "#fff" };
+    return { bgcolor: "var(--cm-warning)", color: "#fff" };
   }
   if (status === "CLEARED") {
-    return { bgcolor: "#9e9e9e", color: "#fff" };
+    return { bgcolor: "var(--cm-muted)", color: "#fff" };
   }
   if (status === "OVER_LIMIT") {
-    return { bgcolor: "#d32f2f", color: "#fff" };
+    return { bgcolor: "var(--cm-danger)", color: "#fff" };
   }
   if (status === "OK") {
-    return { bgcolor: "#2e7d32", color: "#fff" };
+    return { bgcolor: "var(--cm-success)", color: "#fff" };
   }
   return undefined;
 }
@@ -1960,13 +1960,13 @@ const SystemCapacityControlPage: React.FC = () => {
   return (
     <StepUpGuard username={username} resourceKey="capacity_control.view">
       <PageContainer>
+        <div className="cm-page">
+        <div className="cm-page-header">
+          <h1 className="cm-page-title">System Capacity Control</h1>
+          <div className="cm-page-subtitle">Physical infrastructure is the source of truth for platform and organisation capacity limits.</div>
+        </div>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="h5">System Capacity Control</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Physical infrastructure is the source of truth. Platform and org limits cannot exceed infra-derived safe capacity.
-            </Typography>
-          </Stack>
+          <Stack spacing={0.5} />
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading || savingSystem || !!savingOrgId}>
               Refresh
@@ -3156,6 +3156,7 @@ const SystemCapacityControlPage: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+        </div>
       </PageContainer>
     </StepUpGuard>
   );

@@ -24,11 +24,19 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
+import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -532,13 +540,13 @@ export const AuctionResults: React.FC = () => {
 
   return (
     <PageContainer>
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">{t("menu.auctionResults", { defaultValue: "Auction Results" })}</h1>
+        <div className="cm-page-subtitle">Post-auction outcomes with lot/session context, pricing, and winner details.</div>
+      </div>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.auctionResults", { defaultValue: "Auction Results" })}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Post-auction outcomes with lot/session context, pricing, and winner details.
-          </Typography>
-        </Stack>
+        <Stack spacing={0.5} />
         <Stack direction="row" spacing={1} alignItems="center">
           <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
             <HelpOutlineIcon />
@@ -549,28 +557,23 @@ export const AuctionResults: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Filter Auction Results
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button size="small" variant="text" onClick={clearFilters}>Clear</Button>
-            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
-              Apply / Refresh
-            </Button>
-          </Stack>
-        </Stack>
+      <Paper variant="outlined" className="cm-filter-shell cm-premium-filters" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
+        <Box className="cm-filter-title-row">
+          <Box className="cm-filter-title">
+            <FilterListIcon fontSize="small" />
+            Filters
+          </Box>
+          <Box className="cm-filter-actions">
+            <Button size="small" variant="outlined" onClick={clearFilters}>Clear</Button>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>Refresh</Button>
+            <Button size="small" variant="contained" onClick={loadData} disabled={loading}>Apply Filters</Button>
+          </Box>
+        </Box>
+        {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
 
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(180px, 1fr))", lg: "repeat(4, minmax(180px, 1fr))" },
-            gap: 1.5,
-          }}
-        >
+        <Box className="cm-filter-row">
           {uiConfig.role === "SUPER_ADMIN" && (
-            <TextField select label="Organisation" size="small" value={filters.org_code} onChange={(e) => updateFilter("org_code", e.target.value)} fullWidth>
+            <TextField select label="Organisation" size="small" value={filters.org_code} onChange={(e) => updateFilter("org_code", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} /> }}>
               <MenuItem value="">All</MenuItem>
               {orgOptions.map((o) => (
                 <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
@@ -578,19 +581,19 @@ export const AuctionResults: React.FC = () => {
             </TextField>
           )}
 
-          <TextField select label="Mandi" size="small" value={filters.mandi_code} onChange={(e) => updateFilter("mandi_code", e.target.value)} fullWidth>
+          <TextField select label="Mandi" size="small" value={filters.mandi_code} onChange={(e) => updateFilter("mandi_code", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={StorefrontIcon} /> }}>
             <MenuItem value="">All</MenuItem>
             {mandiOptions.map((m) => (
               <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
             ))}
           </TextField>
 
-          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth />
-          <TextField label="Lot ID / Lot Code" size="small" value={filters.lot_id} onChange={(e) => updateFilter("lot_id", e.target.value)} fullWidth />
-          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth />
-          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth />
+          <TextField label="Session ID" size="small" value={filters.session_id} onChange={(e) => updateFilter("session_id", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={EventNoteOutlinedIcon} /> }} />
+          <TextField label="Lot ID / Lot Code" size="small" value={filters.lot_id} onChange={(e) => updateFilter("lot_id", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={ConfirmationNumberOutlinedIcon} /> }} />
+          <TextField label="Commodity" size="small" value={filters.commodity} onChange={(e) => updateFilter("commodity", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CategoryOutlinedIcon} /> }} />
+          <TextField label="Product" size="small" value={filters.product} onChange={(e) => updateFilter("product", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CategoryOutlinedIcon} /> }} />
 
-          <TextField select label="Result Status" size="small" value={filters.result_status} onChange={(e) => updateFilter("result_status", e.target.value)} fullWidth>
+          <TextField select label="Result Status" size="small" value={filters.result_status} onChange={(e) => updateFilter("result_status", e.target.value)} fullWidth InputProps={{ startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} /> }}>
             <MenuItem value="">All</MenuItem>
             <MenuItem value="SOLD">Sold</MenuItem>
             <MenuItem value="UNSOLD">Unsold</MenuItem>
@@ -623,7 +626,7 @@ export const AuctionResults: React.FC = () => {
             onRowClick={(params) => setSelectedRow(params.row as ResultRow)}
             sx={{
               "& .MuiDataGrid-row": { cursor: "pointer" },
-              "& .MuiDataGrid-row:hover": { backgroundColor: "rgba(47,166,82,0.05)" },
+              "& .MuiDataGrid-row:hover": { backgroundColor: "var(--cm-primary-soft)" },
               "& .MuiDataGrid-columnHeaders": { position: "sticky", top: 0, zIndex: 1 },
               "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
             }}
@@ -651,7 +654,7 @@ export const AuctionResults: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "rgba(47,166,82,0.03)" }}>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "var(--cm-primary-soft)" }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Outcome Snapshot</Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 1 }}>
                 <Box>
@@ -754,7 +757,7 @@ export const AuctionResults: React.FC = () => {
                       selectedBidTrail.map((bid, index) => (
                         <TableRow
                           key={bid.bid_id || `${bid.created_at || "na"}-${index}`}
-                          sx={bid.is_winning_bid ? { bgcolor: "rgba(47,166,82,0.08)" } : undefined}
+                          sx={bid.is_winning_bid ? { bgcolor: "var(--cm-primary-soft)" } : undefined}
                         >
                           <TableCell>{display(bid.bidder_name)}</TableCell>
                           <TableCell>{display(bid.trader_username)}</TableCell>
@@ -787,6 +790,7 @@ export const AuctionResults: React.FC = () => {
         route="/admin/auction-results"
         language={language}
       />
+      </div>
     </PageContainer>
   );
 };

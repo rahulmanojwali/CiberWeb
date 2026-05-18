@@ -13,6 +13,7 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  MenuItem,
   Pagination,
   Stack,
   TextField,
@@ -23,6 +24,10 @@ import {
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
+import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ToggleOnOutlinedIcon from "@mui/icons-material/ToggleOnOutlined";
@@ -30,6 +35,11 @@ import ToggleOffOutlinedIcon from "@mui/icons-material/ToggleOffOutlined";
 
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CMActionButton } from "../../components/ui/CMActionButton";
+import { CMDataTable } from "../../components/ui/CMDataTable";
+import { CMFilterCard } from "../../components/ui/CMFilterCard";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
+import { CMStatusChip } from "../../components/ui/CMStatusChip";
 
 import {
   fetchGateDevicesBootstrap,
@@ -448,7 +458,15 @@ const GateDevicesPage: React.FC = () => {
         field: "status",
         headerName: "Status",
         width: 140,
-        renderCell: (params) => safeLabel((params.row as any)?.status),
+        renderCell: (params) => {
+          const status = safeLabel((params.row as any)?.status, "UNKNOWN").toUpperCase();
+          return (
+            <CMStatusChip
+              label={status}
+              tone={status === "ACTIVE" ? "success" : status === "INACTIVE" ? "warning" : "neutral"}
+            />
+          );
+        },
       },
       {
         field: "last_seen_on",
@@ -516,19 +534,20 @@ const GateDevicesPage: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={1}
-            alignItems={{ xs: "stretch", md: "center" }}
-            sx={{
-              "& .MuiAutocomplete-root": { minWidth: { xs: "100%", md: 260 } },
-              "& .MuiTextField-root": { minWidth: { xs: "100%", md: 200 } },
-            }}
-          >
+      <CMFilterCard
+        className="cm-card"
+        actions={null}
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "minmax(200px, 260px) minmax(170px, 220px) minmax(170px, 220px) minmax(220px, 1fr) 150px" },
+            gap: 1.5,
+            alignItems: "center",
+          }}
+        >
             <Autocomplete
-              fullWidth
+              className="cm-filter-field"
               loading={loading}
               options={mandis}
               value={selectedMandi}
@@ -542,6 +561,12 @@ const GateDevicesPage: React.FC = () => {
                   size="small"
                   InputProps={{
                     ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <FilterInputAdornment icon={StorefrontIcon} />
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
                     endAdornment: (
                       <>
                         {loading ? <CircularProgress color="inherit" size={16} /> : null}
@@ -555,13 +580,15 @@ const GateDevicesPage: React.FC = () => {
 
             <TextField
               select
-              fullWidth
+              className="cm-filter-field"
               label="Gate"
               size="small"
               value={gateId}
               onChange={(e) => setGateId(e.target.value)}
               disabled={!mandiId}
-              helperText={!mandiId ? "Select mandi first" : gates.length === 0 ? "No gates" : ""}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={MeetingRoomOutlinedIcon} />,
+              }}
             >
               <option value="" />
               {gates.map((g) => (
@@ -573,11 +600,14 @@ const GateDevicesPage: React.FC = () => {
 
             <TextField
               select
-              fullWidth
+              className="cm-filter-field"
               label="Device Type"
               size="small"
               value={deviceType}
               onChange={(e) => setDeviceType(e.target.value)}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={SensorsOutlinedIcon} />,
+              }}
             >
               <option value="" />
               {deviceTypes.map((t) => (
@@ -588,25 +618,32 @@ const GateDevicesPage: React.FC = () => {
             </TextField>
 
             <TextField
-              fullWidth
+              className="cm-filter-field"
               label="Search"
               size="small"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Device code, label..."
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={SearchIcon} />,
+              }}
             />
 
-            <Box sx={{ flex: "0 0 auto", width: { xs: "100%", md: "auto" } }}>
-              <ActionGate resourceKey="gate_devices.create" action="CREATE">
-                <Button fullWidth={isMobile} variant="contained" size="small" startIcon={<AddIcon />} onClick={openAdd}>
-                  Add Device
-                </Button>
-              </ActionGate>
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
+            <ActionGate resourceKey="gate_devices.create" action="CREATE">
+              <CMActionButton
+                fullWidth
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={openAdd}
+                sx={{ width: "100%", minWidth: 130 }}
+              >
+                Add Device
+              </CMActionButton>
+            </ActionGate>
+        </Box>
+      </CMFilterCard>
 
-      <Card>
+      <Card sx={{ transition: "box-shadow 160ms ease", "&:hover": { boxShadow: "var(--cm-shadow-md)" } }}>
         <CardContent>
           {showSelectHint ? (
             <Typography variant="body2" color="text.secondary">
@@ -657,9 +694,12 @@ const GateDevicesPage: React.FC = () => {
                       </Stack>
 
                       <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                        <Chip size="small" label={`Type: ${safeLabel(safeType(r.device_type))}`} />
-                        <Chip size="small" label={`Gate: ${safeLabel(r.gate_code)}`} />
-                        <Chip size="small" label={`Status: ${safeLabel(r.status)}`} />
+                        <CMStatusChip label={`Type: ${safeLabel(safeType(r.device_type))}`} tone="neutral" />
+                        <CMStatusChip label={`Gate: ${safeLabel(r.gate_code)}`} tone="info" />
+                        <CMStatusChip
+                          label={`Status: ${safeLabel(r.status)}`}
+                          tone={String(r.status || "").toUpperCase() === "ACTIVE" ? "success" : "warning"}
+                        />
                       </Stack>
 
                       <Typography variant="caption" color="text.secondary" display="block" mt={1}>
@@ -683,16 +723,17 @@ const GateDevicesPage: React.FC = () => {
             </Stack>
           ) : (
             <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
+              <CMDataTable
               sx={{
     "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
     "& .MuiDataGrid-columnHeaderTitleContainer": { alignItems: "center" },
+    "& .MuiDataGrid-columnHeaders": { backgroundColor: "#ede4d6", color: "#453f34" },
+    "& .MuiDataGrid-footerContainer": { borderTop: "1px solid var(--cm-border)", backgroundColor: "var(--cm-surface-muted)" },
   }}
                 columns={columns}
                 rows={devices}
                 loading={loading}
                 getRowId={(r: any) => r.id}
-                autoHeight
                 paginationMode="server"
                 rowCount={totalCount}
                 paginationModel={{ page: page - 1, pageSize }}
@@ -723,8 +764,10 @@ const GateDevicesPage: React.FC = () => {
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField
+              className="cm-dialog-field"
               label="Device Code"
               size="small"
+              fullWidth
               value={form.device_code}
               onChange={(e) => setForm((f) => ({ ...f, device_code: normalizeDeviceCode(e.target.value) }))}
               disabled={dialogMode === "edit"}
@@ -732,35 +775,41 @@ const GateDevicesPage: React.FC = () => {
             />
 
             <TextField
+              className="cm-dialog-field"
               label="Device Label"
               size="small"
+              fullWidth
               value={form.device_label}
               onChange={(e) => setForm((f) => ({ ...f, device_label: e.target.value }))}
             />
 
             <TextField
+              className="cm-dialog-field"
               select
               label="Device Type"
               size="small"
+              fullWidth
               value={form.device_type}
               onChange={(e) => setForm((f) => ({ ...f, device_type: e.target.value }))}
             >
               {deviceTypes.map((t) => (
-                <option key={t} value={t}>
+                <MenuItem key={t} value={t}>
                   {safeType(t)}
-                </option>
+                </MenuItem>
               ))}
             </TextField>
 
             <TextField
+              className="cm-dialog-field"
               select
               label="Status"
               size="small"
+              fullWidth
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
             >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
+              <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+              <MenuItem value="INACTIVE">INACTIVE</MenuItem>
             </TextField>
 
             <Autocomplete
@@ -772,35 +821,39 @@ const GateDevicesPage: React.FC = () => {
               }}
               getOptionLabel={(o) => o?.name_i18n?.en || o?.label || o?.mandi_slug || String(o?.mandi_id || "")}
               isOptionEqualToValue={(a, b) => String(a?.mandi_id) === String(b?.mandi_id)}
-              renderInput={(params) => <TextField {...params} label="Mandi" size="small" />}
+              renderInput={(params) => <TextField {...params} className="cm-dialog-field" label="Mandi" size="small" fullWidth />}
             />
 
             <TextField
+              className="cm-dialog-field"
               select
               label="Gate"
               size="small"
+              fullWidth
               value={form.gate_id}
               onChange={(e) => setForm((f) => ({ ...f, gate_id: e.target.value }))}
               disabled={!form.mandi_id || dialogMode === "edit"}
+              FormHelperTextProps={{ className: "cm-dialog-help-text" }}
               helperText={!form.mandi_id ? "Select mandi first" : gates.length === 0 ? "No gates" : ""}
             >
-              <option value="" />
+              <MenuItem value="" />
               {gates.map((g) => (
-                <option key={g._id} value={g._id}>
+                <MenuItem key={g._id} value={g._id}>
                   {g.gate_code}
-                </option>
+                </MenuItem>
               ))}
             </TextField>
           </Stack>
         </DialogContent>
 
-        <DialogActions>
-          <Button variant="outlined" onClick={() => setDialogOpen(false)} disabled={saving}>
+        <DialogActions className="cm-modal-footer">
+          <Button variant="outlined" size="small" onClick={() => setDialogOpen(false)} disabled={saving}>
             Cancel
           </Button>
 
           <Button
             variant="contained"
+            size="small"
             onClick={save}
             disabled={
               saving ||

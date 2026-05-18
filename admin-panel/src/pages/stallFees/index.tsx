@@ -13,11 +13,16 @@ import {
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import PhoneIphoneOutlinedIcon from "@mui/icons-material/PhoneIphoneOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
@@ -304,30 +309,45 @@ export const StallFees: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Box mb={2}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+      <Box className="cm-filter-shell cm-premium-filters" mb={2}>
+        <Box className="cm-filter-title-row">
+          <Box className="cm-filter-title">Filter Stall Fees</Box>
+          <Box className="cm-filter-actions">
+            <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={loadFees} disabled={loading}>
+              Refresh
+            </Button>
+            <Button variant="contained" size="small" onClick={loadFees}>Search</Button>
+          </Box>
+        </Box>
+        <Box className="cm-filter-row">
           <TextField
             label="From Date"
             type="date"
+            size="small"
             value={filters.from_date}
             onChange={(e) => setFilters((prev) => ({ ...prev, from_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 170 }}
+            className="cm-filter-field"
           />
           <TextField
             label="To Date"
             type="date"
+            size="small"
             value={filters.to_date}
             onChange={(e) => setFilters((prev) => ({ ...prev, to_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 170 }}
+            className="cm-filter-field"
           />
           <TextField
             select
             label="Mandi"
+            size="small"
             value={filters.mandi_id}
             onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
-            sx={{ minWidth: 180 }}
+            className="cm-filter-field"
+            InputProps={{
+              startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
+            }}
           >
             <MenuItem value="">
               <em>All</em>
@@ -341,9 +361,13 @@ export const StallFees: React.FC = () => {
           <TextField
             select
             label="Status"
+            size="small"
             value={filters.status}
             onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-            sx={{ minWidth: 140 }}
+            className="cm-filter-field"
+            InputProps={{
+              startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} />,
+            }}
           >
             {STATUS_OPTIONS.map((s) => (
               <MenuItem key={s.value} value={s.value}>
@@ -354,9 +378,13 @@ export const StallFees: React.FC = () => {
           <TextField
             select
             label="Payer Type"
+            size="small"
             value={filters.payer_type}
             onChange={(e) => setFilters((prev) => ({ ...prev, payer_type: e.target.value }))}
-            sx={{ minWidth: 160 }}
+            className="cm-filter-field"
+            InputProps={{
+              startAdornment: <FilterInputAdornment icon={PersonOutlineIcon} />,
+            }}
           >
             {PAYER_TYPES.map((p) => (
               <MenuItem key={p.value} value={p.value}>
@@ -366,12 +394,15 @@ export const StallFees: React.FC = () => {
           </TextField>
           <TextField
             label="Mobile"
+            size="small"
             value={filters.payer_mobile}
             onChange={(e) => setFilters((prev) => ({ ...prev, payer_mobile: e.target.value }))}
-            sx={{ minWidth: 160 }}
+            className="cm-filter-field"
+            InputProps={{
+              startAdornment: <FilterInputAdornment icon={PhoneIphoneOutlinedIcon} />,
+            }}
           />
-          <Button variant="contained" onClick={loadFees}>Search</Button>
-        </Stack>
+        </Box>
       </Box>
 
       <Box sx={{ width: "100%" }}>

@@ -281,6 +281,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   return (
     <>
       <AppBar
+        className="cm-topbar"
         position={sticky ? "sticky" : "relative"}
         color="transparent"
         elevation={0}

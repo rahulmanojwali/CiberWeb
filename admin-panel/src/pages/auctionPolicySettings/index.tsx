@@ -11,6 +11,7 @@ import {
   FormControlLabel,
   IconButton,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Select,
   Stack,
@@ -19,9 +20,14 @@ import {
   Typography,
 } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
 import { ScreenHelpDrawer } from "../../components/ScreenHelpDrawer";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -371,58 +377,72 @@ export const AuctionPolicySettingsPage: React.FC = () => {
         {error && <Alert severity="error">{error}</Alert>}
         {success && <Alert severity="success">{success}</Alert>}
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel>Policy Scope</InputLabel>
-            <Select
+        <Box className="cm-filter-shell cm-premium-filters">
+          <Box className="cm-filter-title-row">
+            <Box className="cm-filter-title">
+              <FilterListIcon fontSize="small" />
+              Filters
+            </Box>
+            <Box className="cm-filter-actions">
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => load({ nextScope: scope, nextOrgId: orgId })}
+                disabled={loading || saving || (scope === "ORG" && !orgId.trim())}
+              >
+                Load
+              </Button>
+              <IconButton color="primary" size="small" onClick={() => setOpenHelp(true)} title="Help">
+                <HelpOutlineIcon />
+              </IconButton>
+              <Button variant="contained" size="small" onClick={handleSave} disabled={readOnly || saving || loading}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+            </Box>
+          </Box>
+          {(loading || saving) && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
+          <Box className="cm-filter-row">
+            <TextField
+              select
+              size="small"
               label="Policy Scope"
               value={scope}
               onChange={(e) => setScope(e.target.value as "PLATFORM" | "ORG")}
               disabled={readOnly || !isSuperAdmin || isOrgAdmin}
+              InputProps={{ startAdornment: <FilterInputAdornment icon={SettingsOutlinedIcon} /> }}
+              fullWidth
             >
               {isSuperAdmin ? <MenuItem value="PLATFORM">PLATFORM</MenuItem> : null}
               <MenuItem value="ORG">ORG</MenuItem>
-            </Select>
-          </FormControl>
-          {isSuperAdmin && scope === "ORG" && (
-            <FormControl size="small" sx={{ minWidth: 280 }}>
-              <InputLabel>Organisation</InputLabel>
-              <Select
+            </TextField>
+            {isSuperAdmin && scope === "ORG" && (
+              <TextField
+                select
+                size="small"
                 label="Organisation"
                 value={orgId}
                 onChange={(e) => setOrgId(String(e.target.value || ""))}
                 disabled={readOnly}
+                InputProps={{ startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} /> }}
+                fullWidth
               >
                 {orgOptions.map((org) => (
                   <MenuItem key={org.id} value={org.id}>{org.label}</MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-          )}
-          {isOrgAdmin && (
-            <TextField
-              size="small"
-              label="Organisation"
-              value={scopedOrgCode || "Current Organisation"}
-              disabled
-              sx={{ minWidth: 280 }}
-            />
-          )}
-          <Button
-            variant="outlined"
-            onClick={() => load({ nextScope: scope, nextOrgId: orgId })}
-            disabled={loading || saving || (scope === "ORG" && !orgId.trim())}
-          >
-            Load
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          <IconButton color="primary" onClick={() => setOpenHelp(true)} title="Help">
-            <HelpOutlineIcon />
-          </IconButton>
-          <Button variant="contained" onClick={handleSave} disabled={readOnly || saving || loading}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </Stack>
+              </TextField>
+            )}
+            {isOrgAdmin && (
+              <TextField
+                size="small"
+                label="Organisation"
+                value={scopedOrgCode || "Current Organisation"}
+                disabled
+                InputProps={{ startAdornment: <FilterInputAdornment icon={StorefrontIcon} /> }}
+                fullWidth
+              />
+            )}
+          </Box>
+        </Box>
 
         <Divider />
 

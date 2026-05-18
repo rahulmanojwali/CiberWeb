@@ -24,10 +24,6 @@ export const LeftSider: React.FC = () => {
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";
   const { t } = useTranslation();
-  const toolbarHeight =
-    typeof theme.mixins.toolbar.minHeight === "number"
-      ? theme.mixins.toolbar.minHeight
-      : 64;
 
   const items = useMemo<MenuItem[]>(
     () =>
@@ -71,14 +67,15 @@ export const LeftSider: React.FC = () => {
   return (
     <Box
       component="nav"
+      className="cm-sidebar"
       sx={{
-        width: isCompact ? 68 : 240,
+        width: isCompact ? 72 : 260,
         flexShrink: 0,
-        backgroundColor: isDark ? alpha("#0f1f17", 0.82) : "#f8fbf9",
+        backgroundColor: isDark ? alpha("#0f1f17", 0.82) : "var(--cm-surface)",
         borderRight: `1px solid ${alpha(BRAND_COLORS.primary, isDark ? 0.3 : 0.15)}`,
         position: "sticky",
-        top: toolbarHeight,
-        height: `calc(100vh - ${toolbarHeight}px)`,
+        top: "var(--cm-header-height)",
+        height: "calc(100vh - var(--cm-header-height))",
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
@@ -102,9 +99,10 @@ export const LeftSider: React.FC = () => {
               key={item.path}
               component={NavLink}
               to={item.path!}
+              className={active ? "cm-sidebar-item-active" : undefined}
               sx={{
                 borderLeft: active ? `4px solid ${CM.secondary}` : "4px solid transparent",
-                borderRadius: 2,
+                borderRadius: "var(--cm-radius-md)",
                 mx: 0.5,
                 mb: 0.5,
                 backgroundColor: active

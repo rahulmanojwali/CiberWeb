@@ -2,17 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Autocomplete,
   Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
+  LinearProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Drawer,
   FormControl,
-  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -20,15 +15,24 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import type { GridColDef } from "@mui/x-data-grid";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import AgricultureOutlinedIcon from "@mui/icons-material/AgricultureOutlined";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import { PageContainer } from "../../components/PageContainer";
+import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { listAuctionSettlements, updateAuctionSettlementStatus } from "../../api/settlements";
 import { getCurrentAdminUsername } from "../../utils/session";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getAuctionSessions } from "../../services/auctionOpsApi";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
+import { formatCurrencyINR, formatDateTime, formatMongoDecimal, safeText } from "../../utils/formatters";
 
 const NEXT_BY_ACTION = {
   PAYMENT_REQUESTED: "PAYMENT_REQUESTED",
@@ -99,27 +103,6 @@ type SettlementRow = {
   updated_by?: string;
 };
 
-function asText(v: any): string {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number") return String(v);
-  if (typeof v?.toString === "function") return v.toString();
-  return "";
-}
-
-function money(v: any): string {
-  const raw = asText(v);
-  const n = Number(raw);
-  return Number.isFinite(n) ? n.toFixed(2) : raw || "-";
-}
-
-function date(v: any): string {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString();
-}
-
 function currentAdminUser(): any {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -129,17 +112,35 @@ function currentAdminUser(): any {
   }
 }
 
+function getSettlementStatusClass(status: any): string {
+  const value = String(status || "").toUpperCase();
+  if (["SETTLED", "VERIFIED", "PAID"].includes(value)) return "cm-status-success";
+  if (["FAILED", "CANCELLED", "DISPUTED", "REFUNDED"].includes(value)) return "cm-status-danger";
+  if (["PAYMENT_REQUESTED", "PAYMENT_INITIATED", "PAYMENT_PENDING_CONFIRMATION"].includes(value)) return "cm-status-info";
+  return "cm-status-pending";
+}
+
+function getPaymentStatusClass(status: any): string {
+  const value = String(status || "").toUpperCase();
+  if (value === "PAID") return "cm-status-success";
+  if (["FAILED", "REFUNDED", "CANCELLED"].includes(value)) return "cm-status-danger";
+  if (["REQUESTED", "INITIATED", "PENDING_CONFIRMATION"].includes(value)) return "cm-status-info";
+  return "cm-status-pending";
+}
+
 export const SettlementsPage: React.FC = () => {
   const uiConfig = useAdminUiConfig();
   const isSuperAdmin = uiConfig.role === "SUPER_ADMIN";
   const scopedOrgId = String(uiConfig.scope?.org_id || "").trim();
   const scopedOrgCode = String(uiConfig.scope?.org_code || "").trim();
+
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SettlementRow[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<SettlementRow | null>(null);
+  const [actionTarget, setActionTarget] = useState<SettlementRow | null>(null);
 
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState("PAYMENT_REQUESTED");
@@ -269,9 +270,7 @@ export const SettlementsPage: React.FC = () => {
     }
   }, [filters.mandi_id, filters.org_id, scopedOrgId]);
 
-  useEffect(() => {
-    loadOrgs();
-  }, [loadOrgs]);
+  useEffect(() => { loadOrgs(); }, [loadOrgs]);
 
   useEffect(() => {
     if (isSuperAdmin) return;
@@ -286,30 +285,26 @@ export const SettlementsPage: React.FC = () => {
     }
   }, [filters.org_id, isSuperAdmin, scopedOrgId]);
 
-  useEffect(() => {
-    loadMandis();
-  }, [loadMandis]);
+  useEffect(() => { loadMandis(); }, [loadMandis]);
 
   useEffect(() => {
     setFilters((prev) => ({ ...prev, session_id: "" }));
     setSessionSearchText("");
   }, [filters.mandi_id]);
 
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+  useEffect(() => { loadSessions(); }, [loadSessions]);
 
   const effectiveOrgId = String(filters.org_id || scopedOrgId || "");
   const orgDropdownDisabled = !isSuperAdmin || (!!scopedOrgId && orgOptions.length <= 1);
   const showAllOrganisationsOption = isSuperAdmin && orgOptions.length > 1;
 
   const submitStatus = useCallback(async () => {
-    if (!selected?._id || !targetStatus) return;
+    if (!actionTarget?._id || !targetStatus) return;
     const username = getCurrentAdminUsername();
     if (!username) return;
     const resp: any = await updateAuctionSettlementStatus({
       username,
-      settlement_id: selected._id,
+      settlement_id: actionTarget._id,
       status: targetStatus,
       reason: statusReason,
     });
@@ -319,311 +314,368 @@ export const SettlementsPage: React.FC = () => {
       return;
     }
     setStatusDialogOpen(false);
+    setActionTarget(null);
     setStatusReason("");
     await load();
-  }, [selected, targetStatus, statusReason, load]);
+  }, [actionTarget, targetStatus, statusReason, load]);
 
-  const columns = useMemo<GridColDef<SettlementRow>[]>(() => [
-    { field: "lot_code", headerName: "Lot Code", width: 130 },
-    { field: "session_code", headerName: "Session Code", width: 140 },
-    { field: "farmer_username", headerName: "Farmer", width: 150 },
-    { field: "trader_username", headerName: "Trader", width: 150 },
-    {
-      field: "final_amount",
-      headerName: "Final Amount",
-      width: 120,
-      renderCell: (p) => <>{money(p.row.final_amount)}</>,
-    },
-    {
-      field: "status",
-      headerName: "Settlement Status",
-      width: 170,
-      renderCell: (p) => <Chip size="small" label={p.row.status || "-"} color={p.row.status === "SETTLED" ? "success" : "default"} />,
-    },
-    { field: "payment_status", headerName: "Payment Status", width: 180 },
-    {
-      field: "created_on",
-      headerName: "Created On",
-      width: 170,
-      renderCell: (p) => <>{date(p.row.created_on)}</>,
-    },
-    {
-      field: "updated_on",
-      headerName: "Updated On",
-      width: 170,
-      renderCell: (p) => <>{date(p.row.updated_on)}</>,
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 360,
-      sortable: false,
-      filterable: false,
-      renderCell: (p) => (
-        <Stack direction="row" spacing={1}>
-          <Button size="small" variant="outlined" onClick={() => setSelected(p.row)}>View Details</Button>
-          <Button
-            size="small"
-            color="success"
-            onClick={() => {
-              setSelected(p.row);
-              setTargetStatus(NEXT_BY_ACTION.PAYMENT_REQUESTED);
-              setStatusDialogOpen(true);
-            }}
-          >
-            Request Payment
-          </Button>
-          <Button
-            size="small"
-            onClick={() => {
-              setSelected(p.row);
-              setTargetStatus(NEXT_BY_ACTION.PAYMENT_REQUESTED);
-              setStatusDialogOpen(true);
-            }}
-          >
-            Move Status
-          </Button>
-          <Button
-            size="small"
-            color="warning"
-            onClick={() => {
-              setSelected(p.row);
-              setTargetStatus(NEXT_BY_ACTION.CANCELLED);
-              setStatusDialogOpen(true);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="small"
-            color="error"
-            onClick={() => {
-              setSelected(p.row);
-              setTargetStatus(NEXT_BY_ACTION.DISPUTED);
-              setStatusDialogOpen(true);
-            }}
-          >
-            Dispute
-          </Button>
-        </Stack>
-      ),
-    },
-  ], []);
+  const openActionDialog = useCallback((row: SettlementRow, status: string) => {
+    setSelected(null);
+    setActionTarget(row);
+    setTargetStatus(status);
+    setStatusDialogOpen(true);
+  }, []);
+
+  const totalPages = Math.max(1, Math.ceil((totalRecords || 0) / pageSize));
+  const totalSettlements = rows.length;
+  const pendingCount = rows.filter((x) => String(x.status || "").toUpperCase() === "PENDING").length;
+  const paymentRequestedCount = rows.filter((x) => String(x.payment_status || "").toUpperCase() === "REQUESTED").length;
+  const paidCount = rows.filter((x) => String(x.payment_status || "").toUpperCase() === "PAID").length;
 
   return (
     <PageContainer>
-      <Stack spacing={2}>
-        <Typography variant="h5">Settlement Lifecycle</Typography>
+      <div className="cm-page">
+        <div className="cm-page-header">
+          <h1 className="cm-page-title">Settlement Lifecycle</h1>
+          <div className="cm-page-subtitle">
+            Track sold lots, farmer payable status, trader payments and manual settlement actions.
+          </div>
+        </div>
 
-        <Card>
-          <CardContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Organisation"
-                  value={filters.org_id}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
-                  disabled={orgDropdownDisabled}
-                >
-                  {showAllOrganisationsOption && <MenuItem value=""><em>All Organisations</em></MenuItem>}
-                  {orgOptions.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Mandi"
-                  value={filters.mandi_id}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: String(e.target.value || "") }))}
-                  disabled={!effectiveOrgId}
-                >
-                  <MenuItem value=""><em>All Mandis</em></MenuItem>
-                  {mandiOptions.map((m) => (
-                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Settlement Status"
-                  value={filters.status}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "") }))}
-                >
-                  <MenuItem value=""><em>All Statuses</em></MenuItem>
-                  {STATUS_CHOICES.map((s) => (
-                    <MenuItem key={s} value={s}>{s}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Payment Status"
-                  value={filters.payment_status}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, payment_status: String(e.target.value || "") }))}
-                >
-                  <MenuItem value=""><em>All Payment Statuses</em></MenuItem>
-                  {PAYMENT_STATUS_CHOICES.map((s) => (
-                    <MenuItem key={s} value={s}>{s}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                {sessionDropdownEnabled ? (
-                  <Autocomplete
-                    options={sessionOptions}
-                    value={sessionOptions.find((opt) => opt.value === filters.session_id) || null}
-                    inputValue={sessionSearchText}
-                    onInputChange={(_e, value) => setSessionSearchText(value)}
-                    onChange={(_e, option) => {
-                      setFilters((prev) => ({ ...prev, session_id: option?.value || "" }));
-                    }}
-                    getOptionLabel={(option) => option.label}
-                    isOptionEqualToValue={(opt, val) => opt.value === val.value}
-                    renderInput={(params) => <TextField {...params} fullWidth size="small" label="Auction Session" />}
-                  />
-                ) : (
+        <div className="cm-card cm-filter-card cm-premium-filters">
+          <div className="cm-filter-title-row">
+            <div className="cm-filter-title">
+              <FilterListIcon fontSize="small" />
+              Filters
+            </div>
+          </div>
+          {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
+          <div className="cm-filter-row">
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Organisation"
+              value={filters.org_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
+              disabled={orgDropdownDisabled}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} />,
+              }}
+            >
+              {showAllOrganisationsOption && <MenuItem value=""><em>All Organisations</em></MenuItem>}
+              {orgOptions.map((o) => (
+                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Mandi"
+              value={filters.mandi_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: String(e.target.value || "") }))}
+              disabled={!effectiveOrgId}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
+              }}
+            >
+              <MenuItem value=""><em>All Mandis</em></MenuItem>
+              {mandiOptions.map((m) => (
+                <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Settlement Status"
+              value={filters.status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "") }))}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={ReceiptLongOutlinedIcon} />,
+              }}
+            >
+              <MenuItem value=""><em>All Statuses</em></MenuItem>
+              {STATUS_CHOICES.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Payment Status"
+              value={filters.payment_status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, payment_status: String(e.target.value || "") }))}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={PaymentsOutlinedIcon} />,
+              }}
+            >
+              <MenuItem value=""><em>All Payment Statuses</em></MenuItem>
+              {PAYMENT_STATUS_CHOICES.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </TextField>
+
+          </div>
+
+          <div className="cm-filter-row">
+            {sessionDropdownEnabled ? (
+              <Autocomplete
+                options={sessionOptions}
+                value={sessionOptions.find((opt) => opt.value === filters.session_id) || null}
+                inputValue={sessionSearchText}
+                onInputChange={(_e, value) => setSessionSearchText(value)}
+                onChange={(_e, option) => {
+                  setFilters((prev) => ({ ...prev, session_id: option?.value || "" }));
+                }}
+                getOptionLabel={(option) => option.label}
+                isOptionEqualToValue={(opt, val) => opt.value === val.value}
+                renderInput={(params) => (
                   <TextField
+                    {...params}
                     fullWidth
                     size="small"
-                    label="Session Code / Session ID"
-                    value={filters.session_id}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, session_id: e.target.value }))}
+                    label="Auction Session"
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <FilterInputAdornment icon={EventNoteOutlinedIcon} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
                   />
                 )}
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Lot Code"
-                  value={filters.lot_code}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, lot_code: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Trader Username"
-                  value={filters.trader_username}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, trader_username: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Farmer Username"
-                  value={filters.farmer_username}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Date From"
-                  value={filters.date_from}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, date_from: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Date To"
-                  value={filters.date_to}
-                  InputLabelProps={{ shrink: true }}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, date_to: e.target.value }))}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Stack direction="row" spacing={1}>
-                  <Button variant="contained" onClick={() => { setPage(1); load(); }}>Apply Filters</Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setFilters(isSuperAdmin ? DEFAULT_FILTERS : { ...DEFAULT_FILTERS, org_id: scopedOrgId });
-                      setSessionSearchText("");
-                      setPage(1);
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
-                </Stack>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent>
-            <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
-                rows={rows}
-                columns={columns}
-                loading={loading}
-                rowCount={totalRecords}
-                paginationMode="server"
-                paginationModel={{ page: Math.max(page - 1, 0), pageSize }}
-                onPaginationModelChange={(model: any) => {
-                  setPage(Number(model.page || 0) + 1);
-                  setPageSize(Number(model.pageSize || 20));
-                }}
-                onRowClick={(params: any) => setSelected(params.row)}
               />
-            </Box>
-          </CardContent>
-        </Card>
-      </Stack>
+            ) : (
+              <TextField
+                fullWidth
+                size="small"
+                label="Session Code / Session ID"
+                value={filters.session_id}
+                onChange={(e) => setFilters((prev) => ({ ...prev, session_id: e.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={EventNoteOutlinedIcon} />,
+                }}
+              />
+            )}
+            <TextField
+              fullWidth
+              size="small"
+              label="Lot Code"
+              value={filters.lot_code}
+              onChange={(e) => setFilters((prev) => ({ ...prev, lot_code: e.target.value }))}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={ConfirmationNumberOutlinedIcon} />,
+              }}
+            />
 
-      <Drawer
-        anchor="right"
-        open={Boolean(selected)}
-        onClose={() => setSelected(null)}
+            <TextField
+              fullWidth
+              size="small"
+              label="Trader Username"
+              value={filters.trader_username}
+              onChange={(e) => setFilters((prev) => ({ ...prev, trader_username: e.target.value }))}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={PersonOutlineIcon} />,
+              }}
+            />
+
+            <TextField
+              fullWidth
+              size="small"
+              label="Farmer Username"
+              value={filters.farmer_username}
+              onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
+              InputProps={{
+                startAdornment: <FilterInputAdornment icon={AgricultureOutlinedIcon} />,
+              }}
+            />
+          </div>
+
+          <div className="cm-filter-row">
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="Date From"
+              value={filters.date_from}
+              InputLabelProps={{ shrink: true }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, date_from: e.target.value }))}
+            />
+
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label="Date To"
+              value={filters.date_to}
+              InputLabelProps={{ shrink: true }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, date_to: e.target.value }))}
+            />
+
+            <div className="cm-filter-field" />
+
+            <div className="cm-filter-actions-inline">
+              <button className="cm-btn" type="button" onClick={() => { setPage(1); load(); }}>Apply Filters</button>
+              <button
+                className="cm-btn cm-btn-secondary"
+                type="button"
+                onClick={() => {
+                  setFilters(isSuperAdmin ? DEFAULT_FILTERS : { ...DEFAULT_FILTERS, org_id: scopedOrgId });
+                  setSessionSearchText("");
+                  setPage(1);
+                }}
+              >
+                Clear Filters
+              </button>
+              <span className="cm-filter-record-count">{loading ? "Loading..." : `Showing ${rows.length} records`}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="cm-kpi-grid">
+          <div className="cm-kpi-card"><div className="cm-kpi-label">Loaded Settlements</div><div className="cm-kpi-value">{totalSettlements}</div></div>
+          <div className="cm-kpi-card"><div className="cm-kpi-label">Pending</div><div className="cm-kpi-value">{pendingCount}</div></div>
+          <div className="cm-kpi-card"><div className="cm-kpi-label">Payment Requested</div><div className="cm-kpi-value">{paymentRequestedCount}</div></div>
+          <div className="cm-kpi-card"><div className="cm-kpi-label">Paid</div><div className="cm-kpi-value">{paidCount}</div></div>
+        </div>
+
+        <div className="cm-card cm-table-card">
+          <div className="cm-table-wrap">
+            <table className="cm-table">
+              <thead>
+                <tr>
+                  <th>Lot Code</th>
+                  <th>Session Code</th>
+                  <th>Farmer</th>
+                  <th>Trader</th>
+                  <th>Final Amount</th>
+                  <th>Settlement Status</th>
+                  <th>Payment Status</th>
+                  <th>Created On</th>
+                  <th>Updated On</th>
+                  <th style={{ minWidth: 390 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>{safeText(row.lot_code)}</td>
+                    <td>{safeText(row.session_code)}</td>
+                    <td>{safeText(row.farmer_username)}</td>
+                    <td>{safeText(row.trader_username)}</td>
+                    <td><span className="cm-money">{formatCurrencyINR(row.final_amount)}</span></td>
+                    <td>
+                      <span className={`cm-status ${getSettlementStatusClass(row.status)}`}>
+                        {safeText(row.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`cm-status ${getPaymentStatusClass(row.payment_status)}`}>
+                        {safeText(row.payment_status)}
+                      </span>
+                    </td>
+                    <td>{formatDateTime(row.created_on)}</td>
+                    <td>{formatDateTime(row.updated_on)}</td>
+                    <td>
+                      <div className="cm-row-actions">
+                        <button className="cm-action-link" type="button" onClick={() => setSelected(row)}>View Details</button>
+                        <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.PAYMENT_REQUESTED)}>Request Payment</button>
+                        <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, "PAYMENT_REQUESTED")}>Move Status</button>
+                        <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.CANCELLED)}>Cancel</button>
+                        <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.DISPUTED)}>Dispute</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!rows.length && (
+                  <tr>
+                    <td colSpan={10} className="cm-muted" style={{ textAlign: "center" }}>
+                      {loading ? "Loading settlements..." : "No settlement records found."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="cm-actions-row" style={{ padding: 12, justifyContent: "space-between" }}>
+            <Typography variant="body2" className="cm-muted">Page {page} of {totalPages} • Total {totalRecords}</Typography>
+            <div className="cm-actions-row">
+              <button className="cm-btn cm-btn-secondary" type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</button>
+              <button className="cm-btn cm-btn-secondary" type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Box>
+        <Dialog
+          open={Boolean(selected)}
+          onClose={() => setSelected(null)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle>Settlement Detail</DialogTitle>
+          <DialogContent>
+            {selected && (
+              <div className="cm-detail-grid" style={{ marginTop: 4 }}>
+                <div className="cm-detail-label">Auction Result ID</div>
+                <div className="cm-detail-value">{safeText(selected.auction_result_id)}</div>
+                <div className="cm-detail-label">Auction Lot ID</div>
+                <div className="cm-detail-value">{safeText(selected.auction_lot_id)}</div>
+                <div className="cm-detail-label">Lot Code</div>
+                <div className="cm-detail-value">{safeText(selected.lot_code)}</div>
+                <div className="cm-detail-label">Session Code</div>
+                <div className="cm-detail-value">{safeText(selected.session_code)}</div>
+                <div className="cm-detail-label">Farmer</div>
+                <div className="cm-detail-value">{safeText(selected.farmer_username)}</div>
+                <div className="cm-detail-label">Trader</div>
+                <div className="cm-detail-value">{safeText(selected.trader_username)}</div>
+                <div className="cm-detail-label">Quantity KG</div>
+                <div className="cm-detail-value">{formatMongoDecimal(selected.quantity_kg)}</div>
+                <div className="cm-detail-label">Quantity QTL</div>
+                <div className="cm-detail-value">{formatMongoDecimal(selected.quantity_qtl)}</div>
+                <div className="cm-detail-label">Final Rate / QTL</div>
+                <div className="cm-detail-value">{formatCurrencyINR(selected.final_rate_per_qtl)}</div>
+                <div className="cm-detail-label">Final Amount</div>
+                <div className="cm-detail-value">{formatCurrencyINR(selected.final_amount)}</div>
+                <div className="cm-detail-label">Status</div>
+                <div className="cm-detail-value">{safeText(selected.status)}</div>
+                <div className="cm-detail-label">Payment Status</div>
+                <div className="cm-detail-value">{safeText(selected.payment_status)}</div>
+                <div className="cm-detail-label">Dispute Status</div>
+                <div className="cm-detail-value">{safeText(selected.dispute_status)}</div>
+                <div className="cm-detail-label">Lifecycle Reason</div>
+                <div className="cm-detail-value cm-detail-value-long">{safeText(selected.lifecycle_state_reason)}</div>
+                <div className="cm-detail-label">Created</div>
+                <div className="cm-detail-value">{formatDateTime(selected.created_on)} by {safeText(selected.created_by)}</div>
+                <div className="cm-detail-label">Updated</div>
+                <div className="cm-detail-value">{formatDateTime(selected.updated_on)} by {safeText(selected.updated_by)}</div>
+              </div>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <button className="cm-btn cm-btn-secondary" type="button" onClick={() => setSelected(null)}>Close</button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+
+      <Dialog
+        open={statusDialogOpen}
+        onClose={() => {
+          setStatusDialogOpen(false);
+          setActionTarget(null);
+        }}
+        fullWidth
+        maxWidth="sm"
       >
-        <Box sx={{ width: 480, p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Settlement Detail</Typography>
-          {selected && (
-            <Stack spacing={1.2}>
-              <Typography><b>Auction Result ID:</b> {asText(selected.auction_result_id) || "-"}</Typography>
-              <Typography><b>Auction Lot ID:</b> {asText(selected.auction_lot_id) || "-"}</Typography>
-              <Typography><b>Lot Code:</b> {asText(selected.lot_code) || "-"}</Typography>
-              <Typography><b>Session Code:</b> {asText(selected.session_code) || "-"}</Typography>
-              <Typography><b>Farmer:</b> {asText(selected.farmer_username) || "-"}</Typography>
-              <Typography><b>Trader:</b> {asText(selected.trader_username) || "-"}</Typography>
-              <Typography><b>Quantity KG:</b> {money(selected.quantity_kg)}</Typography>
-              <Typography><b>Quantity QTL:</b> {money(selected.quantity_qtl)}</Typography>
-              <Typography><b>Final Rate / QTL:</b> {money(selected.final_rate_per_qtl)}</Typography>
-              <Typography><b>Final Amount:</b> {money(selected.final_amount)}</Typography>
-              <Typography><b>Status:</b> {asText(selected.status) || "-"}</Typography>
-              <Typography><b>Payment Status:</b> {asText(selected.payment_status) || "-"}</Typography>
-              <Typography><b>Dispute Status:</b> {asText(selected.dispute_status) || "-"}</Typography>
-              <Typography><b>Lifecycle Reason:</b> {asText(selected.lifecycle_state_reason) || "-"}</Typography>
-              <Typography><b>Created:</b> {date(selected.created_on)} by {asText(selected.created_by) || "-"}</Typography>
-              <Typography><b>Updated:</b> {date(selected.updated_on)} by {asText(selected.updated_by) || "-"}</Typography>
-            </Stack>
-          )}
-        </Box>
-      </Drawer>
-
-      <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Move Settlement Status</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -652,8 +704,17 @@ export const SettlementsPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStatusDialogOpen(false)}>Close</Button>
-          <Button variant="contained" onClick={submitStatus}>Update</Button>
+          <button
+            className="cm-btn cm-btn-secondary"
+            type="button"
+            onClick={() => {
+              setStatusDialogOpen(false);
+              setActionTarget(null);
+            }}
+          >
+            Close
+          </button>
+          <button className="cm-btn" type="button" onClick={submitStatus}>Update</button>
         </DialogActions>
       </Dialog>
     </PageContainer>

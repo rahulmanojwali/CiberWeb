@@ -5,6 +5,7 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getCurrentAdminUsername } from "../../utils/session";
 import { listPaymentTransactions } from "../../api/paymentTransactions";
+import { formatCurrencyINR, formatDateTime } from "../../utils/formatters";
 
 export const PaymentTransactionsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -32,12 +33,12 @@ export const PaymentTransactionsPage: React.FC = () => {
     { field: "settlement_id", headerName: "Settlement ID", width: 220 },
     { field: "provider_code", headerName: "Provider", width: 120 },
     { field: "mode", headerName: "Mode", width: 120 },
-    { field: "amount", headerName: "Amount", width: 110 },
+    { field: "amount", headerName: "Amount", width: 130, renderCell: (p) => <>{formatCurrencyINR(p.row.amount)}</> },
     { field: "status", headerName: "Status", width: 140 },
     { field: "gateway_order_id", headerName: "Gateway Order ID", width: 180 },
     { field: "gateway_payment_id", headerName: "Gateway Payment ID", width: 180 },
-    { field: "created_on", headerName: "Created On", width: 170, renderCell: (p) => <>{p.row.created_on ? new Date(p.row.created_on).toLocaleString() : "-"}</> },
-    { field: "updated_on", headerName: "Updated On", width: 170, renderCell: (p) => <>{p.row.updated_on ? new Date(p.row.updated_on).toLocaleString() : "-"}</> },
+    { field: "created_on", headerName: "Created On", width: 190, renderCell: (p) => <>{formatDateTime(p.row.created_on)}</> },
+    { field: "updated_on", headerName: "Updated On", width: 190, renderCell: (p) => <>{formatDateTime(p.row.updated_on)}</> },
   ], []);
 
   return (

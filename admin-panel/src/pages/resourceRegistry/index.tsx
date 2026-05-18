@@ -149,11 +149,15 @@ const ResourceRegistryPage: React.FC = () => {
 
   return (
     <StepUpGuard username={username} resourceKey="resource_registry.menu">
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Resource Registry</h1>
+        <div className="cm-page-subtitle">Canonical source of truth for RBAC resource keys and allowed actions.</div>
+      </div>
       <Stack spacing={2}>
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h5">Resource Registry</Typography>
         <Typography variant="body2" color="text.secondary">
-          Canonical source of truth for RBAC resource keys and allowed actions.
+          Manage, review and activate resource keys used by system policy enforcement.
         </Typography>
       </Paper>
 
@@ -277,7 +281,8 @@ const ResourceRegistryPage: React.FC = () => {
           </TableBody>
         </Table>
       </Paper>
-    </Stack>
+      </Stack>
+      </div>
     </StepUpGuard>
   );
 };

@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, IconButton, InputAdornment, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import LayersOutlinedIcon from "@mui/icons-material/LayersOutlined";
+import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
@@ -108,6 +115,19 @@ const LANE_TYPE_OPTIONS = [
   "OVERFLOW_LANE",
   "SPECIAL_EVENT_LANE",
 ];
+
+const filterIconSx = {
+  color: "var(--cm-primary)",
+  fontSize: 18,
+};
+
+const withFilterIcon = (Icon: React.ElementType) => ({
+  startAdornment: (
+    <InputAdornment position="start">
+      <Icon sx={filterIconSx} />
+    </InputAdornment>
+  ),
+});
 
 const COMMODITY_FAMILY_OPTIONS = [
   "Vegetables",
@@ -848,20 +868,7 @@ export const AuctionSessions: React.FC = () => {
       });
     }
     loadData();
-  }, [
-    filters.org_code,
-    filters.mandi_code,
-    filters.status,
-    filters.method,
-    filters.lane_type,
-    filters.commodity_group,
-    filters.overflow_only,
-    filters.auctioneer_username,
-    filters.date_from,
-    filters.date_to,
-    language,
-    canView,
-  ]);
+  }, [language, canView]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -1203,12 +1210,13 @@ export const AuctionSessions: React.FC = () => {
 
   return (
     <PageContainer>
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">{t("menu.auctionSessions", { defaultValue: "Auction Sessions" })}</h1>
+        <div className="cm-page-subtitle">Manage auction lanes by commodity, queue depth, and close readiness.</div>
+      </div>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} mb={2}>
         <Stack spacing={0.5}>
-          <Typography variant="h5">{t("menu.auctionSessions", { defaultValue: "Auction Sessions" })}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage auction lanes by commodity, queue depth, and close readiness.
-          </Typography>
           {!filters.mandi_code && uiConfig.role !== "SUPER_ADMIN" && (
             <Typography variant="body2" color="text.secondary">
               Showing sessions across your allowed mandis. Use the mandi dropdown to narrow the list.
@@ -1230,133 +1238,172 @@ export const AuctionSessions: React.FC = () => {
         </Stack>
       </Stack>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} mb={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Filter Lanes
-          </Typography>
-        </Stack>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(190px, 1fr))", lg: "repeat(4, minmax(190px, 1fr))" },
-            gap: 1.5,
-          }}
-        >
+      <Box className="cm-filter-shell cm-auction-session-filters">
+        <Box className="cm-filter-title-row">
+          <Box className="cm-filter-title">Filter Lanes</Box>
+          <Box className="cm-filter-actions">
+            <Button variant="outlined" size="small" onClick={loadData} disabled={loading}>
+              Apply Filters
+            </Button>
+          </Box>
+        </Box>
+        {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
+        <Box className="cm-filter-row">
           {uiConfig.role === "SUPER_ADMIN" && (
+            <Box className="cm-filter-field">
+              <TextField
+                select
+                label="Organisation"
+                size="small"
+                value={filters.org_code}
+                onChange={(e) => updateFilter("org_code", e.target.value)}
+                fullWidth
+              >
+                <MenuItem value="">All</MenuItem>
+                {orgOptions.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+          )}
+
+          <Box className="cm-filter-field">
             <TextField
               select
-              label="Organisation"
+              label="Mandi"
               size="small"
-              value={filters.org_code}
-              onChange={(e) => updateFilter("org_code", e.target.value)}
+              value={filters.mandi_code}
+              onChange={(e) => updateFilter("mandi_code", e.target.value)}
+              InputProps={withFilterIcon(StorefrontIcon)}
+              fullWidth
             >
               <MenuItem value="">All</MenuItem>
-              {orgOptions.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
+              {mandiOptions.map((m) => (
+                <MenuItem key={m.value} value={m.value}>
+                  {m.label}
                 </MenuItem>
               ))}
             </TextField>
-          )}
+          </Box>
 
-          <TextField
-            select
-            label="Mandi"
-            size="small"
-            value={filters.mandi_code}
-            onChange={(e) => updateFilter("mandi_code", e.target.value)}
-          >
-            <MenuItem value="">All</MenuItem>
-            {mandiOptions.map((m) => (
-              <MenuItem key={m.value} value={m.value}>
-                {m.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Box className="cm-filter-field">
+            <TextField
+              select
+              label="Status"
+              size="small"
+              value={filters.status}
+              onChange={(e) => updateFilter("status", e.target.value)}
+              InputProps={withFilterIcon(CheckCircleOutlineIcon)}
+              fullWidth
+            >
+              <MenuItem value="LIVE">Live</MenuItem>
+              <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+              <MenuItem value="READY_TO_CLOSE">Ready to Close</MenuItem>
+              <MenuItem value="EXPIRED">Expired</MenuItem>
+              <MenuItem value="OVERFLOW">Overflow</MenuItem>
+              <MenuItem value="CLOSED">Closed</MenuItem>
+              <MenuItem value="ALL">All</MenuItem>
+            </TextField>
+          </Box>
 
-          <TextField
-            select
-            label="Status"
-            size="small"
-            value={filters.status}
-            onChange={(e) => updateFilter("status", e.target.value)}
-          >
-            <MenuItem value="LIVE">Live</MenuItem>
-            <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
-            <MenuItem value="READY_TO_CLOSE">Ready to Close</MenuItem>
-            <MenuItem value="EXPIRED">Expired</MenuItem>
-            <MenuItem value="OVERFLOW">Overflow</MenuItem>
-            <MenuItem value="CLOSED">Closed</MenuItem>
-            <MenuItem value="ALL">All</MenuItem>
-          </TextField>
-
-          <TextField
-            label="Lane Type"
-            size="small"
-            value={filters.lane_type}
-            onChange={(e) => updateFilter("lane_type", e.target.value)}
-            select
-          >
-            <MenuItem value="">All</MenuItem>
-            {LANE_TYPE_OPTIONS.map((laneType) => (
-              <MenuItem key={laneType} value={laneType}>
-                {laneTypeOptionLabel(laneType)}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Commodity Group"
-            size="small"
-            value={filters.commodity_group}
-            onChange={(e) => updateFilter("commodity_group", e.target.value)}
-          />
-
-          <TextField
-            select
-            label="Overflow"
-            size="small"
-            value={filters.overflow_only}
-            onChange={(e) => updateFilter("overflow_only", e.target.value)}
-          >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="true">Yes</MenuItem>
-            <MenuItem value="false">No</MenuItem>
-          </TextField>
-
-          <TextField
-            label="Auctioneer"
-            size="small"
-            value={filters.auctioneer_username}
-            onChange={(e) => updateFilter("auctioneer_username", e.target.value)}
-          />
-
-          <TextField
-            label="Method"
-            size="small"
-            value={filters.method}
-            onChange={(e) => updateFilter("method", e.target.value)}
-          />
-
-          <TextField
-            label="Date From"
-            type="date"
-            size="small"
-            value={filters.date_from}
-            onChange={(e) => updateFilter("date_from", e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
-          <TextField
-            label="Date To"
-            type="date"
-            size="small"
-            value={filters.date_to}
-            onChange={(e) => updateFilter("date_to", e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
+          <Box className="cm-filter-field">
+            <TextField
+              label="Lane Type"
+              size="small"
+              value={filters.lane_type}
+              onChange={(e) => updateFilter("lane_type", e.target.value)}
+              select
+              InputProps={withFilterIcon(LayersOutlinedIcon)}
+              fullWidth
+            >
+              <MenuItem value="">All</MenuItem>
+              {LANE_TYPE_OPTIONS.map((laneType) => (
+                <MenuItem key={laneType} value={laneType}>
+                  {laneTypeOptionLabel(laneType)}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
         </Box>
-      </Paper>
+
+        <Box className="cm-filter-row">
+          <Box className="cm-filter-field">
+            <TextField
+              label="Commodity Group"
+              size="small"
+              value={filters.commodity_group}
+              onChange={(e) => updateFilter("commodity_group", e.target.value)}
+              InputProps={withFilterIcon(CategoryOutlinedIcon)}
+              fullWidth
+            />
+          </Box>
+
+          <Box className="cm-filter-field">
+            <TextField
+              select
+              label="Overflow"
+              size="small"
+              value={filters.overflow_only}
+              onChange={(e) => updateFilter("overflow_only", e.target.value)}
+              InputProps={withFilterIcon(WarningAmberOutlinedIcon)}
+              fullWidth
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </TextField>
+          </Box>
+
+          <Box className="cm-filter-field">
+            <TextField
+              label="Auctioneer"
+              size="small"
+              value={filters.auctioneer_username}
+              onChange={(e) => updateFilter("auctioneer_username", e.target.value)}
+              InputProps={withFilterIcon(PersonOutlineIcon)}
+              fullWidth
+            />
+          </Box>
+
+          <Box className="cm-filter-field">
+            <TextField
+              label="Method"
+              size="small"
+              value={filters.method}
+              onChange={(e) => updateFilter("method", e.target.value)}
+              InputProps={withFilterIcon(GavelOutlinedIcon)}
+              fullWidth
+            />
+          </Box>
+        </Box>
+
+        <Box className="cm-filter-row">
+          <Box className="cm-filter-field">
+            <TextField
+              label="Date From"
+              type="date"
+              size="small"
+              value={filters.date_from}
+              onChange={(e) => updateFilter("date_from", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+          </Box>
+          <Box className="cm-filter-field">
+            <TextField
+              label="Date To"
+              type="date"
+              size="small"
+              value={filters.date_to}
+              onChange={(e) => updateFilter("date_to", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+          </Box>
+        </Box>
+      </Box>
 
       {laneCapacitySummary.testing_mode_enabled && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -1595,7 +1642,7 @@ export const AuctionSessions: React.FC = () => {
             </Stack>
           </DialogTitle>
           <Divider />
-          <DialogContent sx={{ bgcolor: "#f7f8f3", py: 2.5 }}>
+          <DialogContent sx={{ bgcolor: "var(--cm-bg-soft)", py: 2.5 }}>
             <Stack spacing={2}>
               <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, bgcolor: "background.paper" }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.4, fontWeight: 700 }}>
@@ -1794,7 +1841,7 @@ export const AuctionSessions: React.FC = () => {
                     fullWidth
                   />
                 </Stack>
-                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "#f6f1e8", mb: 1.5 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "var(--cm-bg)", mb: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
                     Examples
                   </Typography>
@@ -2038,7 +2085,7 @@ export const AuctionSessions: React.FC = () => {
                     fullWidth
                   />
                 </Stack>
-                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "#f6f1e8", mt: 1.5, mb: 1.5 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: "var(--cm-bg)", mt: 1.5, mb: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
                     Examples
                   </Typography>
@@ -2183,6 +2230,7 @@ export const AuctionSessions: React.FC = () => {
         language={language}
         title={helpTitle}
       />
+      </div>
     </PageContainer>
   );
 };

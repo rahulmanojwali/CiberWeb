@@ -6,6 +6,7 @@ import {
   CardContent,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   Grid,
@@ -16,10 +17,18 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
 import { GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
 import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
+import { FilterInputAdornment } from "../components/ui/FilterInputAdornment";
 import { getPaymentDetail, getPaymentsLog } from "../services/paymentsLogApi";
 import { getCurrentAdminUsername } from "../utils/session";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
@@ -115,6 +124,11 @@ export const PaymentsLog: React.FC = () => {
 
   return (
     <PageContainer>
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Payments Log</h1>
+        <div className="cm-page-subtitle">Inspect every payment attempt with filters.</div>
+      </div>
       <Stack
         direction={{ xs: "column", md: "row" }}
         alignItems={{ xs: "flex-start", md: "center" }}
@@ -122,15 +136,10 @@ export const PaymentsLog: React.FC = () => {
         spacing={2}
         sx={{ mb: 2 }}
       >
-        <Stack spacing={0.5}>
-          <Typography variant="h5">Payments Log</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Inspect every payment attempt with filters.
-          </Typography>
-        </Stack>
+        <Stack spacing={0.5} />
       </Stack>
 
-      <Card sx={{ mb: 2 }}>
+      <Card className="cm-card cm-filter-card cm-premium-filters" sx={{ mb: 2 }}>
         <CardContent>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
@@ -140,6 +149,9 @@ export const PaymentsLog: React.FC = () => {
                 select
                 value={filters.source}
                 onChange={(event) => setFilters((prev) => ({ ...prev, source: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={PaymentsOutlinedIcon} />,
+                }}
                 fullWidth
               >
                 <MenuItem value="">Any</MenuItem>
@@ -156,6 +168,9 @@ export const PaymentsLog: React.FC = () => {
                 size="small"
                 value={filters.org_id}
                 onChange={(event) => setFilters((prev) => ({ ...prev, org_id: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} />,
+                }}
                 fullWidth
               />
             </Grid>
@@ -165,6 +180,9 @@ export const PaymentsLog: React.FC = () => {
                 size="small"
                 value={filters.mandi_id}
                 onChange={(event) => setFilters((prev) => ({ ...prev, mandi_id: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
+                }}
                 fullWidth
               />
             </Grid>
@@ -174,6 +192,9 @@ export const PaymentsLog: React.FC = () => {
                 size="small"
                 value={filters.payer_username}
                 onChange={(event) => setFilters((prev) => ({ ...prev, payer_username: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={PersonOutlineIcon} />,
+                }}
                 fullWidth
               />
             </Grid>
@@ -183,6 +204,9 @@ export const PaymentsLog: React.FC = () => {
                 size="small"
                 value={filters.party_code}
                 onChange={(event) => setFilters((prev) => ({ ...prev, party_code: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={ConfirmationNumberOutlinedIcon} />,
+                }}
                 fullWidth
               />
             </Grid>
@@ -193,6 +217,9 @@ export const PaymentsLog: React.FC = () => {
                 select
                 value={filters.status}
                 onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} />,
+                }}
                 fullWidth
               >
                 <MenuItem value="">Any</MenuItem>
@@ -210,6 +237,9 @@ export const PaymentsLog: React.FC = () => {
                 select
                 value={filters.method}
                 onChange={(event) => setFilters((prev) => ({ ...prev, method: event.target.value }))}
+                InputProps={{
+                  startAdornment: <FilterInputAdornment icon={GavelOutlinedIcon} />,
+                }}
                 fullWidth
               >
                 <MenuItem value="">Any</MenuItem>
@@ -302,7 +332,13 @@ export const PaymentsLog: React.FC = () => {
             <Typography variant="body2">Select a payment to view details.</Typography>
           )}
         </DialogContent>
+        <DialogActions>
+          <button className="cm-btn cm-btn-secondary" type="button" onClick={() => setDetailOpen(false)}>
+            Close
+          </button>
+        </DialogActions>
       </Dialog>
+      </div>
     </PageContainer>
   );
 };

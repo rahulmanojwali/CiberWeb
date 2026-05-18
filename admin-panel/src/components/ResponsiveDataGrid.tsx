@@ -21,21 +21,39 @@ export const ResponsiveDataGrid: React.FC<ResponsiveDataGridProps> = ({
         autoHeight={autoHeight}
         density={density}
         sx={{
-          border: 0,
-          backgroundColor: "#fff",
+          border: "1px solid var(--cm-border)",
+          borderRadius: "var(--cm-radius-lg)",
+          backgroundColor: "var(--cm-surface)",
+          boxShadow: "var(--cm-shadow-sm)",
+          overflow: "hidden",
           "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "rgba(47, 166, 82, 0.08)",
-            borderRadius: 0,
+            backgroundColor: "var(--cm-surface-muted)",
+            color: "var(--cm-text-soft)",
+            fontSize: 12,
+            fontWeight: 800,
+            borderBottom: "1px solid var(--cm-border)",
           },
           "& .MuiDataGrid-cell": {
-            borderBottom: "1px solid rgba(0,0,0,0.05)",
+            borderBottom: "1px solid #efe7dc",
+            fontSize: 13,
+            color: "var(--cm-text)",
+          },
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "#fbf7ef",
+          },
+          "& .MuiDataGrid-footerContainer": {
+            borderTop: "1px solid var(--cm-border)",
+            backgroundColor: "var(--cm-surface)",
+          },
+          "& .MuiDataGrid-toolbarContainer": {
+            padding: "10px 12px",
           },
           "& .MuiDataGrid-virtualScroller": {
             minHeight: 240,
-            backgroundColor: "#fff",
+            backgroundColor: "var(--cm-surface)",
           },
           "& .MuiDataGrid-main": {
-            overflowX: "hidden",
+            overflowX: "auto",
           },
           minWidth,
           ...sx,

@@ -71,10 +71,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
     },
     components: {
       ...RefineThemes.Blue.components,
+      MuiButtonBase: {
+        defaultProps: {
+          disableRipple: true,
+          disableTouchRipple: true,
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 999,
+            borderRadius: 10,
             textTransform: "none",
           },
           containedPrimary: {
@@ -160,6 +166,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           icon: {
             color: BRAND_COLORS.textMuted,
           },
+        },
+      },
+      MuiMenu: {
+        defaultProps: {
+          transitionDuration: 0,
+        },
+      },
+      MuiPopover: {
+        defaultProps: {
+          transitionDuration: 0,
         },
       },
       MuiFilledInput: {
@@ -222,10 +238,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
     },
     components: {
       ...RefineThemes.BlueDark.components,
+      MuiButtonBase: {
+        defaultProps: {
+          disableRipple: true,
+          disableTouchRipple: true,
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 999,
+            borderRadius: 10,
             textTransform: "none",
           },
           containedPrimary: {
@@ -311,6 +333,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
           icon: {
             color: BRAND_COLORS.textMuted,
           },
+        },
+      },
+      MuiMenu: {
+        defaultProps: {
+          transitionDuration: 0,
+        },
+      },
+      MuiPopover: {
+        defaultProps: {
+          transitionDuration: 0,
         },
       },
       MuiFilledInput: {

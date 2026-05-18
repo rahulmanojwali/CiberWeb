@@ -609,6 +609,11 @@ const RolesPermissionsPage: React.FC = () => {
   }
 
   return (
+    <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Role Policy Manager</h1>
+        <div className="cm-page-subtitle">Manage role permissions using the canonical resource registry.</div>
+      </div>
     <Stack spacing={2} sx={{ position: "relative", minHeight: "60vh" }}>
       <Paper
         sx={{
@@ -623,12 +628,7 @@ const RolesPermissionsPage: React.FC = () => {
         }}
       >
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Box>
-            <Typography variant="h5">Role Policy Manager</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage role permissions using the canonical resource registry.
-            </Typography>
-          </Box>
+          <Box />
           <Box sx={{ flex: 1 }} />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
             <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -909,6 +909,7 @@ const RolesPermissionsPage: React.FC = () => {
         </Paper>
       )}
     </Stack>
+    </div>
   );
 };
 

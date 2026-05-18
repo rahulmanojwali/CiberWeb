@@ -189,15 +189,15 @@ const TwoFactorSettings: React.FC = () => {
   }, []);
 
   return (
+    <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Two-Factor Authentication (2FA)</h1>
+        <div className="cm-page-subtitle">Secure super-admin operations with authenticator-based step-up verification.</div>
+      </div>
     <Box sx={securityUi.container}>
       <Box sx={securityUi.content}>
         <Box sx={securityUi.headerRow}>
-          <Box>
-            <Typography sx={securityUi.title}>Two-Factor Authentication (2FA)</Typography>
-            <Typography sx={securityUi.subtitle}>
-              Secure your SUPER_ADMIN flow with OTP before you can access sensitive screens.
-            </Typography>
-          </Box>
+          <Box />
           <Chip
             label={isEnabled ? "Enabled" : "Not configured"}
             color={isEnabled ? "success" : "warning"}
@@ -206,7 +206,7 @@ const TwoFactorSettings: React.FC = () => {
         </Box>
 
         <Stack spacing={2}>
-          <Card sx={securityUi.card}>
+          <Card className="cm-card" sx={securityUi.card}>
             <CardContent sx={securityUi.cardContent}>
               <Box sx={securityUi.cardHeader}>
                 <Typography variant="subtitle1">Current status</Typography>
@@ -335,7 +335,7 @@ const TwoFactorSettings: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card sx={securityUi.card}>
+          <Card className="cm-card" sx={securityUi.card}>
             <CardContent sx={securityUi.cardContent}>
               <Box sx={securityUi.cardHeader}>
                 <Typography variant="subtitle1">Setup & Backup</Typography>
@@ -407,6 +407,7 @@ const TwoFactorSettings: React.FC = () => {
         </Stack>
       </Box>
     </Box>
+    </div>
   );
 };
 

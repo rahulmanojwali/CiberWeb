@@ -87,19 +87,19 @@ const SecuritySwitchesPage: React.FC = () => {
 
   return (
     <StepUpGuard username={username} resourceKey="security_switches.menu">
+      <div className="cm-page">
+      <div className="cm-page-header">
+        <h1 className="cm-page-title">Security Switches</h1>
+        <div className="cm-page-subtitle">Global flags that change security enforcement behavior.</div>
+      </div>
       <Box sx={securityUi.container}>
         <Box sx={securityUi.content}>
           <Box sx={securityUi.headerRow}>
-            <Box>
-              <Typography sx={securityUi.title}>Security Switches</Typography>
-              <Typography sx={securityUi.subtitle}>
-                Global flags that change security enforcement behavior.
-              </Typography>
-            </Box>
+            <Box />
             <Chip label="Admin only" size="small" color="secondary" />
           </Box>
 
-          <Card sx={securityUi.card}>
+          <Card className="cm-card" sx={securityUi.card}>
             <CardContent sx={securityUi.cardContent}>
               <Box sx={securityUi.cardHeader}>
                 <Typography variant="subtitle1">Bind Step-Up to Browser Session</Typography>
@@ -135,6 +135,7 @@ const SecuritySwitchesPage: React.FC = () => {
           </Card>
         </Box>
       </Box>
+      </div>
     </StepUpGuard>
   );
 };

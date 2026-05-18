@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -24,6 +25,9 @@ import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { PageContainer } from "../../components/PageContainer";
 import { listAuctionSettlements, updateAuctionSettlementStatus } from "../../api/settlements";
 import { getCurrentAdminUsername } from "../../utils/session";
+import { fetchOrganisations } from "../../services/adminUsersApi";
+import { getMandisForCurrentScope } from "../../services/mandiApi";
+import { getAuctionSessions } from "../../services/auctionOpsApi";
 
 const NEXT_BY_ACTION = {
   PAYMENT_REQUESTED: "PAYMENT_REQUESTED",
@@ -32,7 +36,6 @@ const NEXT_BY_ACTION = {
 } as const;
 
 const STATUS_CHOICES = [
-  "NOT_REQUIRED",
   "PENDING",
   "PAYMENT_REQUESTED",
   "PAYMENT_INITIATED",
@@ -45,6 +48,32 @@ const STATUS_CHOICES = [
   "DISPUTED",
   "REFUNDED",
 ];
+
+const PAYMENT_STATUS_CHOICES = [
+  "NOT_REQUESTED",
+  "REQUESTED",
+  "INITIATED",
+  "PENDING_CONFIRMATION",
+  "PAID",
+  "FAILED",
+  "REFUNDED",
+  "CANCELLED",
+];
+
+type Option = { value: string; label: string };
+
+const DEFAULT_FILTERS = {
+  org_id: "",
+  mandi_id: "",
+  status: "",
+  payment_status: "",
+  session_id: "",
+  lot_code: "",
+  trader_username: "",
+  farmer_username: "",
+  date_from: "",
+  date_to: "",
+};
 
 type SettlementRow = {
   id: string;
@@ -102,18 +131,12 @@ export const SettlementsPage: React.FC = () => {
   const [targetStatus, setTargetStatus] = useState("PAYMENT_REQUESTED");
   const [statusReason, setStatusReason] = useState("");
 
-  const [filters, setFilters] = useState({
-    org_id: "",
-    mandi_id: "",
-    status: "",
-    payment_status: "",
-    session_id: "",
-    lot_code: "",
-    trader_username: "",
-    farmer_username: "",
-    date_from: "",
-    date_to: "",
-  });
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [orgOptions, setOrgOptions] = useState<Option[]>([]);
+  const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
+  const [sessionOptions, setSessionOptions] = useState<Option[]>([]);
+  const [sessionSearchText, setSessionSearchText] = useState("");
+  const [sessionDropdownEnabled, setSessionDropdownEnabled] = useState(true);
 
   const load = useCallback(async () => {
     const username = getCurrentAdminUsername();
@@ -145,6 +168,93 @@ export const SettlementsPage: React.FC = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadOrgs = useCallback(async () => {
+    const username = getCurrentAdminUsername();
+    if (!username) return;
+    try {
+      const resp: any = await fetchOrganisations({ username, language: "en" });
+      const data = resp?.data || resp?.response?.data || {};
+      const items = Array.isArray(data?.items) ? data.items : data?.rows || [];
+      setOrgOptions(
+        (items || []).map((o: any) => ({
+          value: String(o.org_id || o._id || ""),
+          label: o.org_name || o.name || String(o.org_id || ""),
+        })),
+      );
+    } catch (err) {
+      console.error("[settlements][loadOrgs]", err);
+      setOrgOptions([]);
+    }
+  }, []);
+
+  const loadMandis = useCallback(async () => {
+    const username = getCurrentAdminUsername();
+    const orgId = String(filters.org_id || "");
+    if (!username || !orgId) {
+      setMandiOptions([]);
+      return;
+    }
+    try {
+      const list = await getMandisForCurrentScope({ username, language: "en", org_id: orgId });
+      setMandiOptions(
+        (list || []).map((m: any) => ({
+          value: String(m.mandi_id ?? m.mandiId ?? ""),
+          label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
+        })),
+      );
+    } catch (err) {
+      console.error("[settlements][loadMandis]", err);
+      setMandiOptions([]);
+    }
+  }, [filters.org_id]);
+
+  const loadSessions = useCallback(async () => {
+    const username = getCurrentAdminUsername();
+    if (!username) return;
+    try {
+      const resp: any = await getAuctionSessions({
+        username,
+        language: "en",
+        filters: {
+          org_id: filters.org_id || undefined,
+          mandi_id: filters.mandi_id || undefined,
+          page_size: 100,
+        },
+      });
+      const items = resp?.data?.items || resp?.response?.data?.items || [];
+      setSessionOptions(
+        (items || []).map((s: any) => {
+          const id = String(s?._id || s?.session_id || "");
+          const code = String(s?.session_code || "").trim();
+          const name = String(s?.session_name || "").trim();
+          const label = [code, name].filter(Boolean).join(" - ") || id;
+          return { value: id, label };
+        }),
+      );
+      setSessionDropdownEnabled(true);
+    } catch (err) {
+      console.error("[settlements][loadSessions]", err);
+      setSessionDropdownEnabled(false);
+      setSessionOptions([]);
+    }
+  }, [filters.org_id, filters.mandi_id]);
+
+  useEffect(() => {
+    loadOrgs();
+  }, [loadOrgs]);
+
+  useEffect(() => {
+    loadMandis();
+    setFilters((prev) => ({ ...prev, mandi_id: "", session_id: "" }));
+    setSessionSearchText("");
+  }, [filters.org_id, loadMandis]);
+
+  useEffect(() => {
+    loadSessions();
+    setFilters((prev) => ({ ...prev, session_id: "" }));
+    setSessionSearchText("");
+  }, [filters.mandi_id, loadSessions]);
 
   const submitStatus = useCallback(async () => {
     if (!selected?._id || !targetStatus) return;
@@ -261,21 +371,154 @@ export const SettlementsPage: React.FC = () => {
         <Card>
           <CardContent>
             <Grid container spacing={2}>
-              {Object.keys(filters).map((k) => (
-                <Grid item xs={12} md={3} key={k}>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Organisation"
+                  value={filters.org_id}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
+                >
+                  <MenuItem value=""><em>All Organisations</em></MenuItem>
+                  {orgOptions.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Mandi"
+                  value={filters.mandi_id}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: String(e.target.value || "") }))}
+                  disabled={!filters.org_id}
+                >
+                  <MenuItem value=""><em>All Mandis</em></MenuItem>
+                  {mandiOptions.map((m) => (
+                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Settlement Status"
+                  value={filters.status}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "") }))}
+                >
+                  <MenuItem value=""><em>All Statuses</em></MenuItem>
+                  {STATUS_CHOICES.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Payment Status"
+                  value={filters.payment_status}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, payment_status: String(e.target.value || "") }))}
+                >
+                  <MenuItem value=""><em>All Payment Statuses</em></MenuItem>
+                  {PAYMENT_STATUS_CHOICES.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                {sessionDropdownEnabled ? (
+                  <Autocomplete
+                    options={sessionOptions}
+                    value={sessionOptions.find((opt) => opt.value === filters.session_id) || null}
+                    inputValue={sessionSearchText}
+                    onInputChange={(_e, value) => setSessionSearchText(value)}
+                    onChange={(_e, option) => {
+                      setFilters((prev) => ({ ...prev, session_id: option?.value || "" }));
+                    }}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(opt, val) => opt.value === val.value}
+                    renderInput={(params) => <TextField {...params} fullWidth size="small" label="Auction Session" />}
+                  />
+                ) : (
                   <TextField
                     fullWidth
                     size="small"
-                    type={k.startsWith("date_") ? "date" : "text"}
-                    label={k}
-                    value={(filters as any)[k]}
-                    InputLabelProps={k.startsWith("date_") ? { shrink: true } : undefined}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, [k]: e.target.value }))}
+                    label="Session Code / Session ID"
+                    value={filters.session_id}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, session_id: e.target.value }))}
                   />
-                </Grid>
-              ))}
+                )}
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Lot Code"
+                  value={filters.lot_code}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, lot_code: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Trader Username"
+                  value={filters.trader_username}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, trader_username: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Farmer Username"
+                  value={filters.farmer_username}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Date From"
+                  value={filters.date_from}
+                  InputLabelProps={{ shrink: true }}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, date_from: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Date To"
+                  value={filters.date_to}
+                  InputLabelProps={{ shrink: true }}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, date_to: e.target.value }))}
+                />
+              </Grid>
               <Grid item xs={12}>
-                <Button variant="contained" onClick={() => { setPage(1); load(); }}>Apply Filters</Button>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="contained" onClick={() => { setPage(1); load(); }}>Apply Filters</Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setFilters(DEFAULT_FILTERS);
+                      setSessionSearchText("");
+                      setPage(1);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </Stack>
               </Grid>
             </Grid>
           </CardContent>

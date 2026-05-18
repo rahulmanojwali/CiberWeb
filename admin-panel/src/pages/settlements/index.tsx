@@ -28,6 +28,7 @@ import { getCurrentAdminUsername } from "../../utils/session";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import { getAuctionSessions } from "../../services/auctionOpsApi";
+import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 
 const NEXT_BY_ACTION = {
   PAYMENT_REQUESTED: "PAYMENT_REQUESTED",
@@ -119,7 +120,20 @@ function date(v: any): string {
   return d.toLocaleString();
 }
 
+function currentAdminUser(): any {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const SettlementsPage: React.FC = () => {
+  const uiConfig = useAdminUiConfig();
+  const isSuperAdmin = uiConfig.role === "SUPER_ADMIN";
+  const scopedOrgId = String(uiConfig.scope?.org_id || "").trim();
+  const scopedOrgCode = String(uiConfig.scope?.org_code || "").trim();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<SettlementRow[]>([]);
   const [page, setPage] = useState(1);
@@ -175,39 +189,54 @@ export const SettlementsPage: React.FC = () => {
     try {
       const resp: any = await fetchOrganisations({ username, language: "en" });
       const data = resp?.data || resp?.response?.data || {};
-      const items = Array.isArray(data?.items) ? data.items : data?.rows || [];
-      setOrgOptions(
-        (items || []).map((o: any) => ({
-          value: String(o.org_id || o._id || ""),
-          label: o.org_name || o.name || String(o.org_id || ""),
-        })),
-      );
+      const items = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.organisations)
+          ? data.organisations
+          : data?.rows || [];
+      const nextOptions = (items || []).map((o: any) => ({
+        value: String(o.org_id || o._id || ""),
+        label: o.org_name || o.name || o.org_code || String(o.org_id || ""),
+      })).filter((o: Option) => Boolean(o.value));
+      if (!nextOptions.length && scopedOrgId) {
+        const user = currentAdminUser();
+        setOrgOptions([{ value: scopedOrgId, label: user?.org_name || scopedOrgCode || scopedOrgId }]);
+        return;
+      }
+      setOrgOptions(nextOptions);
     } catch (err) {
       console.error("[settlements][loadOrgs]", err);
+      if (scopedOrgId) {
+        const user = currentAdminUser();
+        setOrgOptions([{ value: scopedOrgId, label: user?.org_name || scopedOrgCode || scopedOrgId }]);
+        return;
+      }
       setOrgOptions([]);
     }
-  }, []);
+  }, [scopedOrgCode, scopedOrgId]);
 
   const loadMandis = useCallback(async () => {
     const username = getCurrentAdminUsername();
-    const orgId = String(filters.org_id || "");
+    const orgId = String(filters.org_id || scopedOrgId || "");
     if (!username || !orgId) {
       setMandiOptions([]);
       return;
     }
     try {
       const list = await getMandisForCurrentScope({ username, language: "en", org_id: orgId });
-      setMandiOptions(
-        (list || []).map((m: any) => ({
-          value: String(m.mandi_id ?? m.mandiId ?? ""),
-          label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
-        })),
-      );
+      const nextOptions = (list || []).map((m: any) => ({
+        value: String(m.mandi_id ?? m.mandiId ?? ""),
+        label: m.mandi_name || m.mandi_slug || String(m.mandi_id || ""),
+      })).filter((m: Option) => Boolean(m.value));
+      setMandiOptions(nextOptions);
+      if (filters.mandi_id && !nextOptions.some((m: Option) => m.value === filters.mandi_id)) {
+        setFilters((prev) => ({ ...prev, mandi_id: "", session_id: "" }));
+      }
     } catch (err) {
       console.error("[settlements][loadMandis]", err);
       setMandiOptions([]);
     }
-  }, [filters.org_id]);
+  }, [filters.mandi_id, filters.org_id, scopedOrgId]);
 
   const loadSessions = useCallback(async () => {
     const username = getCurrentAdminUsername();
@@ -217,20 +246,20 @@ export const SettlementsPage: React.FC = () => {
         username,
         language: "en",
         filters: {
-          org_id: filters.org_id || undefined,
+          org_id: filters.org_id || scopedOrgId || undefined,
           mandi_id: filters.mandi_id || undefined,
           page_size: 100,
         },
       });
       const items = resp?.data?.items || resp?.response?.data?.items || [];
       setSessionOptions(
-        (items || []).map((s: any) => {
-          const id = String(s?._id || s?.session_id || "");
-          const code = String(s?.session_code || "").trim();
-          const name = String(s?.session_name || "").trim();
+        (items || []).map((m: any) => {
+          const id = String(m?._id || m?.session_id || "");
+          const code = String(m?.session_code || "").trim();
+          const name = String(m?.session_name || "").trim();
           const label = [code, name].filter(Boolean).join(" - ") || id;
           return { value: id, label };
-        }),
+        }).filter((x: Option) => Boolean(x.value)),
       );
       setSessionDropdownEnabled(true);
     } catch (err) {
@@ -238,23 +267,41 @@ export const SettlementsPage: React.FC = () => {
       setSessionDropdownEnabled(false);
       setSessionOptions([]);
     }
-  }, [filters.org_id, filters.mandi_id]);
+  }, [filters.mandi_id, filters.org_id, scopedOrgId]);
 
   useEffect(() => {
     loadOrgs();
   }, [loadOrgs]);
 
   useEffect(() => {
+    if (isSuperAdmin) return;
+    if (!scopedOrgId) return;
+    setFilters((prev) => (prev.org_id ? prev : { ...prev, org_id: scopedOrgId }));
+  }, [isSuperAdmin, scopedOrgId]);
+
+  useEffect(() => {
+    if (isSuperAdmin) return;
+    if (filters.org_id && filters.org_id !== scopedOrgId) {
+      setFilters((prev) => ({ ...prev, org_id: scopedOrgId || prev.org_id }));
+    }
+  }, [filters.org_id, isSuperAdmin, scopedOrgId]);
+
+  useEffect(() => {
     loadMandis();
-    setFilters((prev) => ({ ...prev, mandi_id: "", session_id: "" }));
+  }, [loadMandis]);
+
+  useEffect(() => {
+    setFilters((prev) => ({ ...prev, session_id: "" }));
     setSessionSearchText("");
-  }, [filters.org_id, loadMandis]);
+  }, [filters.mandi_id]);
 
   useEffect(() => {
     loadSessions();
-    setFilters((prev) => ({ ...prev, session_id: "" }));
-    setSessionSearchText("");
-  }, [filters.mandi_id, loadSessions]);
+  }, [loadSessions]);
+
+  const effectiveOrgId = String(filters.org_id || scopedOrgId || "");
+  const orgDropdownDisabled = !isSuperAdmin || (!!scopedOrgId && orgOptions.length <= 1);
+  const showAllOrganisationsOption = isSuperAdmin && orgOptions.length > 1;
 
   const submitStatus = useCallback(async () => {
     if (!selected?._id || !targetStatus) return;
@@ -379,8 +426,9 @@ export const SettlementsPage: React.FC = () => {
                   label="Organisation"
                   value={filters.org_id}
                   onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
+                  disabled={orgDropdownDisabled}
                 >
-                  <MenuItem value=""><em>All Organisations</em></MenuItem>
+                  {showAllOrganisationsOption && <MenuItem value=""><em>All Organisations</em></MenuItem>}
                   {orgOptions.map((o) => (
                     <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                   ))}
@@ -394,7 +442,7 @@ export const SettlementsPage: React.FC = () => {
                   label="Mandi"
                   value={filters.mandi_id}
                   onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: String(e.target.value || "") }))}
-                  disabled={!filters.org_id}
+                  disabled={!effectiveOrgId}
                 >
                   <MenuItem value=""><em>All Mandis</em></MenuItem>
                   {mandiOptions.map((m) => (
@@ -511,7 +559,7 @@ export const SettlementsPage: React.FC = () => {
                   <Button
                     variant="outlined"
                     onClick={() => {
-                      setFilters(DEFAULT_FILTERS);
+                      setFilters(isSuperAdmin ? DEFAULT_FILTERS : { ...DEFAULT_FILTERS, org_id: scopedOrgId });
                       setSessionSearchText("");
                       setPage(1);
                     }}

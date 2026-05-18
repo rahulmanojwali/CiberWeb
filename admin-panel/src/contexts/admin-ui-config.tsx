@@ -125,11 +125,25 @@ const normalizeScope = (scope: any): AdminScope | null => {
 };
 
 const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
-  const normalized = (resources || []).map((r) => ({
-    ...r,
-    resource_key: canonicalizeResourceKey(r.resource_key),
-    parent_resource_key: canonicalizeResourceKey(r.parent_resource_key) || null,
-  }));
+  const menuRouteFix: Record<string, string> = {
+    "payment_models.menu": "/payment-models",
+    "org_payment_settings.menu": "/org-payment-settings",
+    "mandi_payment_settings.menu": "/mandi-payment-settings",
+    "payment_modes.menu": "/payment-modes",
+    "payments_log.menu": "/payments-log",
+    "settlements.menu": "/settlements",
+  };
+
+  const normalized = (resources || []).map((r) => {
+    const key = canonicalizeResourceKey(r.resource_key);
+    const fallbackRoute = menuRouteFix[key] || "";
+    return {
+      ...r,
+      resource_key: key,
+      parent_resource_key: canonicalizeResourceKey(r.parent_resource_key) || null,
+      route: String(r?.route || "").trim() || fallbackRoute || r?.route || "",
+    };
+  });
 
   const deduped = new Map<string, UiResource>();
   normalized.forEach((r) => {

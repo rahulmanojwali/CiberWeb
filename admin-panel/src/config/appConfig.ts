@@ -379,6 +379,8 @@ const PAYMENT_CONFIG_ROUTES = {
   getRoleCustomFees: "/admin/getRoleCustomFees",
   upsertRoleCustomFee: "/admin/upsertRoleCustomFee",
   previewEffectiveFees: "/admin/previewEffectiveFees",
+  getPaymentGatewayConfigs: "/admin/payment-gateway-configs/list",
+  upsertPaymentGatewayConfig: "/admin/payment-gateway-configs/save",
 } as const;
 
 

@@ -242,3 +242,35 @@ export const previewEffectiveFees = async ({
     language,
     ...payload,
   });
+
+export const getPaymentGatewayConfigs = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: EncryptedPayload;
+}) =>
+  postEncrypted(API_ROUTES.admin.paymentConfig.getPaymentGatewayConfigs, {
+    api: API_TAGS.PAYMENT_CONFIG.getPaymentModels,
+    username,
+    language,
+    ...payload,
+  });
+
+export const upsertPaymentGatewayConfig = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload = {},
+}: {
+  username: string;
+  language?: string;
+  payload?: EncryptedPayload;
+}) =>
+  postEncrypted(API_ROUTES.admin.paymentConfig.upsertPaymentGatewayConfig, {
+    api: API_TAGS.PAYMENT_CONFIG.upsertPaymentModel,
+    username,
+    language,
+    ...payload,
+  });

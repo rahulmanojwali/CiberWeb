@@ -96,11 +96,13 @@ import { OrgSettings } from "./pages/orgSettings";
 import { MandiPaymentSettings } from "./pages/mandiPaymentSettings";
 import { CommodityFees } from "./pages/commodityFees";
 import { PaymentModes } from "./pages/paymentModes";
+import { PaymentGatewayConfigsPage } from "./pages/paymentGatewayConfigs/index";
+import { PaymentTransactionsPage } from "./pages/paymentTransactions";
 import { CustomFees } from "./pages/customFees";
 import { RoleCustomFees } from "./pages/roleCustomFees";
 import { SubscriptionsPage } from "./pages/subscriptions";
 import { SubscriptionInvoices } from "./pages/subscriptionInvoices";
-import { SettlementsPage } from "./pages/settlements";
+import { SettlementsPage } from "./pages/settlements/index";
 import { PaymentsLog } from "./pages/paymentsLog";
 import ResourceRegistryPage from "./pages/resourceRegistry";
 import ResourceHealthPage from "./pages/resourceHealth";
@@ -221,6 +223,8 @@ function App() {
                   <Route path="/mandi-payment-settings" element={<MandiPaymentSettings />} />
                   <Route path="/commodity-fees" element={<CommodityFees />} />
                   <Route path="/payment-modes" element={<PaymentModes />} />
+                  <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
+                  <Route path="/payment-transactions" element={<PaymentTransactionsPage />} />
                   <Route path="/custom-fees" element={<CustomFees />} />
                   <Route path="/role-custom-fees" element={<RoleCustomFees />} />
                   <Route path="/subscriptions" element={<SubscriptionsPage />} />

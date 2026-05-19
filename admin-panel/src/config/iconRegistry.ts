@@ -112,6 +112,7 @@ const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {
   "org_payment_settings.menu": React.createElement(SettingsSuggestOutlinedIcon),
   "payment_models.menu": React.createElement(AccountTreeOutlinedIcon),
   "payment_modes.menu": React.createElement(PaymentsOutlinedIcon),
+  "payment_gateway_settings.menu": React.createElement(PaymentsOutlinedIcon),
   "payments_log.menu": React.createElement(ReceiptOutlinedIcon),
   "role_custom_fees.menu": React.createElement(AssignmentIndOutlinedIcon),
   "settlements.menu": React.createElement(AccountBalanceOutlinedIcon),

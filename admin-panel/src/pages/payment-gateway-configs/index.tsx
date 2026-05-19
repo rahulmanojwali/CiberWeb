@@ -39,6 +39,8 @@ type Row = {
   id: string;
   provider_code: string;
   provider_name?: string;
+  org_id?: string | null;
+  mandi_id?: number | null;
   mode: string;
   priority: number;
   is_default?: boolean;
@@ -135,7 +137,15 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     const username = getCurrentAdminUsername();
     if (!username) return;
     const next = String(row.is_active || "Y") === "Y" ? "N" : "Y";
-    const resp: any = await togglePaymentGatewayConfig({ username, payload: { provider_code: row.provider_code, is_active: next } });
+    const resp: any = await togglePaymentGatewayConfig({
+      username,
+      payload: {
+        provider_code: row.provider_code,
+        org_id: row.org_id ?? null,
+        mandi_id: row.mandi_id ?? null,
+        is_active: next,
+      },
+    });
     if (String(resp?.response?.responsecode || "1") !== "0") {
       setErrorMsg(resp?.response?.description || "Unable to toggle payment gateway config.");
       return;
@@ -146,12 +156,23 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   const onSetDefault = async (row: Row) => {
     const username = getCurrentAdminUsername();
     if (!username) return;
-    const resp: any = await setDefaultPaymentGatewayConfig({ username, payload: { provider_code: row.provider_code } });
+    const resp: any = await setDefaultPaymentGatewayConfig({
+      username,
+      payload: {
+        provider_code: row.provider_code,
+        org_id: row.org_id ?? null,
+        mandi_id: row.mandi_id ?? null,
+      },
+    });
     if (String(resp?.response?.responsecode || "1") !== "0") {
       setErrorMsg(resp?.response?.description || "Unable to set default payment gateway.");
       return;
     }
     await load();
+  };
+
+  const seedDefaults = () => {
+    setErrorMsg("Run backend script: node scripts/seed_payment_gateway_configs_market.js");
   };
 
   const summary = useMemo(() => {
@@ -208,6 +229,19 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
         <Card>
           <CardContent>
+            {rows.length === 0 && !loading ? (
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No gateway configs found in market DB.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Use Seed Defaults or add a gateway.
+                </Typography>
+                <Box>
+                  <Button variant="outlined" onClick={seedDefaults}>Seed Default Gateways</Button>
+                </Box>
+              </Stack>
+            ) : null}
             <Box sx={{ width: "100%", overflowX: "auto" }}>
               <ResponsiveDataGrid rows={rows} columns={columns} loading={loading} />
             </Box>

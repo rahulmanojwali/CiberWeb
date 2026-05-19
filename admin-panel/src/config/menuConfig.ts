@@ -819,7 +819,7 @@ export const APP_MENU: AppMenuItem[] = [
         icon: React.createElement(SettingsOutlinedIcon),
         resourceKey: "payment_gateway_configs.menu",
         requiredAction: "VIEW",
-        roles: ALL_ROLES,
+        roles: ["SUPER_ADMIN"],
       },
       {
         key: "paymentTransactions",

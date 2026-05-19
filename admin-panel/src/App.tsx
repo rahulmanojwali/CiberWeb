@@ -96,8 +96,7 @@ import { OrgSettings } from "./pages/orgSettings";
 import { MandiPaymentSettings } from "./pages/mandiPaymentSettings";
 import { CommodityFees } from "./pages/commodityFees";
 import { PaymentModes } from "./pages/paymentModes";
-import { PaymentGatewayConfigsPage } from "./pages/paymentGatewayConfigs/index";
-import { PaymentGatewaySettingsPage } from "./pages/payment-gateway-settings";
+import { PaymentGatewayConfigsPage } from "./pages/payment-gateway-configs";
 import { PaymentTransactionsPage } from "./pages/paymentTransactions";
 import { CustomFees } from "./pages/customFees";
 import { RoleCustomFees } from "./pages/roleCustomFees";
@@ -225,7 +224,6 @@ function App() {
                   <Route path="/commodity-fees" element={<CommodityFees />} />
                   <Route path="/payment-modes" element={<PaymentModes />} />
                   <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
-                  <Route path="/payment-gateway-settings" element={<PaymentGatewaySettingsPage />} />
                   <Route path="/payment-transactions" element={<PaymentTransactionsPage />} />
                   <Route path="/custom-fees" element={<CustomFees />} />
                   <Route path="/role-custom-fees" element={<RoleCustomFees />} />

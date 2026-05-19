@@ -103,6 +103,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   mandi_hours: React.createElement(AccessTimeOutlinedIcon),
   pre_market: React.createElement(PlaylistAddCheckOutlinedIcon),
   weighment_tickets: React.createElement(ScaleOutlinedIcon),
+  payment_gateway: React.createElement(PaymentsOutlinedIcon),
 };
 
 const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {

@@ -30,6 +30,7 @@ import {
   togglePaymentGatewayConfig,
 } from "../../api/paymentGatewayConfigs";
 
+const PROVIDERS = ["PAYU", "CASHFREE", "RAZORPAY", "MANUAL"];
 const MODES = ["TEST", "LIVE"];
 const METHODS = ["UPI", "CARD", "NETBANKING"];
 const FEE_BORNE_BY = ["TRADER", "PLATFORM", "MANDI"];
@@ -51,6 +52,8 @@ type Row = {
   client_id?: string;
   return_url?: string;
   notify_url?: string;
+  has_client_secret?: boolean;
+  has_webhook_secret?: boolean;
 };
 
 export const PaymentGatewayConfigsPage: React.FC = () => {
@@ -72,7 +75,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         throw new Error(resp?.response?.description || "Unable to load payment gateway configs.");
       }
       const list = Array.isArray(resp?.data?.configs) ? resp.data.configs : [];
-      setRows(list.map((x: any) => ({ ...x, id: String(x._id || x.provider_code) })));
+      setRows(list.map((x: any) => ({ ...x, id: String(x._id || `${x.provider_code}-${x.org_id || "GLOBAL"}-${x.mandi_id ?? "ALL"}`) })));
     } catch (err: any) {
       setErrorMsg(err?.message || "Unable to load payment gateway configs.");
     } finally {
@@ -82,8 +85,36 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
+  const createAddDraft = () => {
+    const nextPriority = (rows.reduce((max, row) => Math.max(max, Number(row.priority || 0)), 0) || 0) + 1;
+    return {
+      is_new: true,
+      provider_code: "",
+      mode: "TEST",
+      priority: String(nextPriority),
+      is_active: "Y",
+      client_id: "",
+      client_secret: "",
+      webhook_secret: "",
+      return_url: "",
+      notify_url: "",
+      allowed_methods: ["UPI"],
+      fee_borne_by: "TRADER",
+      org_id: null,
+      mandi_id: null,
+      has_client_secret: false,
+      has_webhook_secret: false,
+    };
+  };
+
+  const openAdd = () => {
+    setEdit(createAddDraft());
+    setEditOpen(true);
+  };
+
   const openEdit = (row: Row) => {
     setEdit({
+      is_new: false,
       provider_code: row.provider_code,
       mode: row.mode || "TEST",
       priority: String(row.priority || 1),
@@ -95,6 +126,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       notify_url: row.notify_url || "",
       allowed_methods: row.allowed_methods?.length ? row.allowed_methods : ["UPI"],
       fee_borne_by: row.fee_borne_by || "TRADER",
+      org_id: row.org_id ?? null,
+      mandi_id: row.mandi_id ?? null,
+      has_client_secret: Boolean(row.has_client_secret),
+      has_webhook_secret: Boolean(row.has_webhook_secret),
     });
     setEditOpen(true);
   };
@@ -109,6 +144,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         username,
         payload: {
           provider_code: edit.provider_code,
+          org_id: edit.org_id ?? null,
+          mandi_id: edit.mandi_id ?? null,
           mode: edit.mode,
           priority: Number(edit.priority || 1),
           is_active: edit.is_active,
@@ -190,10 +227,11 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const columns = useMemo<GridColDef<Row>[]>(() => [
     { field: "provider_code", headerName: "Provider", width: 130 },
-    { field: "mode", headerName: "Mode", width: 100 },
+    { field: "mode", headerName: "Mode", width: 100, renderCell: (p) => <Chip size="small" label={String(p.value || "-")} /> },
     { field: "priority", headerName: "Priority", width: 90 },
     { field: "is_default", headerName: "Default", width: 100, renderCell: (p) => <Chip size="small" color={p.value ? "primary" : "default"} label={p.value ? "Yes" : "No"} /> },
     { field: "is_active", headerName: "Active", width: 90, renderCell: (p) => <Chip size="small" color={String(p.value) === "Y" ? "success" : "default"} label={String(p.value) === "Y" ? "Yes" : "No"} /> },
+    { field: "has_client_secret", headerName: "Secret", width: 110, renderCell: (p) => <Chip size="small" color={p.value ? "info" : "default"} label={p.value ? "Saved" : "Not Set"} /> },
     { field: "allowed_methods", headerName: "Allowed Methods", width: 180, renderCell: (p) => <>{Array.isArray(p.value) ? p.value.join(", ") : "-"}</> },
     { field: "fee_borne_by", headerName: "Fee Borne By", width: 140 },
     { field: "updated_on", headerName: "Updated On", width: 190, renderCell: (p) => <>{p.value ? new Date(p.value).toLocaleString() : "-"}</> },
@@ -212,11 +250,22 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     },
   ], []);
 
+  const secretLabel = edit?.provider_code === "PAYU"
+    ? "Salt"
+    : edit?.provider_code === "RAZORPAY"
+      ? "Key Secret"
+      : "Secret Key";
+
   return (
     <PageContainer>
       <Stack spacing={2}>
-        <Typography variant="h5">Payment Gateway Settings</Typography>
-        <Typography variant="body2" color="text.secondary">Configure settlement payment gateways used by trader payments.</Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h5">Payment Gateway Settings</Typography>
+            <Typography variant="body2" color="text.secondary">Configure settlement payment gateways used by trader payments.</Typography>
+          </Box>
+          <Button variant="contained" onClick={openAdd}>+ Add Payment Gateway</Button>
+        </Stack>
 
         {errorMsg ? <Card><CardContent><Typography color="error">{errorMsg}</Typography></CardContent></Card> : null}
 
@@ -231,15 +280,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
           <CardContent>
             {rows.length === 0 && !loading ? (
               <Stack spacing={1} sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  No gateway configs found in market DB.
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Use Seed Defaults or add a gateway.
-                </Typography>
-                <Box>
-                  <Button variant="outlined" onClick={seedDefaults}>Seed Default Gateways</Button>
-                </Box>
+                <Typography variant="body2" color="text.secondary">No gateway configs found in market DB.</Typography>
+                <Typography variant="body2" color="text.secondary">Use Seed Defaults or add a gateway.</Typography>
+                <Box><Button variant="outlined" onClick={seedDefaults}>Seed Default Gateways</Button></Box>
               </Stack>
             ) : null}
             <Box sx={{ width: "100%", overflowX: "auto" }}>
@@ -250,22 +293,33 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       </Stack>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Edit Payment Gateway</DialogTitle>
+        <DialogTitle>{edit?.is_new ? "Add Payment Gateway" : "Edit Payment Gateway"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Provider Code" size="small" value={edit?.provider_code || ""} disabled fullWidth />
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                select
+                label="Provider Code"
+                size="small"
+                value={edit?.provider_code || ""}
+                onChange={(e) => setEdit((p: any) => ({ ...p, provider_code: e.target.value }))}
+                fullWidth
+                disabled={!edit?.is_new}
+              >
+                {PROVIDERS.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+              </TextField>
               <TextField select label="Mode" size="small" value={edit?.mode || "TEST"} onChange={(e) => setEdit((p: any) => ({ ...p, mode: e.target.value }))} fullWidth>
                 {MODES.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
               </TextField>
               <TextField type="number" label="Priority" size="small" value={edit?.priority || "1"} onChange={(e) => setEdit((p: any) => ({ ...p, priority: e.target.value }))} fullWidth />
-              <FormControl fullWidth size="small">
-                <InputLabel>Gateway Fee Borne By</InputLabel>
-                <Select label="Gateway Fee Borne By" value={edit?.fee_borne_by || "TRADER"} onChange={(e) => setEdit((p: any) => ({ ...p, fee_borne_by: e.target.value }))}>
-                  {FEE_BORNE_BY.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
-                </Select>
-              </FormControl>
             </Stack>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Gateway Fee Borne By</InputLabel>
+              <Select label="Gateway Fee Borne By" value={edit?.fee_borne_by || "TRADER"} onChange={(e) => setEdit((p: any) => ({ ...p, fee_borne_by: e.target.value }))}>
+                {FEE_BORNE_BY.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+              </Select>
+            </FormControl>
 
             <FormControl fullWidth size="small">
               <InputLabel>Allowed Methods</InputLabel>
@@ -283,15 +337,28 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                 fullWidth
               />
               <TextField
-                label={edit?.provider_code === "PAYU" ? "Salt" : edit?.provider_code === "RAZORPAY" ? "Key Secret" : "Secret Key"}
+                label={secretLabel}
                 size="small"
                 type="password"
                 value={edit?.client_secret || ""}
                 onChange={(e) => setEdit((p: any) => ({ ...p, client_secret: e.target.value }))}
                 fullWidth
-                helperText="Leave blank to keep existing secret"
+                helperText="Existing secret is saved. Leave blank to keep unchanged."
               />
-              <TextField label="Webhook Secret" size="small" type="password" value={edit?.webhook_secret || ""} onChange={(e) => setEdit((p: any) => ({ ...p, webhook_secret: e.target.value }))} fullWidth helperText="Leave blank to keep existing webhook secret" />
+              <TextField
+                label="Webhook Secret"
+                size="small"
+                type="password"
+                value={edit?.webhook_secret || ""}
+                onChange={(e) => setEdit((p: any) => ({ ...p, webhook_secret: e.target.value }))}
+                fullWidth
+                helperText="Existing secret is saved. Leave blank to keep unchanged."
+              />
+            </Stack>
+
+            <Stack direction="row" spacing={1}>
+              {edit?.has_client_secret ? <Chip size="small" color="info" label="Secret saved" /> : null}
+              {edit?.has_webhook_secret ? <Chip size="small" color="info" label="Webhook secret saved" /> : null}
             </Stack>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>

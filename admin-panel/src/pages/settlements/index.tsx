@@ -26,7 +26,7 @@ import AgricultureOutlinedIcon from "@mui/icons-material/AgricultureOutlined";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import { PageContainer } from "../../components/PageContainer";
 import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
-import { listAuctionSettlements, updateAuctionSettlementStatus } from "../../api/settlements";
+import { listAuctionSettlements, rejectSettlementPayment, updateAuctionSettlementStatus, verifySettlementPayment } from "../../api/settlements";
 import { getCurrentAdminUsername } from "../../utils/session";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
@@ -38,6 +38,7 @@ const NEXT_BY_ACTION = {
   PAYMENT_REQUESTED: "PAYMENT_REQUESTED",
   CANCELLED: "CANCELLED",
   DISPUTED: "DISPUTED",
+  SETTLED: "SETTLED",
 } as const;
 
 const STATUS_CHOICES = [
@@ -55,14 +56,17 @@ const STATUS_CHOICES = [
 ];
 
 const PAYMENT_STATUS_CHOICES = [
-  "NOT_REQUESTED",
-  "REQUESTED",
-  "INITIATED",
-  "PENDING_CONFIRMATION",
-  "PAID",
-  "FAILED",
-  "REFUNDED",
-  "CANCELLED",
+  "PAYMENT_NOT_STARTED",
+  "PAYMENT_INITIATED",
+  "PAYMENT_PENDING",
+  "PAYMENT_RETURNED_SUCCESS",
+  "PAYMENT_RETURNED_FAILED",
+  "PAYMENT_CANCELLED",
+  "PAYMENT_UNKNOWN",
+  "PAYMENT_PROOF_SUBMITTED",
+  "PAYMENT_UNDER_REVIEW",
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_REJECTED",
 ];
 
 type Option = { value: string; label: string };
@@ -97,6 +101,8 @@ type SettlementRow = {
   payment_status?: string | null;
   dispute_status?: string | null;
   lifecycle_state_reason?: string | null;
+  payment_requested_on?: string;
+  payment_confirmed_on?: string;
   created_on?: string;
   updated_on?: string;
   created_by?: string;
@@ -122,9 +128,9 @@ function getSettlementStatusClass(status: any): string {
 
 function getPaymentStatusClass(status: any): string {
   const value = String(status || "").toUpperCase();
-  if (value === "PAID") return "cm-status-success";
-  if (["FAILED", "REFUNDED", "CANCELLED"].includes(value)) return "cm-status-danger";
-  if (["REQUESTED", "INITIATED", "PENDING_CONFIRMATION"].includes(value)) return "cm-status-info";
+  if (["PAYMENT_CONFIRMED", "PAYMENT_RETURNED_SUCCESS"].includes(value)) return "cm-status-success";
+  if (["PAYMENT_RETURNED_FAILED", "PAYMENT_REJECTED", "PAYMENT_CANCELLED"].includes(value)) return "cm-status-danger";
+  if (["PAYMENT_INITIATED", "PAYMENT_PENDING", "PAYMENT_PROOF_SUBMITTED", "PAYMENT_UNDER_REVIEW"].includes(value)) return "cm-status-info";
   return "cm-status-pending";
 }
 
@@ -145,6 +151,11 @@ export const SettlementsPage: React.FC = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState("PAYMENT_REQUESTED");
   const [statusReason, setStatusReason] = useState("");
+  const [updatingSettlement, setUpdatingSettlement] = useState(false);
+  const [notice, setNotice] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
@@ -302,22 +313,78 @@ export const SettlementsPage: React.FC = () => {
     if (!actionTarget?._id || !targetStatus) return;
     const username = getCurrentAdminUsername();
     if (!username) return;
-    const resp: any = await updateAuctionSettlementStatus({
-      username,
-      settlement_id: actionTarget._id,
-      status: targetStatus,
-      reason: statusReason,
-    });
+    setUpdatingSettlement(true);
+    try {
+      const resp: any = await updateAuctionSettlementStatus({
+        username,
+        settlement_id: actionTarget._id,
+        status: targetStatus,
+        reason: statusReason,
+      });
+      const code = String(resp?.response?.responsecode || resp?.responsecode || "1");
+      if (code !== "0") {
+        setNotice({
+          type: "error",
+          message: resp?.response?.description || "Unable to update settlement status.",
+        });
+        window.setTimeout(() => setNotice(null), 3500);
+        return;
+      }
+      setNotice({
+        type: "success",
+        message: resp?.response?.description || "Settlement status updated successfully.",
+      });
+      window.setTimeout(() => setNotice(null), 3500);
+      setStatusDialogOpen(false);
+      setActionTarget(null);
+      setStatusReason("");
+      await load();
+    } finally {
+      setUpdatingSettlement(false);
+    }
+  }, [actionTarget, targetStatus, statusReason, load]);
+
+  const runVerify = useCallback(async (row: SettlementRow) => {
+    const username = getCurrentAdminUsername();
+    if (!username || !row?._id) return;
+    const resp: any = await verifySettlementPayment({ username, settlement_id: row._id });
     const code = String(resp?.response?.responsecode || resp?.responsecode || "1");
     if (code !== "0") {
-      alert(resp?.response?.description || "Status update failed");
+      setNotice({
+        type: "error",
+        message: resp?.response?.description || "Unable to update settlement status.",
+      });
+      window.setTimeout(() => setNotice(null), 3500);
       return;
     }
-    setStatusDialogOpen(false);
-    setActionTarget(null);
-    setStatusReason("");
+    setNotice({
+      type: "success",
+      message: resp?.response?.description || "Settlement status updated successfully.",
+    });
+    window.setTimeout(() => setNotice(null), 3500);
     await load();
-  }, [actionTarget, targetStatus, statusReason, load]);
+  }, [load]);
+
+  const runReject = useCallback(async (row: SettlementRow) => {
+    const username = getCurrentAdminUsername();
+    if (!username || !row?._id) return;
+    const resp: any = await rejectSettlementPayment({ username, settlement_id: row._id });
+    const code = String(resp?.response?.responsecode || resp?.responsecode || "1");
+    if (code !== "0") {
+      setNotice({
+        type: "error",
+        message: resp?.response?.description || "Unable to update settlement status.",
+      });
+      window.setTimeout(() => setNotice(null), 3500);
+      return;
+    }
+    setNotice({
+      type: "success",
+      message: resp?.response?.description || "Settlement status updated successfully.",
+    });
+    window.setTimeout(() => setNotice(null), 3500);
+    await load();
+  }, [load]);
 
   const openActionDialog = useCallback((row: SettlementRow, status: string) => {
     setSelected(null);
@@ -329,8 +396,8 @@ export const SettlementsPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil((totalRecords || 0) / pageSize));
   const totalSettlements = rows.length;
   const pendingCount = rows.filter((x) => String(x.status || "").toUpperCase() === "PENDING").length;
-  const paymentRequestedCount = rows.filter((x) => String(x.payment_status || "").toUpperCase() === "REQUESTED").length;
-  const paidCount = rows.filter((x) => String(x.payment_status || "").toUpperCase() === "PAID").length;
+  const paymentRequestedCount = rows.filter((x) => String(x.status || "").toUpperCase() === "PAYMENT_REQUESTED").length;
+  const paidCount = rows.filter((x) => ["PAYMENT_CONFIRMED", "PAYMENT_RETURNED_SUCCESS"].includes(String(x.payment_status || "").toUpperCase())).length;
 
   return (
     <PageContainer>
@@ -341,6 +408,17 @@ export const SettlementsPage: React.FC = () => {
             Track sold lots, farmer payable status, trader payments and manual settlement actions.
           </div>
         </div>
+        {notice && (
+          <div
+            className={`mb-4 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm ${
+              notice.type === "success"
+                ? "border-green-200 bg-green-50 text-green-800"
+                : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            {notice.message}
+          </div>
+        )}
 
         <div className="cm-card cm-filter-card cm-premium-filters">
           <div className="cm-filter-title-row">
@@ -552,14 +630,14 @@ export const SettlementsPage: React.FC = () => {
             <table className="cm-table">
               <thead>
                 <tr>
-                  <th>Lot Code</th>
-                  <th>Session Code</th>
-                  <th>Farmer</th>
                   <th>Trader</th>
+                  <th>Farmer</th>
+                  <th>Lot</th>
                   <th>Final Amount</th>
                   <th>Settlement Status</th>
                   <th>Payment Status</th>
-                  <th>Created On</th>
+                  <th>Payment Requested On</th>
+                  <th>Payment Confirmed On</th>
                   <th>Updated On</th>
                   <th style={{ minWidth: 390 }}>Actions</th>
                 </tr>
@@ -567,10 +645,9 @@ export const SettlementsPage: React.FC = () => {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id}>
-                    <td>{safeText(row.lot_code)}</td>
-                    <td>{safeText(row.session_code)}</td>
-                    <td>{safeText(row.farmer_username)}</td>
                     <td>{safeText(row.trader_username)}</td>
+                    <td>{safeText(row.farmer_username)}</td>
+                    <td>{safeText(row.lot_code)}</td>
                     <td><span className="cm-money">{formatCurrencyINR(row.final_amount)}</span></td>
                     <td>
                       <span className={`cm-status ${getSettlementStatusClass(row.status)}`}>
@@ -582,15 +659,32 @@ export const SettlementsPage: React.FC = () => {
                         {safeText(row.payment_status)}
                       </span>
                     </td>
-                    <td>{formatDateTime(row.created_on)}</td>
+                    <td>{formatDateTime(row.payment_requested_on)}</td>
+                    <td>{formatDateTime(row.payment_confirmed_on)}</td>
                     <td>{formatDateTime(row.updated_on)}</td>
                     <td>
                       <div className="cm-row-actions">
-                        <button className="cm-action-link" type="button" onClick={() => setSelected(row)}>View Details</button>
-                        <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.PAYMENT_REQUESTED)}>Request Payment</button>
-                        <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, "PAYMENT_REQUESTED")}>Move Status</button>
-                        <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.CANCELLED)}>Cancel</button>
-                        <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.DISPUTED)}>Dispute</button>
+                        {(() => {
+                          const s = String(row.status || "").toUpperCase();
+                          const p = String(row.payment_status || "").toUpperCase();
+                          const canRequest = ["PENDING", "FAILED", "DISPUTED"].includes(s);
+                          const canDispute = !["SETTLED", "CANCELLED", "REFUNDED"].includes(s);
+                          const canCancel = ["PENDING", "PAYMENT_REQUESTED", "PAYMENT_INITIATED", "FAILED", "DISPUTED"].includes(s);
+                          const canVerify = ["PAYMENT_PROOF_SUBMITTED", "PAYMENT_UNDER_REVIEW", "PAYMENT_RETURNED_SUCCESS", "PAYMENT_PENDING", "PAYMENT_UNKNOWN"].includes(p);
+                          const canReject = canVerify;
+                          const canSettle = s === "VERIFIED" && ["PAYMENT_CONFIRMED", "PAYMENT_RETURNED_SUCCESS", "PAID"].includes(p);
+                          return (
+                            <>
+                              <button className="cm-action-link" type="button" onClick={() => setSelected(row)}>View Details</button>
+                              {canRequest && <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.PAYMENT_REQUESTED)}>Request Payment</button>}
+                              {canDispute && <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.DISPUTED)}>Mark Disputed</button>}
+                              {canCancel && <button className="cm-action-link cm-btn-danger" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.CANCELLED)}>Cancel</button>}
+                              {canVerify && <button className="cm-action-link" type="button" onClick={() => runVerify(row)}>Verify Paid</button>}
+                              {canReject && <button className="cm-action-link cm-btn-danger" type="button" onClick={() => runReject(row)}>Reject Payment</button>}
+                              {canSettle && <button className="cm-action-link" type="button" onClick={() => openActionDialog(row, NEXT_BY_ACTION.SETTLED)}>Settle</button>}
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                   </tr>
@@ -714,7 +808,9 @@ export const SettlementsPage: React.FC = () => {
           >
             Close
           </button>
-          <button className="cm-btn" type="button" onClick={submitStatus}>Update</button>
+          <button className="cm-btn" type="button" onClick={submitStatus} disabled={updatingSettlement}>
+            {updatingSettlement ? "Updating..." : "Update"}
+          </button>
         </DialogActions>
       </Dialog>
     </PageContainer>

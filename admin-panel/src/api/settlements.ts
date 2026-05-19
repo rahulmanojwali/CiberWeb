@@ -45,3 +45,35 @@ export async function updateAuctionSettlementStatus(input: {
     reason,
   });
 }
+
+export async function verifySettlementPayment(input: {
+  username: string;
+  language?: string;
+  settlement_id: string;
+  note?: string;
+}) {
+  const { username, language = "en", settlement_id, note } = input;
+  return postEncrypted("/admin/verifySettlementPayment", {
+    api: "verifySettlementPayment",
+    username,
+    language,
+    settlement_id,
+    note,
+  });
+}
+
+export async function rejectSettlementPayment(input: {
+  username: string;
+  language?: string;
+  settlement_id: string;
+  note?: string;
+}) {
+  const { username, language = "en", settlement_id, note } = input;
+  return postEncrypted("/admin/rejectSettlementPayment", {
+    api: "rejectSettlementPayment",
+    username,
+    language,
+    settlement_id,
+    note,
+  });
+}

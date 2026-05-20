@@ -63,10 +63,13 @@ type TestResult = {
   type: "success" | "error";
   message: string;
   details?: {
+    provider_code?: string;
     test_type?: string;
     order_id?: string | null;
     txnid?: string;
     payment_session_id_exists?: boolean;
+    dashboard_visible?: boolean;
+    dashboard_note?: string;
   };
 } | null;
 
@@ -271,6 +274,45 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     }
   };
 
+  const renderGatewayTestDetails = (details: any) => {
+    const provider = String(details?.provider_code || "").toUpperCase();
+
+    if (provider === "PAYU") {
+      return (
+        <>
+          <Typography variant="caption" component="div">Test Type: Hash Generation</Typography>
+          <Typography variant="caption" component="div">Generated Test Txn ID: {details?.txnid || "-"}</Typography>
+          <Typography variant="caption" component="div">Dashboard Visibility: Not visible in PayU dashboard because no payment/order is created.</Typography>
+        </>
+      );
+    }
+
+    if (provider === "CASHFREE") {
+      return (
+        <>
+          <Typography variant="caption" component="div">Test Type: Create Test Order</Typography>
+          <Typography variant="caption" component="div">Cashfree Order ID: {details?.order_id || "-"}</Typography>
+          <Typography variant="caption" component="div">Payment Session Generated: {details?.payment_session_id_exists ? "Yes" : "No"}</Typography>
+        </>
+      );
+    }
+
+    if (provider === "RAZORPAY") {
+      return (
+        <>
+          <Typography variant="caption" component="div">Test Type: Create Test Order</Typography>
+          <Typography variant="caption" component="div">Razorpay Order ID: {details?.order_id || "-"}</Typography>
+        </>
+      );
+    }
+
+    if (provider === "MANUAL") {
+      return null;
+    }
+
+    return null;
+  };
+
   const summary = useMemo(() => {
     const active = rows.filter((x) => String(x.is_active) === "Y");
     const defaultRow = active.slice().sort((a, b) => Number(a.priority || 999) - Number(b.priority || 999))[0];
@@ -446,13 +488,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
               <Alert severity={testResult.type === "success" ? "success" : "error"}>
                 <Typography variant="body2">{testResult.message}</Typography>
                 {testResult.type === "success" && testResult.details ? (
-                  <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
-                    {`Test Type: ${testResult.details.test_type || "-"}`}
-                    {" | "}
-                    {`Order/Txn ID: ${testResult.details.order_id || testResult.details.txnid || "-"}`}
-                    {" | "}
-                    {`Payment Session Generated: ${testResult.details.payment_session_id_exists ? "Yes" : "No"}`}
-                  </Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    {renderGatewayTestDetails(testResult.details)}
+                  </Box>
                 ) : null}
               </Alert>
             ) : null}

@@ -294,10 +294,6 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     await load();
   };
 
-  const seedDefaults = () => {
-    setErrorMsg("Run backend script: node scripts/seed_payment_gateway_configs_market.js");
-  };
-
   const onTestConnection = async () => {
     const username = getCurrentAdminUsername();
     if (!username || !edit) return;
@@ -548,7 +544,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
             <Typography variant="h5">Payment Gateway Settings</Typography>
             <Typography variant="body2" color="text.secondary">Configure settlement payment gateways used by trader payments.</Typography>
           </Box>
-          <Button variant="contained" onClick={openAdd}>+ Add Payment Gateway</Button>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
+            <Button variant="contained" onClick={openAdd}>+ Add Payment Gateway</Button>
+          </Stack>
         </Stack>
 
         {errorMsg ? <Card><CardContent><Typography color="error">{errorMsg}</Typography></CardContent></Card> : null}
@@ -568,8 +567,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
             {rows.length === 0 && !loading ? (
               <Stack spacing={1} sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">No gateway configs found in market DB.</Typography>
-                <Typography variant="body2" color="text.secondary">Use Seed Defaults or add a gateway.</Typography>
-                <Box><Button variant="outlined" onClick={seedDefaults}>Seed Default Gateways</Button></Box>
+                <Typography variant="body2" color="text.secondary">Add a gateway configuration to get started.</Typography>
               </Stack>
             ) : null}
             <Box sx={{ width: "100%", overflowX: "auto" }}>

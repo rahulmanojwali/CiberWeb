@@ -25,6 +25,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getCurrentAdminUsername } from "../../utils/session";
+import { getUserScope } from "../../utils/userScope";
 import {
   listPaymentGatewayConfigs,
   savePaymentGatewayConfig,
@@ -94,6 +95,12 @@ type TestResult = {
 } | null;
 
 export const PaymentGatewayConfigsPage: React.FC = () => {
+  const userScope = getUserScope("payment-gateway-configs");
+  const scopeLabel = userScope.role === "SUPER_ADMIN"
+    ? "Showing Platform Gateway Configurations"
+    : userScope.role === "ORG_ADMIN"
+      ? "Showing Organisation Gateway Configurations"
+      : "Showing Mandi Gateway Configurations";
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -555,6 +562,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
         <Card>
           <CardContent>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              {scopeLabel}
+            </Typography>
             {rows.length === 0 && !loading ? (
               <Stack spacing={1} sx={{ mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">No gateway configs found in market DB.</Typography>

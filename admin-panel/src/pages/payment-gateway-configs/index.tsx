@@ -183,9 +183,16 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     setSaving(true);
     setErrorMsg("");
     try {
+      if (!String(edit.provider_code || "").trim()) throw new Error("Provider is required.");
+      if (!String(edit.mode || "").trim()) throw new Error("Mode is required.");
+      if (!String(edit.priority || "").trim()) throw new Error("Priority is required.");
+      if (!String(edit.client_id || "").trim()) throw new Error("Merchant Key / App ID is required.");
+      if (!String(edit.client_secret || "").trim() && !edit?.has_client_secret) throw new Error("Secret key/salt is required.");
+
       const providerCode = String(edit.provider_code || "").toUpperCase();
       const supportsOrderCreation = PROVIDER_ORDER_CREATION_SUPPORT[providerCode] !== false;
       const isActivating = String(edit.is_active || "Y") === "Y";
+      const generatedUrls = getProviderUrls(edit.provider_code || "", edit.mode || "TEST");
       const allowFutureSetup = isActivating && !supportsOrderCreation
         ? window.confirm(`${providerCode} does not support settlement order creation right now. Save for future setup anyway?`)
         : false;
@@ -206,8 +213,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
           client_id: edit.client_id,
           client_secret: edit.client_secret,
           webhook_secret: edit.webhook_secret,
-          return_url: edit.return_url,
-          notify_url: edit.notify_url,
+          return_url: generatedUrls.return_url,
+          notify_url: generatedUrls.notify_url,
           allowed_methods: edit.allowed_methods,
           fee_borne_by: edit.fee_borne_by,
           allow_future_setup: allowFutureSetup,
@@ -363,24 +370,16 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     return "Select a provider to see test behavior.";
   };
 
-  const getProviderUrls = (providerCode: string) => {
-    const provider = String(providerCode || "").toUpperCase();
-    const baseReturn = "https://cibermandi.ciberdukaan.com/payment-test-return";
-    const baseNotify = "https://api.cibermandi.ciberdukaan.com/api/webhooks";
-    const urls: Record<string, { return_url: string; notify_url: string }> = {
-      PAYU: { return_url: `${baseReturn}/payu`, notify_url: `${baseNotify}/payu` },
-      CASHFREE: { return_url: `${baseReturn}/cashfree?order_id={order_id}`, notify_url: `${baseNotify}/cashfree` },
-      RAZORPAY: { return_url: `${baseReturn}/razorpay`, notify_url: `${baseNotify}/razorpay` },
-      PHONEPE: { return_url: `${baseReturn}/phonepe`, notify_url: `${baseNotify}/phonepe` },
-      PAYTM: { return_url: `${baseReturn}/paytm`, notify_url: `${baseNotify}/paytm` },
-      CCAVENUE: { return_url: `${baseReturn}/ccavenue`, notify_url: `${baseNotify}/ccavenue` },
-      INSTAMOJO: { return_url: `${baseReturn}/instamojo`, notify_url: `${baseNotify}/instamojo` },
-      STRIPE_INDIA: { return_url: `${baseReturn}/stripe-india`, notify_url: `${baseNotify}/stripe-india` },
-      ZAAKPAY: { return_url: `${baseReturn}/zaakpay`, notify_url: `${baseNotify}/zaakpay` },
-      PAYONEER: { return_url: `${baseReturn}/payoneer`, notify_url: `${baseNotify}/payoneer` },
-      MANUAL: { return_url: `${baseReturn}/manual`, notify_url: `${baseNotify}/manual` },
+  const getProviderUrls = (providerCode: string, mode = "TEST") => {
+    const provider = String(providerCode || "").trim().toLowerCase();
+    const modeUpper = String(mode || "TEST").trim().toUpperCase();
+    return {
+      return_url:
+        modeUpper === "LIVE"
+          ? `https://cibermandi.ciberdukaan.com/payment-return/${provider}`
+          : `https://cibermandi.ciberdukaan.com/payment-test-return/${provider}`,
+      notify_url: `https://api.cibermandi.ciberdukaan.com/api/webhooks/${provider}/settlement-payment`,
     };
-    return urls[provider] || { return_url: baseReturn, notify_url: baseNotify };
   };
 
   const renderGatewayTestDetails = (details: any) => {
@@ -728,6 +727,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                 <TextField
                   label="Return URL"
                   size="small"
+                  disabled
+                  InputProps={{ readOnly: true }}
                   multiline={false}
                   inputProps={{
                     style: {
@@ -737,13 +738,12 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                     },
                   }}
                   sx={gatewayFieldSx}
-                  value={edit?.return_url || ""}
-                  onChange={(e) => setEdit((p: any) => ({ ...p, return_url: e.target.value }))}
+                  value={getProviderUrls(edit?.provider_code || "", edit?.mode || "TEST").return_url}
                   fullWidth
                 />
                 <Box sx={{ minHeight: 26, pt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Suggested: {getProviderUrls(edit?.provider_code || "").return_url}
+                    Auto-generated by CiberMandi. Copy this URL into your payment gateway dashboard. Do not modify.
                   </Typography>
                 </Box>
               </Grid>
@@ -751,6 +751,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                 <TextField
                   label="Notify URL"
                   size="small"
+                  disabled
+                  InputProps={{ readOnly: true }}
                   multiline={false}
                   inputProps={{
                     style: {
@@ -760,13 +762,12 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                     },
                   }}
                   sx={gatewayFieldSx}
-                  value={edit?.notify_url || ""}
-                  onChange={(e) => setEdit((p: any) => ({ ...p, notify_url: e.target.value }))}
+                  value={getProviderUrls(edit?.provider_code || "", edit?.mode || "TEST").notify_url}
                   fullWidth
                 />
                 <Box sx={{ minHeight: 26, pt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Suggested: {getProviderUrls(edit?.provider_code || "").notify_url}
+                    Auto-generated by CiberMandi. Copy this URL into your payment gateway dashboard. Do not modify.
                   </Typography>
                 </Box>
               </Grid>
@@ -795,6 +796,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
             </Grid>
           </Box>
           <Box sx={{ mt: 2, p: 2, borderRadius: "16px", border: `1px solid ${CM_BORDER}`, backgroundColor: "#FFFFFF" }}>
+            <Typography variant="caption" color="text.secondary">
+              These credentials belong to your organisation&apos;s payment gateway merchant account. CiberMandi does not provide or share platform credentials for organisation settlement collection.
+            </Typography>
             <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" spacing={2}>
               <Box>
                 <Typography fontWeight={800} color={CM_TEXT}>Test Gateway Connection</Typography>

@@ -206,6 +206,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Finance",
+    "resource_key": "payment_gateway_configs.menu",
+    "menu_name": "Payment Gateway Settings",
+    "name_source": "screen",
+    "i18n_key": "menu.paymentGatewaySettings",
+    "route": "/payment-gateway-configs",
+    "icon_key": "payment_gateway",
+    "order": 684,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Finance",
     "resource_key": "payments_log.menu",
     "menu_name": "Payments Log",
     "name_source": "screen",

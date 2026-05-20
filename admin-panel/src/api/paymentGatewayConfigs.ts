@@ -19,3 +19,8 @@ export async function setDefaultPaymentGatewayConfig(input: { username: string; 
   const { username, language = "en", payload = {} } = input;
   return postEncrypted("/admin/payment-gateway-configs/set-default", { api: "setDefaultPaymentGatewayConfig", username, language, ...payload });
 }
+
+export async function testPaymentGatewayConfig(input: { username: string; language?: string; payload?: Record<string, any> }) {
+  const { username, language = "en", payload = {} } = input;
+  return postEncrypted("/admin/payment-gateway-configs/test", { api: "testPaymentGatewayConfig", username, language, ...payload });
+}

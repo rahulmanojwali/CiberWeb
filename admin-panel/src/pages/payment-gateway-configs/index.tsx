@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -10,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   OutlinedInput,
@@ -27,6 +29,7 @@ import {
   listPaymentGatewayConfigs,
   savePaymentGatewayConfig,
   setDefaultPaymentGatewayConfig,
+  testPaymentGatewayConfig,
   togglePaymentGatewayConfig,
 } from "../../api/paymentGatewayConfigs";
 
@@ -56,6 +59,17 @@ type Row = {
   has_webhook_secret?: boolean;
 };
 
+type TestResult = {
+  type: "success" | "error";
+  message: string;
+  details?: {
+    test_type?: string;
+    order_id?: string | null;
+    txnid?: string;
+    payment_session_id_exists?: boolean;
+  };
+} | null;
+
 export const PaymentGatewayConfigsPage: React.FC = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,6 +77,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [edit, setEdit] = useState<any>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult>(null);
 
   const load = async () => {
     const username = getCurrentAdminUsername();
@@ -109,6 +125,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const openAdd = () => {
     setEdit(createAddDraft());
+    setTestResult(null);
     setEditOpen(true);
   };
 
@@ -131,6 +148,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       has_client_secret: Boolean(row.has_client_secret),
       has_webhook_secret: Boolean(row.has_webhook_secret),
     });
+    setTestResult(null);
     setEditOpen(true);
   };
 
@@ -162,6 +180,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         throw new Error(resp?.response?.description || "Unable to save payment gateway config.");
       }
       setEditOpen(false);
+      setTestResult(null);
       await load();
     } catch (err: any) {
       setErrorMsg(err?.message || "Unable to save payment gateway config.");
@@ -210,6 +229,46 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const seedDefaults = () => {
     setErrorMsg("Run backend script: node scripts/seed_payment_gateway_configs_market.js");
+  };
+
+  const onTestConnection = async () => {
+    const username = getCurrentAdminUsername();
+    if (!username || !edit) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res: any = await testPaymentGatewayConfig({
+        username,
+        payload: {
+          provider_code: edit.provider_code,
+          org_id: edit.org_id ?? null,
+          mandi_id: edit.mandi_id ?? null,
+          mode: edit.mode,
+          client_id: edit.client_id,
+          client_secret: edit.client_secret,
+          webhook_secret: edit.webhook_secret,
+        },
+      });
+      if (String(res?.response?.responsecode || "1") === "0") {
+        setTestResult({
+          type: "success",
+          message: res?.response?.description || "Gateway test completed successfully.",
+          details: res?.data,
+        });
+      } else {
+        setTestResult({
+          type: "error",
+          message: res?.response?.description || "Gateway test failed.",
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        type: "error",
+        message: err?.message || "Gateway test failed.",
+      });
+    } finally {
+      setTesting(false);
+    }
   };
 
   const summary = useMemo(() => {
@@ -292,88 +351,125 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         </Card>
       </Stack>
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
+      <Dialog open={editOpen} onClose={() => { setEditOpen(false); setTestResult(null); }} fullWidth maxWidth="md">
         <DialogTitle>{edit?.is_new ? "Add Payment Gateway" : "Edit Payment Gateway"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField
-                select
-                label="Provider Code"
-                size="small"
-                value={edit?.provider_code || ""}
-                onChange={(e) => setEdit((p: any) => ({ ...p, provider_code: e.target.value }))}
-                fullWidth
-                disabled={!edit?.is_new}
-              >
-                {PROVIDERS.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
-              </TextField>
-              <TextField select label="Mode" size="small" value={edit?.mode || "TEST"} onChange={(e) => setEdit((p: any) => ({ ...p, mode: e.target.value }))} fullWidth>
-                {MODES.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
-              </TextField>
-              <TextField type="number" label="Priority" size="small" value={edit?.priority || "1"} onChange={(e) => setEdit((p: any) => ({ ...p, priority: e.target.value }))} fullWidth />
-            </Stack>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Gateway Fee Borne By</InputLabel>
-              <Select label="Gateway Fee Borne By" value={edit?.fee_borne_by || "TRADER"} onChange={(e) => setEdit((p: any) => ({ ...p, fee_borne_by: e.target.value }))}>
-                {FEE_BORNE_BY.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Allowed Methods</InputLabel>
-              <Select multiple value={edit?.allowed_methods || []} onChange={(e) => setEdit((p: any) => ({ ...p, allowed_methods: e.target.value }))} input={<OutlinedInput label="Allowed Methods" />}>
-                {METHODS.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
-              </Select>
-            </FormControl>
-
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField
-                label={edit?.provider_code === "PAYU" ? "Merchant Key" : edit?.provider_code === "CASHFREE" ? "App ID" : edit?.provider_code === "RAZORPAY" ? "Key ID" : "Merchant Key / App ID"}
-                size="small"
-                value={edit?.client_id || ""}
-                onChange={(e) => setEdit((p: any) => ({ ...p, client_id: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label={secretLabel}
-                size="small"
-                type="password"
-                value={edit?.client_secret || ""}
-                onChange={(e) => setEdit((p: any) => ({ ...p, client_secret: e.target.value }))}
-                fullWidth
-                helperText="Existing secret is saved. Leave blank to keep unchanged."
-              />
-              <TextField
-                label="Webhook Secret"
-                size="small"
-                type="password"
-                value={edit?.webhook_secret || ""}
-                onChange={(e) => setEdit((p: any) => ({ ...p, webhook_secret: e.target.value }))}
-                fullWidth
-                helperText="Existing secret is saved. Leave blank to keep unchanged."
-              />
-            </Stack>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  select
+                  label="Provider Code"
+                  size="small"
+                  value={edit?.provider_code || ""}
+                  onChange={(e) => setEdit((p: any) => ({ ...p, provider_code: e.target.value }))}
+                  fullWidth
+                  disabled={!edit?.is_new}
+                >
+                  {PROVIDERS.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField select label="Mode" size="small" value={edit?.mode || "TEST"} onChange={(e) => setEdit((p: any) => ({ ...p, mode: e.target.value }))} fullWidth>
+                  {MODES.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField type="number" label="Priority" size="small" value={edit?.priority || "1"} onChange={(e) => setEdit((p: any) => ({ ...p, priority: e.target.value }))} fullWidth />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Gateway Fee Borne By</InputLabel>
+                  <Select label="Gateway Fee Borne By" value={edit?.fee_borne_by || "TRADER"} onChange={(e) => setEdit((p: any) => ({ ...p, fee_borne_by: e.target.value }))}>
+                    {FEE_BORNE_BY.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Allowed Methods</InputLabel>
+                  <Select multiple value={edit?.allowed_methods || []} onChange={(e) => setEdit((p: any) => ({ ...p, allowed_methods: e.target.value }))} input={<OutlinedInput label="Allowed Methods" />}>
+                    {METHODS.map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  label={edit?.provider_code === "PAYU" ? "Merchant Key" : edit?.provider_code === "CASHFREE" ? "App ID" : edit?.provider_code === "RAZORPAY" ? "Key ID" : "Merchant Key / App ID"}
+                  size="small"
+                  value={edit?.client_id || ""}
+                  onChange={(e) => setEdit((p: any) => ({ ...p, client_id: e.target.value }))}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  label={secretLabel}
+                  size="small"
+                  type="password"
+                  value={edit?.client_secret || ""}
+                  onChange={(e) => setEdit((p: any) => ({ ...p, client_secret: e.target.value }))}
+                  fullWidth
+                  helperText="Existing secret is saved. Leave blank to keep unchanged."
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  label="Webhook Secret"
+                  size="small"
+                  type="password"
+                  value={edit?.webhook_secret || ""}
+                  onChange={(e) => setEdit((p: any) => ({ ...p, webhook_secret: e.target.value }))}
+                  fullWidth
+                  helperText="Existing secret is saved. Leave blank to keep unchanged."
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField label="Return URL" size="small" value={edit?.return_url || ""} onChange={(e) => setEdit((p: any) => ({ ...p, return_url: e.target.value }))} fullWidth />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField label="Notify URL" size="small" value={edit?.notify_url || ""} onChange={(e) => setEdit((p: any) => ({ ...p, notify_url: e.target.value }))} fullWidth />
+              </Grid>
+            </Grid>
 
             <Stack direction="row" spacing={1}>
               {edit?.has_client_secret ? <Chip size="small" color="info" label="Secret saved" /> : null}
               {edit?.has_webhook_secret ? <Chip size="small" color="info" label="Webhook secret saved" /> : null}
             </Stack>
 
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField label="Return URL" size="small" value={edit?.return_url || ""} onChange={(e) => setEdit((p: any) => ({ ...p, return_url: e.target.value }))} fullWidth />
-              <TextField label="Notify URL" size="small" value={edit?.notify_url || ""} onChange={(e) => setEdit((p: any) => ({ ...p, notify_url: e.target.value }))} fullWidth />
-            </Stack>
-
             <Stack direction="row" alignItems="center" spacing={1}>
               <Switch checked={String(edit?.is_active || "Y") === "Y"} onChange={(e) => setEdit((p: any) => ({ ...p, is_active: e.target.checked ? "Y" : "N" }))} />
               <Typography variant="body2">Active</Typography>
             </Stack>
+
+            {testResult ? (
+              <Alert severity={testResult.type === "success" ? "success" : "error"}>
+                <Typography variant="body2">{testResult.message}</Typography>
+                {testResult.type === "success" && testResult.details ? (
+                  <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
+                    {`Test Type: ${testResult.details.test_type || "-"}`}
+                    {" | "}
+                    {`Order/Txn ID: ${testResult.details.order_id || testResult.details.txnid || "-"}`}
+                    {" | "}
+                    {`Payment Session Generated: ${testResult.details.payment_session_id_exists ? "Yes" : "No"}`}
+                  </Typography>
+                ) : null}
+              </Alert>
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Box sx={{ mr: "auto" }}>
+            <Stack spacing={0.5}>
+              <Button variant="outlined" onClick={onTestConnection} disabled={testing || saving || !edit?.provider_code}>
+                {testing ? "Testing..." : "Test Connection"}
+              </Button>
+              <Typography variant="caption" color="text.secondary">
+                PayU: validates hash generation and config completeness. Cashfree/Razorpay: creates a Rs 1 test order in TEST mode. Manual: no external test required.
+              </Typography>
+            </Stack>
+          </Box>
+          <Button onClick={() => { setEditOpen(false); setTestResult(null); }}>Cancel</Button>
           <Button variant="contained" onClick={onSave} disabled={saving}>Save</Button>
         </DialogActions>
       </Dialog>

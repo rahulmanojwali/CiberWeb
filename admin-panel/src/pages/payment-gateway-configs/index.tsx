@@ -78,6 +78,7 @@ type Row = {
   notify_url?: string;
   has_client_secret?: boolean;
   has_webhook_secret?: boolean;
+  access_code?: string;
 };
 
 type TestResult = {
@@ -142,6 +143,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       client_id: "",
       client_secret: "",
       webhook_secret: "",
+      access_code: "",
       return_url: "",
       notify_url: "",
       allowed_methods: ["UPI"],
@@ -170,6 +172,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       client_id: row.client_id || "",
       client_secret: "",
       webhook_secret: "",
+      access_code: row.access_code || "",
       return_url: row.return_url || "",
       notify_url: row.notify_url || "",
       allowed_methods: row.allowed_methods?.length ? row.allowed_methods : ["UPI"],
@@ -195,6 +198,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       if (!String(edit.priority || "").trim()) throw new Error("Priority is required.");
       if (!String(edit.client_id || "").trim()) throw new Error("Merchant Key / App ID is required.");
       if (!String(edit.client_secret || "").trim() && !edit?.has_client_secret) throw new Error("Secret key/salt is required.");
+      if (String(edit.provider_code || "").toUpperCase() === "CCAVENUE" && !String(edit.access_code || "").trim()) {
+        throw new Error("Access Code is required for CCAvenue.");
+      }
 
       const providerCode = String(edit.provider_code || "").toUpperCase();
       const supportsOrderCreation = PROVIDER_ORDER_CREATION_SUPPORT[providerCode] !== false;
@@ -219,6 +225,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
           is_active: edit.is_active,
           client_id: edit.client_id,
           client_secret: edit.client_secret,
+          access_code: edit.access_code,
+          config: {
+            access_code: edit.access_code,
+          },
           webhook_secret: edit.webhook_secret,
           return_url: generatedUrls.return_url,
           notify_url: generatedUrls.notify_url,
@@ -309,6 +319,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
           mode: edit.mode,
           client_id: edit.client_id,
           client_secret: edit.client_secret,
+          access_code: edit.access_code,
+          config: {
+            access_code: edit.access_code,
+          },
           webhook_secret: edit.webhook_secret,
         },
       });
@@ -504,6 +518,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                     : edit?.provider_code === "PAYONEER"
                       ? "Client ID"
                       : "Merchant Key / App ID";
+  const isCcavenue = String(edit?.provider_code || "").toUpperCase() === "CCAVENUE";
   const gatewayFieldSx = {
     "& .MuiOutlinedInput-root": {
       height: 52,
@@ -709,6 +724,21 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
                   )}
                 </Box>
               </Grid>
+              {isCcavenue ? (
+                <Grid item xs={12} md={4} sx={{ display: "flex", flexDirection: "column" }}>
+                  <TextField
+                    label="Access Code"
+                    size="small"
+                    sx={gatewayFieldSx}
+                    value={edit?.access_code || ""}
+                    onChange={(e) => setEdit((p: any) => ({ ...p, access_code: e.target.value }))}
+                    fullWidth
+                  />
+                  <Box sx={{ minHeight: 26, pt: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Required for CCAvenue.</Typography>
+                  </Box>
+                </Grid>
+              ) : null}
               <Grid item xs={12} md={4} sx={{ display: "flex", flexDirection: "column" }}>
                 <TextField
                   label="Webhook Secret"

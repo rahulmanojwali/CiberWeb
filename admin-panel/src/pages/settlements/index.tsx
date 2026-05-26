@@ -109,6 +109,39 @@ type SettlementRow = {
   updated_by?: string;
 };
 
+const STATUS_DISPLAY_MAP: Record<string, string> = {
+  PAYMENT_CONFIRMED: "Paid",
+  PAID: "Paid",
+  PAYMENT_PENDING: "Pending",
+  PAYMENT_INITIATED: "Initiated",
+  PAYMENT_VERIFICATION_PENDING: "Verification Pending",
+  PAYMENT_RECONCILIATION_PENDING: "Reconciliation Pending",
+  PAYMENT_FAILED: "Failed",
+  PAYMENT_CANCELLED: "Cancelled",
+  PAYMENT_EXPIRED: "Expired",
+  SETTLEMENT_GENERATED: "Generated",
+  PAYMENT_WINDOW_OPENED: "Payment Window Opened",
+  PAYMENT_REFUNDED: "Refunded",
+};
+
+const PAID_STATUS_SET = new Set(["PAID", "PAYMENT_CONFIRMED"]);
+const PENDING_STATUS_SET = new Set([
+  "PAYMENT_PENDING",
+  "PAYMENT_INITIATED",
+  "PAYMENT_VERIFICATION_PENDING",
+  "PAYMENT_RECONCILIATION_PENDING",
+]);
+const FAILED_STATUS_SET = new Set(["PAYMENT_FAILED", "PAYMENT_CANCELLED", "PAYMENT_EXPIRED"]);
+
+function normalizeStatusKey(status: any): string {
+  return String(status || "").trim().toUpperCase();
+}
+
+function displaySettlementStatus(status: any): string {
+  const key = normalizeStatusKey(status);
+  return STATUS_DISPLAY_MAP[key] || safeText(status);
+}
+
 function currentAdminUser(): any {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -119,18 +152,20 @@ function currentAdminUser(): any {
 }
 
 function getSettlementStatusClass(status: any): string {
-  const value = String(status || "").toUpperCase();
-  if (["SETTLED", "VERIFIED", "PAID"].includes(value)) return "cm-status-success";
-  if (["FAILED", "CANCELLED", "DISPUTED", "REFUNDED"].includes(value)) return "cm-status-danger";
-  if (["PAYMENT_REQUESTED", "PAYMENT_INITIATED", "PAYMENT_PENDING_CONFIRMATION"].includes(value)) return "cm-status-info";
+  const value = normalizeStatusKey(status);
+  if (PAID_STATUS_SET.has(value) || ["SETTLED", "VERIFIED"].includes(value)) return "cm-status-success";
+  if (FAILED_STATUS_SET.has(value) || ["FAILED", "CANCELLED", "DISPUTED", "REFUNDED"].includes(value)) return "cm-status-danger";
+  if (PENDING_STATUS_SET.has(value) || ["PAYMENT_REQUESTED", "PAYMENT_PENDING_CONFIRMATION"].includes(value)) return "cm-status-warning";
+  if (["SETTLEMENT_GENERATED", "PAYMENT_WINDOW_OPENED"].includes(value)) return "cm-status-info";
   return "cm-status-pending";
 }
 
 function getPaymentStatusClass(status: any): string {
-  const value = String(status || "").toUpperCase();
-  if (["PAYMENT_CONFIRMED", "PAYMENT_RETURNED_SUCCESS"].includes(value)) return "cm-status-success";
-  if (["PAYMENT_RETURNED_FAILED", "PAYMENT_REJECTED", "PAYMENT_CANCELLED"].includes(value)) return "cm-status-danger";
-  if (["PAYMENT_INITIATED", "PAYMENT_PENDING", "PAYMENT_PROOF_SUBMITTED", "PAYMENT_UNDER_REVIEW"].includes(value)) return "cm-status-info";
+  const value = normalizeStatusKey(status);
+  if (PAID_STATUS_SET.has(value) || value === "PAYMENT_RETURNED_SUCCESS") return "cm-status-success";
+  if (FAILED_STATUS_SET.has(value) || ["PAYMENT_RETURNED_FAILED", "PAYMENT_REJECTED"].includes(value)) return "cm-status-danger";
+  if (PENDING_STATUS_SET.has(value) || ["PAYMENT_PROOF_SUBMITTED", "PAYMENT_UNDER_REVIEW"].includes(value)) return "cm-status-warning";
+  if (["SETTLEMENT_GENERATED", "PAYMENT_WINDOW_OPENED"].includes(value)) return "cm-status-info";
   return "cm-status-pending";
 }
 
@@ -395,9 +430,9 @@ export const SettlementsPage: React.FC = () => {
 
   const totalPages = Math.max(1, Math.ceil((totalRecords || 0) / pageSize));
   const totalSettlements = rows.length;
-  const pendingCount = rows.filter((x) => String(x.status || "").toUpperCase() === "PENDING").length;
-  const paymentRequestedCount = rows.filter((x) => String(x.status || "").toUpperCase() === "PAYMENT_REQUESTED").length;
-  const paidCount = rows.filter((x) => ["PAYMENT_CONFIRMED", "PAYMENT_RETURNED_SUCCESS"].includes(String(x.payment_status || "").toUpperCase())).length;
+  const pendingCount = rows.filter((x) => PENDING_STATUS_SET.has(normalizeStatusKey(x.payment_status))).length;
+  const failedCount = rows.filter((x) => FAILED_STATUS_SET.has(normalizeStatusKey(x.payment_status))).length;
+  const paidCount = rows.filter((x) => PAID_STATUS_SET.has(normalizeStatusKey(x.payment_status))).length;
 
   return (
     <PageContainer>
@@ -621,7 +656,7 @@ export const SettlementsPage: React.FC = () => {
         <div className="cm-kpi-grid">
           <div className="cm-kpi-card"><div className="cm-kpi-label">Loaded Settlements</div><div className="cm-kpi-value">{totalSettlements}</div></div>
           <div className="cm-kpi-card"><div className="cm-kpi-label">Pending</div><div className="cm-kpi-value">{pendingCount}</div></div>
-          <div className="cm-kpi-card"><div className="cm-kpi-label">Payment Requested</div><div className="cm-kpi-value">{paymentRequestedCount}</div></div>
+          <div className="cm-kpi-card"><div className="cm-kpi-label">Failed</div><div className="cm-kpi-value">{failedCount}</div></div>
           <div className="cm-kpi-card"><div className="cm-kpi-label">Paid</div><div className="cm-kpi-value">{paidCount}</div></div>
         </div>
 
@@ -651,12 +686,12 @@ export const SettlementsPage: React.FC = () => {
                     <td><span className="cm-money">{formatCurrencyINR(row.final_amount)}</span></td>
                     <td>
                       <span className={`cm-status ${getSettlementStatusClass(row.status)}`}>
-                        {safeText(row.status)}
+                        {displaySettlementStatus(row.status)}
                       </span>
                     </td>
                     <td>
                       <span className={`cm-status ${getPaymentStatusClass(row.payment_status)}`}>
-                        {safeText(row.payment_status)}
+                        {displaySettlementStatus(row.payment_status)}
                       </span>
                     </td>
                     <td>{formatDateTime(row.payment_requested_on)}</td>
@@ -741,9 +776,9 @@ export const SettlementsPage: React.FC = () => {
                 <div className="cm-detail-label">Final Amount</div>
                 <div className="cm-detail-value">{formatCurrencyINR(selected.final_amount)}</div>
                 <div className="cm-detail-label">Status</div>
-                <div className="cm-detail-value">{safeText(selected.status)}</div>
+                <div className="cm-detail-value">{displaySettlementStatus(selected.status)}</div>
                 <div className="cm-detail-label">Payment Status</div>
-                <div className="cm-detail-value">{safeText(selected.payment_status)}</div>
+                <div className="cm-detail-value">{displaySettlementStatus(selected.payment_status)}</div>
                 <div className="cm-detail-label">Dispute Status</div>
                 <div className="cm-detail-value">{safeText(selected.dispute_status)}</div>
                 <div className="cm-detail-label">Lifecycle Reason</div>

@@ -230,6 +230,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Finance",
+    "resource_key": "settlement_charge_settings.menu",
+    "menu_name": "Settlement Charge Settings",
+    "name_source": "screen",
+    "i18n_key": "menu.settlementChargeSettings",
+    "route": "/settlement-charge-settings",
+    "icon_key": "settings",
+    "order": 686,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Finance",
     "resource_key": "payments_log.menu",
     "menu_name": "Payments Log",
     "name_source": "screen",

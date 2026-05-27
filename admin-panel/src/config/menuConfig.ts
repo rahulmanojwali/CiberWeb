@@ -832,6 +832,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "settlementChargeSettings",
+        labelKey: "menu.settlementChargeSettings",
+        labelOverride: "Settlement Charge Settings",
+        path: "/settlement-charge-settings",
+        icon: React.createElement(AccountBalanceWalletOutlinedIcon),
+        resourceKey: "settlement_charge_settings.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+      },
+      {
         key: "paymentTransactions",
         labelKey: "menu.paymentTransactions",
         path: "/payment-transactions",

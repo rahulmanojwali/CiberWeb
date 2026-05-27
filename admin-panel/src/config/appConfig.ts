@@ -215,6 +215,11 @@ export const API_TAGS = {
     get: "getPaymentPayoutSettings",
     upsert: "upsertPaymentPayoutSettings",
   },
+  SETTLEMENT_CHARGE_SETTINGS: {
+    get: "getSettlementChargeSettings",
+    upsert: "upsertSettlementChargeSettings",
+    masters: "getSettlementChargeMasters",
+  },
   TRANSPORT_INTENTS: {
     create: "create_Transport_Intent01",
     list: "list_Transport_Intents02",
@@ -478,6 +483,9 @@ export const API_ROUTES = {
     upsertOrgSettings: "/admin/upsertOrgSettings",
     getPaymentPayoutSettings: "/admin/getPaymentPayoutSettings",
     upsertPaymentPayoutSettings: "/admin/upsertPaymentPayoutSettings",
+    getSettlementChargeSettings: "/admin/getSettlementChargeSettings",
+    upsertSettlementChargeSettings: "/admin/upsertSettlementChargeSettings",
+    getSettlementChargeMasters: "/admin/getSettlementChargeMasters",
     getMandiFacilitiesMasters: "/admin/getMandiFacilitiesMasters",
     createMandiFacilityMaster: "/admin/createMandiFacilityMaster",
     updateMandiFacilityMaster: "/admin/updateMandiFacilityMaster",

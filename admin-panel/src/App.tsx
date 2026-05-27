@@ -97,6 +97,7 @@ import { MandiPaymentSettings } from "./pages/mandiPaymentSettings";
 import { CommodityFees } from "./pages/commodityFees";
 import { PaymentModes } from "./pages/paymentModes";
 import { PaymentPayoutSettingsPage } from "./pages/paymentPayoutSettings";
+import { SettlementChargeSettingsPage } from "./pages/settlementChargeSettings";
 import { PaymentGatewayConfigsPage } from "./pages/payment-gateway-configs";
 import { PaymentTransactionsPage } from "./pages/paymentTransactions";
 import { CustomFees } from "./pages/customFees";
@@ -118,6 +119,7 @@ import { PermissionsDebugPanel } from "./components/PermissionsDebugPanel";
 import { StepUpProvider } from "./security/stepup/StepUpContext";
 import { StepUpRouteEnforcer } from "./components/StepUpRouteEnforcer";
 import { GlobalErrorBoundary } from "./components/layout/GlobalErrorBoundary";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { TOKEN_KEY } from "./authProvider";
 
 function SessionExpiryHandler() {
@@ -225,6 +227,14 @@ function App() {
                   <Route path="/commodity-fees" element={<CommodityFees />} />
                   <Route path="/payment-modes" element={<PaymentModes />} />
                   <Route path="/payment-payout-settings" element={<PaymentPayoutSettingsPage />} />
+                  <Route
+                    path="/settlement-charge-settings"
+                    element={
+                      <ProtectedRoute resourceKey="settlement_charge_settings.view">
+                        <SettlementChargeSettingsPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
                   <Route path="/payment-transactions" element={<PaymentTransactionsPage />} />
                   <Route path="/custom-fees" element={<CustomFees />} />

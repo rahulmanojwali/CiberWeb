@@ -62,6 +62,15 @@ function formatAmountOnBlur(value: string): string {
   return n.toFixed(2);
 }
 
+function normalizeLoadedAmount(value: any, fallback = "100000.00"): string {
+  const sanitized = sanitizeAmountTyping(String(value ?? "").trim());
+  if (!sanitized) return fallback;
+  if (!isValidAmountShape(sanitized)) return fallback;
+  const n = Number(sanitized);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return n.toFixed(2);
+}
+
 function validateAmountField(label: string, raw: string): string {
   const value = String(raw || "").trim();
   if (!value) return `${label} is required.`;
@@ -118,7 +127,16 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
         },
       });
       const data = resp?.data || resp?.response?.data || {};
-      setForm((prev: any) => ({ ...prev, ...data }));
+      setForm((prev: any) => ({
+        ...prev,
+        ...data,
+        upi_max_transaction_amount: normalizeLoadedAmount(data?.upi_max_transaction_amount, prev.upi_max_transaction_amount),
+        upi_daily_limit_amount: normalizeLoadedAmount(data?.upi_daily_limit_amount, prev.upi_daily_limit_amount),
+        require_bank_details_above_amount: normalizeLoadedAmount(
+          data?.require_bank_details_above_amount,
+          prev.require_bank_details_above_amount,
+        ),
+      }));
       setErrors({});
     } finally {
       setLoading(false);
@@ -154,6 +172,12 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
 
+    const normalizedAmounts = {
+      upi_max_transaction_amount: formatAmountOnBlur(form.upi_max_transaction_amount),
+      upi_daily_limit_amount: formatAmountOnBlur(form.upi_daily_limit_amount),
+      require_bank_details_above_amount: formatAmountOnBlur(form.require_bank_details_above_amount),
+    };
+
     setLoading(true);
     try {
       await upsertPaymentPayoutSettings({
@@ -164,6 +188,7 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
           mandi_id: uiConfig.scope?.mandi_id ?? null,
           country: uiConfig.scope?.country || "IN",
           ...form,
+          ...normalizedAmounts,
         },
       });
       await load();
@@ -214,6 +239,7 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
               onBlur={() => handleAmountBlur("upi_max_transaction_amount")}
               error={Boolean(errors.upi_max_transaction_amount)}
               helperText={errors.upi_max_transaction_amount || "Amount in INR. Example: 100000.00"}
+              inputProps={{ inputMode: "decimal", autoComplete: "off" }}
               fullWidth
             />
             <TextField
@@ -224,6 +250,7 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
               onBlur={() => handleAmountBlur("upi_daily_limit_amount")}
               error={Boolean(errors.upi_daily_limit_amount)}
               helperText={errors.upi_daily_limit_amount || "Amount in INR. Example: 100000.00"}
+              inputProps={{ inputMode: "decimal", autoComplete: "off" }}
               fullWidth
             />
             <TextField
@@ -234,6 +261,7 @@ export const PaymentPayoutSettingsPage: React.FC = () => {
               onBlur={() => handleAmountBlur("require_bank_details_above_amount")}
               error={Boolean(errors.require_bank_details_above_amount)}
               helperText={errors.require_bank_details_above_amount || "Amount in INR. Example: 100000.00"}
+              inputProps={{ inputMode: "decimal", autoComplete: "off" }}
               fullWidth
             />
             <TextField

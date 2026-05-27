@@ -117,6 +117,8 @@ const normalizeScope = (scope: any): AdminScope | null => {
   return {
     org_code: scope.org_code ?? null,
     org_id: oidToString(scope.org_id) ?? null,
+    mandi_id: scope.mandi_id ?? null,
+    country: scope.country ?? null,
     mandi_codes: Array.isArray(scope.mandi_codes) ? scope.mandi_codes : [],
     org_level: scope.org_level ?? null,
     mandi_level: scope.mandi_level ?? null,

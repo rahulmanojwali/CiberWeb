@@ -211,6 +211,10 @@ export const API_TAGS = {
     get: "get_Org_Settings01",
     upsert: "upsert_Org_Settings02",
   },
+  PAYMENT_PAYOUT_SETTINGS: {
+    get: "getPaymentPayoutSettings",
+    upsert: "upsertPaymentPayoutSettings",
+  },
   TRANSPORT_INTENTS: {
     create: "create_Transport_Intent01",
     list: "list_Transport_Intents02",
@@ -472,6 +476,8 @@ export const API_ROUTES = {
     updateAuctionPolicySettings: "/admin/auction-policy-settings/update",
     getOrgSettings: "/admin/getOrgSettings",
     upsertOrgSettings: "/admin/upsertOrgSettings",
+    getPaymentPayoutSettings: "/admin/getPaymentPayoutSettings",
+    upsertPaymentPayoutSettings: "/admin/upsertPaymentPayoutSettings",
     getMandiFacilitiesMasters: "/admin/getMandiFacilitiesMasters",
     createMandiFacilityMaster: "/admin/createMandiFacilityMaster",
     updateMandiFacilityMaster: "/admin/updateMandiFacilityMaster",

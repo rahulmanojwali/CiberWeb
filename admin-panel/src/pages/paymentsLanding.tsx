@@ -12,6 +12,7 @@ export const PaymentsLanding: React.FC = () => {
     { label: t("menu.mandiPaymentSettings"), path: "/mandi-payment-settings" },
     { label: t("menu.commodityFeeSettings"), path: "/commodity-fees" },
     { label: t("menu.paymentModes"), path: "/payment-modes" },
+    { label: "Payment & Payout Settings", path: "/payment-payout-settings" },
     { label: t("menu.customFees"), path: "/custom-fees" },
     { label: t("menu.roleCustomFees"), path: "/role-custom-fees" },
   ];

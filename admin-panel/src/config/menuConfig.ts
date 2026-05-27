@@ -812,6 +812,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
       },
       {
+        key: "paymentPayoutSettings",
+        labelKey: "menu.paymentPayoutSettings",
+        labelOverride: "Payment & Payout Settings",
+        path: "/payment-payout-settings",
+        icon: React.createElement(SettingsOutlinedIcon),
+        resourceKey: "payment_payout_settings.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+      },
+      {
         key: "paymentGatewayConfigs",
         labelKey: "menu.paymentGatewaySettings",
         labelOverride: "Payment Gateway Settings",

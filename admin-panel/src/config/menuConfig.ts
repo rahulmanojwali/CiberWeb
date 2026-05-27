@@ -1027,10 +1027,11 @@ export function filterMenuByResources(
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
       const resource = byKey.get(key);
-      if (!resource) return;
+      const canViewByPermission = Boolean(permissionsMap?.[key]?.has("VIEW"));
+      if (!resource && !canViewByPermission) return;
       if (freeze.is_active === false) return; // keep active only
       const labelOverride = freeze.menu_name || getResourceLabel(resource, lang);
-      const labelKey = freeze.i18n_key || resource.i18n_label_key || resource.resource_key || freeze.resource_key;
+      const labelKey = freeze.i18n_key || resource?.i18n_label_key || resource?.resource_key || freeze.resource_key;
       const path = freeze.route || "";
       const disabled = !path;
       items.push({
@@ -1044,7 +1045,13 @@ export function filterMenuByResources(
         order: typeof freeze.order === "number" ? freeze.order : 9999,
         category: String(freeze.category || ""),
         disabled,
-        resource,
+        resource:
+          resource ||
+          {
+            resource_key: String(freeze.resource_key),
+            ui_type: "MENU",
+            allowed_actions: ["VIEW"],
+          },
       });
     });
 

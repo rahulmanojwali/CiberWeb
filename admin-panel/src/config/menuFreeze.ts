@@ -218,6 +218,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Finance",
+    "resource_key": "payment_payout_settings.menu",
+    "menu_name": "Payment & Payout Settings",
+    "name_source": "screen",
+    "i18n_key": "menu.paymentPayoutSettings",
+    "route": "/payment-payout-settings",
+    "icon_key": "settings",
+    "order": 685,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Finance",
     "resource_key": "payments_log.menu",
     "menu_name": "Payments Log",
     "name_source": "screen",

@@ -22,6 +22,8 @@ import { ScreenHelpDrawer } from "../components/ScreenHelpDrawer";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { usePermissions } from "../authz/usePermissions";
 import { normalizeLanguageCode } from "../config/languages";
+import { fetchOrganisations } from "../services/adminUsersApi";
+import { getMandisForCurrentScope } from "../services/mandiApi";
 import {
   getSettlementChargeMasters,
   getSettlementChargeSettings,
@@ -55,15 +57,28 @@ type ChargeLine = {
   tax_percentage: string;
   charged_to: ChargedTo;
   beneficiary_account_type: string;
+  charge_owner?: "CIBERMANDI" | "ORG" | "MANDI";
+  editable_by_org?: boolean;
+  locked_reason?: string | null;
   sort_order: number;
 };
+type ScopeType =
+  | "CIBERMANDI_GLOBAL"
+  | "CIBERMANDI_ORG_SPECIFIC"
+  | "CIBERMANDI_MANDI_SPECIFIC"
+  | "ORG_ALL_MANDIS"
+  | "ORG_MANDI_SPECIFIC";
 
 type FormState = {
+  scope_type: ScopeType;
+  org_id: string;
+  mandi_id: string;
   provider_code: string;
   rounding_rule: RoundingRule;
   charge_lines: ChargeLine[];
   is_active: boolean;
 };
+type Option = { value: string; label: string };
 
 const amountRegex = /^(?:\d+|\d*\.\d{1,2})$/;
 
@@ -137,12 +152,20 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     [can],
   );
   const canEdit = useMemo(() => can("settlement_charge_settings.update", "UPDATE"), [can]);
+  const canSuperEdit = useMemo(() => can("settlement_charge_settings.super_admin_update", "UPDATE"), [can]);
+  const role = String(uiConfig.role || "").toUpperCase();
+  const isSuperAdmin = role === "SUPER_ADMIN";
 
   const [loading, setLoading] = useState(false);
   const [masters, setMasters] = useState<Master[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openHelp, setOpenHelp] = useState(false);
+  const [orgOptions, setOrgOptions] = useState<Option[]>([]);
+  const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [form, setForm] = useState<FormState>({
+    scope_type: isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS",
+    org_id: String(uiConfig.scope?.org_id || ""),
+    mandi_id: String(uiConfig.scope?.mandi_id ?? ""),
     provider_code: "DEFAULT",
     rounding_rule: "NONE",
     charge_lines: [],
@@ -159,8 +182,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         getSettlementChargeSettings({
           username,
           payload: {
-            org_id: uiConfig.scope?.org_id || null,
-            mandi_id: uiConfig.scope?.mandi_id ?? null,
+            scope_type: form.scope_type,
+            org_id: form.org_id || null,
+            mandi_id: form.mandi_id === "" ? null : Number(form.mandi_id),
             country: (uiConfig.scope as any)?.country || "IN",
             provider_code: form.provider_code || "DEFAULT",
           },
@@ -188,11 +212,19 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               ? String(r.charged_to).toUpperCase()
               : "TRADER") as ChargedTo,
             beneficiary_account_type: String(r.beneficiary_account_type || "PLATFORM").toUpperCase(),
+            charge_owner: (["CIBERMANDI", "ORG", "MANDI"].includes(String(r.charge_owner || "").toUpperCase())
+              ? String(r.charge_owner).toUpperCase()
+              : "ORG") as "CIBERMANDI" | "ORG" | "MANDI",
+            editable_by_org: r.editable_by_org !== false,
+            locked_reason: r.locked_reason || null,
             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
           }))
         : [];
 
       setForm({
+        scope_type: (settings.scope_type || (isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS")) as ScopeType,
+        org_id: String(settings.org_id || form.org_id || uiConfig.scope?.org_id || ""),
+        mandi_id: settings.mandi_id === null || settings.mandi_id === undefined ? "" : String(settings.mandi_id),
         provider_code: String(settings.provider_code || "DEFAULT").toUpperCase(),
         rounding_rule: (["NONE", "NEAREST_RUPEE", "ROUND_UP", "ROUND_DOWN"].includes(
           String(settings.rounding_rule || "").toUpperCase(),
@@ -211,7 +243,39 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   useEffect(() => {
     if (canView) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canView, uiConfig.scope?.org_id, uiConfig.scope?.mandi_id]);
+  }, [canView, form.scope_type, form.org_id, form.mandi_id]);
+
+  useEffect(() => {
+    const username = getUsername();
+    if (!username || !isSuperAdmin) return;
+    fetchOrganisations({ username, language: "en" })
+      .then((resp: any) => {
+        const data = resp?.data || resp?.response?.data || {};
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setOrgOptions(items.map((o: any) => ({
+          value: String(o.org_id || o._id || ""),
+          label: o.org_name || o.name || o.org_code || String(o.org_id || "")
+        })).filter((x: Option) => Boolean(x.value)));
+      })
+      .catch(() => setOrgOptions([]));
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    const username = getUsername();
+    if (!username || !form.org_id) {
+      setMandiOptions([]);
+      return;
+    }
+    getMandisForCurrentScope({ username, language: "en", org_id: form.org_id })
+      .then((list: any[]) => {
+        const mapped = (list || []).map((m: any) => ({
+          value: String(m.mandi_id ?? m.mandiId ?? ""),
+          label: m.mandi_name || m.mandi_slug || String(m.mandi_id || "")
+        })).filter((x: Option) => Boolean(x.value));
+        setMandiOptions(mapped);
+      })
+      .catch(() => setMandiOptions([]));
+  }, [form.org_id]);
 
   const setLine = (idx: number, patch: Partial<ChargeLine>) => {
     setForm((s) => ({ ...s, charge_lines: s.charge_lines.map((r, i) => (i === idx ? { ...r, ...patch } : r)) }));
@@ -250,8 +314,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     if (Object.keys(e).length) return;
 
     const payload = {
-      org_id: uiConfig.scope?.org_id || null,
-      mandi_id: uiConfig.scope?.mandi_id ?? null,
+      scope_type: form.scope_type,
+      org_id: form.org_id || null,
+      mandi_id: form.mandi_id === "" ? null : Number(form.mandi_id),
       country: (uiConfig.scope as any)?.country || "IN",
       provider_code: form.provider_code,
       rounding_rule: form.rounding_rule,
@@ -270,6 +335,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         tax_percentage: normalize2(r.tax_percentage),
         charged_to: r.charged_to,
         beneficiary_account_type: String(r.beneficiary_account_type || "PLATFORM").toUpperCase(),
+        charge_owner: r.charge_owner || "ORG",
+        editable_by_org: r.editable_by_org !== false,
+        locked_reason: r.locked_reason || null,
         sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
       })),
     };
@@ -297,7 +365,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         <Stack spacing={0.5}>
           <Typography variant="h5">Settlement Charge Settings</Typography>
           <Typography variant="body2" color="text.secondary">
-            Configure platform fee, gateway fee, mandi fee and custom settlement charges.
+            Configure scoped settlement charges for CiberMandi, organisation and mandi.
           </Typography>
         </Stack>
         <Stack direction="row" spacing={1}>
@@ -307,7 +375,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           <Button variant="outlined" onClick={load} disabled={loading}>
             Refresh
           </Button>
-          <Button variant="contained" onClick={save} disabled={!canEdit || loading || hasValidationErrors}>
+          <Button variant="contained" onClick={save} disabled={loading || hasValidationErrors || (!canEdit && !canSuperEdit)}>
             Save Settings
           </Button>
         </Stack>
@@ -323,6 +391,51 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               alignItems: "center",
             }}
           >
+            <TextField
+              select
+              size="small"
+              label="Charge Scope"
+              value={form.scope_type}
+              onChange={(e) => setForm((s) => ({ ...s, scope_type: e.target.value as ScopeType }))}
+            >
+              {isSuperAdmin ? (
+                [
+                  ["CIBERMANDI_GLOBAL", "CiberMandi Global"],
+                  ["CIBERMANDI_ORG_SPECIFIC", "CiberMandi for Specific Org"],
+                  ["CIBERMANDI_MANDI_SPECIFIC", "CiberMandi for Specific Mandi"],
+                  ["ORG_ALL_MANDIS", "Org Charges"],
+                  ["ORG_MANDI_SPECIFIC", "Mandi Charges"],
+                ].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)
+              ) : (
+                [
+                  ["ORG_ALL_MANDIS", "All Mandis in My Org"],
+                  ["ORG_MANDI_SPECIFIC", "Individual Mandi"],
+                ].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)
+              )}
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Organisation"
+              value={form.org_id}
+              disabled={!isSuperAdmin && !!uiConfig.scope?.org_id}
+              onChange={(e) => setForm((s) => ({ ...s, org_id: String(e.target.value), mandi_id: "" }))}
+            >
+              {(isSuperAdmin ? orgOptions : [{ value: String(uiConfig.scope?.org_id || ""), label: String((uiConfig.scope as any)?.org_code || uiConfig.scope?.org_id || "") }])
+                .filter((x) => Boolean(x.value))
+                .map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Mandi"
+              value={form.mandi_id}
+              disabled={form.scope_type !== "CIBERMANDI_MANDI_SPECIFIC" && form.scope_type !== "ORG_MANDI_SPECIFIC"}
+              onChange={(e) => setForm((s) => ({ ...s, mandi_id: String(e.target.value) }))}
+            >
+              <MenuItem value="">Select Mandi</MenuItem>
+              {mandiOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </TextField>
             <TextField
               select
               size="small"
@@ -413,6 +526,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                           <Chip size="small" label={row.charge_category || "OTHER"} sx={{ bgcolor: "var(--cm-primary-soft)", color: "var(--cm-primary-dark)", fontWeight: 700 }} />
                           <Chip size="small" label={`Charged To: ${row.charged_to}`} variant="outlined" />
+                          <Chip size="small" label={`Owner: ${row.charge_owner || "ORG"}`} variant="outlined" />
+                          <Chip size="small" label={`Editable: ${row.editable_by_org === false ? "No" : "Yes"}`} variant="outlined" />
                           <Chip
                             size="small"
                             label={row.enabled ? "Active" : "Disabled"}
@@ -424,11 +539,14 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                       </Stack>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <FormControlLabel
-                          control={<Switch checked={row.enabled} disabled={!canEdit} onChange={(e) => setLine(idx, { enabled: e.target.checked })} />}
+                          control={<Switch checked={row.enabled} disabled={!canEdit || row.editable_by_org === false} onChange={(e) => setLine(idx, { enabled: e.target.checked })} />}
                           label="Enabled"
                         />
                       </Stack>
                     </Stack>
+                    {row.editable_by_org === false && (
+                      <Alert severity="info">{row.locked_reason || "Managed by CiberMandi. Contact platform admin to change this fee."}</Alert>
+                    )}
 
                     <Box
                       sx={{
@@ -442,7 +560,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charge Selector"
                         value={row.charge_code}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => {
                           const code = String(e.target.value);
                           const m = masters.find((x) => x.charge_code === code);
@@ -474,7 +592,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Custom Label"
                         value={row.charge_label}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => {
                           const label = e.target.value;
                           const patch: Partial<ChargeLine> = { charge_label: label };
@@ -492,7 +610,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charge Type"
                         value={row.charge_type}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { charge_type: e.target.value as ChargeType })}
                         error={!!errors[`type.${idx}`]}
                         helperText={errors[`type.${idx}`] || " "}
@@ -505,7 +623,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Fixed Amount"
                         value={row.fixed_amount}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { fixed_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { fixed_amount: normalize2(row.fixed_amount) })}
                         error={!!errors[`fixed.${idx}`]}
@@ -516,7 +634,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Percentage"
                         value={row.percentage}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { percentage: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { percentage: normalize2(row.percentage) })}
                         error={!!errors[`pct.${idx}`]}
@@ -527,7 +645,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Min Amount"
                         value={row.min_amount}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { min_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { min_amount: normalize2(row.min_amount) })}
                         error={!!errors[`min.${idx}`]}
@@ -538,7 +656,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Max Amount"
                         value={row.max_amount}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { max_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { max_amount: normalize2(row.max_amount) })}
                         error={!!errors[`max.${idx}`]}
@@ -549,7 +667,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Tax %"
                         value={row.tax_percentage}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { tax_percentage: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { tax_percentage: normalize2(row.tax_percentage) })}
                         error={!!errors[`tax.${idx}`]}
@@ -561,7 +679,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charged To"
                         value={row.charged_to}
-                        disabled={!canEdit}
+                        disabled={!canEdit || row.editable_by_org === false}
                         onChange={(e) => setLine(idx, { charged_to: e.target.value as ChargedTo })}
                         error={!!errors[`charged_to.${idx}`]}
                         helperText={errors[`charged_to.${idx}`] || " "}

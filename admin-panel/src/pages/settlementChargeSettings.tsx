@@ -162,6 +162,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   const [openHelp, setOpenHelp] = useState(false);
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
+  const [ciberMandiReadonlyLines, setCiberMandiReadonlyLines] = useState<ChargeLine[]>([]);
   const [form, setForm] = useState<FormState>({
     scope_type: isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS",
     org_id: String(uiConfig.scope?.org_id || ""),
@@ -220,6 +221,29 @@ export const SettlementChargeSettingsPage: React.FC = () => {
             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
           }))
         : [];
+      const cmLines = Array.isArray(settings.ciber_mandi_charge_lines)
+        ? settings.ciber_mandi_charge_lines.map((r: any, idx: number) => ({
+            charge_code: toCode(r.charge_code || r.code || "") || `CM_CHARGE_${idx + 1}`,
+            charge_label: String(r.charge_label || r.label || "").trim(),
+            charge_category: String(r.charge_category || "OTHER").toUpperCase(),
+            provider_code: String(r.provider_code || settings.provider_code || "DEFAULT").toUpperCase(),
+            enabled: !!r.enabled,
+            charge_type: String(r.charge_type || "FIXED").toUpperCase() === "PERCENTAGE" ? "PERCENTAGE" : "FIXED",
+            fixed_amount: normalize2(sanitizeNumeric(String(r.fixed_amount ?? "0"))),
+            percentage: normalize2(sanitizeNumeric(String(r.percentage ?? "0"))),
+            min_amount: normalize2(sanitizeNumeric(String(r.min_amount ?? "0"))),
+            max_amount: normalize2(sanitizeNumeric(String(r.max_amount ?? "0"))),
+            tax_percentage: normalize2(sanitizeNumeric(String(r.tax_percentage ?? "0"))),
+            charged_to: (["TRADER", "FARMER", "PLATFORM"].includes(String(r.charged_to || "").toUpperCase())
+              ? String(r.charged_to).toUpperCase()
+              : "TRADER") as ChargedTo,
+            beneficiary_account_type: String(r.beneficiary_account_type || "PLATFORM").toUpperCase(),
+            charge_owner: "CIBERMANDI" as const,
+            editable_by_org: false,
+            locked_reason: r.locked_reason || "Managed by CiberMandi. Contact platform admin to change this fee.",
+            sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
+          }))
+        : [];
 
       setForm({
         scope_type: (settings.scope_type || (isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS")) as ScopeType,
@@ -234,6 +258,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         charge_lines: loadedLines,
         is_active: settings.is_active !== false,
       });
+      setCiberMandiReadonlyLines(cmLines);
       setErrors({});
     } finally {
       setLoading(false);
@@ -283,7 +308,10 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 
   const addLine = () => {
     const master = masters.find((x) => x.charge_code === "OTHER_CHARGE");
-    setForm((s) => ({ ...s, charge_lines: [...s.charge_lines, defaultLine(master, s.charge_lines.length + 1)] }));
+    const owner = form.scope_type.startsWith("CIBERMANDI") ? "CIBERMANDI" : form.scope_type === "ORG_MANDI_SPECIFIC" ? "MANDI" : "ORG";
+    const editable = !form.scope_type.startsWith("CIBERMANDI");
+    const newLine = { ...defaultLine(master, form.charge_lines.length + 1), charge_owner: owner as any, editable_by_org: editable, locked_reason: editable ? null : "Managed by CiberMandi and applied globally." };
+    setForm((s) => ({ ...s, charge_lines: [...s.charge_lines, newLine] }));
   };
 
   const validate = () => {
@@ -481,9 +509,29 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       <Alert severity="info" sx={{ borderRadius: 1.5 }}>
         Dynamic charge-line mode is active. Charges configured here are used to calculate trader total payable and farmer payout.
       </Alert>
+      {!isSuperAdmin && ciberMandiReadonlyLines.length > 0 && (
+        <Card className="cm-card">
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 1 }}>CiberMandi Charges - Read Only</Typography>
+            <Stack spacing={1}>
+              {ciberMandiReadonlyLines.map((row, idx) => (
+                <Box key={`cm-ro-${idx}`} sx={{ p: 1.2, border: "1px solid var(--cm-border-muted)", borderRadius: 1 }}>
+                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                    <Chip size="small" label={row.charge_label} />
+                    <Chip size="small" label="Owner: CIBERMANDI" />
+                    <Chip size="small" label="Editable: No" />
+                    <Chip size="small" label={`Type: ${row.charge_type}`} />
+                    <Chip size="small" label={row.enabled ? "Enabled" : "Disabled"} />
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-        <Typography variant="h6">Charge Rules</Typography>
+        <Typography variant="h6">{!isSuperAdmin ? "Organisation Charges" : "Charge Rules"}</Typography>
         <Button startIcon={<AddIcon />} onClick={addLine} disabled={!canEdit}>
           Add Charge
         </Button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -16,12 +16,10 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
 import { ScreenHelpDrawer } from "../components/ScreenHelpDrawer";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { usePermissions } from "../authz/usePermissions";
-import { normalizeLanguageCode } from "../config/languages";
 import { fetchOrganisations } from "../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../services/mandiApi";
 import { getAdminUsersWithRoles } from "../services/roles";
@@ -195,10 +193,23 @@ function getScopeSelectionMessage(scopeType: ScopeType, orgId: string, mandiId: 
   if (scopeType === "ORG_MANDI_SPECIFIC") return orgId && mandiId ? "" : "Please select organisation/mandi to load charge settings.";
   return "";
 }
+function normalizeScopePayloadValues(scopeType: ScopeType, orgId: string, mandiId: string) {
+  if (scopeType === "CIBERMANDI_GLOBAL") {
+    return { org_id: null as string | null, mandi_id: null as number | null, applies_to_all_orgs: true, applies_to_all_mandis: true };
+  }
+  if (scopeType === "CIBERMANDI_ORG_SPECIFIC") {
+    return { org_id: orgId || null, mandi_id: null as number | null, applies_to_all_orgs: false, applies_to_all_mandis: true };
+  }
+  if (scopeType === "CIBERMANDI_MANDI_SPECIFIC") {
+    return { org_id: orgId || null, mandi_id: mandiId === "" ? null : Number(mandiId), applies_to_all_orgs: false, applies_to_all_mandis: false };
+  }
+  if (scopeType === "ORG_ALL_MANDIS") {
+    return { org_id: orgId || null, mandi_id: null as number | null, applies_to_all_orgs: false, applies_to_all_mandis: true };
+  }
+  return { org_id: orgId || null, mandi_id: mandiId === "" ? null : Number(mandiId), applies_to_all_orgs: false, applies_to_all_mandis: false };
+}
 
 export const SettlementChargeSettingsPage: React.FC = () => {
-  const { i18n } = useTranslation();
-  const language = normalizeLanguageCode(i18n.language || "en");
   const { can } = usePermissions();
   const uiConfig = useAdminUiConfig();
   const canView = useMemo(
@@ -209,15 +220,25 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   const canSuperEdit = useMemo(() => can("settlement_charge_settings.super_admin_update", "UPDATE"), [can]);
   const role = String(uiConfig.role || "").toUpperCase();
   const isSuperAdmin = role === "SUPER_ADMIN";
+  const ownOrgId = String(uiConfig.scope?.org_id || "");
+  const ownOrgCode = String((uiConfig.scope as any)?.org_code || ownOrgId || "");
 
   const [loading, setLoading] = useState(false);
   const [masters, setMasters] = useState<Master[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openHelp, setOpenHelp] = useState(false);
+  const language = "en";
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [ciberMandiReadonlyLines, setCiberMandiReadonlyLines] = useState<ChargeLine[]>([]);
   const [orgLoadWarning, setOrgLoadWarning] = useState("");
+  const [apiError, setApiError] = useState<string>("");
+  const mastersCacheRef = useRef<Master[] | null>(null);
+  const lastLoadKeyRef = useRef<string>("");
+  const inflightLoadKeyRef = useRef<string>("");
+  const orgFetchDoneRef = useRef<boolean>(false);
+  const orgFallbackDoneRef = useRef<boolean>(false);
+  const mandiFetchOrgRef = useRef<string>("");
   const [form, setForm] = useState<FormState>({
     scope_type: isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS",
     org_id: String(uiConfig.scope?.org_id || ""),
@@ -229,19 +250,60 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   });
   const isCiberScope = form.scope_type.startsWith("CIBERMANDI");
   const canEditCurrentScope = isCiberScope ? canSuperEdit : canEdit;
+  const showOrgSelector = form.scope_type !== "CIBERMANDI_GLOBAL";
+  const showMandiSelector = form.scope_type === "CIBERMANDI_MANDI_SPECIFIC" || form.scope_type === "ORG_MANDI_SPECIFIC";
+  const orgRequired = form.scope_type === "CIBERMANDI_ORG_SPECIFIC" || form.scope_type === "CIBERMANDI_MANDI_SPECIFIC" || form.scope_type === "ORG_ALL_MANDIS" || form.scope_type === "ORG_MANDI_SPECIFIC";
+  const mandiRequired = form.scope_type === "CIBERMANDI_MANDI_SPECIFIC" || form.scope_type === "ORG_MANDI_SPECIFIC";
   const scopeSelectionMessage = useMemo(
     () => getScopeSelectionMessage(form.scope_type, form.org_id, form.mandi_id),
     [form.scope_type, form.org_id, form.mandi_id],
   );
+  const selectedOrgLabel = useMemo(() => {
+    if (!form.org_id) return "N/A";
+    const m = orgOptions.find((o) => o.value === form.org_id);
+    return m?.label || ownOrgCode || form.org_id;
+  }, [form.org_id, orgOptions, ownOrgCode]);
+  const selectedMandiLabel = useMemo(() => {
+    if (!form.mandi_id) return "N/A";
+    const m = mandiOptions.find((o) => o.value === form.mandi_id);
+    return m?.label || form.mandi_id;
+  }, [form.mandi_id, mandiOptions]);
+  const editingBanner = useMemo(() => {
+    if (form.scope_type === "CIBERMANDI_GLOBAL") return "Currently Editing: CiberMandi Global Charges";
+    if (form.scope_type === "CIBERMANDI_ORG_SPECIFIC") return `Currently Editing: CiberMandi Charges for Organisation: ${selectedOrgLabel}`;
+    if (form.scope_type === "CIBERMANDI_MANDI_SPECIFIC") return `Currently Editing: CiberMandi Charges for Organisation + Mandi: ${selectedOrgLabel} / ${selectedMandiLabel}`;
+    if (form.scope_type === "ORG_ALL_MANDIS") return `Currently Editing: Organisation Charges: ${selectedOrgLabel}`;
+    return `Currently Editing: Organisation + Mandi Charges: ${selectedOrgLabel} / ${selectedMandiLabel}`;
+  }, [form.scope_type, selectedOrgLabel, selectedMandiLabel]);
 
-  const load = async () => {
+  const isSuccessResponse = (resp: any) => {
+    const code = String(resp?.response?.responsecode ?? resp?.responsecode ?? "");
+    return code === "0" || code === "00";
+  };
+
+  const load = async (force = false) => {
     const username = getUsername();
     if (!username) return;
     if (getScopeSelectionMessage(form.scope_type, form.org_id, form.mandi_id)) return;
+    const loadKey = JSON.stringify({
+      scope_type: form.scope_type,
+      org_id: form.org_id || null,
+      mandi_id: form.mandi_id || null,
+      provider_code: form.provider_code || "DEFAULT",
+      country: (uiConfig.scope as any)?.country || "IN",
+    });
+    if (!force && inflightLoadKeyRef.current === loadKey) return;
+    if (!force && lastLoadKeyRef.current === loadKey) return;
+    inflightLoadKeyRef.current = loadKey;
     setLoading(true);
+    setApiError("");
     try {
+      const mastersPromise = mastersCacheRef.current
+        ? Promise.resolve({ charge_masters: mastersCacheRef.current })
+        : getSettlementChargeMasters({ username, payload: {} });
+
       const [mastersResp, settingsResp] = await Promise.all([
-        getSettlementChargeMasters({ username, payload: {} }),
+        mastersPromise,
         getSettlementChargeSettings({
           username,
           payload: {
@@ -253,6 +315,16 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           },
         }),
       ]);
+
+      if (!isSuccessResponse(settingsResp)) {
+        setApiError(String(settingsResp?.response?.description || "Unable to load settlement charge settings."));
+        return;
+      }
+
+      if (!mastersCacheRef.current && isSuccessResponse(mastersResp)) {
+        const cached = (mastersResp?.charge_masters || mastersResp?.data?.charge_masters || []) as Master[];
+        mastersCacheRef.current = cached;
+      }
 
       const mList = (mastersResp?.charge_masters || mastersResp?.data?.charge_masters || []) as Master[];
       setMasters(mList);
@@ -311,7 +383,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         scope_type: (settings.scope_type || (isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS")) as ScopeType,
         org_id: String(settings.org_id || form.org_id || uiConfig.scope?.org_id || ""),
         mandi_id: settings.mandi_id === null || settings.mandi_id === undefined ? "" : String(settings.mandi_id),
-        provider_code: String(settings.provider_code || "DEFAULT").toUpperCase(),
+        provider_code: "DEFAULT",
         rounding_rule: (["NONE", "NEAREST_RUPEE", "ROUND_UP", "ROUND_DOWN"].includes(
           String(settings.rounding_rule || "").toUpperCase(),
         )
@@ -322,7 +394,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       });
       setCiberMandiReadonlyLines(cmLines);
       setErrors({});
+      lastLoadKeyRef.current = loadKey;
     } finally {
+      inflightLoadKeyRef.current = "";
       setLoading(false);
     }
   };
@@ -337,6 +411,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   useEffect(() => {
     const username = getUsername();
     if (!username || !isSuperAdmin) return;
+    if (orgFetchDoneRef.current) return;
+    orgFetchDoneRef.current = true;
     fetchOrganisations({ username, language: "en" })
       .then((resp: any) => {
         const items = extractArrayCandidates(resp, [
@@ -348,6 +424,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           "data.organisations",
           "data.organizations",
           "response.items",
+          "response.data.organisations",
+          "response.data.organizations",
           "response.data.items",
           "response.organisations",
           "response.organizations",
@@ -367,9 +445,16 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           setOrgLoadWarning("");
           return;
         }
+        if (orgFallbackDoneRef.current) return;
+        orgFallbackDoneRef.current = true;
         getAdminUsersWithRoles({ username, language: "en" })
           .then((fallbackResp: any) => {
-            const fallbackList = Array.isArray(fallbackResp?.data?.organisations) ? fallbackResp.data.organisations : [];
+            const fallbackList = extractArrayCandidates(fallbackResp, [
+              "data.organisations",
+              "response.data.organisations",
+              "response.response.data.organisations",
+              "organisations",
+            ]);
             const fallbackMapped = fallbackList.map(mapOrgOption).filter(Boolean) as Option[];
             setOrgOptions(fallbackMapped);
             setOrgLoadWarning(
@@ -393,8 +478,11 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     const username = getUsername();
     if (!username || !form.org_id) {
       setMandiOptions([]);
+      mandiFetchOrgRef.current = "";
       return;
     }
+    if (mandiFetchOrgRef.current === form.org_id) return;
+    mandiFetchOrgRef.current = form.org_id;
     getMandisForCurrentScope({ username, language: "en", org_id: form.org_id })
       .then((resp: any) => {
         const list = Array.isArray(resp) ? resp : extractArrayCandidates(resp, [
@@ -421,12 +509,15 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 
   useEffect(() => {
     setForm((prev) => {
-      const currentOrg = String(uiConfig.scope?.org_id || "");
+      const currentOrg = ownOrgId;
       if (prev.scope_type === "CIBERMANDI_GLOBAL") {
         return { ...prev, org_id: "", mandi_id: "" };
       }
       if (prev.scope_type === "CIBERMANDI_ORG_SPECIFIC") {
-        return { ...prev, mandi_id: "" };
+        return { ...prev, org_id: isSuperAdmin ? prev.org_id : currentOrg, mandi_id: "" };
+      }
+      if (prev.scope_type === "CIBERMANDI_MANDI_SPECIFIC") {
+        return { ...prev, org_id: isSuperAdmin ? prev.org_id : currentOrg };
       }
       if (prev.scope_type === "ORG_ALL_MANDIS") {
         return { ...prev, org_id: isSuperAdmin ? prev.org_id : currentOrg, mandi_id: "" };
@@ -436,7 +527,14 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       }
       return prev;
     });
-  }, [form.scope_type, isSuperAdmin, uiConfig.scope?.org_id]);
+  }, [form.scope_type, isSuperAdmin, ownOrgId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && ownOrgId) {
+      setOrgOptions([{ value: ownOrgId, label: ownOrgCode }]);
+      setForm((prev) => ({ ...prev, org_id: ownOrgId }));
+    }
+  }, [isSuperAdmin, ownOrgId, ownOrgCode]);
 
   const setLine = (idx: number, patch: Partial<ChargeLine>) => {
     setForm((s) => ({ ...s, charge_lines: s.charge_lines.map((r, i) => (i === idx ? { ...r, ...patch } : r)) }));
@@ -474,15 +572,23 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     const username = getUsername();
     if (!username) return;
     const e = validate();
+    const scopeMessage = getScopeSelectionMessage(form.scope_type, form.org_id, form.mandi_id);
+    if (scopeMessage) {
+      setApiError(scopeMessage);
+      return;
+    }
     setErrors(e);
     if (Object.keys(e).length) return;
+    const scopedPayload = normalizeScopePayloadValues(form.scope_type, form.org_id, form.mandi_id);
 
     const payload = {
       scope_type: form.scope_type,
-      org_id: form.org_id || null,
-      mandi_id: form.mandi_id === "" ? null : Number(form.mandi_id),
+      org_id: scopedPayload.org_id,
+      mandi_id: scopedPayload.mandi_id,
+      applies_to_all_orgs: scopedPayload.applies_to_all_orgs,
+      applies_to_all_mandis: scopedPayload.applies_to_all_mandis,
       country: (uiConfig.scope as any)?.country || "IN",
-      provider_code: form.provider_code,
+      provider_code: "DEFAULT",
       rounding_rule: form.rounding_rule,
       is_active: form.is_active,
       charge_lines: form.charge_lines.map((r, idx) => ({
@@ -507,9 +613,15 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     };
 
     setLoading(true);
+    setApiError("");
     try {
-      await upsertSettlementChargeSettings({ username, payload });
-      await load();
+      const upsertResp = await upsertSettlementChargeSettings({ username, payload });
+      if (!isSuccessResponse(upsertResp)) {
+        setApiError(String(upsertResp?.response?.description || "Unable to save settlement charge settings."));
+        return;
+      }
+      lastLoadKeyRef.current = "";
+      await load(true);
     } finally {
       setLoading(false);
     }
@@ -536,7 +648,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           <IconButton color="primary" size="small" onClick={() => setOpenHelp(true)} title="Help">
             <HelpOutlineIcon fontSize="small" />
           </IconButton>
-          <Button variant="outlined" onClick={load} disabled={loading}>
+          <Button variant="outlined" onClick={() => load(true)} disabled={loading}>
             Refresh
           </Button>
           <Button variant="contained" onClick={save} disabled={loading || hasValidationErrors || !canEditCurrentScope || !!scopeSelectionMessage}>
@@ -547,6 +659,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 
       <Card className="cm-card">
         <CardContent>
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            {editingBanner}
+          </Alert>
           <Box
             sx={{
               display: "grid",
@@ -582,6 +697,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               size="small"
               label="Organisation"
               value={form.org_id}
+              required={orgRequired}
+              sx={{ display: showOrgSelector ? "block" : "none" }}
               disabled={
                 form.scope_type === "CIBERMANDI_GLOBAL" ||
                 (!isSuperAdmin && !!uiConfig.scope?.org_id)
@@ -597,27 +714,15 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               size="small"
               label="Mandi"
               value={form.mandi_id}
-              disabled={form.scope_type !== "CIBERMANDI_MANDI_SPECIFIC" && form.scope_type !== "ORG_MANDI_SPECIFIC"}
+              required={mandiRequired}
+              sx={{ display: showMandiSelector ? "block" : "none" }}
+              disabled={!showMandiSelector}
               onChange={(e) => setForm((s) => ({ ...s, mandi_id: String(e.target.value) }))}
             >
               <MenuItem value="">Select Mandi</MenuItem>
               {mandiOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </TextField>
-            <TextField
-              select
-              size="small"
-              label="Provider"
-              value={form.provider_code}
-              disabled={!canEditCurrentScope}
-              onChange={(e) => setForm((s) => ({ ...s, provider_code: String(e.target.value).toUpperCase() }))}
-            >
-              <MenuItem value="DEFAULT">DEFAULT</MenuItem>
-              <MenuItem value="CASHFREE">CASHFREE</MenuItem>
-              <MenuItem value="RAZORPAY">RAZORPAY</MenuItem>
-              <MenuItem value="PHONEPE">PHONEPE</MenuItem>
-              <MenuItem value="PAYU">PAYU</MenuItem>
-              <MenuItem value="CCAVENUE">CCAVENUE</MenuItem>
-            </TextField>
+            <TextField size="small" label="Provider" value="DEFAULT (Fixed)" disabled />
             <TextField
               select
               size="small"
@@ -647,6 +752,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       </Card>
 
       {!!scopeSelectionMessage && <Alert severity="info">{scopeSelectionMessage}</Alert>}
+      {!!apiError && <Alert severity="error">{apiError}</Alert>}
 
       <Alert severity="info" sx={{ borderRadius: 1.5 }}>
         Dynamic charge-line mode is active. Charges configured here are used to calculate trader total payable and farmer payout.

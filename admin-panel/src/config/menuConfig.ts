@@ -1008,6 +1008,11 @@ export function filterMenuByResources(
   permissionsMap?: Record<string, Set<string>>,
 ) {
   try {
+    const normalizedRole = String(fallbackRole || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[\s-]+/g, "_");
+    const isSuperAdmin = normalizedRole === "SUPER_ADMIN";
     const hasResources = Array.isArray(resources) && resources.length > 0;
     if (!hasResources) {
       return [];
@@ -1016,10 +1021,18 @@ export function filterMenuByResources(
       permissionsMap && Object.keys(permissionsMap).length > 0;
     // If permissions have not been loaded yet, do not render a temporary menu –
     // this avoids the “full menu then collapse” flicker for limited roles.
-    if (!hasPermissions) {
+    if (!hasPermissions && !isSuperAdmin) {
       return [];
     }
-    const allowedMenus = computeAllowedSidebar(resources, permissionsMap!);
+    // SUPER_ADMIN visibility fallback: keep menu/resource loading resilient even if
+    // policy docs are sparse. This is visibility-only and does not grant write actions.
+    const allowedMenus = isSuperAdmin
+      ? resources.filter((res) => {
+          const type = String(res?.ui_type || "").trim().toUpperCase();
+          const active = (res as any)?.is_active;
+          return type === "MENU" && (active === true || active === "Y");
+        })
+      : computeAllowedSidebar(resources, permissionsMap!);
     const byKey = new Map<string, UiResource>();
     allowedMenus.forEach((res) => {
       if (res.resource_key) byKey.set(canonicalizeResourceKey(res.resource_key), res);
@@ -1037,7 +1050,7 @@ export function filterMenuByResources(
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
       const resource = byKey.get(key);
-      const canViewByPermission = Boolean(permissionsMap?.[key]?.has("VIEW"));
+      const canViewByPermission = isSuperAdmin || Boolean(permissionsMap?.[key]?.has("VIEW"));
       if (!resource && !canViewByPermission) return;
       if (freeze.is_active === false) return; // keep active only
       const labelOverride = freeze.menu_name || getResourceLabel(resource, lang);

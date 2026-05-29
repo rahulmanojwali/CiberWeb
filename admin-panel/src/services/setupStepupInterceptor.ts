@@ -30,7 +30,7 @@ function clearStepupSessionId() {
 
 function isSessionExpiredResponse(error: any): boolean {
   const status = Number(error?.response?.status || 0);
-  if (status === 401 || status === 403) return true;
+  if (status === 401) return true;
   const payload = error?.response?.data;
   const text = String(
     payload?.response?.description
@@ -46,8 +46,6 @@ function isSessionExpiredResponse(error: any): boolean {
     "invalid session",
     "invalid token",
     "missing auth",
-    "unauthorized",
-    "forbidden",
   ].some((x) => text.includes(x));
 }
 

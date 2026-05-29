@@ -24,6 +24,7 @@ import { usePermissions } from "../authz/usePermissions";
 import { normalizeLanguageCode } from "../config/languages";
 import { fetchOrganisations } from "../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../services/mandiApi";
+import { getAdminUsersWithRoles } from "../services/roles";
 import {
   getSettlementChargeMasters,
   getSettlementChargeSettings,
@@ -142,6 +143,59 @@ function defaultLine(master?: Master, idx = 1): ChargeLine {
   };
 }
 
+function extractArrayCandidates(resp: any, keys: string[]) {
+  for (const key of keys) {
+    const parts = key.split(".");
+    let cur = resp;
+    let ok = true;
+    for (const p of parts) {
+      if (!cur || typeof cur !== "object" || !(p in cur)) {
+        ok = false;
+        break;
+      }
+      cur = cur[p];
+    }
+    if (ok && Array.isArray(cur)) return cur;
+  }
+  return [];
+}
+
+function rootKeys(raw: any) {
+  if (!raw || typeof raw !== "object") return [];
+  try {
+    return Object.keys(raw);
+  } catch {
+    return [];
+  }
+}
+
+function mapOrgOption(raw: any): Option | null {
+  const value = String(
+    raw?.org_id ?? raw?._id ?? raw?.id ?? raw?.organisation_id ?? raw?.organization_id ?? raw?.org_code ?? raw?.code ?? ""
+  ).trim();
+  if (!value) return null;
+  const label = String(
+    raw?.org_name ?? raw?.organisation_name ?? raw?.organization_name ?? raw?.name ?? raw?.display_name ?? raw?.org_code ?? raw?.code ?? value
+  ).trim();
+  return { value, label: label || value };
+}
+
+function mapMandiOption(raw: any): Option | null {
+  const value = String(raw?.mandi_id ?? raw?._id ?? raw?.id ?? raw?.mandi_code ?? raw?.code ?? "").trim();
+  if (!value) return null;
+  const label = String(raw?.mandi_name ?? raw?.name ?? raw?.display_name ?? raw?.mandi_slug ?? raw?.mandi_code ?? raw?.code ?? value).trim();
+  return { value, label: label || value };
+}
+
+function getScopeSelectionMessage(scopeType: ScopeType, orgId: string, mandiId: string) {
+  if (scopeType === "CIBERMANDI_GLOBAL") return "";
+  if (scopeType === "CIBERMANDI_ORG_SPECIFIC") return orgId ? "" : "Please select organisation/mandi to load charge settings.";
+  if (scopeType === "CIBERMANDI_MANDI_SPECIFIC") return orgId && mandiId ? "" : "Please select organisation/mandi to load charge settings.";
+  if (scopeType === "ORG_ALL_MANDIS") return orgId ? "" : "Please select organisation/mandi to load charge settings.";
+  if (scopeType === "ORG_MANDI_SPECIFIC") return orgId && mandiId ? "" : "Please select organisation/mandi to load charge settings.";
+  return "";
+}
+
 export const SettlementChargeSettingsPage: React.FC = () => {
   const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language || "en");
@@ -163,6 +217,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
   const [ciberMandiReadonlyLines, setCiberMandiReadonlyLines] = useState<ChargeLine[]>([]);
+  const [orgLoadWarning, setOrgLoadWarning] = useState("");
   const [form, setForm] = useState<FormState>({
     scope_type: isSuperAdmin ? "CIBERMANDI_GLOBAL" : "ORG_ALL_MANDIS",
     org_id: String(uiConfig.scope?.org_id || ""),
@@ -172,10 +227,17 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     charge_lines: [],
     is_active: true,
   });
+  const isCiberScope = form.scope_type.startsWith("CIBERMANDI");
+  const canEditCurrentScope = isCiberScope ? canSuperEdit : canEdit;
+  const scopeSelectionMessage = useMemo(
+    () => getScopeSelectionMessage(form.scope_type, form.org_id, form.mandi_id),
+    [form.scope_type, form.org_id, form.mandi_id],
+  );
 
   const load = async () => {
     const username = getUsername();
     if (!username) return;
+    if (getScopeSelectionMessage(form.scope_type, form.org_id, form.mandi_id)) return;
     setLoading(true);
     try {
       const [mastersResp, settingsResp] = await Promise.all([
@@ -266,23 +328,65 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (canView) load();
+    if (!canView) return;
+    if (scopeSelectionMessage) return;
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canView, form.scope_type, form.org_id, form.mandi_id]);
+  }, [canView, form.scope_type, form.org_id, form.mandi_id, form.provider_code, scopeSelectionMessage]);
 
   useEffect(() => {
     const username = getUsername();
     if (!username || !isSuperAdmin) return;
     fetchOrganisations({ username, language: "en" })
       .then((resp: any) => {
-        const data = resp?.data || resp?.response?.data || {};
-        const items = Array.isArray(data?.items) ? data.items : [];
-        setOrgOptions(items.map((o: any) => ({
-          value: String(o.org_id || o._id || ""),
-          label: o.org_name || o.name || o.org_code || String(o.org_id || "")
-        })).filter((x: Option) => Boolean(x.value)));
+        const items = extractArrayCandidates(resp, [
+          "items",
+          "organisations",
+          "organizations",
+          "orgs",
+          "data.items",
+          "data.organisations",
+          "data.organizations",
+          "response.items",
+          "response.data.items",
+          "response.organisations",
+          "response.organizations",
+          "response.response.items",
+          "response.response.data.items",
+          "response.response.organisations",
+          "response.response.organizations",
+        ]);
+        const mapped = items.map(mapOrgOption).filter(Boolean) as Option[];
+        console.log("[SettlementChargeSettings][orgOptionsLoaded]", {
+          rawKeys: rootKeys(resp),
+          count: mapped.length,
+          firstOption: mapped[0] || null,
+        });
+        if (mapped.length > 0) {
+          setOrgOptions(mapped);
+          setOrgLoadWarning("");
+          return;
+        }
+        getAdminUsersWithRoles({ username, language: "en" })
+          .then((fallbackResp: any) => {
+            const fallbackList = Array.isArray(fallbackResp?.data?.organisations) ? fallbackResp.data.organisations : [];
+            const fallbackMapped = fallbackList.map(mapOrgOption).filter(Boolean) as Option[];
+            setOrgOptions(fallbackMapped);
+            setOrgLoadWarning(
+              fallbackMapped.length > 0
+                ? ""
+                : "Organisation list could not be loaded. Please refresh or check permissions.",
+            );
+          })
+          .catch(() => {
+            setOrgOptions([]);
+            setOrgLoadWarning("Organisation list could not be loaded. Please refresh or check permissions.");
+          });
       })
-      .catch(() => setOrgOptions([]));
+      .catch(() => {
+        setOrgOptions([]);
+        setOrgLoadWarning("Organisation list could not be loaded. Please refresh or check permissions.");
+      });
   }, [isSuperAdmin]);
 
   useEffect(() => {
@@ -292,15 +396,47 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       return;
     }
     getMandisForCurrentScope({ username, language: "en", org_id: form.org_id })
-      .then((list: any[]) => {
-        const mapped = (list || []).map((m: any) => ({
-          value: String(m.mandi_id ?? m.mandiId ?? ""),
-          label: m.mandi_name || m.mandi_slug || String(m.mandi_id || "")
-        })).filter((x: Option) => Boolean(x.value));
+      .then((resp: any) => {
+        const list = Array.isArray(resp) ? resp : extractArrayCandidates(resp, [
+          "items",
+          "mandis",
+          "data",
+          "data.items",
+          "data.mandis",
+          "response.items",
+          "response.data",
+          "response.data.items",
+          "response.mandis",
+        ]);
+        const mapped = (list || []).map(mapMandiOption).filter(Boolean) as Option[];
+        console.log("[SettlementChargeSettings][mandiOptionsLoaded]", {
+          rawKeys: rootKeys(resp),
+          count: mapped.length,
+          firstOption: mapped[0] || null,
+        });
         setMandiOptions(mapped);
       })
       .catch(() => setMandiOptions([]));
   }, [form.org_id]);
+
+  useEffect(() => {
+    setForm((prev) => {
+      const currentOrg = String(uiConfig.scope?.org_id || "");
+      if (prev.scope_type === "CIBERMANDI_GLOBAL") {
+        return { ...prev, org_id: "", mandi_id: "" };
+      }
+      if (prev.scope_type === "CIBERMANDI_ORG_SPECIFIC") {
+        return { ...prev, mandi_id: "" };
+      }
+      if (prev.scope_type === "ORG_ALL_MANDIS") {
+        return { ...prev, org_id: isSuperAdmin ? prev.org_id : currentOrg, mandi_id: "" };
+      }
+      if (prev.scope_type === "ORG_MANDI_SPECIFIC") {
+        return { ...prev, org_id: isSuperAdmin ? prev.org_id : currentOrg };
+      }
+      return prev;
+    });
+  }, [form.scope_type, isSuperAdmin, uiConfig.scope?.org_id]);
 
   const setLine = (idx: number, patch: Partial<ChargeLine>) => {
     setForm((s) => ({ ...s, charge_lines: s.charge_lines.map((r, i) => (i === idx ? { ...r, ...patch } : r)) }));
@@ -403,7 +539,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           <Button variant="outlined" onClick={load} disabled={loading}>
             Refresh
           </Button>
-          <Button variant="contained" onClick={save} disabled={loading || hasValidationErrors || (!canEdit && !canSuperEdit)}>
+          <Button variant="contained" onClick={save} disabled={loading || hasValidationErrors || !canEditCurrentScope || !!scopeSelectionMessage}>
             Save Settings
           </Button>
         </Stack>
@@ -446,7 +582,10 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               size="small"
               label="Organisation"
               value={form.org_id}
-              disabled={!isSuperAdmin && !!uiConfig.scope?.org_id}
+              disabled={
+                form.scope_type === "CIBERMANDI_GLOBAL" ||
+                (!isSuperAdmin && !!uiConfig.scope?.org_id)
+              }
               onChange={(e) => setForm((s) => ({ ...s, org_id: String(e.target.value), mandi_id: "" }))}
             >
               {(isSuperAdmin ? orgOptions : [{ value: String(uiConfig.scope?.org_id || ""), label: String((uiConfig.scope as any)?.org_code || uiConfig.scope?.org_id || "") }])
@@ -469,7 +608,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               size="small"
               label="Provider"
               value={form.provider_code}
-              disabled={!canEdit}
+              disabled={!canEditCurrentScope}
               onChange={(e) => setForm((s) => ({ ...s, provider_code: String(e.target.value).toUpperCase() }))}
             >
               <MenuItem value="DEFAULT">DEFAULT</MenuItem>
@@ -484,7 +623,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               size="small"
               label="Rounding Rule"
               value={form.rounding_rule}
-              disabled={!canEdit}
+              disabled={!canEditCurrentScope}
               onChange={(e) => setForm((s) => ({ ...s, rounding_rule: e.target.value as RoundingRule }))}
             >
               <MenuItem value="NONE">NONE</MenuItem>
@@ -496,15 +635,18 @@ export const SettlementChargeSettingsPage: React.FC = () => {
               control={
                 <Switch
                   checked={form.is_active}
-                  disabled={!canEdit}
+                  disabled={!canEditCurrentScope}
                   onChange={(e) => setForm((s) => ({ ...s, is_active: e.target.checked }))}
                 />
               }
               label="Active"
             />
           </Box>
+          {!!orgLoadWarning && <Alert severity="warning" sx={{ mt: 1.5 }}>{orgLoadWarning}</Alert>}
         </CardContent>
       </Card>
+
+      {!!scopeSelectionMessage && <Alert severity="info">{scopeSelectionMessage}</Alert>}
 
       <Alert severity="info" sx={{ borderRadius: 1.5 }}>
         Dynamic charge-line mode is active. Charges configured here are used to calculate trader total payable and farmer payout.
@@ -512,7 +654,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       {!isSuperAdmin && ciberMandiReadonlyLines.length > 0 && (
         <Card className="cm-card">
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 1 }}>CiberMandi Charges - Read Only</Typography>
+            <Typography variant="h6" sx={{ mb: 1 }}>CiberMandi Charges - Managed by CiberMandi</Typography>
             <Stack spacing={1}>
               {ciberMandiReadonlyLines.map((row, idx) => (
                 <Box key={`cm-ro-${idx}`} sx={{ p: 1.2, border: "1px solid var(--cm-border-muted)", borderRadius: 1 }}>
@@ -532,22 +674,28 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
         <Typography variant="h6">{!isSuperAdmin ? "Organisation Charges" : "Charge Rules"}</Typography>
-        <Button startIcon={<AddIcon />} onClick={addLine} disabled={!canEdit}>
+        <Button startIcon={<AddIcon />} onClick={addLine} disabled={!canEditCurrentScope}>
           Add Charge
         </Button>
       </Stack>
 
-      {form.charge_lines.length === 0 ? (
+      {scopeSelectionMessage || form.charge_lines.length === 0 ? (
         <Card className="cm-card">
           <CardContent>
             <Stack spacing={1.2} alignItems="flex-start">
-              <Typography fontWeight={700}>No settlement charges configured yet.</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Add charges such as platform fee, gateway fee, mandi fee, labour charge, loading charge, etc.
-              </Typography>
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={addLine} disabled={!canEdit}>
-                Add Charge
-              </Button>
+              {scopeSelectionMessage ? (
+                <Typography fontWeight={700}>Please select organisation/mandi to load charge settings.</Typography>
+              ) : (
+                <>
+                  <Typography fontWeight={700}>No settlement charges configured yet.</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Add charges such as platform fee, gateway fee, mandi fee, labour charge, loading charge, etc.
+                  </Typography>
+                  <Button variant="outlined" startIcon={<AddIcon />} onClick={addLine} disabled={!canEditCurrentScope}>
+                    Add Charge
+                  </Button>
+                </>
+              )}
             </Stack>
           </CardContent>
         </Card>
@@ -556,6 +704,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
           {form.charge_lines.map((row, idx) => {
             const codeErr = errors[`code.${idx}`];
             const labelErr = errors[`label.${idx}`];
+            const rowLockedForCurrentUser = row.charge_owner === "CIBERMANDI" && !isSuperAdmin;
+            const editableForCurrentUser = canEditCurrentScope && !rowLockedForCurrentUser;
             return (
               <Card
                 key={`line-${idx}`}
@@ -575,7 +725,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                           <Chip size="small" label={row.charge_category || "OTHER"} sx={{ bgcolor: "var(--cm-primary-soft)", color: "var(--cm-primary-dark)", fontWeight: 700 }} />
                           <Chip size="small" label={`Charged To: ${row.charged_to}`} variant="outlined" />
                           <Chip size="small" label={`Owner: ${row.charge_owner || "ORG"}`} variant="outlined" />
-                          <Chip size="small" label={`Editable: ${row.editable_by_org === false ? "No" : "Yes"}`} variant="outlined" />
+                          <Chip size="small" label={`Editable: ${editableForCurrentUser ? "Yes" : "No"}`} variant="outlined" />
                           <Chip
                             size="small"
                             label={row.enabled ? "Active" : "Disabled"}
@@ -587,12 +737,12 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                       </Stack>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <FormControlLabel
-                          control={<Switch checked={row.enabled} disabled={!canEdit || row.editable_by_org === false} onChange={(e) => setLine(idx, { enabled: e.target.checked })} />}
+                          control={<Switch checked={row.enabled} disabled={!canEditCurrentScope || rowLockedForCurrentUser} onChange={(e) => setLine(idx, { enabled: e.target.checked })} />}
                           label="Enabled"
                         />
                       </Stack>
                     </Stack>
-                    {row.editable_by_org === false && (
+                    {!isSuperAdmin && rowLockedForCurrentUser && (
                       <Alert severity="info">{row.locked_reason || "Managed by CiberMandi. Contact platform admin to change this fee."}</Alert>
                     )}
 
@@ -608,7 +758,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charge Selector"
                         value={row.charge_code}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => {
                           const code = String(e.target.value);
                           const m = masters.find((x) => x.charge_code === code);
@@ -640,7 +790,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Custom Label"
                         value={row.charge_label}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => {
                           const label = e.target.value;
                           const patch: Partial<ChargeLine> = { charge_label: label };
@@ -658,7 +808,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charge Type"
                         value={row.charge_type}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { charge_type: e.target.value as ChargeType })}
                         error={!!errors[`type.${idx}`]}
                         helperText={errors[`type.${idx}`] || " "}
@@ -671,7 +821,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Fixed Amount"
                         value={row.fixed_amount}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { fixed_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { fixed_amount: normalize2(row.fixed_amount) })}
                         error={!!errors[`fixed.${idx}`]}
@@ -682,7 +832,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Percentage"
                         value={row.percentage}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { percentage: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { percentage: normalize2(row.percentage) })}
                         error={!!errors[`pct.${idx}`]}
@@ -693,7 +843,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Min Amount"
                         value={row.min_amount}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { min_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { min_amount: normalize2(row.min_amount) })}
                         error={!!errors[`min.${idx}`]}
@@ -704,7 +854,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Max Amount"
                         value={row.max_amount}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { max_amount: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { max_amount: normalize2(row.max_amount) })}
                         error={!!errors[`max.${idx}`]}
@@ -715,7 +865,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Tax %"
                         value={row.tax_percentage}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { tax_percentage: sanitizeNumeric(e.target.value) })}
                         onBlur={() => setLine(idx, { tax_percentage: normalize2(row.tax_percentage) })}
                         error={!!errors[`tax.${idx}`]}
@@ -727,7 +877,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
                         size="small"
                         label="Charged To"
                         value={row.charged_to}
-                        disabled={!canEdit || row.editable_by_org === false}
+                        disabled={!canEditCurrentScope || rowLockedForCurrentUser}
                         onChange={(e) => setLine(idx, { charged_to: e.target.value as ChargedTo })}
                         error={!!errors[`charged_to.${idx}`]}
                         helperText={errors[`charged_to.${idx}`] || " "}

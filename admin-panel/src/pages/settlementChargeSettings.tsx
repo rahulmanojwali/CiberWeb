@@ -530,10 +530,22 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       const inheritedGlobalLines = cmLinesWithMasterIdentity.length > 0
         ? cmLinesWithMasterIdentity
         : scopedNormalizedLines.filter((line: ChargeLine) => String(line.charge_owner || "").toUpperCase() === "CIBERMANDI");
+      const activeInheritedGlobalBlocked = new Set<string>();
+      inheritedGlobalLines
+        .filter((line: ChargeLine) => line.enabled !== false)
+        .forEach((line: ChargeLine) => addChargeIdentityKeys(activeInheritedGlobalBlocked, line));
+
       const editableLocalLines = requestedIsOrgScope
         ? scopedNormalizedLines.filter((line: ChargeLine) => {
             const owner = String(line.charge_owner || "ORG").toUpperCase();
-            return requestedScope === "ORG_MANDI_SPECIFIC" ? owner === "MANDI" : owner === "ORG";
+            const isExpectedOwner = requestedScope === "ORG_MANDI_SPECIFIC" ? owner === "MANDI" : owner === "ORG";
+            if (!isExpectedOwner) return false;
+
+            // Important: when CiberMandi Global has an active charge type, the same
+            // charge type must be displayed only as inherited/read-only. Existing old
+            // ORG/MANDI duplicate rows like Organisation Platform Fee / Organisation
+            // Gateway Fee are hidden here and are also excluded from the save payload.
+            return !hasBlockedChargeIdentity(line, activeInheritedGlobalBlocked);
           })
         : scopedNormalizedLines;
       const displayLines = requestedIsOrgScope
@@ -1247,9 +1259,6 @@ export const SettlementChargeSettingsPage: React.FC = () => {
   );
 };
 
-
-
-
 // import React, { useEffect, useMemo, useRef, useState } from "react";
 // import {
 //   Alert,
@@ -1286,6 +1295,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 // type RoundingRule = "NONE" | "NEAREST_RUPEE" | "ROUND_UP" | "ROUND_DOWN";
 
 // type Master = {
+//   charge_type_id?: string;
+//   master_charge_id?: string;
 //   charge_code: string;
 //   charge_label: string;
 //   charge_category: string;
@@ -1295,6 +1306,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 // };
 
 // type ChargeLine = {
+//   charge_type_id?: string;
+//   master_charge_id?: string;
 //   charge_code: string;
 //   charge_label: string;
 //   charge_category: string;
@@ -1376,6 +1389,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 // function defaultLine(master?: Master, idx = 1): ChargeLine {
 //   const chargeCode = master?.charge_code || "OTHER_CHARGE";
 //   return {
+//     charge_type_id: master?.charge_type_id,
+//     master_charge_id: master?.master_charge_id,
 //     charge_code: chargeCode,
 //     charge_label: master?.charge_label || `Custom Charge ${idx}`,
 //     charge_category: master?.charge_category || "OTHER",
@@ -1417,6 +1432,83 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //   } catch {
 //     return [];
 //   }
+// }
+// function getStableChargeId(item: any) {
+//   return String(item?.charge_type_id ?? item?.master_charge_id ?? item?.charge_code ?? item?.code ?? "")
+//     .trim()
+//     .toUpperCase();
+// }
+
+// function normalizeChargeIdentity(raw: any) {
+//   return String(raw || "")
+//     .trim()
+//     .toUpperCase()
+//     .replace(/[^A-Z0-9]+/g, "_")
+//     .replace(/^_+|_+$/g, "")
+//     .replace(/__+/g, "_");
+// }
+
+// function stripScopePrefix(id: string) {
+//   return normalizeChargeIdentity(id).replace(/^(ORG|MANDI|CIBERMANDI)_+/, "");
+// }
+
+// function getChargeIdentityKeys(item: any): string[] {
+//   const rawParts = [
+//     item?.charge_type_id,
+//     item?.master_charge_id,
+//     item?.charge_code,
+//     item?.code,
+//     item?.charge_category,
+//     item?.charge_label,
+//     item?.label,
+//   ];
+//   const keys = new Set<string>();
+//   rawParts.forEach((part) => {
+//     const key = normalizeChargeIdentity(part);
+//     if (!key) return;
+//     keys.add(key);
+//     keys.add(stripScopePrefix(key));
+//   });
+//   const labelKey = normalizeChargeIdentity(item?.charge_label || item?.label);
+//   if (labelKey === "PLATFORM_FEE" || labelKey === "PLATFORM_CHARGE") keys.add("PLATFORM");
+//   if (labelKey === "GATEWAY_FEE" || labelKey === "PAYMENT_GATEWAY_FEE") keys.add("GATEWAY");
+//   if (labelKey === "MANDI_FEE" || labelKey === "MARKET_FEE") keys.add("MANDI");
+//   if (labelKey === "LABOUR_CHARGE" || labelKey === "LABOR_CHARGE") keys.add("LABOUR");
+//   if (labelKey === "LOADING_CHARGE") keys.add("LOADING");
+//   if (labelKey === "UNLOADING_CHARGE") keys.add("UNLOADING");
+//   if (labelKey === "PACKAGING_CHARGE") keys.add("PACKAGING");
+//   if (labelKey === "QUALITY_CHECK_FEE") keys.add("QUALITY_CHECK");
+//   if (labelKey === "INSURANCE_CHARGE") keys.add("INSURANCE");
+//   return Array.from(keys).filter(Boolean);
+// }
+
+// function addChargeIdentityKeys(target: Set<string>, item: any) {
+//   getChargeIdentityKeys(item).forEach((key) => target.add(key));
+// }
+
+// function hasBlockedChargeIdentity(item: any, blocked: Set<string>) {
+//   return getChargeIdentityKeys(item).some((key) => blocked.has(key));
+// }
+
+// function getMasterSelectValue(master: Master) {
+//   return getStableChargeId(master) || normalizeChargeIdentity(master.charge_code) || normalizeChargeIdentity(master.charge_label);
+// }
+
+// function findMatchingMaster(masters: Master[], line: any): Master | undefined {
+//   const lineKeys = new Set(getChargeIdentityKeys(line));
+//   return masters.find((master) => getChargeIdentityKeys(master).some((key) => lineKeys.has(key)));
+// }
+
+// function enrichLineWithMasterIdentity(line: ChargeLine, masters: Master[]): ChargeLine {
+//   if (line.charge_type_id || line.master_charge_id) return line;
+//   const master = findMatchingMaster(masters, line);
+//   if (!master) return line;
+//   return {
+//     ...line,
+//     charge_type_id: master.charge_type_id,
+//     master_charge_id: master.master_charge_id,
+//     charge_code: line.charge_code || master.charge_code,
+//   };
 // }
 
 // function mapOrgOption(raw: any): Option | null {
@@ -1637,6 +1729,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //       const settings = (settingsResp?.settings || settingsResp?.data?.settings || {}) as any;
 //       const loadedLines = Array.isArray(settings.charge_lines)
 //         ? settings.charge_lines.map((r: any, idx: number) => ({
+//             charge_type_id: r.charge_type_id ? String(r.charge_type_id).trim() : undefined,
+//             master_charge_id: r.master_charge_id ? String(r.master_charge_id).trim() : undefined,
 //             charge_code: toCode(r.charge_code || r.code || "") || `CUSTOM_CHARGE_${idx + 1}`,
 //             charge_label: String(r.charge_label || r.label || "").trim(),
 //             charge_category: String(r.charge_category || "OTHER").toUpperCase(),
@@ -1660,12 +1754,14 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
 //           }))
 //         : [];
-//       const scopedNormalizedLines = loadedLines.map((line: ChargeLine) => ({
+//       const scopedNormalizedLines = loadedLines.map((line: ChargeLine) => enrichLineWithMasterIdentity(line, mList)).map((line: ChargeLine) => ({
 //         ...line,
 //         charge_label: normalizeOrgScopeLabel(line, (settings.scope_type || form.scope_type) as ScopeType),
 //       }));
 //       const cmLines = Array.isArray(settings.ciber_mandi_charge_lines)
 //         ? settings.ciber_mandi_charge_lines.map((r: any, idx: number) => ({
+//             charge_type_id: r.charge_type_id ? String(r.charge_type_id).trim() : undefined,
+//             master_charge_id: r.master_charge_id ? String(r.master_charge_id).trim() : undefined,
 //             charge_code: toCode(r.charge_code || r.code || "") || `CM_CHARGE_${idx + 1}`,
 //             charge_label: String(r.charge_label || r.label || "").trim(),
 //             charge_category: String(r.charge_category || "OTHER").toUpperCase(),
@@ -1687,12 +1783,13 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
 //           }))
 //         : [];
+//       const cmLinesWithMasterIdentity = cmLines.map((line: ChargeLine) => enrichLineWithMasterIdentity(line, mList));
 
-//       const lockedByGlobal = isGlobalScopeLockedResponse(settings, scopedNormalizedLines, cmLines);
+//       const lockedByGlobal = isGlobalScopeLockedResponse(settings, scopedNormalizedLines, cmLinesWithMasterIdentity);
 //       const requestedScope = form.scope_type;
 //       const requestedIsOrgScope = !requestedScope.startsWith("CIBERMANDI");
-//       const inheritedGlobalLines = cmLines.length > 0
-//         ? cmLines
+//       const inheritedGlobalLines = cmLinesWithMasterIdentity.length > 0
+//         ? cmLinesWithMasterIdentity
 //         : scopedNormalizedLines.filter((line: ChargeLine) => String(line.charge_owner || "").toUpperCase() === "CIBERMANDI");
 //       const editableLocalLines = requestedIsOrgScope
 //         ? scopedNormalizedLines.filter((line: ChargeLine) => {
@@ -1879,7 +1976,10 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //   };
 
 //   const addLine = () => {
-//     const master = masters.find((x) => x.charge_code === "OTHER_CHARGE");
+//     const blocked = new Set<string>();
+//     ciberMandiReadonlyLines.filter((x) => x.enabled !== false).forEach((x) => addChargeIdentityKeys(blocked, x));
+//     form.charge_lines.forEach((x) => addChargeIdentityKeys(blocked, x));
+//     const master = masters.find((m) => !hasBlockedChargeIdentity(m, blocked)) || masters.find((x) => normalizeChargeIdentity(x.charge_code) === "OTHER_CHARGE");
 //     const owner = form.scope_type.startsWith("CIBERMANDI") ? "CIBERMANDI" : form.scope_type === "ORG_MANDI_SPECIFIC" ? "MANDI" : "ORG";
 //     const editable = !form.scope_type.startsWith("CIBERMANDI");
 //     const newLine = { ...defaultLine(master, form.charge_lines.length + 1), charge_owner: owner as any, editable_by_org: editable, locked_reason: editable ? null : "Managed by CiberMandi and applied globally." };
@@ -1905,6 +2005,32 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //   };
 
 //   const hasValidationErrors = useMemo(() => Object.keys(validate()).length > 0, [form]);
+//   const masterStableIds = useMemo(() => masters.map((m) => getStableChargeId(m)).filter(Boolean), [masters]);
+//   const inheritedGlobalIds = useMemo(
+//     () => Array.from(new Set(ciberMandiReadonlyLines.map((r) => getStableChargeId(r)).filter(Boolean))),
+//     [ciberMandiReadonlyLines],
+//   );
+//   const orgChargeIds = useMemo(
+//     () => Array.from(new Set(form.charge_lines.map((r) => getStableChargeId(r)).filter(Boolean))),
+//     [form.charge_lines],
+//   );
+//   const finalDropdownIds = useMemo(() => {
+//     const blocked = new Set<string>();
+//     ciberMandiReadonlyLines.filter((x) => x.enabled !== false).forEach((x) => addChargeIdentityKeys(blocked, x));
+//     form.charge_lines.forEach((x) => addChargeIdentityKeys(blocked, x));
+//     return masters
+//       .filter((m) => !hasBlockedChargeIdentity(m, blocked))
+//       .map((m) => getMasterSelectValue(m))
+//       .filter(Boolean);
+//   }, [masters, ciberMandiReadonlyLines, form.charge_lines]);
+//   useEffect(() => {
+//     console.log("[SettlementChargeSettings][chargeDropdownDebug]", {
+//       available_master_charges: masterStableIds,
+//       inherited_global_charge_ids: inheritedGlobalIds,
+//       org_charge_ids: orgChargeIds,
+//       final_dropdown_charge_ids: finalDropdownIds,
+//     });
+//   }, [masterStableIds, inheritedGlobalIds, orgChargeIds, finalDropdownIds]);
 
 //   const save = async () => {
 //     const username = getUsername();
@@ -1930,8 +2056,9 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //       return true;
 //     }).filter((row) => {
 //       if (!["ORG_ALL_MANDIS", "ORG_MANDI_SPECIFIC"].includes(form.scope_type)) return true;
-//       const code = String(row.charge_code || "").toUpperCase().trim();
-//       return code !== "PLATFORM_FEE" && code !== "GATEWAY_FEE";
+//       const activeInherited = new Set<string>();
+//       ciberMandiReadonlyLines.filter((x) => x.enabled !== false).forEach((x) => addChargeIdentityKeys(activeInherited, x));
+//       return !hasBlockedChargeIdentity(row, activeInherited);
 //     });
 //     const payload = {
 //       scope_type: form.scope_type,
@@ -1944,6 +2071,8 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //       rounding_rule: form.rounding_rule,
 //       is_active: form.is_active,
 //       charge_lines: sourceLines.map((r, idx) => ({
+//         charge_type_id: r.charge_type_id || null,
+//         master_charge_id: r.master_charge_id || null,
 //         charge_code: toCode(r.charge_code) || toCode(r.charge_label) || `CUSTOM_CHARGE_${idx + 1}`,
 //         charge_label: String(r.charge_label || "").trim(),
 //         charge_category: String(r.charge_category || "OTHER").toUpperCase(),
@@ -2169,6 +2298,15 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //             const labelErr = errors[`label.${idx}`];
 //             const rowLockedForCurrentUser = (row.charge_owner === "CIBERMANDI" && !isSuperAdmin);
 //             const editableForCurrentUser = canEditCurrentScope && !rowLockedForCurrentUser;
+//             const blocked = new Set<string>();
+//             ciberMandiReadonlyLines.filter((r) => r.enabled !== false).forEach((r) => addChargeIdentityKeys(blocked, r));
+//             form.charge_lines.filter((_, i) => i !== idx).forEach((r) => addChargeIdentityKeys(blocked, r));
+//             const currentKeys = new Set(getChargeIdentityKeys(row));
+//             const dropdownMasters = masters.filter((m) => {
+//               const masterKeys = getChargeIdentityKeys(m);
+//               if (masterKeys.some((key) => currentKeys.has(key))) return true;
+//               return !masterKeys.some((key) => blocked.has(key));
+//             });
 //             return (
 //               <Card
 //                 key={`line-${idx}`}
@@ -2220,13 +2358,15 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //                         select
 //                         size="small"
 //                         label="Charge Selector"
-//                         value={row.charge_code}
+//                         value={getStableChargeId(row) || row.charge_code}
 //                         disabled={!canEditCurrentScope || rowLockedForCurrentUser}
 //                         onChange={(e) => {
-//                           const code = String(e.target.value);
-//                           const m = masters.find((x) => x.charge_code === code);
+//                           const selectedId = String(e.target.value);
+//                           const m = masters.find((x) => getMasterSelectValue(x) === selectedId || normalizeChargeIdentity(x.charge_code) === normalizeChargeIdentity(selectedId));
 //                           if (m) {
 //                             setLine(idx, {
+//                               charge_type_id: m.charge_type_id,
+//                               master_charge_id: m.master_charge_id,
 //                               charge_code: m.charge_code,
 //                               charge_label: m.charge_label,
 //                               charge_category: m.charge_category,
@@ -2235,14 +2375,14 @@ export const SettlementChargeSettingsPage: React.FC = () => {
 //                               sort_order: m.sort_order || row.sort_order,
 //                             });
 //                           } else {
-//                             setLine(idx, { charge_code: toCode(code) });
+//                             setLine(idx, { charge_type_id: undefined, master_charge_id: undefined, charge_code: toCode(selectedId) });
 //                           }
 //                         }}
 //                         error={!!codeErr}
 //                         helperText={codeErr || " "}
 //                       >
-//                         {masters.map((m) => (
-//                           <MenuItem key={m.charge_code} value={m.charge_code}>
+//                         {dropdownMasters.map((m) => (
+//                           <MenuItem key={getMasterSelectValue(m)} value={getMasterSelectValue(m)}>
 //                             {m.charge_label}
 //                           </MenuItem>
 //                         ))}

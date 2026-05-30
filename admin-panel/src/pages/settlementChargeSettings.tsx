@@ -372,7 +372,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
           }))
         : [];
-      const scopedNormalizedLines = loadedLines.map((line) => ({
+      const scopedNormalizedLines = loadedLines.map((line: ChargeLine) => ({
         ...line,
         charge_label: normalizeOrgScopeLabel(line, (settings.scope_type || form.scope_type) as ScopeType),
       }));

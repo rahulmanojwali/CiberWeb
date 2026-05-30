@@ -209,6 +209,23 @@ function normalizeScopePayloadValues(scopeType: ScopeType, orgId: string, mandiI
   return { org_id: orgId || null, mandi_id: mandiId === "" ? null : Number(mandiId), applies_to_all_orgs: false, applies_to_all_mandis: false };
 }
 
+function normalizeOrgScopeLabel(line: ChargeLine, scopeType: ScopeType): string {
+  if (scopeType === "ORG_ALL_MANDIS" && String(line.charge_owner || "").toUpperCase() === "ORG") {
+    if (line.charge_code === "ORG_PLATFORM_FEE") return "Organisation Platform Fee";
+    if (line.charge_code === "ORG_GATEWAY_FEE") return "Organisation Gateway Fee";
+    if (line.charge_code === "ORG_MANDI_FEE") return "Organisation Mandi Fee";
+    if (line.charge_code === "ORG_LABOUR_CHARGE") return "Organisation Labour Charge";
+    if (line.charge_code === "ORG_LOADING_CHARGE") return "Organisation Loading Charge";
+  }
+  if (scopeType === "ORG_MANDI_SPECIFIC" && String(line.charge_owner || "").toUpperCase() === "MANDI") {
+    if (line.charge_code === "MANDI_GATEWAY_FEE") return "Mandi Gateway Fee";
+    if (line.charge_code === "MANDI_FEE") return "Mandi Fee";
+    if (line.charge_code === "MANDI_LABOUR_CHARGE") return "Mandi Labour Charge";
+    if (line.charge_code === "MANDI_LOADING_CHARGE") return "Mandi Loading Charge";
+  }
+  return line.charge_label;
+}
+
 export const SettlementChargeSettingsPage: React.FC = () => {
   const { can } = usePermissions();
   const uiConfig = useAdminUiConfig();
@@ -355,6 +372,10 @@ export const SettlementChargeSettingsPage: React.FC = () => {
             sort_order: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : idx + 1,
           }))
         : [];
+      const scopedNormalizedLines = loadedLines.map((line) => ({
+        ...line,
+        charge_label: normalizeOrgScopeLabel(line, (settings.scope_type || form.scope_type) as ScopeType),
+      }));
       const cmLines = Array.isArray(settings.ciber_mandi_charge_lines)
         ? settings.ciber_mandi_charge_lines.map((r: any, idx: number) => ({
             charge_code: toCode(r.charge_code || r.code || "") || `CM_CHARGE_${idx + 1}`,
@@ -389,7 +410,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
         )
           ? String(settings.rounding_rule).toUpperCase()
           : "NONE") as RoundingRule,
-        charge_lines: loadedLines,
+        charge_lines: scopedNormalizedLines,
         is_active: settings.is_active !== false,
       });
       setCiberMandiReadonlyLines(cmLines);
@@ -581,6 +602,12 @@ export const SettlementChargeSettingsPage: React.FC = () => {
     if (Object.keys(e).length) return;
     const scopedPayload = normalizeScopePayloadValues(form.scope_type, form.org_id, form.mandi_id);
 
+    const sourceLines = form.charge_lines.filter((row) => {
+      if (form.scope_type === "ORG_ALL_MANDIS") return String(row.charge_owner || "ORG").toUpperCase() === "ORG";
+      if (form.scope_type === "ORG_MANDI_SPECIFIC") return String(row.charge_owner || "MANDI").toUpperCase() === "MANDI";
+      if (form.scope_type.startsWith("CIBERMANDI")) return String(row.charge_owner || "CIBERMANDI").toUpperCase() === "CIBERMANDI";
+      return true;
+    });
     const payload = {
       scope_type: form.scope_type,
       org_id: scopedPayload.org_id,
@@ -591,7 +618,7 @@ export const SettlementChargeSettingsPage: React.FC = () => {
       provider_code: "DEFAULT",
       rounding_rule: form.rounding_rule,
       is_active: form.is_active,
-      charge_lines: form.charge_lines.map((r, idx) => ({
+      charge_lines: sourceLines.map((r, idx) => ({
         charge_code: toCode(r.charge_code) || toCode(r.charge_label) || `CUSTOM_CHARGE_${idx + 1}`,
         charge_label: String(r.charge_label || "").trim(),
         charge_category: String(r.charge_category || "OTHER").toUpperCase(),

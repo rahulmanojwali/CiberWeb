@@ -844,12 +844,12 @@ export const APP_MENU: AppMenuItem[] = [
       {
         key: "paymentVendorAccounts",
         labelKey: "menu.paymentVendorAccounts",
-        labelOverride: "Split Payment Setup",
-        path: "/payment-vendor-accounts",
+        labelOverride: "Payment Vendor Accounts",
+        path: "/finance/payment-vendor-accounts",
         icon: React.createElement(AccountBalanceWalletOutlinedIcon),
         resourceKey: "payment_vendor_accounts.menu",
         requiredAction: "VIEW",
-        roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+        roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "ORG_VIEWER"],
       },
       {
         key: "paymentTransactions",

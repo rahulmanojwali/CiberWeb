@@ -237,7 +237,14 @@ function App() {
                     }
                   />
                   <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
-                  <Route path="/payment-vendor-accounts" element={<PaymentVendorAccountsPage />} />
+                  <Route
+                    path="/finance/payment-vendor-accounts"
+                    element={
+                      <ProtectedRoute resourceKey="payment_vendor_accounts.view">
+                        <PaymentVendorAccountsPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/payment-transactions" element={<PaymentTransactionsPage />} />
                   <Route path="/custom-fees" element={<CustomFees />} />
                   <Route path="/role-custom-fees" element={<RoleCustomFees />} />

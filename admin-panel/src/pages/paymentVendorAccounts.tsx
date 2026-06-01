@@ -20,6 +20,7 @@ import { PageContainer } from "../components/PageContainer";
 import { getCurrentAdminUsername } from "../utils/session";
 import { getUserScope } from "../utils/userScope";
 import { getPaymentVendorAccount, resolvePaymentVendorsForSettlement, upsertPaymentVendorAccount } from "../api/paymentVendorAccounts";
+import { usePermissions } from "../authz/usePermissions";
 
 const PARTY_TYPES = ["FARMER", "ORG", "MANDI", "CIBERMANDI"];
 const GATEWAYS = ["CASHFREE", "RAZORPAY", "PAYU", "PHONEPE"];
@@ -45,6 +46,7 @@ const initialForm = {
 };
 
 export default function PaymentVendorAccountsPage() {
+  const { can } = usePermissions();
   const username = getCurrentAdminUsername();
   const scope = getUserScope("payment-vendor-accounts");
   const [form, setForm] = useState<any>(initialForm);
@@ -56,6 +58,11 @@ export default function PaymentVendorAccountsPage() {
 
   const isSuperAdmin = scope.role === "SUPER_ADMIN";
   const isOrgAdmin = scope.role === "ORG_ADMIN" || scope.role === "MANDI_ADMIN" || scope.role === "MANDI_MANAGER";
+  const canView = can("payment_vendor_accounts.menu", "VIEW") || can("payment_vendor_accounts.view", "VIEW");
+  const canUpdate = can("payment_vendor_accounts.update", "UPDATE");
+  const canResolve = can("payment_vendor_accounts.resolve", "VIEW") || can("payment_vendor_accounts.resolve", "UPDATE");
+  const canDemoSeed = can("payment_vendor_accounts.demo_seed", "CREATE") || can("payment_vendor_accounts.demo_seed", "UPDATE");
+  const isViewOnly = !canUpdate && !canResolve && !canDemoSeed;
 
   const allowedPartyTypes = useMemo(() => {
     if (isSuperAdmin) return PARTY_TYPES;
@@ -83,6 +90,10 @@ export default function PaymentVendorAccountsPage() {
   };
 
   const onGet = async () => {
+    if (!canView) {
+      show("error", "You are not authorized to view vendor mappings.");
+      return;
+    }
     if (!username) return;
     setLoading(true);
     setResolveOutput(null);
@@ -111,6 +122,10 @@ export default function PaymentVendorAccountsPage() {
   };
 
   const onUpsert = async () => {
+    if (!canUpdate) {
+      show("error", "You are not authorized to update vendor mappings.");
+      return;
+    }
     if (!username) return;
     if (blockedCiberMandi) {
       show("error", "Org admin cannot manage CIBERMANDI vendor accounts.");
@@ -137,6 +152,10 @@ export default function PaymentVendorAccountsPage() {
   };
 
   const onResolve = async () => {
+    if (!canResolve) {
+      show("error", "You are not authorized to resolve settlement split vendors.");
+      return;
+    }
     if (!username) return;
     setLoading(true);
     try {
@@ -170,6 +189,10 @@ export default function PaymentVendorAccountsPage() {
   };
 
   const createDemoVendorAccounts = async () => {
+    if (!canDemoSeed) {
+      show("error", "You are not authorized to run demo seed.");
+      return;
+    }
     if (!username) return;
     const orgRef = String(form.org_id || scope.orgCode || "").trim();
     const farmerRef = String(form.party_ref_id || "").trim();
@@ -214,9 +237,11 @@ export default function PaymentVendorAccountsPage() {
   };
 
   return (
-    <PageContainer title="Split Payment Setup" subtitle="Manage payout receiver/vendor mappings for settlement split lines.">
+    <PageContainer title="Payment Vendor Accounts" subtitle="Manage payout receiver/vendor mappings for settlement split lines.">
       <Stack spacing={2}>
+        {!canView && <Alert severity="error">You do not have permission to view this screen.</Alert>}
         {message ? <Alert severity={messageType}>{message}</Alert> : null}
+        {isViewOnly && <Alert severity="info">View-only access. Update/resolve/demo actions are disabled.</Alert>}
         {!isSuperAdmin && (
           <Alert severity="info">
             Org Admin scope: manage own ORG/MANDI/FARMER mappings. CIBERMANDI mapping is restricted.
@@ -228,50 +253,50 @@ export default function PaymentVendorAccountsPage() {
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Party Type</InputLabel>
-                  <Select value={form.party_type} label="Party Type" onChange={(e) => onChange("party_type", e.target.value)}>
+                  <Select value={form.party_type} label="Party Type" onChange={(e) => onChange("party_type", e.target.value)} disabled={isViewOnly}>
                     {allowedPartyTypes.map((pt) => (<MenuItem key={pt} value={pt}>{pt}</MenuItem>))}
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Party Ref ID" value={form.party_ref_id} onChange={(e) => onChange("party_ref_id", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Display Name" value={form.party_display_name} onChange={(e) => onChange("party_display_name", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Country" value={form.country} onChange={(e) => onChange("country", e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Party Ref ID" value={form.party_ref_id} onChange={(e) => onChange("party_ref_id", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Display Name" value={form.party_display_name} onChange={(e) => onChange("party_display_name", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Country" value={form.country} onChange={(e) => onChange("country", e.target.value)} disabled={isViewOnly} /></Grid>
 
-              <Grid item xs={12} md={3}><TextField fullWidth label="Org ID" value={form.org_id} onChange={(e) => onChange("org_id", e.target.value)} disabled={!isSuperAdmin} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Mandi ID" value={form.mandi_id} onChange={(e) => onChange("mandi_id", e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Org ID" value={form.org_id} onChange={(e) => onChange("org_id", e.target.value)} disabled={!isSuperAdmin || isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Mandi ID" value={form.mandi_id} onChange={(e) => onChange("mandi_id", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Gateway Code</InputLabel>
-                  <Select value={form.gateway_code} label="Gateway Code" onChange={(e) => onChange("gateway_code", e.target.value)}>
+                  <Select value={form.gateway_code} label="Gateway Code" onChange={(e) => onChange("gateway_code", e.target.value)} disabled={isViewOnly}>
                     {GATEWAYS.map((g) => (<MenuItem key={g} value={g}>{g}</MenuItem>))}
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Gateway Vendor ID" value={form.gateway_vendor_id} onChange={(e) => onChange("gateway_vendor_id", e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Gateway Vendor ID" value={form.gateway_vendor_id} onChange={(e) => onChange("gateway_vendor_id", e.target.value)} disabled={isViewOnly} /></Grid>
 
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Vendor Status</InputLabel>
-                  <Select value={form.gateway_vendor_status} label="Vendor Status" onChange={(e) => onChange("gateway_vendor_status", e.target.value)}>
+                  <Select value={form.gateway_vendor_status} label="Vendor Status" onChange={(e) => onChange("gateway_vendor_status", e.target.value)} disabled={isViewOnly}>
                     {STATUS.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="KYC Status" value={form.kyc_status} onChange={(e) => onChange("kyc_status", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="UPI ID" value={form.upi_id} onChange={(e) => onChange("upi_id", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Account Holder Name" value={form.account_holder_name} onChange={(e) => onChange("account_holder_name", e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="KYC Status" value={form.kyc_status} onChange={(e) => onChange("kyc_status", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="UPI ID" value={form.upi_id} onChange={(e) => onChange("upi_id", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Account Holder Name" value={form.account_holder_name} onChange={(e) => onChange("account_holder_name", e.target.value)} disabled={isViewOnly} /></Grid>
 
-              <Grid item xs={12} md={3}><TextField fullWidth label="Bank Account Masked" value={form.bank_account_masked} onChange={(e) => onChange("bank_account_masked", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="IFSC Masked" value={form.ifsc_masked} onChange={(e) => onChange("ifsc_masked", e.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_default)} onChange={(e) => onChange("is_default", e.target.checked)} />} label="Default" /></Grid>
-              <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_active)} onChange={(e) => onChange("is_active", e.target.checked)} />} label="Active" /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Bank Account Masked" value={form.bank_account_masked} onChange={(e) => onChange("bank_account_masked", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="IFSC Masked" value={form.ifsc_masked} onChange={(e) => onChange("ifsc_masked", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_default)} onChange={(e) => onChange("is_default", e.target.checked)} disabled={isViewOnly} />} label="Default" /></Grid>
+              <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_active)} onChange={(e) => onChange("is_active", e.target.checked)} disabled={isViewOnly} />} label="Active" /></Grid>
             </Grid>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mt: 2 }}>
-              <Button variant="outlined" disabled={loading} onClick={onGet}>Get Mapping</Button>
-              <Button variant="contained" disabled={loading} onClick={onUpsert}>Upsert Mapping</Button>
-              <Button variant="outlined" disabled={loading} onClick={onResolve}>Resolve For Settlement</Button>
-              <Button variant="contained" color="secondary" disabled={loading} onClick={createDemoVendorAccounts}>Create Demo Vendor Accounts</Button>
+              <Button variant="outlined" disabled={loading || !canView} onClick={onGet}>Get Mapping</Button>
+              <Button variant="contained" disabled={loading || !canUpdate || isViewOnly} onClick={onUpsert}>Upsert Mapping</Button>
+              <Button variant="outlined" disabled={loading || !canResolve || isViewOnly} onClick={onResolve}>Resolve For Settlement</Button>
+              <Button variant="contained" color="secondary" disabled={loading || !canDemoSeed || isViewOnly} onClick={createDemoVendorAccounts}>Create Demo Vendor Accounts</Button>
             </Stack>
           </CardContent>
         </Card>

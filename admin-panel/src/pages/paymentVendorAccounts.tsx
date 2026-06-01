@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -26,8 +26,15 @@ const PARTY_TYPES = ["FARMER", "ORG", "MANDI", "CIBERMANDI"];
 const GATEWAYS = ["CASHFREE", "RAZORPAY", "PAYU", "PHONEPE"];
 const STATUS = ["PENDING", "ACTIVE", "FAILED", "DISABLED"];
 
+const partyTypeHelperText: Record<string, string> = {
+  CIBERMANDI: "CIBERMANDI vendor account receives platform split settlement.",
+  ORG: "ORG vendor account receives organisation-level split settlement.",
+  MANDI: "MANDI vendor account receives mandi-level split settlement when separate mapping is enabled.",
+  FARMER: "FARMER vendor account receives farmer payout settlement.",
+};
+
 const initialForm = {
-  party_type: "FARMER",
+  party_type: "CIBERMANDI",
   party_ref_id: "",
   party_display_name: "",
   country: "IN",
@@ -57,18 +64,40 @@ export default function PaymentVendorAccountsPage() {
   const [resolveOutput, setResolveOutput] = useState<any>(null);
 
   const isSuperAdmin = scope.role === "SUPER_ADMIN";
-  const isOrgAdmin = scope.role === "ORG_ADMIN" || scope.role === "MANDI_ADMIN" || scope.role === "MANDI_MANAGER";
+  const isOrgAdmin = scope.role === "ORG_ADMIN";
+  const isMandiManager = scope.role === "MANDI_MANAGER";
+  const isMandiAdmin = scope.role === "MANDI_ADMIN";
   const canView = can("payment_vendor_accounts.menu", "VIEW") || can("payment_vendor_accounts.view", "VIEW");
   const canUpdate = can("payment_vendor_accounts.update", "UPDATE");
   const canResolve = can("payment_vendor_accounts.resolve", "VIEW") || can("payment_vendor_accounts.resolve", "UPDATE");
   const canDemoSeed = can("payment_vendor_accounts.demo_seed", "CREATE") || can("payment_vendor_accounts.demo_seed", "UPDATE");
   const isViewOnly = !canUpdate && !canResolve && !canDemoSeed;
 
-  const allowedPartyTypes = useMemo(() => {
-    if (isSuperAdmin) return PARTY_TYPES;
-    if (isOrgAdmin) return ["ORG", "MANDI", "FARMER"];
-    return ["FARMER"];
-  }, [isSuperAdmin, isOrgAdmin]);
+  const scopeMandiId = useMemo(() => {
+    const raw = scope.rawUser || {};
+    const mandiCandidate =
+      raw?.mandi_id ??
+      raw?.mandiId ??
+      raw?.scope?.mandi_id ??
+      raw?.scope?.mandiId ??
+      null;
+    if (mandiCandidate !== null && mandiCandidate !== undefined && String(mandiCandidate).trim() !== "") {
+      return String(mandiCandidate).trim();
+    }
+    if (Array.isArray(scope.allowedMandis) && scope.allowedMandis.length > 0) return scope.allowedMandis[0];
+    return "";
+  }, [scope.allowedMandis, scope.rawUser]);
+
+  const roleConfig = useMemo(() => {
+    if (isSuperAdmin) return { defaultPartyType: "CIBERMANDI", allowedPartyTypes: PARTY_TYPES };
+    if (isOrgAdmin || isMandiAdmin) return { defaultPartyType: "ORG", allowedPartyTypes: ["ORG", "MANDI", "FARMER"] };
+    if (isMandiManager) return { defaultPartyType: "MANDI", allowedPartyTypes: ["MANDI", "FARMER"] };
+    return { defaultPartyType: "FARMER", allowedPartyTypes: ["FARMER"] };
+  }, [isMandiAdmin, isMandiManager, isOrgAdmin, isSuperAdmin, scope.role]);
+
+  const allowedPartyTypes = roleConfig.allowedPartyTypes;
+  const orgIdReadOnly = !isSuperAdmin || isViewOnly || isOrgAdmin || isMandiAdmin || isMandiManager;
+  const mandiIdReadOnly = isViewOnly || isMandiManager;
 
   const blockedCiberMandi = !isSuperAdmin && form.party_type === "CIBERMANDI";
 
@@ -76,11 +105,30 @@ export default function PaymentVendorAccountsPage() {
     setForm((prev: any) => ({ ...prev, [key]: value }));
   };
 
+  useEffect(() => {
+    setForm((prev: any) => {
+      const nextPartyType = allowedPartyTypes.includes(prev.party_type)
+        ? prev.party_type
+        : roleConfig.defaultPartyType;
+      return {
+        ...prev,
+        party_type: nextPartyType,
+        org_id: (isOrgAdmin || isMandiAdmin || isMandiManager) ? String(scope.orgCode || prev.org_id || "") : prev.org_id,
+        mandi_id: isMandiManager ? String(scopeMandiId || prev.mandi_id || "") : prev.mandi_id,
+      };
+    });
+  }, [allowedPartyTypes, isMandiAdmin, isMandiManager, isOrgAdmin, roleConfig.defaultPartyType, scope.orgCode, scopeMandiId]);
+
   const withScopeDefaults = (payload: Record<string, any>) => {
     if (isSuperAdmin) return payload;
+    const scopedOrgId = String(scope.orgCode || "").trim();
+    const scopedMandiId = String(scopeMandiId || "").trim();
     return {
       ...payload,
-      org_id: payload.org_id || scope.orgCode || "",
+      org_id: (isOrgAdmin || isMandiAdmin || isMandiManager) ? scopedOrgId : (payload.org_id || scopedOrgId || ""),
+      mandi_id: isMandiManager
+        ? (scopedMandiId ? Number(scopedMandiId) : null)
+        : payload.mandi_id,
     };
   };
 
@@ -237,12 +285,20 @@ export default function PaymentVendorAccountsPage() {
   };
 
   return (
-    <PageContainer title="Payment Vendor Accounts" subtitle="Manage payout receiver/vendor mappings for settlement split lines.">
+    <PageContainer title="Payment Vendor Accounts" subtitle="Manage payout receiver/vendor mappings used for settlement split payments.">
       <Stack spacing={2}>
         {!canView && <Alert severity="error">You do not have permission to view this screen.</Alert>}
         {message ? <Alert severity={messageType}>{message}</Alert> : null}
         {isViewOnly && <Alert severity="info">View-only access. Update/resolve/demo actions are disabled.</Alert>}
-        {!isSuperAdmin && (
+        <Alert severity="info">
+          Settlement Charge Settings decides how much to charge. Vendor Accounts decides where each split amount is settled.
+        </Alert>
+        {isSuperAdmin && (
+          <Alert severity="info">
+            Farmer payout accounts are normally created from farmer mobile/profile. Use this only for admin correction/demo.
+          </Alert>
+        )}
+        {!isSuperAdmin && (isOrgAdmin || isMandiAdmin || isMandiManager) && (
           <Alert severity="info">
             Org Admin scope: manage own ORG/MANDI/FARMER mappings. CIBERMANDI mapping is restricted.
           </Alert>
@@ -257,13 +313,16 @@ export default function PaymentVendorAccountsPage() {
                     {allowedPartyTypes.map((pt) => (<MenuItem key={pt} value={pt}>{pt}</MenuItem>))}
                   </Select>
                 </FormControl>
+                <Typography variant="caption" color="text.secondary">
+                  {partyTypeHelperText[form.party_type] || ""}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Party Ref ID" value={form.party_ref_id} onChange={(e) => onChange("party_ref_id", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Display Name" value={form.party_display_name} onChange={(e) => onChange("party_display_name", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Country" value={form.country} onChange={(e) => onChange("country", e.target.value)} disabled={isViewOnly} /></Grid>
 
-              <Grid item xs={12} md={3}><TextField fullWidth label="Org ID" value={form.org_id} onChange={(e) => onChange("org_id", e.target.value)} disabled={!isSuperAdmin || isViewOnly} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Mandi ID" value={form.mandi_id} onChange={(e) => onChange("mandi_id", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Org ID" value={form.org_id} onChange={(e) => onChange("org_id", e.target.value)} disabled={orgIdReadOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Mandi ID" value={form.mandi_id} onChange={(e) => onChange("mandi_id", e.target.value)} disabled={mandiIdReadOnly} /></Grid>
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Gateway Code</InputLabel>

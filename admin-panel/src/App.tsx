@@ -100,6 +100,7 @@ import { PaymentPayoutSettingsPage } from "./pages/paymentPayoutSettings";
 import { SettlementChargeSettingsPage } from "./pages/settlementChargeSettings";
 import { PaymentGatewayConfigsPage } from "./pages/payment-gateway-configs";
 import { PaymentTransactionsPage } from "./pages/paymentTransactions";
+import PaymentVendorAccountsPage from "./pages/paymentVendorAccounts";
 import { CustomFees } from "./pages/customFees";
 import { RoleCustomFees } from "./pages/roleCustomFees";
 import { SubscriptionsPage } from "./pages/subscriptions";
@@ -236,6 +237,7 @@ function App() {
                     }
                   />
                   <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
+                  <Route path="/payment-vendor-accounts" element={<PaymentVendorAccountsPage />} />
                   <Route path="/payment-transactions" element={<PaymentTransactionsPage />} />
                   <Route path="/custom-fees" element={<CustomFees />} />
                   <Route path="/role-custom-fees" element={<RoleCustomFees />} />

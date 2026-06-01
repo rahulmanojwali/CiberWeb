@@ -842,6 +842,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
       },
       {
+        key: "paymentVendorAccounts",
+        labelKey: "menu.paymentVendorAccounts",
+        labelOverride: "Split Payment Setup",
+        path: "/payment-vendor-accounts",
+        icon: React.createElement(AccountBalanceWalletOutlinedIcon),
+        resourceKey: "payment_vendor_accounts.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER"],
+      },
+      {
         key: "paymentTransactions",
         labelKey: "menu.paymentTransactions",
         path: "/payment-transactions",

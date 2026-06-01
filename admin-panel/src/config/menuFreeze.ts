@@ -242,6 +242,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Finance",
+    "resource_key": "payment_vendor_accounts.menu",
+    "menu_name": "Payment Vendor Accounts",
+    "name_source": "screen",
+    "i18n_key": "menu.paymentVendorAccounts",
+    "route": "/finance/payment-vendor-accounts",
+    "icon_key": "settings",
+    "order": 687,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Finance",
     "resource_key": "payments_log.menu",
     "menu_name": "Payments Log",
     "name_source": "screen",

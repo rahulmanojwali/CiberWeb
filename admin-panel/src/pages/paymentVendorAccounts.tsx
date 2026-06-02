@@ -70,7 +70,7 @@ export default function PaymentVendorAccountsPage() {
   const canView = can("payment_vendor_accounts.menu", "VIEW") || can("payment_vendor_accounts.view", "VIEW");
   const canUpdate = can("payment_vendor_accounts.update", "UPDATE");
   const canResolve = can("payment_vendor_accounts.resolve", "VIEW") || can("payment_vendor_accounts.resolve", "UPDATE");
-  const canDemoSeed = can("payment_vendor_accounts.demo_seed", "CREATE") || can("payment_vendor_accounts.demo_seed", "UPDATE");
+  const canDemoSeed = canUpdate;
   const isViewOnly = !canUpdate && !canResolve && !canDemoSeed;
 
   const scopeMandiId = useMemo(() => {

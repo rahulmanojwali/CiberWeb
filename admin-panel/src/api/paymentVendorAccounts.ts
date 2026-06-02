@@ -14,3 +14,13 @@ export async function resolvePaymentVendorsForSettlement(input: { username: stri
   const { username, language = "en", payload = {} } = input;
   return postEncrypted("/payment-vendors/resolve-for-settlement", { api: "resolvePaymentVendorsForSettlement", username, language, ...payload });
 }
+
+export async function verifyPaymentVendorBank(input: { username: string; language?: string; payload?: Record<string, any> }) {
+  const { username, language = "en", payload = {} } = input;
+  return postEncrypted("/payment-vendors/verify-bank", { api: "verifyPaymentVendorBank", username, language, ...payload });
+}
+
+export async function verifyPaymentVendorUpi(input: { username: string; language?: string; payload?: Record<string, any> }) {
+  const { username, language = "en", payload = {} } = input;
+  return postEncrypted("/payment-vendors/verify-upi", { api: "verifyPaymentVendorUpi", username, language, ...payload });
+}

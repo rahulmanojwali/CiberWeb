@@ -19,12 +19,19 @@ import {
 import { PageContainer } from "../components/PageContainer";
 import { getCurrentAdminUsername } from "../utils/session";
 import { getUserScope } from "../utils/userScope";
-import { getPaymentVendorAccount, resolvePaymentVendorsForSettlement, upsertPaymentVendorAccount } from "../api/paymentVendorAccounts";
+import {
+  getPaymentVendorAccount,
+  resolvePaymentVendorsForSettlement,
+  upsertPaymentVendorAccount,
+  verifyPaymentVendorBank,
+  verifyPaymentVendorUpi,
+} from "../api/paymentVendorAccounts";
 import { usePermissions } from "../authz/usePermissions";
 
 const PARTY_TYPES = ["FARMER", "ORG", "MANDI", "CIBERMANDI"];
 const GATEWAYS = ["CASHFREE", "RAZORPAY", "PAYU", "PHONEPE"];
 const STATUS = ["PENDING", "ACTIVE", "FAILED", "DISABLED"];
+const VERIFICATION_STATUS = ["UNVERIFIED", "VERIFIED", "FAILED"];
 
 const partyTypeHelperText: Record<string, string> = {
   CIBERMANDI: "CIBERMANDI vendor account receives platform split settlement.",
@@ -45,9 +52,18 @@ const initialForm = {
   gateway_vendor_status: "PENDING",
   kyc_status: "",
   upi_id: "",
+  bank_account_number: "",
   bank_account_masked: "",
+  ifsc: "",
   ifsc_masked: "",
   account_holder_name: "",
+  bank_verification_status: "UNVERIFIED",
+  upi_verification_status: "UNVERIFIED",
+  verification_message: "",
+  verified_account_holder_name: "",
+  verified_on: "",
+  verification_provider: "",
+  verification_reference_id: "",
   is_default: true,
   is_active: true,
 };
@@ -191,9 +207,71 @@ export default function PaymentVendorAccountsPage() {
         throw new Error(resp?.response?.description || "Unable to save vendor mapping.");
       }
       setLastResponse(resp?.data || null);
-      show("success", "Vendor mapping saved.");
+      show("success", "Vendor account saved successfully.");
     } catch (err: any) {
       show("error", err?.message || "Unable to save vendor mapping.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyVerificationResult = (row: any) => {
+    setLastResponse(row || null);
+    if (!row) return;
+    setForm((prev: any) => ({
+      ...prev,
+      ...row,
+      bank_account_number: prev.bank_account_number || row.bank_account_masked || "",
+      ifsc: prev.ifsc || row.ifsc_masked || "",
+      verified_on: row.verified_on || prev.verified_on || "",
+    }));
+  };
+
+  const verificationBasePayload = () => withScopeDefaults({
+    ...form,
+    gateway_mode: "SANDBOX",
+    mandi_id: form.mandi_id ? Number(form.mandi_id) : null,
+    ifsc: form.ifsc || form.ifsc_masked,
+    bank_account_number: form.bank_account_number || form.bank_account_masked,
+  });
+
+  const onVerifyBank = async () => {
+    if (!canUpdate) {
+      show("error", "You are not authorized to verify vendor accounts.");
+      return;
+    }
+    if (!username) return;
+    setLoading(true);
+    try {
+      const resp: any = await verifyPaymentVendorBank({ username, payload: verificationBasePayload() });
+      if (String(resp?.response?.responsecode || "1") !== "0") {
+        throw new Error(resp?.response?.description || "Unable to verify bank account.");
+      }
+      applyVerificationResult(resp?.data || null);
+      show("success", "Bank account verified.");
+    } catch (err: any) {
+      show("error", err?.message || "Unable to verify bank account.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onVerifyUpi = async () => {
+    if (!canUpdate) {
+      show("error", "You are not authorized to verify vendor accounts.");
+      return;
+    }
+    if (!username) return;
+    setLoading(true);
+    try {
+      const resp: any = await verifyPaymentVendorUpi({ username, payload: verificationBasePayload() });
+      if (String(resp?.response?.responsecode || "1") !== "0") {
+        throw new Error(resp?.response?.description || "Unable to verify UPI.");
+      }
+      applyVerificationResult(resp?.data || null);
+      show("success", "UPI verified.");
+    } catch (err: any) {
+      show("error", err?.message || "Unable to verify UPI.");
     } finally {
       setLoading(false);
     }
@@ -331,7 +409,7 @@ export default function PaymentVendorAccountsPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Gateway Vendor ID" value={form.gateway_vendor_id} onChange={(e) => onChange("gateway_vendor_id", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Gateway Vendor ID" value={form.gateway_vendor_id} onChange={(e) => onChange("gateway_vendor_id", e.target.value)} disabled /></Grid>
 
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
@@ -345,16 +423,37 @@ export default function PaymentVendorAccountsPage() {
               <Grid item xs={12} md={3}><TextField fullWidth label="UPI ID" value={form.upi_id} onChange={(e) => onChange("upi_id", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Account Holder Name" value={form.account_holder_name} onChange={(e) => onChange("account_holder_name", e.target.value)} disabled={isViewOnly} /></Grid>
 
-              <Grid item xs={12} md={3}><TextField fullWidth label="Bank Account Masked" value={form.bank_account_masked} onChange={(e) => onChange("bank_account_masked", e.target.value)} disabled={isViewOnly} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="IFSC Masked" value={form.ifsc_masked} onChange={(e) => onChange("ifsc_masked", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Bank Account Number" value={form.bank_account_number || form.bank_account_masked} onChange={(e) => onChange("bank_account_number", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="IFSC" value={form.ifsc || form.ifsc_masked} onChange={(e) => onChange("ifsc", e.target.value)} disabled={isViewOnly} /></Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel>Bank Verification Status</InputLabel>
+                  <Select value={form.bank_verification_status || "UNVERIFIED"} label="Bank Verification Status" onChange={(e) => onChange("bank_verification_status", e.target.value)} disabled>
+                    {VERIFICATION_STATUS.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel>UPI Verification Status</InputLabel>
+                  <Select value={form.upi_verification_status || "UNVERIFIED"} label="UPI Verification Status" onChange={(e) => onChange("upi_verification_status", e.target.value)} disabled>
+                    {VERIFICATION_STATUS.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Verification Message" value={form.verification_message} onChange={(e) => onChange("verification_message", e.target.value)} disabled /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Verified Account Holder Name" value={form.verified_account_holder_name} onChange={(e) => onChange("verified_account_holder_name", e.target.value)} disabled /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Verified On" value={form.verified_on ? String(form.verified_on) : ""} onChange={(e) => onChange("verified_on", e.target.value)} disabled /></Grid>
               <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_default)} onChange={(e) => onChange("is_default", e.target.checked)} disabled={isViewOnly} />} label="Default" /></Grid>
               <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={Boolean(form.is_active)} onChange={(e) => onChange("is_active", e.target.checked)} disabled={isViewOnly} />} label="Active" /></Grid>
             </Grid>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mt: 2 }}>
-              <Button variant="outlined" disabled={loading || !canView} onClick={onGet}>Get Mapping</Button>
-              <Button variant="contained" disabled={loading || !canUpdate || isViewOnly} onClick={onUpsert}>Upsert Mapping</Button>
-              <Button variant="outlined" disabled={loading || !canResolve || isViewOnly} onClick={onResolve}>Resolve For Settlement</Button>
+              <Button variant="outlined" disabled={loading || !canView} onClick={onGet}>Load Vendor Account</Button>
+              <Button variant="outlined" disabled={loading || !canUpdate || isViewOnly} onClick={onVerifyBank}>Verify Bank Account</Button>
+              <Button variant="outlined" disabled={loading || !canUpdate || isViewOnly} onClick={onVerifyUpi}>Verify UPI</Button>
+              <Button variant="contained" disabled={loading || !canUpdate || isViewOnly} onClick={onUpsert}>Save Vendor Account</Button>
+              <Button variant="outlined" disabled={loading || !canResolve || isViewOnly} onClick={onResolve}>Test Split Resolution</Button>
               <Button variant="contained" color="secondary" disabled={loading || !canDemoSeed || isViewOnly} onClick={createDemoVendorAccounts}>Create Demo Vendor Accounts</Button>
             </Stack>
           </CardContent>

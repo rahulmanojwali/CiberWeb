@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -31,7 +32,6 @@ import { usePermissions } from "../authz/usePermissions";
 const PARTY_TYPES = ["FARMER", "ORG", "MANDI", "CIBERMANDI"];
 const GATEWAYS = ["CASHFREE", "RAZORPAY", "PAYU", "PHONEPE"];
 const STATUS = ["PENDING", "ACTIVE", "FAILED", "DISABLED"];
-const VERIFICATION_STATUS = ["UNVERIFIED", "VERIFIED", "FAILED"];
 
 const partyTypeHelperText: Record<string, string> = {
   CIBERMANDI: "CIBERMANDI vendor account receives platform split settlement.",
@@ -153,6 +153,14 @@ export default function PaymentVendorAccountsPage() {
     setMessage(text);
   };
 
+  const statusChipColor = (status: string) => {
+    const normalized = String(status || "UNVERIFIED").toUpperCase();
+    if (normalized === "VERIFIED") return "success";
+    if (normalized === "FAILED") return "error";
+    if (normalized === "PENDING") return "warning";
+    return "default";
+  };
+
   const onGet = async () => {
     if (!canView) {
       show("error", "You are not authorized to view vendor mappings.");
@@ -221,6 +229,7 @@ export default function PaymentVendorAccountsPage() {
     setForm((prev: any) => ({
       ...prev,
       ...row,
+      account_holder_name: row.verified_account_holder_name || row.account_holder_name || prev.account_holder_name || "",
       bank_account_number: prev.bank_account_number || row.bank_account_masked || "",
       ifsc: prev.ifsc || row.ifsc_masked || "",
       verified_on: row.verified_on || prev.verified_on || "",
@@ -426,20 +435,16 @@ export default function PaymentVendorAccountsPage() {
               <Grid item xs={12} md={3}><TextField fullWidth label="Bank Account Number" value={form.bank_account_number || form.bank_account_masked} onChange={(e) => onChange("bank_account_number", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="IFSC" value={form.ifsc || form.ifsc_masked} onChange={(e) => onChange("ifsc", e.target.value)} disabled={isViewOnly} /></Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Bank Verification Status</InputLabel>
-                  <Select value={form.bank_verification_status || "UNVERIFIED"} label="Bank Verification Status" onChange={(e) => onChange("bank_verification_status", e.target.value)} disabled>
-                    {VERIFICATION_STATUS.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
-                  </Select>
-                </FormControl>
+                <Stack spacing={0.75}>
+                  <Typography variant="caption" color="text.secondary">Bank Verification Status</Typography>
+                  <Chip label={`Bank: ${form.bank_verification_status || "UNVERIFIED"}`} color={statusChipColor(form.bank_verification_status) as any} variant="outlined" />
+                </Stack>
               </Grid>
               <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>UPI Verification Status</InputLabel>
-                  <Select value={form.upi_verification_status || "UNVERIFIED"} label="UPI Verification Status" onChange={(e) => onChange("upi_verification_status", e.target.value)} disabled>
-                    {VERIFICATION_STATUS.map((s) => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
-                  </Select>
-                </FormControl>
+                <Stack spacing={0.75}>
+                  <Typography variant="caption" color="text.secondary">UPI Verification Status</Typography>
+                  <Chip label={`UPI: ${form.upi_verification_status || "UNVERIFIED"}`} color={statusChipColor(form.upi_verification_status) as any} variant="outlined" />
+                </Stack>
               </Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Verification Message" value={form.verification_message} onChange={(e) => onChange("verification_message", e.target.value)} disabled /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Verified Account Holder Name" value={form.verified_account_holder_name} onChange={(e) => onChange("verified_account_holder_name", e.target.value)} disabled /></Grid>

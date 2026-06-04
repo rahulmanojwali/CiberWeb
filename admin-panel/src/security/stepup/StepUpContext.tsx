@@ -543,7 +543,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -553,10 +552,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   IconButton,
-  Switch,
-  TextField,
   Typography,
 } from "@mui/material";
 import { useSnackbar } from "@refinedev/mui";
@@ -570,7 +566,6 @@ import {
 } from "../../utils/stepupCache";
 import { getBrowserSessionId } from "./browserSession";
 import SecurityIcon from "@mui/icons-material/Security";
-import KeyIcon from "@mui/icons-material/VpnKey";
 import CloseIcon from "@mui/icons-material/Close";
 import { registerStepUpTrigger } from "./stepupService";
 import { getUserRoleFromStorage } from "../../utils/roles";
@@ -706,6 +701,7 @@ type StepUpContextValue = {
 
 const STEP_UP_RULE_KEY = "ADMIN_SCREEN_STEPUP_V1";
 const STEPUP_SESSION_KEY = "cm_stepup_session_id";
+const OTP_LENGTH = 6;
 
 const StepUpContext = React.createContext<StepUpContextValue | undefined>(undefined);
 
@@ -741,8 +737,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
   const [pendingPrompt, setPendingPrompt] = React.useState<StepUpPrompt | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [otp, setOtp] = React.useState("");
-  const [backupCode, setBackupCode] = React.useState("");
-  const [useBackup, setUseBackup] = React.useState(false);
   const [verifying, setVerifying] = React.useState(false);
   const resolveRef = React.useRef<((result: boolean) => void) | null>(null);
   const loadPromiseRef = React.useRef<Promise<void> | null>(null);
@@ -841,51 +835,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     setLockedVersion((prev) => prev + 1);
   }, []);
 
-  const handleRetry = React.useCallback(async () => {
-    if (!pendingPrompt) return;
-    try {
-      const stepup = await issueStepUpCheck(
-        pendingPrompt.resourceKey,
-        pendingPrompt.action,
-      );
-      if (!stepup) {
-        resolveRef.current?.(true);
-        resolveRef.current = null;
-        setPendingPrompt(null);
-        setModalOpen(false);
-        markVerified();
-        return;
-      }
-      if (stepup.mode === "ENROLL_MANDATORY") {
-        enqueueSnackbar(
-          "2FA enrollment is mandatory before you can continue.",
-          { variant: "warning" },
-        );
-        navigate("/system/security/2fa", { replace: true });
-        resolveRef.current?.(false);
-        resolveRef.current = null;
-        setPendingPrompt(null);
-        setModalOpen(false);
-        return;
-      }
-      if (stepup.mode === "OTP_REQUIRED") {
-        setModalOpen(true);
-        return;
-      }
-      resolveRef.current?.(true);
-      resolveRef.current = null;
-      setPendingPrompt(null);
-      setModalOpen(false);
-      markVerified();
-    } catch (error: any) {
-      enqueueSnackbar(error?.message || "Step-up check failed.", { variant: "error" });
-      resolveRef.current?.(false);
-      resolveRef.current = null;
-      setPendingPrompt(null);
-      setModalOpen(false);
-    }
-  }, [enqueueSnackbar, issueStepUpCheck, markVerified, navigate, pendingPrompt]);
-
   const ensureStepUp = React.useCallback(
     async (
       resourceKey?: string | null,
@@ -942,20 +891,15 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       enqueueSnackbar("Unable to resolve current user for verification.", { variant: "error" });
       return;
     }
-    if (!useBackup && otp.length !== 6) {
+    if (otp.length !== OTP_LENGTH) {
       enqueueSnackbar("Enter a 6-digit OTP.", { variant: "warning" });
-      return;
-    }
-    if (useBackup && !backupCode.trim()) {
-      enqueueSnackbar("Enter a backup code.", { variant: "warning" });
       return;
     }
     setVerifying(true);
     try {
       const resp: any = await verifyStepUp({
         username,
-        otp: useBackup ? undefined : otp,
-        backup_code: useBackup ? backupCode.trim() : undefined,
+        otp,
         browser_session_id: getBrowserSessionId() || undefined,
       });
       const payload = resp?.stepup?.stepup || resp?.stepup;
@@ -966,8 +910,6 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
         enqueueSnackbar("Step-up verified.", { variant: "success" });
         setModalOpen(false);
         setOtp("");
-        setBackupCode("");
-        setUseBackup(false);
         markVerified();
         setPendingPrompt(null);
         resolveRef.current?.(true);
@@ -982,14 +924,12 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
     } finally {
       setVerifying(false);
     }
-  }, [backupCode, enqueueSnackbar, markVerified, otp, pendingPrompt, useBackup]);
+  }, [enqueueSnackbar, markVerified, otp, pendingPrompt]);
 
   const handleCloseModal = React.useCallback(() => {
     if (verifying) return;
     setModalOpen(false);
     setOtp("");
-    setBackupCode("");
-    setUseBackup(false);
     setPendingPrompt(null);
     resolveRef.current?.(false);
     resolveRef.current = null;
@@ -1021,16 +961,11 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       <StepUpModal
         open={modalOpen}
         onClose={handleCloseModal}
-        onRetry={handleRetry}
         onVerify={handleVerify}
         prompt={pendingPrompt}
         verifying={verifying}
         otp={otp}
-        backupCode={backupCode}
-        useBackup={useBackup}
-        setUseBackup={setUseBackup}
         setOtp={setOtp}
-        setBackupCode={setBackupCode}
       />
     </StepUpContext.Provider>
   );
@@ -1047,33 +982,100 @@ export const useStepUpContext = () => {
 const StepUpModal: React.FC<{
   open: boolean;
   onClose: () => void;
-  onRetry: () => void;
   onVerify: () => void;
   prompt: StepUpPrompt | null;
   verifying: boolean;
   otp: string;
-  backupCode: string;
-  useBackup: boolean;
-  setUseBackup: (value: boolean) => void;
   setOtp: (value: string) => void;
-  setBackupCode: (value: string) => void;
 }> = ({
   open,
   onClose,
-  onRetry,
   onVerify,
   prompt,
   verifying,
   otp,
-  backupCode,
-  useBackup,
-  setUseBackup,
   setOtp,
-  setBackupCode,
 }) => {
   const currentRole = getUserRoleFromStorage("stepup-modal") || readRawRoleFromSession();
   const roleLabel = toFriendlyRoleLabel(currentRole);
   const message = buildStepUpMessage(prompt, roleLabel);
+  const normalizedRole = String(currentRole || "").trim().toUpperCase();
+  const usesSmsOtp = ["ORG_ADMIN", "MANDI_ADMIN"].includes(normalizedRole);
+  const inputRefs = React.useRef<Array<HTMLInputElement | null>>([]);
+  const otpDigits = React.useMemo(
+    () => Array.from({ length: OTP_LENGTH }, (_, index) => otp[index] || ""),
+    [otp],
+  );
+
+  React.useEffect(() => {
+    if (!open) return;
+    window.setTimeout(() => inputRefs.current[0]?.focus(), 60);
+  }, [open]);
+
+  const setOtpValue = React.useCallback(
+    (value: string, focusIndex?: number) => {
+      const cleaned = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
+      setOtp(cleaned);
+      if (typeof focusIndex === "number") {
+        window.setTimeout(() => {
+          inputRefs.current[Math.min(focusIndex, OTP_LENGTH - 1)]?.focus();
+        }, 0);
+      }
+    },
+    [setOtp],
+  );
+
+  const handleDigitChange = React.useCallback(
+    (index: number, value: string) => {
+      const digits = value.replace(/\D/g, "");
+      if (!digits) {
+        const next = otpDigits.slice();
+        next[index] = "";
+        setOtpValue(next.join(""));
+        return;
+      }
+      const next = otpDigits.slice();
+      digits
+        .slice(0, OTP_LENGTH - index)
+        .split("")
+        .forEach((digit, offset) => {
+          next[index + offset] = digit;
+        });
+      setOtpValue(next.join(""), index + digits.length);
+    },
+    [otpDigits, setOtpValue],
+  );
+
+  const handleDigitKeyDown = React.useCallback(
+    (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Backspace" && !otpDigits[index] && index > 0) {
+        event.preventDefault();
+        const next = otpDigits.slice();
+        next[index - 1] = "";
+        setOtpValue(next.join(""), index - 1);
+      }
+      if (event.key === "ArrowLeft" && index > 0) {
+        event.preventDefault();
+        inputRefs.current[index - 1]?.focus();
+      }
+      if (event.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+        event.preventDefault();
+        inputRefs.current[index + 1]?.focus();
+      }
+      if (event.key === "Enter" && otp.length === OTP_LENGTH && !verifying) {
+        onVerify();
+      }
+    },
+    [onVerify, otp.length, otpDigits, setOtpValue, verifying],
+  );
+
+  const handlePaste = React.useCallback(
+    (event: React.ClipboardEvent<HTMLInputElement>) => {
+      event.preventDefault();
+      setOtpValue(event.clipboardData.getData("text"), OTP_LENGTH - 1);
+    },
+    [setOtpValue],
+  );
 
   return (
     <Dialog
@@ -1088,36 +1090,36 @@ const StepUpModal: React.FC<{
       maxWidth="xs"
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: 2,
           border: "1px solid",
           borderColor: "divider",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
+          boxShadow: "0 10px 32px rgba(0,0,0,0.16)",
           overflow: "hidden",
         },
       }}
     >
       <DialogTitle
         sx={{
-          px: 2.25,
-          pt: 2.25,
-          pb: 1.5,
+          px: 2,
+          pt: 1.75,
+          pb: 1.25,
           display: "flex",
-          gap: 1.5,
+          gap: 1.25,
           alignItems: "center",
         }}
       >
         <Box
           className="cm-stepup-icon-wrap"
           sx={{
-            width: 40,
-            height: 40,
+            width: 38,
+            height: 38,
             flex: "0 0 auto",
           }}
         >
           <SecurityIcon fontSize="small" />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2 }}>
+          <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2, fontSize: 17 }}>
             Verification required
           </Typography>
           <Typography className="cm-stepup-subtitle" sx={{ mt: 0.35 }}>
@@ -1126,10 +1128,17 @@ const StepUpModal: React.FC<{
         </Box>
         <Chip
           size="small"
-          icon={<KeyIcon />}
           label={roleLabel}
           variant="outlined"
-          sx={{ fontWeight: 700, maxWidth: 150 }}
+          sx={{
+            fontWeight: 700,
+            maxWidth: 132,
+            height: 26,
+            "& .MuiChip-label": {
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            },
+          }}
         />
         <IconButton
           aria-label="Close verification dialog"
@@ -1143,77 +1152,71 @@ const StepUpModal: React.FC<{
 
       <Divider />
 
-      <DialogContent sx={{ px: 2.25, py: 2 }}>
-        <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
-          Enter the 6-digit code from your authenticator app to continue.
-        </Alert>
+      <DialogContent sx={{ px: 2, py: 1.75 }}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: "text.primary" }}>
+          Enter OTP
+        </Typography>
+        <Typography sx={{ mt: 0.35, mb: 1.4, fontSize: 12.5, color: "text.secondary" }}>
+          {usesSmsOtp
+            ? "Use the 6-digit SMS OTP sent to your registered mobile number."
+            : "Use the 6-digit code from your authenticator app."}
+        </Typography>
 
-        <TextField
-          label={useBackup ? "Backup code" : "6-digit verification code"}
-          value={useBackup ? backupCode : otp}
-          onChange={(event) =>
-            useBackup
-              ? setBackupCode(event.target.value)
-              : setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-          }
-          fullWidth
-          margin="normal"
-          autoFocus
-          inputProps={
-            useBackup
-              ? { autoComplete: "off" }
-              : {
-                  inputMode: "numeric",
-                  autoComplete: "one-time-code",
-                  maxLength: 6,
-                  style: {
-                    textAlign: "center",
-                    letterSpacing: "0.45em",
-                    fontWeight: 800,
-                    fontSize: "18px",
-                  },
-                }
-          }
-          helperText={
-            useBackup
-              ? "Enter one unused backup code."
-              : "Codes refresh every 30 seconds. Use the latest code before it expires."
-          }
-        />
-
-        <Box
-          sx={{
-            mt: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1,
-          }}
-        >
-          <FormControlLabel
-            sx={{ m: 0 }}
-            control={
-              <Switch
-                size="small"
-                checked={useBackup}
-                onChange={(event) => setUseBackup(event.target.checked)}
-              />
-            }
-            label={
-              <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-                Use backup code
-              </Typography>
-            }
-          />
-          <Button size="small" onClick={onRetry} disabled={verifying}>
-            Recheck requirement
-          </Button>
+        <Box sx={{ display: "flex", gap: 0.75, justifyContent: "space-between" }}>
+          {otpDigits.map((digit, index) => (
+            <Box
+              key={index}
+              component="input"
+              ref={(node: HTMLInputElement | null) => {
+                inputRefs.current[index] = node;
+              }}
+              value={digit}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                handleDigitChange(index, event.target.value)
+              }
+              onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) =>
+                handleDigitKeyDown(index, event)
+              }
+              onPaste={handlePaste}
+              inputMode="numeric"
+              autoComplete={index === 0 ? "one-time-code" : "off"}
+              aria-label={`OTP digit ${index + 1}`}
+              disabled={verifying}
+              sx={{
+                width: 42,
+                height: 46,
+                borderRadius: 1.25,
+                border: "1px solid",
+                borderColor: digit ? "primary.main" : "divider",
+                bgcolor: "background.paper",
+                color: "text.primary",
+                fontSize: 20,
+                fontWeight: 800,
+                textAlign: "center",
+                outline: "none",
+                transition: "border-color 120ms ease, box-shadow 120ms ease",
+                "&:focus": {
+                  borderColor: "primary.main",
+                  boxShadow: "0 0 0 3px rgba(25, 118, 210, 0.14)",
+                },
+                "&:disabled": {
+                  opacity: 0.65,
+                },
+              }}
+            />
+          ))}
         </Box>
+
+        <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: 12 }}>
+          {usesSmsOtp
+            ? "OTP expires shortly. Request a new SMS OTP from the previous screen if needed."
+            : "Codes refresh every 30 seconds. Use the latest code before it expires."}
+        </Typography>
       </DialogContent>
 
       <Divider />
 
-      <DialogActions sx={{ px: 2.25, py: 1.5, gap: 1 }}>
+      <DialogActions sx={{ px: 2, py: 1.25, gap: 1 }}>
         <Button
           variant="outlined"
           onClick={onClose}
@@ -1226,11 +1229,7 @@ const StepUpModal: React.FC<{
         <Button
           variant="contained"
           onClick={onVerify}
-          disabled={
-            verifying ||
-            (!useBackup && otp.length !== 6) ||
-            (useBackup && backupCode.trim().length === 0)
-          }
+          disabled={verifying || otp.length !== OTP_LENGTH}
           sx={{ borderRadius: 2, minWidth: 130 }}
         >
           {verifying ? <CircularProgress size={20} /> : "Verify"}

@@ -439,7 +439,7 @@
 //           Step-Up Verification
 //         </Typography>
 //         <Typography sx={{ mt: 0.25, color: "text.secondary", fontSize: 12.5 }}>
-//           Additional authentication required for SUPER_ADMIN actions.
+//           Additional authentication required for the current role actions.
 //         </Typography>
 //       </Box>
 
@@ -573,6 +573,7 @@ import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/VpnKey";
 import CloseIcon from "@mui/icons-material/Close";
 import { registerStepUpTrigger } from "./stepupService";
+import { getUserRoleFromStorage } from "../../utils/roles";
 
 type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
 const STEPUP_SOURCE_VALUES: readonly StepUpRequestSource[] = ["MENU", "ROUTE", "GUARD", "OTHER"];
@@ -587,6 +588,109 @@ type StepUpPrompt = {
   resourceKey: string;
   action: string;
 };
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ORG_ADMIN: "Organisation Admin",
+  MANDI_ADMIN: "Mandi Admin",
+  GATE_OPERATOR: "Gate Operator",
+  YARD_SUPERVISOR: "Yard Supervisor",
+  LOADING_SUPERVISOR: "Loading Supervisor",
+  TRADER: "Trader",
+  FARMER: "Farmer",
+};
+
+const RESOURCE_LABEL_OVERRIDES: Record<string, string> = {
+  payment_gateway_settings: "payment gateway settings",
+  payment_gateway_configs: "payment gateway settings",
+  payment_gateway_config: "payment gateway settings",
+  payment_gateways: "payment gateway settings",
+  role_policies: "role policies",
+  role_policy: "role policies",
+  cm_role_policies: "role policies",
+  admin_role_policies: "role policies",
+  stepup_policy: "step-up policies",
+  stepup_policies: "step-up policies",
+};
+
+function toFriendlyRoleLabel(role?: string | null): string {
+  const normalized = String(role || "").trim().toUpperCase();
+  if (!normalized) return "your role";
+  return ROLE_LABELS[normalized] || normalized
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function readRawRoleFromSession(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("cd_user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const direct =
+      parsed?.default_role_code ??
+      parsed?.default_role ??
+      parsed?.role_slug ??
+      parsed?.role ??
+      parsed?.role_code ??
+      parsed?.usertype ??
+      null;
+    if (typeof direct === "string" && direct.trim()) return direct.trim().toUpperCase();
+    const rolesEnabled = parsed?.roles_enabled;
+    if (rolesEnabled && typeof rolesEnabled === "object") {
+      const firstEnabledKey = Object.keys(rolesEnabled).find((key) => rolesEnabled[key]);
+      if (firstEnabledKey) return firstEnabledKey.trim().toUpperCase();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function prettifyResourceKey(resourceKey?: string | null): string {
+  const raw = String(resourceKey || "").trim();
+  if (!raw) return "";
+  const parts = raw
+    .split(/[.:/]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const withoutAction = parts.filter((part) => !/^(view|menu|list|create|add|edit|update|delete|deactivate|manage|verify)$/i.test(part));
+  const candidate = withoutAction.length ? withoutAction[withoutAction.length - 1] : parts[parts.length - 1] || raw;
+  const normalized = candidate.replace(/[-\s]+/g, "_").toLowerCase();
+  const overrideKey = Object.keys(RESOURCE_LABEL_OVERRIDES).find((key) => normalized.includes(key));
+  if (overrideKey) return RESOURCE_LABEL_OVERRIDES[overrideKey];
+  return normalized
+    .replace(/_/g, " ")
+    .replace(/\bcm\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function actionVerb(action?: string | null): string {
+  const normalized = String(action || "").trim().toUpperCase();
+  if (["CREATE", "ADD"].includes(normalized)) return "create";
+  if (["EDIT", "UPDATE", "SAVE"].includes(normalized)) return "update";
+  if (["DELETE", "DEACTIVATE", "REMOVE"].includes(normalized)) return "delete";
+  if (["VERIFY", "APPROVE"].includes(normalized)) return "verify";
+  if (["MANAGE", "POLICY", "CONFIGURE"].includes(normalized)) return "manage";
+  if (normalized === "VIEW") return "view";
+  return normalized ? normalized.toLowerCase().replace(/_/g, " ") : "continue with";
+}
+
+function buildStepUpMessage(prompt: StepUpPrompt | null, roleLabel: string): string {
+  const resourceLabel = prettifyResourceKey(prompt?.resourceKey);
+  if (resourceLabel) {
+    const verb = resourceLabel.includes("role policies") ? "manage" : actionVerb(prompt?.action);
+    if (verb === "view") {
+      return `Additional authentication required to continue with ${resourceLabel}.`;
+    }
+    return `Additional authentication required to ${verb} ${resourceLabel}.`;
+  }
+  return `Additional authentication required for ${roleLabel} actions.`;
+}
 
 type StepUpContextValue = {
   ensureStepUp: (
@@ -919,6 +1023,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
         onClose={handleCloseModal}
         onRetry={handleRetry}
         onVerify={handleVerify}
+        prompt={pendingPrompt}
         verifying={verifying}
         otp={otp}
         backupCode={backupCode}
@@ -944,6 +1049,7 @@ const StepUpModal: React.FC<{
   onClose: () => void;
   onRetry: () => void;
   onVerify: () => void;
+  prompt: StepUpPrompt | null;
   verifying: boolean;
   otp: string;
   backupCode: string;
@@ -956,6 +1062,7 @@ const StepUpModal: React.FC<{
   onClose,
   onRetry,
   onVerify,
+  prompt,
   verifying,
   otp,
   backupCode,
@@ -963,154 +1070,172 @@ const StepUpModal: React.FC<{
   setUseBackup,
   setOtp,
   setBackupCode,
-}) => (
-  <Dialog
-    className="cm-modal"
-    open={open}
-    onClose={(_, reason) => {
-      if (verifying && reason === "backdropClick") return;
-      if (verifying && reason === "escapeKeyDown") return;
-      onClose();
-    }}
-    fullWidth
-    maxWidth="xs"
-    PaperProps={{
-      sx: {
-        borderRadius: 3,
-        border: "1px solid",
-        borderColor: "divider",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
-        overflow: "hidden",
-      },
-    }}
-  >
-    <Box
-      sx={{
-        px: 2.25,
-        pt: 2.25,
-        pb: 1.5,
-        display: "flex",
-        gap: 1.5,
-        alignItems: "center",
+}) => {
+  const currentRole = getUserRoleFromStorage("stepup-modal") || readRawRoleFromSession();
+  const roleLabel = toFriendlyRoleLabel(currentRole);
+  const message = buildStepUpMessage(prompt, roleLabel);
+
+  return (
+    <Dialog
+      className="cm-modal"
+      open={open}
+      onClose={(_, reason) => {
+        if (verifying && reason === "backdropClick") return;
+        if (verifying && reason === "escapeKeyDown") return;
+        onClose();
+      }}
+      fullWidth
+      maxWidth="xs"
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
+          overflow: "hidden",
+        },
       }}
     >
-      <Box
-        className="cm-stepup-icon-wrap"
+      <DialogTitle
         sx={{
-          width: 40,
-          height: 40,
+          px: 2.25,
+          pt: 2.25,
+          pb: 1.5,
+          display: "flex",
+          gap: 1.5,
+          alignItems: "center",
         }}
       >
-        <SecurityIcon fontSize="small" />
-      </Box>
-      <Box sx={{ flex: 1 }}>
-        <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2 }}>
-          Step-Up Verification
-        </Typography>
-        <Typography className="cm-stepup-subtitle" sx={{ mt: 0.25 }}>
-          Additional authentication required for SUPER_ADMIN actions.
-        </Typography>
-      </Box>
-      <Chip
-        size="small"
-        icon={<KeyIcon />}
-        label="Secure"
-        variant="outlined"
-        sx={{ fontWeight: 700 }}
-      />
-      <IconButton
-        aria-label="Close verification dialog"
-        onClick={onClose}
-        disabled={verifying}
-        sx={{ ml: 0.5 }}
-      >
-        <CloseIcon fontSize="small" />
-      </IconButton>
-    </Box>
-
-    <Divider />
-
-    <DialogContent sx={{ px: 2.25, py: 2 }}>
-      <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
-        Enter your authenticator code (or use a backup code).
-      </Alert>
-
-      <FormControlLabel
-        sx={{ mb: 0.5 }}
-        control={
-          <Switch
-            checked={useBackup}
-            onChange={(event) => setUseBackup(event.target.checked)}
-          />
-        }
-        label={
-          <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-            Use backup code instead
+        <Box
+          className="cm-stepup-icon-wrap"
+          sx={{
+            width: 40,
+            height: 40,
+            flex: "0 0 auto",
+          }}
+        >
+          <SecurityIcon fontSize="small" />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2 }}>
+            Verification required
           </Typography>
-        }
-      />
+          <Typography className="cm-stepup-subtitle" sx={{ mt: 0.35 }}>
+            {message}
+          </Typography>
+        </Box>
+        <Chip
+          size="small"
+          icon={<KeyIcon />}
+          label={roleLabel}
+          variant="outlined"
+          sx={{ fontWeight: 700, maxWidth: 150 }}
+        />
+        <IconButton
+          aria-label="Close verification dialog"
+          onClick={onClose}
+          disabled={verifying}
+          sx={{ ml: 0.5 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
 
-      <TextField
-        label={useBackup ? "Backup code" : "Authenticator code"}
-        value={useBackup ? backupCode : otp}
-        onChange={(event) =>
-          useBackup
-            ? setBackupCode(event.target.value)
-            : setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
-        }
-        fullWidth
-        margin="normal"
-        autoFocus
-        inputProps={
-          useBackup
-            ? { autoComplete: "off" }
-            : {
-                inputMode: "numeric",
-                autoComplete: "one-time-code",
-                style: {
-                  textAlign: "center",
-                  letterSpacing: "0.45em",
-                  fontWeight: 800,
-                  fontSize: "18px",
-                },
-              }
-        }
-        helperText={
-          useBackup
-            ? "Enter one unused backup code."
-            : "6-digit code from your authenticator app."
-        }
-      />
+      <Divider />
 
-      <Typography sx={{ mt: 1, color: "text.secondary", fontSize: 12.5 }}>
-        Tip: If you closed your browser and strict binding is enabled, you’ll be asked again.
-      </Typography>
-    </DialogContent>
+      <DialogContent sx={{ px: 2.25, py: 2 }}>
+        <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
+          Enter the 6-digit code from your authenticator app to continue.
+        </Alert>
 
-    <Divider />
+        <TextField
+          label={useBackup ? "Backup code" : "6-digit verification code"}
+          value={useBackup ? backupCode : otp}
+          onChange={(event) =>
+            useBackup
+              ? setBackupCode(event.target.value)
+              : setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+          }
+          fullWidth
+          margin="normal"
+          autoFocus
+          inputProps={
+            useBackup
+              ? { autoComplete: "off" }
+              : {
+                  inputMode: "numeric",
+                  autoComplete: "one-time-code",
+                  maxLength: 6,
+                  style: {
+                    textAlign: "center",
+                    letterSpacing: "0.45em",
+                    fontWeight: 800,
+                    fontSize: "18px",
+                  },
+                }
+          }
+          helperText={
+            useBackup
+              ? "Enter one unused backup code."
+              : "Codes refresh every 30 seconds. Use the latest code before it expires."
+          }
+        />
 
-    <DialogActions sx={{ px: 2.25, py: 1.5, gap: 1 }}>
-      <Button
-        variant="outlined"
-        onClick={onRetry}
-        disabled={verifying}
-        sx={{ borderRadius: 2 }}
-      >
-        Recheck
-      </Button>
+        <Box
+          sx={{
+            mt: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                size="small"
+                checked={useBackup}
+                onChange={(event) => setUseBackup(event.target.checked)}
+              />
+            }
+            label={
+              <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                Use backup code
+              </Typography>
+            }
+          />
+          <Button size="small" onClick={onRetry} disabled={verifying}>
+            Recheck requirement
+          </Button>
+        </Box>
+      </DialogContent>
 
-      <Button
-        variant="contained"
-        onClick={onVerify}
-        disabled={
-          verifying ||
-          (!useBackup && otp.length !== 6) ||
-          (useBackup && backupCode.trim().length === 0)
-        }
-        sx={{ borderRadius: 2, minWidth: 130 }}
-      >
-        {verifying ? <CircularProgress size={20} /> : "Verify"}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+      <Divider />
+
+      <DialogActions sx={{ px: 2.25, py: 1.5, gap: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          disabled={verifying}
+          sx={{ borderRadius: 2 }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="contained"
+          onClick={onVerify}
+          disabled={
+            verifying ||
+            (!useBackup && otp.length !== 6) ||
+            (useBackup && backupCode.trim().length === 0)
+          }
+          sx={{ borderRadius: 2, minWidth: 130 }}
+        >
+          {verifying ? <CircularProgress size={20} /> : "Verify"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};

@@ -121,6 +121,7 @@ export default function PlatformControlCenterPage() {
       }
       setMessage({ type: "success", text: "Saved." });
       await uiConfig.refresh({ invalidate: true });
+      window.dispatchEvent(new Event("platform-menu-controls-updated"));
       await load();
     } catch (err: any) {
       setMessage({ type: "error", text: err?.message || "Unable to save change." });

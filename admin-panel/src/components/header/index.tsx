@@ -55,6 +55,8 @@ import { getUserRoleFromStorage } from "../../utils/roles";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { usePermissions } from "../../authz/usePermissions";
 import { useMenuNavigation } from "../../hooks/useMenuNavigation";
+import { filterMenuTreeByPlatformControl } from "../../utils/platformMenuVisibility";
+import { usePlatformMenuControls } from "../../hooks/usePlatformMenuControls";
 
 const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
   const flattened: NavMenuItem[] = [];
@@ -120,7 +122,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const currentLanguage = normalizeLanguageCode(
     i18n.language || DEFAULT_LANGUAGE,
   );
-  const { ui_resources, role: configRole, resources: compatResources } = useAdminUiConfig();
+  const { ui_resources, role: configRole, resources: compatResources, refresh: refreshAdminUiConfig } = useAdminUiConfig();
   const { permissionsMap } = usePermissions();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -130,12 +132,15 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const effectiveRole = (configRole as any) || role;
   console.log("[Header] resolved role from cd_user:", role, "config role:", configRole);
 
+  const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
+  const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
   const navItems: NavMenuItem[] = useMemo(() => {
-    const source = ui_resources?.length ? ui_resources : compatResources || [];
+    const source = menuResources;
     const items = filterMenuByResources(source, effectiveRole, permissionsMap);
+    const visibleItems = filterMenuTreeByPlatformControl(items, platformMenuControls);
     console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: source.length }, items);
-    return items;
-  }, [effectiveRole, ui_resources, compatResources, permissionsMap]);
+    return visibleItems;
+  }, [effectiveRole, menuResources, permissionsMap, platformMenuControls]);
   const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
   const handleToggleGroup = useCallback((key: string) => {
     setMenuExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -156,6 +161,16 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
       }
     };
   }, [mobileMenuOpen, isSmall]);
+
+  useEffect(() => {
+    const loadMenuControls = () => {
+      refreshAdminUiConfig({ invalidate: true }).catch((err) => {
+        console.error("[header] platform menu controls refresh failed", err);
+      });
+    };
+    window.addEventListener("platform-menu-controls-updated", loadMenuControls);
+    return () => window.removeEventListener("platform-menu-controls-updated", loadMenuControls);
+  }, [refreshAdminUiConfig]);
 
   const resolveKey = (item: NavMenuItem) =>
     item.key ?? item.labelKey ?? item.path ?? item.labelKey;

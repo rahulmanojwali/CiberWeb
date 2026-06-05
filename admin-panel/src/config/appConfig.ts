@@ -54,6 +54,7 @@ export const API_TAGS = {
   },
   PLATFORM_CONTROL_CENTER: {
     get: "getPlatformControlCenter",
+    menuControls: "getPlatformMenuControls",
     update: "updatePlatformControlCenter",
   },
   SYSTEM_CAPACITY_CONTROL: {
@@ -461,6 +462,7 @@ export const API_ROUTES = {
     deleteMobileDashboardWidget: "/admin/deleteMobileDashboardWidget",
     reorderMobileDashboardWidgets: "/admin/reorderMobileDashboardWidgets",
     getPlatformControlCenter: "/admin/getPlatformControlCenter",
+    getPlatformMenuControls: "/admin/getPlatformMenuControls",
     updatePlatformControlCenter: "/admin/updatePlatformControlCenter",
     getAuctionCapacityControl: "/admin/system/getAuctionCapacityControl",
     updateAuctionCapacityControl: "/admin/system/updateAuctionCapacityControl",

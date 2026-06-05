@@ -41,6 +41,12 @@ export function getPlatformControlCenter(input: BaseInput) {
   });
 }
 
+export function getPlatformMenuControls(input: BaseInput) {
+  return postEncrypted(API_ROUTES.admin.getPlatformMenuControls, {
+    ...withBase(input, API_TAGS.PLATFORM_CONTROL_CENTER.menuControls),
+  });
+}
+
 export function updatePlatformControlCenter(input: BaseInput & { operations: PlatformControlOperation[] }) {
   return postEncrypted(API_ROUTES.admin.updatePlatformControlCenter, {
     ...withBase(input, API_TAGS.PLATFORM_CONTROL_CENTER.update),

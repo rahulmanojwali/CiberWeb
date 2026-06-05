@@ -13,10 +13,12 @@ import { BRAND_COLORS } from "../config/appConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { usePermissions } from "../authz/usePermissions";
+import { filterMenuTreeByPlatformControl } from "../utils/platformMenuVisibility";
+import { usePlatformMenuControls } from "../hooks/usePlatformMenuControls";
 
 export const LeftSider: React.FC = () => {
   const location = useLocation();
-  const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
+  const { ui_resources, resources: compatResources, role: configRole, refresh: refreshAdminUiConfig } = useAdminUiConfig();
   const role = getUserRoleFromStorage("LeftSider");
   const effectiveRole = (configRole as any) || role;
   const { permissionsMap } = usePermissions();
@@ -25,15 +27,22 @@ export const LeftSider: React.FC = () => {
   const isDark = theme.palette.mode === "dark";
   const { t } = useTranslation();
 
-  const items = useMemo<MenuItem[]>(
-    () =>
-      filterMenuByResources(
-        ui_resources?.length ? ui_resources : compatResources || [],
-        effectiveRole,
-        permissionsMap,
-      ),
-    [effectiveRole, ui_resources, compatResources, permissionsMap],
-  );
+  const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
+  const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
+  const items = useMemo<MenuItem[]>(() => {
+    const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
+    return filterMenuTreeByPlatformControl(built, platformMenuControls);
+  }, [effectiveRole, menuResources, permissionsMap, platformMenuControls]);
+
+  React.useEffect(() => {
+    const loadMenuControls = () => {
+      refreshAdminUiConfig({ invalidate: true }).catch((err) => {
+        console.error("[sidebar] platform menu controls refresh failed", err);
+      });
+    };
+    window.addEventListener("platform-menu-controls-updated", loadMenuControls);
+    return () => window.removeEventListener("platform-menu-controls-updated", loadMenuControls);
+  }, [refreshAdminUiConfig]);
 
   const flattenMenu = (menuItems: MenuItem[]): MenuItem[] => {
     const result: MenuItem[] = [];

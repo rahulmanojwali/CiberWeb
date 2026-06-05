@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
   RefineThemedLayoutSiderProps,
 } from "@refinedev/mui";
@@ -34,6 +34,8 @@ import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { getCurrentAdminUsername } from "../utils/session";
 import { usePermissions } from "../authz/usePermissions";
 import { useMenuNavigation } from "../hooks/useMenuNavigation";
+import { filterMenuTreeByPlatformControl } from "../utils/platformMenuVisibility";
+import { usePlatformMenuControls } from "../hooks/usePlatformMenuControls";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -43,7 +45,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { ui_resources, resources: compatResources, role: configRole } = useAdminUiConfig();
+  const { ui_resources, resources: compatResources, role: configRole, refresh: refreshAdminUiConfig } = useAdminUiConfig();
   const storageRole = getUserRoleFromStorage("CustomSider");
   const effectiveRole = (configRole as any) || storageRole;
   const { permissionsMap } = usePermissions();
@@ -53,6 +55,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const resourcesCount = menuResources?.length || 0;
+  const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
   const toggleGroup = useCallback((key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
@@ -80,6 +83,21 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       setMenuError("Menu failed to load.");
     }
   }, [effectiveRole, menuResources, resourcesCount, permissionsMap]);
+
+  useEffect(() => {
+    const loadMenuControls = () => {
+      refreshAdminUiConfig({ invalidate: true }).catch((err) => {
+        console.error("[sidebar] platform menu controls refresh failed", err);
+      });
+    };
+    window.addEventListener("platform-menu-controls-updated", loadMenuControls);
+    return () => window.removeEventListener("platform-menu-controls-updated", loadMenuControls);
+  }, [refreshAdminUiConfig]);
+
+  const visibleNavItems = useMemo(
+    () => filterMenuTreeByPlatformControl(navItems, platformMenuControls),
+    [navItems, platformMenuControls],
+  );
 
   const username = getCurrentAdminUsername();
   const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
@@ -332,7 +350,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             pb: 2,
           }}
         >
-          {menuError && navItems.length === 0 && (
+          {menuError && visibleNavItems.length === 0 && (
             <ListItem disablePadding>
               <ListItemText
                 primary={menuError}
@@ -341,7 +359,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               />
             </ListItem>
           )}
-          {navItems.length === 0 && (
+          {visibleNavItems.length === 0 && (
             <ListItem disablePadding>
               <ListItemText
                 primary="No menu access assigned"
@@ -350,7 +368,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               />
             </ListItem>
           )}
-          {navItems.map((item) => renderMenuItem(item))}
+          {visibleNavItems.map((item) => renderMenuItem(item))}
         </List>
       </Box>
 

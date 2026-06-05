@@ -9,8 +9,6 @@ export type FrozenMenuItem = {
   order: number | null;
   metadata_group: string;
   is_active: boolean | string | null;
-  hidden?: boolean;
-  future?: boolean;
 };
 
 export const MENU_FREEZE: FrozenMenuItem[] = [
@@ -24,9 +22,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_methods",
     "order": 70,
     "metadata_group": "main_sidebar",
-    "is_active": true,
-    "hidden": true,
-    "future": true
+    "is_active": true
   },
   {
     "category": "Auction",
@@ -38,9 +34,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_rounds",
     "order": 71,
     "metadata_group": "main_sidebar",
-    "is_active": true,
-    "hidden": true,
-    "future": true
+    "is_active": true
   },
   {
     "category": "Auction",
@@ -52,9 +46,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_policies",
     "order": 72,
     "metadata_group": "main_sidebar",
-    "is_active": true,
-    "hidden": true,
-    "future": true
+    "is_active": true
   },
   {
     "category": "Auction",
@@ -713,6 +705,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "route": "/system/user-role-manager",
     "icon_key": "",
     "order": 880,
+    "metadata_group": "System",
+    "is_active": true
+  },
+  {
+    "category": "System",
+    "resource_key": "platform_control_center.menu",
+    "menu_name": "Platform Control Center",
+    "name_source": "label_i18n.en",
+    "i18n_key": "",
+    "route": "/system/platform-control-center",
+    "icon_key": "security",
+    "order": 886,
     "metadata_group": "System",
     "is_active": true
   },

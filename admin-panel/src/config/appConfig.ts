@@ -52,6 +52,10 @@ export const API_TAGS = {
     delete: "deleteMobileDashboardWidget",
     reorder: "reorderMobileDashboardWidgets",
   },
+  PLATFORM_CONTROL_CENTER: {
+    get: "getPlatformControlCenter",
+    update: "updatePlatformControlCenter",
+  },
   SYSTEM_CAPACITY_CONTROL: {
     get: "getAuctionCapacityControl",
     update: "updateAuctionCapacityControl",
@@ -456,6 +460,8 @@ export const API_ROUTES = {
     updateMobileDashboardWidgetStatus: "/admin/updateMobileDashboardWidgetStatus",
     deleteMobileDashboardWidget: "/admin/deleteMobileDashboardWidget",
     reorderMobileDashboardWidgets: "/admin/reorderMobileDashboardWidgets",
+    getPlatformControlCenter: "/admin/getPlatformControlCenter",
+    updatePlatformControlCenter: "/admin/updatePlatformControlCenter",
     getAuctionCapacityControl: "/admin/system/getAuctionCapacityControl",
     updateAuctionCapacityControl: "/admin/system/updateAuctionCapacityControl",
     updateTestingCapacity: "/admin/system/updateTestingCapacity",

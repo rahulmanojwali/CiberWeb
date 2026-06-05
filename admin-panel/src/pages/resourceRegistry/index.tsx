@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -21,8 +24,6 @@ import {
 import { useSnackbar } from "notistack";
 import { fetchResourceRegistry, updateResourceRegistry } from "../../services/resourceRegistryApi";
 import { ActionGate } from "../../authz/ActionGate";
-import { usePermissions } from "../../authz/usePermissions";
-import { useRecordLock } from "../../authz/isRecordLocked";
 import { StepUpGuard } from "../../components/StepUpGuard" ;
 
 type RegistryEntry = {
@@ -48,23 +49,13 @@ const ResourceRegistryPage: React.FC = () => {
   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
   const username: string = parsedUser?.username || "";
   const { enqueueSnackbar } = useSnackbar();
-  const { can, authContext, isSuper } = usePermissions();
-  const { isRecordLocked } = useRecordLock();
-  const canCreate = can("resource_registry.create", "CREATE");
-  const canEdit = can("resource_registry.edit", "UPDATE");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registry, setRegistry] = useState<RegistryEntry[]>([]);
   const [editing, setEditing] = useState<RegistryEntry>(DEFAULT_ENTRY);
-
-  const modules = useMemo(() => {
-    const set = new Set<string>();
-    registry.forEach((r) => {
-      if (r.module) set.add(r.module);
-    });
-    return Array.from(set).sort();
-  }, [registry]);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   const loadRegistry = async () => {
     try {
@@ -73,7 +64,7 @@ const ResourceRegistryPage: React.FC = () => {
       if (resp?.response?.responsecode !== "0") {
         setError(resp?.response?.description || "Failed to load registry");
       }
-      const list: RegistryEntry[] = resp?.data?.registry || [];
+      const list: RegistryEntry[] = resp?.response?.data?.registry || resp?.data?.registry || [];
       setRegistry(list);
     } catch (err: any) {
       setError(err?.message || "Failed to load registry");
@@ -121,6 +112,7 @@ const ResourceRegistryPage: React.FC = () => {
       if (resp?.response?.responsecode === "0") {
         enqueueSnackbar("Registry updated.", { variant: "success" });
         setEditing(DEFAULT_ENTRY);
+        setFormOpen(false);
         await loadRegistry();
       } else {
         const message = resp?.response?.description || "Failed to update registry";
@@ -135,6 +127,7 @@ const ResourceRegistryPage: React.FC = () => {
   };
 
   const startEdit = (entry: RegistryEntry) => {
+    setFormMode("edit");
     setEditing({
       resource_key: entry.resource_key,
       module: entry.module || "",
@@ -143,6 +136,41 @@ const ResourceRegistryPage: React.FC = () => {
       aliases: entry.aliases || [],
       is_active: entry.is_active || "Y",
     });
+    setFormOpen(true);
+  };
+
+  const startCreate = () => {
+    setFormMode("create");
+    setEditing(DEFAULT_ENTRY);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditing(DEFAULT_ENTRY);
+  };
+
+  const toggleStatus = async (entry: RegistryEntry) => {
+    const nextStatus = entry.is_active === "N" ? "Y" : "N";
+    try {
+      setLoading(true);
+      const resp = await updateResourceRegistry({
+        username,
+        entries: [{ ...entry, is_active: nextStatus }],
+      });
+      if (resp?.response?.responsecode === "0") {
+        enqueueSnackbar(nextStatus === "Y" ? "Resource activated." : "Resource deactivated.", {
+          variant: "success",
+        });
+        await loadRegistry();
+      } else {
+        enqueueSnackbar(resp?.response?.description || "Failed to update status", { variant: "error" });
+      }
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Failed to update status", { variant: "error" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!username) return <Typography>Please log in.</Typography>;
@@ -168,71 +196,14 @@ const ResourceRegistryPage: React.FC = () => {
       )}
 
       <Paper sx={{ p: 2 }}>
-        <Stack spacing={2}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Registered Resources
+          </Typography>
           <ActionGate resourceKey="resource_registry.create" action="CREATE">
-            <Stack spacing={2}>
-              <TextField
-                label="Resource Key"
-                value={editing.resource_key}
-                onChange={(e) => setEditing((prev) => ({ ...prev, resource_key: e.target.value }))}
-                size="small"
-              />
-              <TextField
-                label="Module"
-                value={editing.module}
-                onChange={(e) => setEditing((prev) => ({ ...prev, module: e.target.value }))}
-                size="small"
-              />
-              <TextField
-                label="Description"
-                value={editing.description}
-                onChange={(e) => setEditing((prev) => ({ ...prev, description: e.target.value }))}
-                size="small"
-              />
-              <TextField
-                label="Allowed Actions (comma separated)"
-                value={editing.allowed_actions.join(",")}
-                onChange={(e) =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    allowed_actions: e.target.value
-                      .split(",")
-                      .map((s) => s.trim().toUpperCase())
-                      .filter(Boolean),
-                  }))
-                }
-                size="small"
-              />
-              <TextField
-                label="Aliases (comma separated)"
-                value={(editing.aliases || []).join(",")}
-                onChange={(e) =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    aliases: e.target.value
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  }))
-                }
-                size="small"
-              />
-              <FormControl size="small">
-                <InputLabel id="is-active-label">Active</InputLabel>
-                <Select
-                  labelId="is-active-label"
-                  label="Active"
-                  value={editing.is_active || "Y"}
-                  onChange={(e) => setEditing((prev) => ({ ...prev, is_active: e.target.value }))}
-                >
-                  <MenuItem value="Y">Yes</MenuItem>
-                  <MenuItem value="N">No</MenuItem>
-                </Select>
-              </FormControl>
-              <Button variant="contained" onClick={handleSave} disabled={loading}>
-                {loading ? "Saving..." : "Save"}
-              </Button>
-            </Stack>
+            <Button variant="contained" onClick={startCreate}>
+              Add Resource
+            </Button>
           </ActionGate>
         </Stack>
       </Paper>
@@ -270,17 +241,96 @@ const ResourceRegistryPage: React.FC = () => {
                 </TableCell>
                 <TableCell>{r.is_active === "N" ? "Inactive" : "Active"}</TableCell>
                 <TableCell>
-                  <ActionGate resourceKey="resource_registry.edit" action="UPDATE" record={r}>
-                    <Button size="small" onClick={() => startEdit(r)}>
-                      Edit
-                    </Button>
-                  </ActionGate>
+                  <Stack direction="row" spacing={1}>
+                    <ActionGate resourceKey="resource_registry.edit" action="UPDATE" record={r}>
+                      <Button size="small" onClick={() => startEdit(r)}>
+                        Edit
+                      </Button>
+                    </ActionGate>
+                    <ActionGate resourceKey="resource_registry.edit" action="UPDATE" record={r}>
+                      <Button size="small" onClick={() => toggleStatus(r)} disabled={loading}>
+                        {r.is_active === "N" ? "Activate" : "Deactivate"}
+                      </Button>
+                    </ActionGate>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Paper>
+      <Dialog open={formOpen} onClose={closeForm} fullWidth maxWidth="sm">
+        <DialogTitle>{formMode === "create" ? "Add Resource" : "Edit Resource"}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Resource Key"
+              value={editing.resource_key}
+              onChange={(e) => setEditing((prev) => ({ ...prev, resource_key: e.target.value }))}
+              size="small"
+              disabled={formMode === "edit"}
+            />
+            <TextField
+              label="Module"
+              value={editing.module}
+              onChange={(e) => setEditing((prev) => ({ ...prev, module: e.target.value }))}
+              size="small"
+            />
+            <TextField
+              label="Description"
+              value={editing.description}
+              onChange={(e) => setEditing((prev) => ({ ...prev, description: e.target.value }))}
+              size="small"
+            />
+            <TextField
+              label="Allowed Actions (comma separated)"
+              value={editing.allowed_actions.join(",")}
+              onChange={(e) =>
+                setEditing((prev) => ({
+                  ...prev,
+                  allowed_actions: e.target.value
+                    .split(",")
+                    .map((s) => s.trim().toUpperCase())
+                    .filter(Boolean),
+                }))
+              }
+              size="small"
+            />
+            <TextField
+              label="Aliases (comma separated)"
+              value={(editing.aliases || []).join(",")}
+              onChange={(e) =>
+                setEditing((prev) => ({
+                  ...prev,
+                  aliases: e.target.value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                }))
+              }
+              size="small"
+            />
+            <FormControl size="small">
+              <InputLabel id="is-active-label">Active</InputLabel>
+              <Select
+                labelId="is-active-label"
+                label="Active"
+                value={editing.is_active || "Y"}
+                onChange={(e) => setEditing((prev) => ({ ...prev, is_active: e.target.value }))}
+              >
+                <MenuItem value="Y">Yes</MenuItem>
+                <MenuItem value="N">No</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeForm}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave} disabled={loading || !editing.resource_key}>
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
       </Stack>
       </div>
     </StepUpGuard>

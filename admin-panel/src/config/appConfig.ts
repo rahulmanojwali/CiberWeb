@@ -45,6 +45,13 @@ export const API_TAGS = {
   PERMISSION_REPAIR: {
     repairSuperAdminPermissions: "repairSuperAdminPermissions",
   },
+  MOBILE_DASHBOARD_ADMIN: {
+    list: "getMobileDashboardWidgets",
+    save: "saveMobileDashboardWidget",
+    updateStatus: "updateMobileDashboardWidgetStatus",
+    delete: "deleteMobileDashboardWidget",
+    reorder: "reorderMobileDashboardWidgets",
+  },
   SYSTEM_CAPACITY_CONTROL: {
     get: "getAuctionCapacityControl",
     update: "updateAuctionCapacityControl",
@@ -444,6 +451,11 @@ export const API_ROUTES = {
     getSecuritySwitches: "/admin/security/getSecuritySwitches",
     updateSecuritySwitches: "/admin/security/updateSecuritySwitches",
     repairSuperAdminPermissions: "/admin/repairSuperAdminPermissions",
+    getMobileDashboardWidgets: "/admin/getMobileDashboardWidgets",
+    saveMobileDashboardWidget: "/admin/saveMobileDashboardWidget",
+    updateMobileDashboardWidgetStatus: "/admin/updateMobileDashboardWidgetStatus",
+    deleteMobileDashboardWidget: "/admin/deleteMobileDashboardWidget",
+    reorderMobileDashboardWidgets: "/admin/reorderMobileDashboardWidgets",
     getAuctionCapacityControl: "/admin/system/getAuctionCapacityControl",
     updateAuctionCapacityControl: "/admin/system/updateAuctionCapacityControl",
     updateTestingCapacity: "/admin/system/updateTestingCapacity",

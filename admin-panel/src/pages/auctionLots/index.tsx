@@ -54,6 +54,7 @@ import { getLotList } from "../../services/lotsApi";
 import { postEncrypted } from "../../services/sharedEncryptedRequest";
 import { subscribeAuctionLot, subscribeAuctionSession } from "../../services/socketClient";
 import { useSnackbar } from "notistack";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type LotRow = {
   id: string;
@@ -190,10 +191,7 @@ function currentCountry(): string {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  return formatBusinessDateTime(value);
 }
 
 const toNumber = (v: any): number | null => {

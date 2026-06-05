@@ -44,6 +44,7 @@ import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
 import { getAuctionResults, listAuctionResultsBySession } from "../../services/auctionOpsApi";
 import { subscribeAuctionSession } from "../../services/socketClient";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type ResultRow = {
   id: string;
@@ -135,25 +136,11 @@ function toNumber(value: any): number | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
+  return formatBusinessDateTime(value);
 }
 
 function formatDateTimeWithSeconds(value?: string | Date | null) {
-  if (!value) return "—";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(d);
+  return formatBusinessDateTime(value);
 }
 
 function formatNumber(value: any, digits = 2) {

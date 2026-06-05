@@ -762,7 +762,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "menu_name": "Mobile Dashboard",
     "name_source": "label_i18n.en",
     "i18n_key": "",
-    "route": "/mobile-dashboard",
+    "route": "/system/mobile-dashboard",
     "icon_key": "Dashboard",
     "order": 900,
     "metadata_group": "",
@@ -777,6 +777,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "route": "/system/role-policy-manager",
     "icon_key": "",
     "order": 900,
+    "metadata_group": "System",
+    "is_active": "Y"
+  },
+  {
+    "category": "System",
+    "resource_key": "capacity_control.menu",
+    "menu_name": "Capacity Control",
+    "name_source": "label_i18n.en",
+    "i18n_key": "",
+    "route": "/system/capacity-control",
+    "icon_key": "settings",
+    "order": 905,
     "metadata_group": "System",
     "is_active": "Y"
   }

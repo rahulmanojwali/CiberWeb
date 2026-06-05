@@ -34,6 +34,7 @@ import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchGatePassTokens, fetchGateEntryTokens } from "../../services/gateOpsApi";
 import { fetchMandiGates, getMandisForCurrentScope } from "../../services/mandiApi";
 import { usePermissions } from "../../authz/usePermissions";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type TokenRow = {
   id: string;
@@ -64,10 +65,7 @@ function currentUsername(): string | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  return formatBusinessDateTime(value);
 }
 
 export const GateTokens: React.FC = () => {

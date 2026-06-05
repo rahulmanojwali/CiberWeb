@@ -44,6 +44,7 @@ import { OrgMandiMapping } from "./pages/orgMandiMapping";
 import TwoFactorSettings from "./pages/systemSecurity/twoFactor";
 import StepUpPoliciesPage from "./pages/systemSecurity/stepupPolicies";
 import SecuritySwitchesPage from "./pages/systemSecurity/securitySwitches";
+import SystemSecurityPage from "./pages/systemSecurity";
 import SystemCapacityControlPage from "./pages/systemCapacityControl";
 import { Commodities } from "./pages/commodities";
 import { CommodityProducts } from "./pages/commodityProducts";
@@ -110,6 +111,7 @@ import { PaymentsLog } from "./pages/paymentsLog";
 import ResourceRegistryPage from "./pages/resourceRegistry";
 import ResourceHealthPage from "./pages/resourceHealth";
 import { WorkflowPolicies } from "./pages/workflowPolicies";
+import MobileDashboardAdminPage from "./pages/mobileDashboard";
 
 import { Layout } from "./components/layout";
 
@@ -254,6 +256,9 @@ function App() {
                   <Route path="/payments-log" element={<PaymentsLog />} />
                   <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
                     <Route path="/org-mandi" element={<OrgMandiMapping />} />
+                    <Route path="/mobile-dashboard" element={<MobileDashboardAdminPage />} />
+                    <Route path="/system/mobile-dashboard" element={<MobileDashboardAdminPage />} />
+                    <Route path="/system/security" element={<SystemSecurityPage />} />
                     <Route path="/system/security/2fa" element={<TwoFactorSettings />} />
                   <Route path="/masters/commodities" element={<Commodities />} />
                   <Route path="/masters/commodity-products" element={<CommodityProducts />} />

@@ -51,6 +51,7 @@ import {
 import { useSnackbar } from "notistack";
 import { usePermissions } from "../../authz/usePermissions";
 import { ActionGate } from "../../authz/ActionGate";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type MandiOption = {
   mandi_id: number;
@@ -474,7 +475,7 @@ const GateDevicesPage: React.FC = () => {
         width: 200,
         renderCell: (params) => {
           const v = (params.row as any)?.last_seen_on;
-          return v ? new Date(String(v)).toLocaleString() : "—";
+          return formatBusinessDateTime(v);
         },
       },
     ];
@@ -703,7 +704,7 @@ const GateDevicesPage: React.FC = () => {
                       </Stack>
 
                       <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                        Last Seen: {r.last_seen_on ? new Date(String(r.last_seen_on)).toLocaleString() : "—"}
+                        Last Seen: {formatBusinessDateTime(r.last_seen_on)}
                       </Typography>
                     </CardContent>
                   </Card>

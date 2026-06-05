@@ -584,17 +584,6 @@ type StepUpPrompt = {
   action: string;
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin",
-  ORG_ADMIN: "Organisation Admin",
-  MANDI_ADMIN: "Mandi Admin",
-  GATE_OPERATOR: "Gate Operator",
-  YARD_SUPERVISOR: "Yard Supervisor",
-  LOADING_SUPERVISOR: "Loading Supervisor",
-  TRADER: "Trader",
-  FARMER: "Farmer",
-};
-
 const RESOURCE_LABEL_OVERRIDES: Record<string, string> = {
   payment_gateway_settings: "payment gateway settings",
   payment_gateway_configs: "payment gateway settings",
@@ -608,15 +597,12 @@ const RESOURCE_LABEL_OVERRIDES: Record<string, string> = {
   stepup_policies: "step-up policies",
 };
 
-function toFriendlyRoleLabel(role?: string | null): string {
-  const normalized = String(role || "").trim().toUpperCase();
-  if (!normalized) return "your role";
-  return ROLE_LABELS[normalized] || normalized
-    .toLowerCase()
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+function formatRoleLabel(role?: string | null): string {
+  const normalized = String(role || "")
+    .replace(/_/g, " ")
+    .trim()
+    .toUpperCase();
+  return normalized || "YOUR ROLE";
 }
 
 function readRawRoleFromSession(): string | null {
@@ -997,7 +983,7 @@ const StepUpModal: React.FC<{
   setOtp,
 }) => {
   const currentRole = getUserRoleFromStorage("stepup-modal") || readRawRoleFromSession();
-  const roleLabel = toFriendlyRoleLabel(currentRole);
+  const roleLabel = formatRoleLabel(currentRole);
   const message = buildStepUpMessage(prompt, roleLabel);
   const normalizedRole = String(currentRole || "").trim().toUpperCase();
   const usesSmsOtp = ["ORG_ADMIN", "MANDI_ADMIN"].includes(normalizedRole);

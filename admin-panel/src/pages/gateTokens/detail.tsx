@@ -22,6 +22,7 @@ import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { fetchGateEntryTokens, fetchGatePassTokens, fetchGateMovements, scanGateToken } from "../../services/gateOpsApi";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type TokenDetail = {
   token_code: string;
@@ -52,10 +53,7 @@ function currentUsername(): string | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  return formatBusinessDateTime(value);
 }
 
 export const GateTokenDetail: React.FC = () => {

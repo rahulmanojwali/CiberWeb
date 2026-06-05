@@ -22,6 +22,7 @@ import { readAuctionScope, writeAuctionScope } from "../../utils/auctionScope";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchMandis } from "../../services/mandiApi";
 import { closeAuctionSession, createAuctionSession, getAuctionLots, getAuctionSessions, rescheduleAuctionSession, startAuctionSession } from "../../services/auctionOpsApi";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type SessionRow = {
   id: string;
@@ -212,16 +213,7 @@ function currentUsername(): string | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  return formatBusinessDateTime(value);
 }
 
 function deriveDisplayStatus(session: SessionRow, nowMs: number) {

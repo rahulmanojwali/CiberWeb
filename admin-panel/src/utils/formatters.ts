@@ -48,6 +48,10 @@ export function formatCurrencyINR(value: any): string {
 }
 
 export function formatDateTime(value: any): string {
+  return formatBusinessDateTime(value);
+}
+
+export function formatBusinessDateTime(value: any, timezone?: string, locale = 'en-IN'): string {
   if (!value) return '-';
 
   const raw = typeof value === 'object' && value.$date ? value.$date : value;
@@ -55,10 +59,11 @@ export function formatDateTime(value: any): string {
 
   if (Number.isNaN(date.getTime())) return '-';
 
-  return date.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
+  return date.toLocaleString(locale, {
+    timeZone: timezone || 'UTC',
     year: 'numeric',
+    month: 'short',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   });

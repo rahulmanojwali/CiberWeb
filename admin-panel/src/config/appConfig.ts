@@ -42,6 +42,9 @@ export const API_TAGS = {
     get: "getSecuritySwitches",
     update: "updateSecuritySwitches",
   },
+  PERMISSION_REPAIR: {
+    repairSuperAdminPermissions: "repairSuperAdminPermissions",
+  },
   SYSTEM_CAPACITY_CONTROL: {
     get: "getAuctionCapacityControl",
     update: "updateAuctionCapacityControl",
@@ -440,6 +443,7 @@ export const API_ROUTES = {
     saveStepupPolicySelection: "/admin/security/saveStepupPolicySelection",
     getSecuritySwitches: "/admin/security/getSecuritySwitches",
     updateSecuritySwitches: "/admin/security/updateSecuritySwitches",
+    repairSuperAdminPermissions: "/admin/repairSuperAdminPermissions",
     getAuctionCapacityControl: "/admin/system/getAuctionCapacityControl",
     updateAuctionCapacityControl: "/admin/system/updateAuctionCapacityControl",
     updateTestingCapacity: "/admin/system/updateTestingCapacity",

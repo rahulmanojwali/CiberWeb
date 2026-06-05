@@ -30,6 +30,7 @@ import { can } from "../../utils/adminUiConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { fetchGateMovements } from "../../services/gateOpsApi";
 import { fetchMandiGates, getMandisForCurrentScope } from "../../services/mandiApi";
+import { formatBusinessDateTime } from "../../utils/formatters";
 
 type MovementRow = {
   id: string;
@@ -55,10 +56,7 @@ function currentUsername(): string | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+  return formatBusinessDateTime(value);
 }
 
 export const GateMovements: React.FC = () => {

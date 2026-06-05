@@ -18,7 +18,7 @@ import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlin
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import { canonicalizeResourceKey, type UiResource } from "../utils/adminUiConfig";
+import { canonicalizeResourceKey, isDbActive, normalizeRoute, type UiResource } from "../utils/adminUiConfig";
 import { computeAllowedSidebar } from "../utils/rbacHelper";
 import { MENU_FREEZE } from "./menuFreeze";
 import { getResourceLabel } from "../utils/uiLabel";
@@ -1076,12 +1076,18 @@ export function filterMenuByResources(
     }
     // SUPER_ADMIN visibility fallback: keep menu/resource loading resilient even if
     // policy docs are sparse. This is visibility-only and does not grant write actions.
+    const dbMenuRows = resources.filter((res) => String(res?.ui_type || "").trim().toUpperCase() === "MENU");
+    const dbMenusByResourceKey = new Map<string, UiResource>();
+    const dbMenusByRoute = new Map<string, UiResource>();
+    dbMenuRows.forEach((res) => {
+      const key = canonicalizeResourceKey(res.resource_key);
+      const route = normalizeRoute(res.route);
+      if (key) dbMenusByResourceKey.set(key, res);
+      if (route && !dbMenusByRoute.has(route)) dbMenusByRoute.set(route, res);
+    });
+
     const allowedMenus = isSuperAdmin
-      ? resources.filter((res) => {
-          const type = String(res?.ui_type || "").trim().toUpperCase();
-          const active = (res as any)?.is_active;
-          return type === "MENU" && (active === true || active === "Y");
-        })
+      ? dbMenuRows.filter((res) => isDbActive((res as any)?.is_active))
       : computeAllowedSidebar(resources, permissionsMap!);
     const byKey = new Map<string, UiResource>();
     allowedMenus.forEach((res) => {
@@ -1099,23 +1105,26 @@ export function filterMenuByResources(
     const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
-      const resource = byKey.get(key);
-      const canViewByPermission = isSuperAdmin || Boolean(permissionsMap?.[key]?.has("VIEW"));
+      const dbMenu = dbMenusByResourceKey.get(key) || dbMenusByRoute.get(normalizeRoute(freeze.route));
+      if (dbMenu && !isDbActive((dbMenu as any).is_active)) return;
+      const effectiveKey = canonicalizeResourceKey(dbMenu?.resource_key || freeze.resource_key);
+      const resource = byKey.get(effectiveKey) || byKey.get(key);
+      const canViewByPermission = isSuperAdmin || Boolean(permissionsMap?.[effectiveKey]?.has("VIEW")) || Boolean(permissionsMap?.[key]?.has("VIEW"));
       if (!resource && !canViewByPermission) return;
-      if (freeze.is_active === false) return; // keep active only
+      if (!dbMenu && !isDbActive(freeze.is_active)) return;
       const labelOverride = freeze.menu_name || getResourceLabel(resource, lang);
       const labelKey = freeze.i18n_key || resource?.i18n_label_key || resource?.resource_key || freeze.resource_key;
-      const path = freeze.route || "";
+      const path = dbMenu?.route || freeze.route || "";
       const disabled = !path;
       items.push({
-        key: String(freeze.resource_key),
+        key: String(dbMenu?.resource_key || freeze.resource_key),
         labelKey: String(labelKey),
         labelOverride: String(labelOverride),
         path: disabled ? undefined : String(path),
         icon: resolveMenuIcon(freeze.icon_key || (resource as any).icon_key, freeze.resource_key),
-        resourceKey: String(freeze.resource_key),
+        resourceKey: String(dbMenu?.resource_key || freeze.resource_key),
         requiredAction: "VIEW",
-        order: typeof freeze.order === "number" ? freeze.order : 9999,
+        order: typeof dbMenu?.order === "number" ? dbMenu.order : typeof freeze.order === "number" ? freeze.order : 9999,
         category: String(freeze.category || ""),
         disabled,
         resource:
@@ -1138,9 +1147,13 @@ export function filterMenuByResources(
         (fallbackRole && systemCapacityControlItem.roles.includes(fallbackRole as RoleSlug)),
     );
     const systemCapacityControlResource = byKey.get(systemCapacityControlKey);
+    const systemCapacityControlDbMenu =
+      dbMenusByResourceKey.get(systemCapacityControlKey) ||
+      dbMenusByRoute.get(normalizeRoute(systemCapacityControlItem?.path));
 
     if (
       systemCapacityControlItem &&
+      (!systemCapacityControlDbMenu || isDbActive((systemCapacityControlDbMenu as any).is_active)) &&
       systemCapacityControlPermissionMatch &&
       systemCapacityControlRoleMatch &&
       !items.some((item) => canonicalizeResourceKey(item.resourceKey) === systemCapacityControlKey)

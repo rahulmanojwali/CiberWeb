@@ -6,9 +6,11 @@ export type UiResource = {
   route?: string | null;
   parent_resource_key?: string | null;
   order?: number | null;
+  module?: string | null;
   icon_key?: string | null;
   i18n_label_key?: string | null;
   allowed_actions: string[];
+  is_active?: boolean | string;
   metadata?: Record<string, any> | null;
 };
 
@@ -39,6 +41,18 @@ export function canonicalizeResourceKey(key?: string | null): string {
   if (base.startsWith("org_mandi_mapping.")) return base.replace(/^org_mandi_mapping/, "org_mandi_mappings");
   if (base.startsWith("org_mandi.")) return base.replace(/^org_mandi/, "org_mandi_mappings");
   return base;
+}
+
+export function isDbActive(value: any): boolean {
+  return value === true || value === "Y" || value === "true" || value === 1;
+}
+
+export function normalizeRoute(route?: string | null): string {
+  const raw = String(route || "").trim();
+  if (!raw) return "";
+  const withoutQuery = raw.split("?")[0].split("#")[0].trim();
+  const withSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  return withSlash.replace(/\/{2,}/g, "/").replace(/\/+$/g, "").toLowerCase() || "/";
 }
 
 export function getResource(

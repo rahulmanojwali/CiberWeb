@@ -1,4 +1,4 @@
-import { canonicalizeResourceKey, type UiResource } from "./adminUiConfig";
+import { canonicalizeResourceKey, isDbActive, type UiResource } from "./adminUiConfig";
 
 export type PermissionEntry = { resource_key: string; actions?: string[] };
 
@@ -45,8 +45,7 @@ export const requiredActionForUiResource = (
 };
 
 const isActive = (resource: UiResource) => {
-  const active = (resource as any)?.is_active;
-  return active === true || active === "Y";
+  return isDbActive((resource as any)?.is_active);
 };
 
 export const filterResourcesByAccess = (
@@ -100,12 +99,8 @@ export const computeAllowedSidebar = (
   permIndex: Record<string, Set<string>>,
 ): ResourceNode[] => {
   const isMenu = (res: UiResource) => String(res.ui_type || "").toUpperCase() === "MENU";
-  const isActiveResource = (res: UiResource) => {
-    const active = (res as any)?.is_active;
-    return active === true || active === "Y";
-  };
   const allowedMenus = resources
-    .filter((res) => isMenu(res) && isActiveResource(res))
+    .filter((res) => isMenu(res) && isDbActive((res as any)?.is_active))
     .filter((res) => hasAccess(permIndex, res.resource_key, "VIEW"));
 
   return [...allowedMenus];

@@ -28,6 +28,7 @@ import {
 } from "../../services/platformControlCenterApi";
 import { repairSuperAdminPermissions } from "../../services/permissionRepairApi";
 import { useStepUp } from "../../security/stepup/useStepUp";
+import { isDbActive } from "../../utils/adminUiConfig";
 
 const tabs = [
   "Module Control",
@@ -61,7 +62,7 @@ function responseData(resp: any) {
 }
 
 function isActive(value: any) {
-  return value === true || String(value || "").toUpperCase() === "Y";
+  return isDbActive(value);
 }
 
 export default function PlatformControlCenterPage() {
@@ -119,6 +120,7 @@ export default function PlatformControlCenterPage() {
         return;
       }
       setMessage({ type: "success", text: "Saved." });
+      await uiConfig.refresh({ invalidate: true });
       await load();
     } catch (err: any) {
       setMessage({ type: "error", text: err?.message || "Unable to save change." });

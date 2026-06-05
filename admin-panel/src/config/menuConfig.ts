@@ -1098,6 +1098,7 @@ export function filterMenuByResources(
     type MenuItemRow = AppMenuItem & { order: number; category: string; resource: UiResource };
     const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
+      if ((freeze as any).hidden === true) return;
       const key = canonicalizeResourceKey(freeze.resource_key);
       const resource = byKey.get(key);
       const canViewByPermission = isSuperAdmin || Boolean(permissionsMap?.[key]?.has("VIEW"));

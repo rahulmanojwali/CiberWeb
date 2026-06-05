@@ -9,6 +9,8 @@ export type FrozenMenuItem = {
   order: number | null;
   metadata_group: string;
   is_active: boolean | string | null;
+  hidden?: boolean;
+  future?: boolean;
 };
 
 export const MENU_FREEZE: FrozenMenuItem[] = [
@@ -22,7 +24,9 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_methods",
     "order": 70,
     "metadata_group": "main_sidebar",
-    "is_active": true
+    "is_active": true,
+    "hidden": true,
+    "future": true
   },
   {
     "category": "Auction",
@@ -34,7 +38,9 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_rounds",
     "order": 71,
     "metadata_group": "main_sidebar",
-    "is_active": true
+    "is_active": true,
+    "hidden": true,
+    "future": true
   },
   {
     "category": "Auction",
@@ -46,7 +52,9 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "auction_policies",
     "order": 72,
     "metadata_group": "main_sidebar",
-    "is_active": true
+    "is_active": true,
+    "hidden": true,
+    "future": true
   },
   {
     "category": "Auction",

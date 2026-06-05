@@ -211,7 +211,7 @@ export const AuctionPolicySettingsPage: React.FC = () => {
     [uiConfig.resources, canMenu],
   );
   const canEdit = useMemo(
-    () => can(uiConfig.resources, "auction_policy_settings.edit", "UPDATE"),
+    () => can(uiConfig.resources, "auction_policy_settings.update", "UPDATE"),
     [uiConfig.resources],
   );
 

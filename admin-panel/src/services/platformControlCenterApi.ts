@@ -9,12 +9,21 @@ type BaseInput = {
 };
 
 export type PlatformControlOperation = {
-  type: "MENU_VISIBILITY" | "MOBILE_WIDGET" | "RESOURCE" | "MODULE" | "WORKFLOW_CONTROL" | "API_FEATURE";
+  type:
+    | "MENU_VISIBILITY"
+    | "MOBILE_WIDGET"
+    | "RESOURCE"
+    | "MODULE"
+    | "BULK_REASSIGN_MODULE"
+    | "WORKFLOW_CONTROL"
+    | "API_FEATURE";
   _id?: string;
   id?: string;
   key?: string;
   resource_key?: string;
+  resource_keys?: string[];
   module?: string;
+  target_module?: string;
   is_active: "Y" | "N" | boolean;
 };
 

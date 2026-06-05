@@ -14,6 +14,7 @@ import {
   TableHead,
   TableRow,
   Tabs,
+  TextField,
   Typography,
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
@@ -30,7 +31,7 @@ import { useStepUp } from "../../security/stepup/useStepUp";
 
 const tabs = [
   "Module Control",
-  "Menu Visibility Control",
+  "MENU VISIBILITY CONTROL",
   "Mobile Dashboard Control",
   "Workflow Control",
   "API Feature Control",
@@ -77,6 +78,7 @@ export default function PlatformControlCenterPage() {
   const [data, setData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState("");
+  const [targetModule, setTargetModule] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -157,8 +159,33 @@ export default function PlatformControlCenterPage() {
   const menus = data.menus || [];
   const mobileWidgets = data.mobile_widgets || [];
   const resources = data.resources || [];
+  const unassignedResources = data.unassigned_resources || [];
+  const unassignedCount = Number(data.unassigned_resource_count || unassignedResources.length || 0);
   const workflowControls = data.workflow_controls || [];
   const apiFeatures = data.api_features || [];
+
+  const reassignUnassigned = async () => {
+    const moduleName = targetModule.trim();
+    if (!moduleName || moduleName.toLowerCase() === "unassigned") {
+      setMessage({ type: "error", text: "Enter a valid target module." });
+      return;
+    }
+    const resourceKeys = unassignedResources.map((resource: any) => String(resource.resource_key || "").trim()).filter(Boolean);
+    if (!resourceKeys.length) {
+      setMessage({ type: "error", text: "No unassigned resources found." });
+      return;
+    }
+    await saveOperation(
+      {
+        type: "BULK_REASSIGN_MODULE",
+        resource_keys: resourceKeys,
+        target_module: moduleName,
+        is_active: true,
+      },
+      "module-reassign",
+    );
+    setTargetModule("");
+  };
 
   return (
     <Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -187,25 +214,59 @@ export default function PlatformControlCenterPage() {
       </Paper>
 
       {tab === 0 && (
-        <ControlTable
-          rows={modules}
-          columns={["module", "total", "active"]}
-          title="Module Control"
-          getKey={(row) => row.module}
-          getLabel={(row) => row.module}
-          isChecked={(row) => Number(row.active || 0) > 0}
-          onToggle={(row, checked) => saveOperation({ type: "MODULE", module: row.module, is_active: checked }, `module:${row.module}`)}
-          savingKey={savingKey}
-        />
+        <Stack spacing={2}>
+          <ControlTable
+            rows={modules}
+            columns={["module", "total", "active"]}
+            title="Module Control"
+            getKey={(row) => row.module}
+            getLabel={(row) => row.module}
+            isChecked={(row) => Number(row.active || 0) > 0}
+            onToggle={(row, checked) => saveOperation({ type: "MODULE", module: row.module, is_active: checked }, `module:${row.module}`)}
+            savingKey={savingKey}
+          />
+
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap" sx={{ mb: 2 }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  Unassigned Resource Reassignment
+                </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  {unassignedCount} resources have no usable module assignment.
+                </Typography>
+              </Box>
+              <Stack direction={{ xs: "column", sm: "row" }} gap={1} sx={{ minWidth: { xs: "100%", sm: 420 } }}>
+                <TextField
+                  size="small"
+                  label="Target module"
+                  value={targetModule}
+                  onChange={(event) => setTargetModule(event.target.value)}
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  disabled={Boolean(savingKey) || !unassignedCount}
+                  onClick={reassignUnassigned}
+                  sx={{ whiteSpace: "nowrap" }}
+                >
+                  Reassign All
+                </Button>
+              </Stack>
+            </Stack>
+            <PlainTable rows={unassignedResources} columns={["resource_key", "module", "description", "allowed_actions"]} />
+          </Paper>
+        </Stack>
       )}
 
       {tab === 1 && (
         <ControlTable
           rows={menus}
-          columns={["resource_key", "screen", "route"]}
-          title="Menu Visibility Control"
+          columns={["resource_key", "display_name", "parent_menu", "route", "is_active"]}
+          title="MENU VISIBILITY CONTROL"
           getKey={(row) => row.resource_key}
-          getLabel={(row) => row.resource_key}
+          getLabel={(row) => row.display_name || row.resource_key}
           isChecked={(row) => isActive(row.is_active)}
           onToggle={(row, checked) => saveOperation({ type: "MENU_VISIBILITY", resource_key: row.resource_key, is_active: checked }, `menu:${row.resource_key}`)}
           savingKey={savingKey}
@@ -277,6 +338,47 @@ export default function PlatformControlCenterPage() {
         </Paper>
       )}
     </Box>
+  );
+}
+
+function PlainTable({ rows, columns }: { rows: any[]; columns: string[] }) {
+  return (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          {columns.map((column) => (
+            <TableCell key={column}>{column}</TableCell>
+          ))}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {(rows || []).map((row) => (
+          <TableRow key={row._id || row.resource_key}>
+            {columns.map((column) => {
+              const value = row[column];
+              return (
+                <TableCell key={column}>
+                  {Array.isArray(value) ? (
+                    <Stack direction="row" gap={0.5} flexWrap="wrap">
+                      {value.map((item) => <Chip key={String(item)} size="small" label={String(item)} />)}
+                    </Stack>
+                  ) : (
+                    String(value ?? "-")
+                  )}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        ))}
+        {!rows?.length && (
+          <TableRow>
+            <TableCell colSpan={columns.length} sx={{ py: 3, color: "text.secondary", textAlign: "center" }}>
+              No records found.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
 

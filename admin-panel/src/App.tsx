@@ -124,6 +124,9 @@ import { StepUpRouteEnforcer } from "./components/StepUpRouteEnforcer";
 import { GlobalErrorBoundary } from "./components/layout/GlobalErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { TOKEN_KEY } from "./authProvider";
+import "./services/apiClient";
+import { ApiLoadingProvider } from "./context/ApiLoadingContext";
+import { GlobalApiProgressBar } from "./components/GlobalApiProgressBar";
 
 function SessionExpiryHandler() {
   const { enqueueSnackbar } = useSnackbar();
@@ -166,6 +169,8 @@ const AdminRoleGuard: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   return (
     <GlobalErrorBoundary>
+      <ApiLoadingProvider>
+      <GlobalApiProgressBar />
       <BrowserRouter basename="/admin">
       <RefineKbarProvider>
         <ColorModeContextProvider>
@@ -333,6 +338,7 @@ function App() {
         </ColorModeContextProvider>
       </RefineKbarProvider>
       </BrowserRouter>
+      </ApiLoadingProvider>
     </GlobalErrorBoundary>
   );
 }

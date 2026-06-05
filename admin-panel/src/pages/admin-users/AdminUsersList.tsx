@@ -88,6 +88,8 @@ const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
     MANDI_MANAGER: "MANDI_MANAGER",
     AUCTIONEER: "AUCTIONEER",
     GATE_OPERATOR: "GATE_OPERATOR",
+    YARD_SUPERVISOR: "YARD_SUPERVISOR",
+    LOADING_SUPERVISOR: "LOADING_SUPERVISOR",
     WEIGHBRIDGE_OPERATOR: "WEIGHBRIDGE_OPERATOR",
     AUDITOR: "AUDITOR",
     VIEWER: "VIEWER",
@@ -101,6 +103,8 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set([
   "MANDI_MANAGER",
   "AUCTIONEER",
   "GATE_OPERATOR",
+  "YARD_SUPERVISOR",
+  "LOADING_SUPERVISOR",
   "WEIGHBRIDGE_OPERATOR",
   "AUDITOR",
   "VIEWER",
@@ -109,18 +113,46 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set([
 const MANUAL_PASSWORD_MIN_LENGTH = 8;
 
 
-const SINGLE_MANDI_ROLE_SLUGS = new Set(["GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"]);
+const SINGLE_MANDI_ROLE_SLUGS = new Set(["GATE_OPERATOR", "YARD_SUPERVISOR", "LOADING_SUPERVISOR", "WEIGHBRIDGE_OPERATOR"]);
 const MANDI_REQUIRED_ROLE_SLUGS = new Set([
   "MANDI_ADMIN",
   "MANDI_MANAGER",
   "AUCTIONEER",
   "GATE_OPERATOR",
+  "YARD_SUPERVISOR",
+  "LOADING_SUPERVISOR",
   "WEIGHBRIDGE_OPERATOR",
 ]);
 
 const requiresMandiScope = (roleSlug?: string | null) => !!roleSlug && MANDI_REQUIRED_ROLE_SLUGS.has(String(roleSlug).toUpperCase());
 const isSingleMandiRole = (roleSlug?: string | null) => !!roleSlug && SINGLE_MANDI_ROLE_SLUGS.has(String(roleSlug).toUpperCase());
 const normalizeMandiCodes = (value: any): string[] => Array.isArray(value) ? value.map((item) => String(item)) : [];
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ORG_ADMIN: "Organisation Admin",
+  ORG_VIEWER: "Organisation Viewer",
+  MANDI_ADMIN: "Mandi Admin",
+  MANDI_MANAGER: "Mandi Manager",
+  AUCTIONEER: "Auctioneer",
+  GATE_OPERATOR: "Gate Operator",
+  YARD_SUPERVISOR: "Yard Supervisor",
+  LOADING_SUPERVISOR: "Loading Supervisor",
+  WEIGHBRIDGE_OPERATOR: "Weighbridge Operator",
+  AUDITOR: "Auditor",
+  VIEWER: "Viewer",
+};
+
+const formatRoleLabel = (role?: string | null): string => {
+  const normalized = String(role || "").trim().toUpperCase();
+  if (!normalized) return "";
+  return ROLE_LABELS[normalized] || normalized
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
 
 export type AdminUser = {
   username: string;
@@ -160,7 +192,7 @@ const getDisplayRole = (row: any): string => {
       ? row.role.slug || row.role.role_slug || row.role.code
       : "");
 
-  return raw ? String(raw).replace(/_/g, " ") : "";
+  return formatRoleLabel(raw);
 };
 
 type OrgOption = {
@@ -946,7 +978,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
         ? row.role.slug || row.role.role_slug || row.role.code
         : "");
 
-    const displayRole = raw ? String(raw).replace(/_/g, " ") : "";
+    const displayRole = formatRoleLabel(raw);
     return <span>{displayRole}</span>;
   },
 },
@@ -1177,7 +1209,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                 <MenuItem value="">{t("adminUsers.filters.all")}</MenuItem>
                 {roleOptions.map((role: string) => (
                   <MenuItem key={role} value={role}>
-                    {role.replace(/_/g, " ")}
+                    {formatRoleLabel(role)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -1474,7 +1506,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
               >
                 {roleOptions.map((role) => (
                   <MenuItem key={role} value={role}>
-                    {role.replace(/_/g, " ")}
+                    {formatRoleLabel(role)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -1768,5 +1800,3 @@ const GuardedAdminUsers: React.FC = () => {
 };
 
 export default GuardedAdminUsers;
-
-

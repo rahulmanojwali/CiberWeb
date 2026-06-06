@@ -59,6 +59,15 @@ import SchemaOutlinedIcon from "@mui/icons-material/SchemaOutlined";
 import PhonelinkLockOutlinedIcon from "@mui/icons-material/PhonelinkLockOutlined";
 import SecurityUpdateOutlinedIcon from "@mui/icons-material/SecurityUpdateOutlined";
 import RuleFolderOutlinedIcon from "@mui/icons-material/RuleFolderOutlined";
+import DeveloperBoardOutlinedIcon from "@mui/icons-material/DeveloperBoardOutlined";
+import PhoneIphoneOutlinedIcon from "@mui/icons-material/PhoneIphoneOutlined";
+import SpeedOutlinedIcon from "@mui/icons-material/SpeedOutlined";
+import CreditCardOutlinedIcon from "@mui/icons-material/CreditCardOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
+import AccountBoxOutlinedIcon from "@mui/icons-material/AccountBoxOutlined";
+import ViewListOutlinedIcon from "@mui/icons-material/ViewListOutlined";
+import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   dashboard: React.createElement(DashboardOutlinedIcon),
@@ -107,30 +116,77 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {
+  "dashboard.menu": React.createElement(DashboardOutlinedIcon),
+  "organisations.menu": React.createElement(ApartmentOutlinedIcon),
+  "admin_users.menu": React.createElement(AdminPanelSettingsOutlinedIcon),
+  "org_mandi_mappings.menu": React.createElement(HubOutlinedIcon),
+  "mandis.menu": React.createElement(StoreMallDirectoryOutlinedIcon),
+  "commodities_masters.menu": React.createElement(CategoryOutlinedIcon),
+  "commodity_products_masters.menu": React.createElement(LocalOfferOutlinedIcon),
+  "mandi_commodity_products_masters.menu": React.createElement(Inventory2OutlinedIcon),
+  "mandi_facilities.menu": React.createElement(WarehouseOutlinedIcon),
+  "mandi_hours.menu": React.createElement(AccessTimeOutlinedIcon),
+  "gate_entry_reasons_masters.menu": React.createElement(RuleOutlinedIcon),
+  "gate_vehicle_types_masters.menu": React.createElement(DirectionsCarOutlinedIcon),
+  "mandi_gates.menu": React.createElement(DoorFrontOutlinedIcon),
+  "gate_devices.menu": React.createElement(DevicesOutlinedIcon),
+  "cm_gate_devices.menu": React.createElement(SensorsOutlinedIcon),
+  "gate_device_configs.menu": React.createElement(SettingsInputComponentOutlinedIcon),
+  "gate_entry_tokens.menu": React.createElement(QrCodeScannerOutlinedIcon),
+  "pre_market_listings.menu": React.createElement(PlaylistAddCheckOutlinedIcon),
+  "stall_fees.menu": React.createElement(ReceiptLongOutlinedIcon),
+  "market_prices.menu": React.createElement(ShowChartOutlinedIcon),
+  "mandi_price_policies.menu": React.createElement(PriceCheckOutlinedIcon),
+  "mandi_settings.menu": React.createElement(ManageAccountsOutlinedIcon),
+  "transport_intents.menu": React.createElement(LocalShippingOutlinedIcon),
+  "mandi_associations.menu": React.createElement(LinkOutlinedIcon),
+  "gate_movements_log.view": React.createElement(TimelineOutlinedIcon),
+  "weighment_tickets.view": React.createElement(ScaleOutlinedIcon),
+  "auction_methods_masters.menu": React.createElement(GavelOutlinedIcon),
+  "auction_rounds_masters.menu": React.createElement(LoopOutlinedIcon),
+  "cm_mandi_auction_policies.menu": React.createElement(PolicyOutlinedIcon),
+  "auction_policy_settings.menu": React.createElement(TuneOutlinedIcon),
+  "auction_sessions.menu": React.createElement(EventNoteOutlinedIcon),
+  "lots.menu": React.createElement(ViewListOutlinedIcon),
+  "auction_lots.menu": React.createElement(InventoryOutlinedIcon),
+  "auction_results.menu": React.createElement(EmojiEventsOutlinedIcon),
+  "trader_approvals.menu": React.createElement(HowToRegOutlinedIcon),
+  "traders.menu": React.createElement(GroupOutlinedIcon),
+  "farmers.menu": React.createElement(AgricultureOutlinedIcon),
   "commodity_fees.menu": React.createElement(LocalAtmOutlinedIcon),
-  "custom_fees.menu": React.createElement(TuneOutlinedIcon),
+  "custom_fees.menu": React.createElement(SettingsSuggestOutlinedIcon),
   "mandi_payment_settings.menu": React.createElement(SettingsApplicationsOutlinedIcon),
-  "org_payment_settings.menu": React.createElement(SettingsSuggestOutlinedIcon),
+  "org_payment_settings.menu": React.createElement(AccountBalanceOutlinedIcon),
   "payment_models.menu": React.createElement(AccountTreeOutlinedIcon),
-  "payment_modes.menu": React.createElement(PaymentsOutlinedIcon),
+  "payment_modes.menu": React.createElement(CreditCardOutlinedIcon),
+  "payment_gateway_configs.menu": React.createElement(AccountBalanceWalletOutlinedIcon),
   "payment_gateway_settings.menu": React.createElement(PaymentsOutlinedIcon),
+  "payment_payout_settings.menu": React.createElement(AttachMoneyOutlinedIcon),
+  "settlement_charge_settings.menu": React.createElement(RequestQuoteOutlinedIcon),
+  "payment_vendor_accounts.menu": React.createElement(AccountBoxOutlinedIcon),
   "payments_log.menu": React.createElement(ReceiptOutlinedIcon),
   "role_custom_fees.menu": React.createElement(AssignmentIndOutlinedIcon),
   "settlements.menu": React.createElement(AccountBalanceOutlinedIcon),
   "subscription_invoices.menu": React.createElement(RequestQuoteOutlinedIcon),
   "subscriptions.menu": React.createElement(SubscriptionsOutlinedIcon),
-  "mandi_price_policies.menu": React.createElement(PriceCheckOutlinedIcon),
-  "mandi_settings.menu": React.createElement(ManageAccountsOutlinedIcon),
+  "reports.menu": React.createElement(AssessmentOutlinedIcon),
+  "mandi_coverage.menu": React.createElement(MapOutlinedIcon),
+  "mandi_prices.menu": React.createElement(PriceChangeOutlinedIcon),
+  "system_security.menu": React.createElement(SecurityOutlinedIcon),
+  "platform_control_center.menu": React.createElement(DeveloperBoardOutlinedIcon),
   "user_roles.menu": React.createElement(SupervisorAccountOutlinedIcon),
   "resource_registry.menu": React.createElement(SchemaOutlinedIcon),
   "security_2fa.menu": React.createElement(PhonelinkLockOutlinedIcon),
+  "security_switches.menu": React.createElement(ToggleOnOutlinedIcon),
   "stepup_policy.menu": React.createElement(SecurityUpdateOutlinedIcon),
   "role_policies.menu": React.createElement(RuleFolderOutlinedIcon),
   "workflow_policies.menu": React.createElement(PolicyOutlinedIcon),
+  "mobile_dashboard.menu": React.createElement(PhoneIphoneOutlinedIcon),
+  "capacity_control.menu": React.createElement(SpeedOutlinedIcon),
 };
 
 export function resolveMenuIcon(iconKey?: string | null, resourceKey?: string | null): React.ReactNode | undefined {
-  if (iconKey && ICON_MAP[iconKey]) return ICON_MAP[iconKey];
   if (resourceKey && RESOURCE_ICON_MAP[resourceKey]) return RESOURCE_ICON_MAP[resourceKey];
+  if (iconKey && ICON_MAP[iconKey]) return ICON_MAP[iconKey];
   return React.createElement(Inventory2OutlinedIcon);
 }

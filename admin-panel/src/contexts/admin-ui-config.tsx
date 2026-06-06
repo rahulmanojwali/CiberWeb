@@ -3,6 +3,7 @@ import axios from "axios";
 import { API_BASE_URL, API_ROUTES, API_TAGS, DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../config/appConfig";
 import { encryptGenericPayload } from "../utils/aesUtilBrowser";
 import { canonicalizeResourceKey, type AdminScope, type AdminUiConfig, type UiResource } from "../utils/adminUiConfig";
+import { buildCanonicalPermissionMap } from "../utils/permissions";
 
 type AdminUiContextValue = AdminUiConfig & {
   loading: boolean;
@@ -126,12 +127,43 @@ const normalizeScope = (scope: any): AdminScope | null => {
   };
 };
 
+const isInjectedResource = (resource: any) => resource?.metadata?.injected === true;
+
+const timeValue = (value: any) => {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (value?.$date) return new Date(value.$date).getTime() || 0;
+  return new Date(value).getTime() || 0;
+};
+
+const isActiveResource = (resource: any) => {
+  const value = resource?.is_active;
+  return value === true || value === "Y" || value === "true" || value === 1;
+};
+
+const shouldReplaceResource = (current: UiResource, next: UiResource) => {
+  const currentInjected = isInjectedResource(current);
+  const nextInjected = isInjectedResource(next);
+  if (currentInjected !== nextInjected) return !nextInjected;
+
+  const currentActive = isActiveResource(current);
+  const nextActive = isActiveResource(next);
+  if (currentActive !== nextActive) return nextActive;
+
+  const currentUpdated = timeValue((current as any).updated_on);
+  const nextUpdated = timeValue((next as any).updated_on);
+  if (currentUpdated !== nextUpdated) return nextUpdated > currentUpdated;
+
+  return false;
+};
+
 const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
   const menuRouteFix: Record<string, string> = {
     "payment_models.menu": "/payment-models",
     "org_payment_settings.menu": "/org-payment-settings",
     "mandi_payment_settings.menu": "/mandi-payment-settings",
     "payment_modes.menu": "/payment-modes",
+    "payment_vendor_accounts.menu": "/payment-vendor-accounts",
     "payments_log.menu": "/payments-log",
     "settlements.menu": "/settlements",
   };
@@ -143,7 +175,7 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
       ...r,
       resource_key: key,
       parent_resource_key: canonicalizeResourceKey(r.parent_resource_key) || null,
-      route: String(r?.route || "").trim() || fallbackRoute || r?.route || "",
+      route: fallbackRoute || String(r?.route || "").trim() || r?.route || "",
     };
   });
 
@@ -151,7 +183,8 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
   normalized.forEach((r) => {
     const key = canonicalizeResourceKey(r.resource_key);
     if (!key) return;
-    if (!deduped.has(key)) deduped.set(key, r);
+    const current = deduped.get(key);
+    if (!current || shouldReplaceResource(current, r)) deduped.set(key, r);
   });
 
   const ensure = (payload: UiResource) => {
@@ -537,6 +570,21 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
   return Array.from(deduped.values());
 };
 
+const mergePermissionActionsIntoResources = (resources: UiResource[], permissions: any[]): UiResource[] => {
+  const permissionMap = buildCanonicalPermissionMap(permissions || []);
+  return (resources || []).map((resource) => {
+    const key = canonicalizeResourceKey(resource.resource_key);
+    const existingActions = Array.isArray((resource as any).allowed_actions)
+      ? (resource as any).allowed_actions.map((action: any) => String(action || "").trim().toUpperCase()).filter(Boolean)
+      : [];
+    const permissionActions = permissionMap[key] || [];
+    if (existingActions.length > 0 || permissionActions.length === 0) {
+      return resource;
+    }
+    return { ...resource, allowed_actions: permissionActions };
+  });
+};
+
 export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<string | null>(null);
   const [scope, setScope] = useState<AdminScope | null>(null);
@@ -552,10 +600,11 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
       const normalizedCachedResources = normalizeUiResources(
         Array.isArray(cached.ui_resources) ? cached.ui_resources : Array.isArray((cached as any).resources) ? (cached as any).resources : [],
       );
+      const normalizedCachedPermissions = Array.isArray(cached.permissions) ? cached.permissions : [];
       setRole(canonicalRoleSlug(cached.role));
       setScope(normalizeScope(cached.scope));
-      setUiResources(normalizedCachedResources);
-      setPermissions(Array.isArray(cached.permissions) ? cached.permissions : []);
+      setUiResources(mergePermissionActionsIntoResources(normalizedCachedResources, normalizedCachedPermissions));
+      setPermissions(normalizedCachedPermissions);
     }
   }, []);
 
@@ -617,10 +666,13 @@ export const AdminUiConfigProvider: React.FC<{ children: React.ReactNode }> = ({
         : Array.isArray(respData?.resources)
           ? respData.resources
           : [];
-      const normalizedUiResources = normalizeUiResources(nextUiResources);
       const nextPermissions: any[] = Array.isArray(respData?.permissions)
         ? respData.permissions
         : [];
+      const normalizedUiResources = mergePermissionActionsIntoResources(
+        normalizeUiResources(nextUiResources),
+        nextPermissions,
+      );
 
       setRole(nextRole);
       setScope(nextScope);

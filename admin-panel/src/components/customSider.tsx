@@ -26,6 +26,7 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useLocation } from "react-router-dom";
 
 import {
+  filterMenuByRole,
   filterMenuByResources,
   type MenuItem as NavMenuItem,
 } from "../config/menuConfig";
@@ -36,6 +37,7 @@ import { usePermissions } from "../authz/usePermissions";
 import { useMenuNavigation } from "../hooks/useMenuNavigation";
 import { filterMenuTreeByPlatformControl } from "../utils/platformMenuVisibility";
 import { usePlatformMenuControls } from "../hooks/usePlatformMenuControls";
+import { resolveMenuLabel } from "../utils/uiLabel";
 
 
 export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
@@ -45,10 +47,11 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { ui_resources, resources: compatResources, role: configRole, refresh: refreshAdminUiConfig } = useAdminUiConfig();
+  const { ui_resources, resources: compatResources, role: configRole, loading: loadingUiConfig, refresh: refreshAdminUiConfig } = useAdminUiConfig();
   const storageRole = getUserRoleFromStorage("CustomSider");
   const effectiveRole = (configRole as any) || storageRole;
-  const { permissionsMap } = usePermissions();
+  const { permissionsMap, loadingPermissions, isSuper } = usePermissions();
+  const isSuperAdmin = isSuper;
 
   const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
   const [menuError, setMenuError] = useState<string | null>(null);
@@ -64,12 +67,22 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     try {
       if (resourcesCount === 0) {
         setMenuError(null);
+        setNavItems(!loadingUiConfig && isSuperAdmin ? filterMenuByRole("SUPER_ADMIN") : []);
+        return;
+      }
+      if (loadingPermissions) {
+        setMenuError(null);
         setNavItems([]);
         return;
       }
       const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
       const builtCount = built.length;
-      if (resourcesCount > 0 && builtCount === 0) {
+      if (builtCount === 0 && isSuperAdmin) {
+        setMenuError(null);
+        setNavItems(filterMenuByRole("SUPER_ADMIN"));
+        return;
+      }
+      if (resourcesCount > 0 && builtCount === 0 && !isSuperAdmin) {
         console.warn("[menu] built menu empty after pruning; showing empty state");
         setMenuError("No menu access assigned. Contact admin.");
         setNavItems([]);
@@ -82,7 +95,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
       console.error("[sidebar] build failed", e, { resourcesSample: (menuResources || []).slice(0, 5) });
       setMenuError("Menu failed to load.");
     }
-  }, [effectiveRole, menuResources, resourcesCount, permissionsMap]);
+  }, [effectiveRole, isSuperAdmin, loadingPermissions, loadingUiConfig, menuResources, resourcesCount, permissionsMap]);
 
   useEffect(() => {
     const loadMenuControls = () => {
@@ -112,9 +125,15 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
 
   const translateMenuLabel = (menuItem: NavMenuItem) => {
     if (menuItem.labelOverride && String(menuItem.labelOverride).trim()) {
-      return menuItem.labelOverride;
+      return resolveMenuLabel({ ...menuItem, label: menuItem.labelOverride });
     }
-    return t(menuItem.labelKey, { defaultValue: menuItem.labelKey });
+    const translated = t(menuItem.labelKey, { defaultValue: menuItem.labelKey });
+    return resolveMenuLabel({
+      ...menuItem,
+      label: translated,
+      i18n_label_key: menuItem.labelKey,
+      resource_key: menuItem.resourceKey,
+    }) || translated;
   };
 
   const CM = {
@@ -272,7 +291,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         </Box>
       );
     },
-    [collapsed, expanded, location.pathname, menuNavigate, toggleGroup],
+    [collapsed, expanded, location.pathname, menuNavigate, t, toggleGroup],
   );
 
 
@@ -350,7 +369,16 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
             pb: 2,
           }}
         >
-          {menuError && visibleNavItems.length === 0 && (
+          {loadingPermissions && visibleNavItems.length === 0 && (
+            <ListItem disablePadding>
+              <ListItemText
+                primary="Loading menu..."
+                primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
+                sx={{ px: 1.5, py: 0.5 }}
+              />
+            </ListItem>
+          )}
+          {menuError && visibleNavItems.length === 0 && !isSuperAdmin && !loadingPermissions && (
             <ListItem disablePadding>
               <ListItemText
                 primary={menuError}
@@ -359,7 +387,7 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
               />
             </ListItem>
           )}
-          {visibleNavItems.length === 0 && (
+          {visibleNavItems.length === 0 && !isSuperAdmin && !loadingPermissions && (
             <ListItem disablePadding>
               <ListItemText
                 primary="No menu access assigned"

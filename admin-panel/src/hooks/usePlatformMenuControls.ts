@@ -43,7 +43,11 @@ export function usePlatformMenuControls(fallbackResources: PlatformMenuControl[]
         return;
       }
       const menus = resp?.response?.data?.menus;
-      setControls(Array.isArray(menus) ? menus : fallbackControls);
+      if (Array.isArray(menus) && menus.length > 0) {
+        setControls(menus);
+        return;
+      }
+      setControls(fallbackControls);
     } catch (err) {
       console.error("[platformMenuControls] load failed", err);
       setControls(fallbackControls);

@@ -123,7 +123,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     i18n.language || DEFAULT_LANGUAGE,
   );
   const { ui_resources, role: configRole, resources: compatResources, refresh: refreshAdminUiConfig } = useAdminUiConfig();
-  const { permissionsMap } = usePermissions();
+  const { permissionsMap, loadingPermissions } = usePermissions();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuExpanded, setMenuExpanded] = useState<Record<string, boolean>>({});
@@ -135,12 +135,13 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
   const navItems: NavMenuItem[] = useMemo(() => {
+    if (loadingPermissions) return [];
     const source = menuResources;
     const items = filterMenuByResources(source, effectiveRole, permissionsMap);
     const visibleItems = filterMenuTreeByPlatformControl(items, platformMenuControls);
     console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: source.length }, items);
     return visibleItems;
-  }, [effectiveRole, menuResources, permissionsMap, platformMenuControls]);
+  }, [effectiveRole, loadingPermissions, menuResources, permissionsMap, platformMenuControls]);
   const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
   const handleToggleGroup = useCallback((key: string) => {
     setMenuExpanded((prev) => ({ ...prev, [key]: !prev[key] }));

@@ -246,7 +246,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "menu_name": "Payment Vendor Accounts",
     "name_source": "screen",
     "i18n_key": "menu.paymentVendorAccounts",
-    "route": "/finance/payment-vendor-accounts",
+    "route": "/payment-vendor-accounts",
     "icon_key": "settings",
     "order": 687,
     "metadata_group": "main_sidebar",

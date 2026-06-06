@@ -21,7 +21,7 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { canonicalizeResourceKey, isDbActive, normalizeRoute, type UiResource } from "../utils/adminUiConfig";
 import { computeAllowedSidebar } from "../utils/rbacHelper";
 import { MENU_FREEZE } from "./menuFreeze";
-import { getResourceLabel } from "../utils/uiLabel";
+import { resolveMenuLabel } from "../utils/uiLabel";
 import { resolveMenuIcon } from "./iconRegistry";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
@@ -669,7 +669,8 @@ export const APP_MENU: AppMenuItem[] = [
 
 {
   key: "auctions",
-  labelKey: "menu.auctionMethods",
+  labelKey: "menu.auction",
+  labelOverride: "Auction",
   icon: React.createElement(GavelOutlinedIcon),
   roles: ALL_ROLES,
   children: [
@@ -696,7 +697,7 @@ export const APP_MENU: AppMenuItem[] = [
       labelKey: "menu.auctionPolicies",
       path: "/auction-policies",
       icon: React.createElement(GavelOutlinedIcon),
-      resourceKey: "auction_policies_masters.menu",
+      resourceKey: "cm_mandi_auction_policies.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN"],
     },
@@ -885,7 +886,7 @@ export const APP_MENU: AppMenuItem[] = [
         key: "paymentVendorAccounts",
         labelKey: "menu.paymentVendorAccounts",
         labelOverride: "Payment Vendor Accounts",
-        path: "/finance/payment-vendor-accounts",
+        path: "/payment-vendor-accounts",
         icon: React.createElement(AccountBalanceWalletOutlinedIcon),
         resourceKey: "payment_vendor_accounts.menu",
         requiredAction: "VIEW",
@@ -1016,6 +1017,41 @@ function filterHierarchy(
 
 export type MenuItem = AppMenuItem;
 
+const GROUP_LABELS: Record<string, string> = {
+  "Dashboard": "Dashboard",
+  "Organisation & Access": "Organisations",
+  "Organisations": "Organisations",
+  "System": "System",
+  "Mandi Setup": "Mandis",
+  "Masters": "Mandis",
+  "Mandis": "Mandis",
+  "Gate & Yard": "Gate & Yard",
+  "Operations": "Gate & Yard",
+  "Auction": "Auction",
+  "Registry": "Trader Approvals",
+  "Trader Approvals": "Trader Approvals",
+  "Finance": "Payments & Settlements",
+  "Payments & Settlements": "Payments & Settlements",
+  "Reports": "Reports",
+};
+
+const GROUP_ORDER: Record<string, number> = {
+  "Dashboard": 10,
+  "Organisations": 20,
+  "System": 30,
+  "Mandis": 40,
+  "Gate & Yard": 50,
+  "Auction": 60,
+  "Trader Approvals": 70,
+  "Payments & Settlements": 80,
+  "Reports": 90,
+};
+
+function normalizeGroupLabel(category?: string | null) {
+  const raw = String(category || "").trim();
+  return GROUP_LABELS[raw] || raw || "System";
+}
+
 export function filterMenuByRole(role: RoleSlug | null) {
   const knownRole = role && ALL_ROLES.includes(role);
   const effectiveRole: RoleSlug = knownRole ? role : "VIEWER";
@@ -1065,7 +1101,7 @@ export function filterMenuByResources(
     const isSuperAdmin = normalizedRole === "SUPER_ADMIN";
     const hasResources = Array.isArray(resources) && resources.length > 0;
     if (!hasResources) {
-      return [];
+      return isSuperAdmin ? filterMenuByRole("SUPER_ADMIN") : [];
     }
     const hasPermissions =
       permissionsMap && Object.keys(permissionsMap).length > 0;
@@ -1094,25 +1130,35 @@ export function filterMenuByResources(
       if (res.resource_key) byKey.set(canonicalizeResourceKey(res.resource_key), res);
     });
 
-    const lang =
-      (typeof navigator !== "undefined" && navigator.language
-        ? navigator.language.split("-")[0]
-        : "en") || "en";
-
     const freezeItems = MENU_FREEZE.filter((item) => item && item.resource_key);
 
     type MenuItemRow = AppMenuItem & { order: number; category: string; resource: UiResource };
     const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
-      const dbMenu = dbMenusByResourceKey.get(key) || dbMenusByRoute.get(normalizeRoute(freeze.route));
+      const dbMenu = dbMenusByResourceKey.get(key) || (!key ? dbMenusByRoute.get(normalizeRoute(freeze.route)) : undefined);
       if (dbMenu && !isDbActive((dbMenu as any).is_active)) return;
+      if (!dbMenu && !isSuperAdmin) return;
       const effectiveKey = canonicalizeResourceKey(dbMenu?.resource_key || freeze.resource_key);
       const resource = byKey.get(effectiveKey) || byKey.get(key);
       const canViewByPermission = isSuperAdmin || Boolean(permissionsMap?.[effectiveKey]?.has("VIEW")) || Boolean(permissionsMap?.[key]?.has("VIEW"));
       if (!resource && !canViewByPermission) return;
       if (!dbMenu && !isDbActive(freeze.is_active)) return;
-      const labelOverride = freeze.menu_name || getResourceLabel(resource, lang);
+      const labelOverride = resolveMenuLabel({
+        ...resource,
+        resource_key: resource?.resource_key || freeze.resource_key,
+        resourceKey: resource?.resource_key || freeze.resource_key,
+        label: (resource as any)?.label,
+        title: (resource as any)?.title,
+        display_name: (resource as any)?.display_name,
+        label_i18n: (resource as any)?.label_i18n,
+        i18n: (resource as any)?.i18n,
+        i18n_label_key: resource?.i18n_label_key || freeze.i18n_key,
+      }) || resolveMenuLabel({
+        resource_key: freeze.resource_key,
+        i18n_label_key: freeze.i18n_key,
+        label: freeze.menu_name,
+      });
       const labelKey = freeze.i18n_key || resource?.i18n_label_key || resource?.resource_key || freeze.resource_key;
       const path = dbMenu?.route || freeze.route || "";
       const disabled = !path;
@@ -1125,7 +1171,7 @@ export function filterMenuByResources(
         resourceKey: String(dbMenu?.resource_key || freeze.resource_key),
         requiredAction: "VIEW",
         order: typeof dbMenu?.order === "number" ? dbMenu.order : typeof freeze.order === "number" ? freeze.order : 9999,
-        category: String(freeze.category || ""),
+        category: normalizeGroupLabel(freeze.category),
         disabled,
         resource:
           resource ||
@@ -1148,8 +1194,7 @@ export function filterMenuByResources(
     );
     const systemCapacityControlResource = byKey.get(systemCapacityControlKey);
     const systemCapacityControlDbMenu =
-      dbMenusByResourceKey.get(systemCapacityControlKey) ||
-      dbMenusByRoute.get(normalizeRoute(systemCapacityControlItem?.path));
+      dbMenusByResourceKey.get(systemCapacityControlKey);
 
     if (
       systemCapacityControlItem &&
@@ -1167,7 +1212,7 @@ export function filterMenuByResources(
         resourceKey: "capacity_control.menu",
         requiredAction: "VIEW",
         order: typeof systemCapacityControlItem.order === "number" ? systemCapacityControlItem.order : 9999,
-        category: "System",
+        category: normalizeGroupLabel("System"),
         disabled: !systemCapacityControlItem.path,
         resource: systemCapacityControlResource || {
           resource_key: "capacity_control.menu",
@@ -1180,17 +1225,17 @@ export function filterMenuByResources(
     const categories = new Map<string, { label: string; order: number; items: MenuItemRow[] }>();
     const categoryOrder = new Map<string, number>();
     freezeItems.forEach((f, idx) => {
-      const name = String(f.category || "");
+      const name = normalizeGroupLabel(f.category);
       if (!name) return;
-      if (!categoryOrder.has(name)) categoryOrder.set(name, idx);
+      if (!categoryOrder.has(name)) categoryOrder.set(name, GROUP_ORDER[name] ?? idx);
     });
 
     items.forEach((item) => {
-      const categoryName = item.category || "System";
+      const categoryName = normalizeGroupLabel(item.category || "System");
       if (!categories.has(categoryName)) {
         categories.set(categoryName, {
           label: categoryName,
-          order: categoryOrder.get(categoryName) ?? 9999,
+          order: GROUP_ORDER[categoryName] ?? categoryOrder.get(categoryName) ?? 9999,
           items: [],
         });
       }

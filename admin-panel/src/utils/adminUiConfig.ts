@@ -11,6 +11,7 @@ export type UiResource = {
   i18n_label_key?: string | null;
   allowed_actions: string[];
   is_active?: boolean | string;
+  updated_on?: string | Date | null;
   metadata?: Record<string, any> | null;
 };
 
@@ -50,9 +51,15 @@ export function isDbActive(value: any): boolean {
 export function normalizeRoute(route?: string | null): string {
   const raw = String(route || "").trim();
   if (!raw) return "";
+
   const withoutQuery = raw.split("?")[0].split("#")[0].trim();
   const withSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  return withSlash.replace(/\/{2,}/g, "/").replace(/\/+$/g, "").toLowerCase() || "/";
+
+  return withSlash
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/admin(?=\/|$)/i, "")
+    .replace(/\/+$/g, "")
+    .toLowerCase() || "/";
 }
 
 export function getResource(

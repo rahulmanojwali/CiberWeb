@@ -21,7 +21,7 @@ export const LeftSider: React.FC = () => {
   const { ui_resources, resources: compatResources, role: configRole, refresh: refreshAdminUiConfig } = useAdminUiConfig();
   const role = getUserRoleFromStorage("LeftSider");
   const effectiveRole = (configRole as any) || role;
-  const { permissionsMap } = usePermissions();
+  const { permissionsMap, loadingPermissions } = usePermissions();
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("md"));
   const isDark = theme.palette.mode === "dark";
@@ -30,9 +30,10 @@ export const LeftSider: React.FC = () => {
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
   const items = useMemo<MenuItem[]>(() => {
+    if (loadingPermissions) return [];
     const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
     return filterMenuTreeByPlatformControl(built, platformMenuControls);
-  }, [effectiveRole, menuResources, permissionsMap, platformMenuControls]);
+  }, [effectiveRole, loadingPermissions, menuResources, permissionsMap, platformMenuControls]);
 
   React.useEffect(() => {
     const loadMenuControls = () => {
@@ -93,7 +94,15 @@ export const LeftSider: React.FC = () => {
       }}
     >
       <Box component="ul" sx={{ listStyle: "none", m: 0, p: 1 }}>
-        {navigableItems.length === 0 && (
+        {loadingPermissions && navigableItems.length === 0 && (
+          <Box
+            component="li"
+            sx={{ px: 1, py: 1, color: "text.secondary", fontSize: "0.85rem" }}
+          >
+            {t("layout.sider.loadingMenu", { defaultValue: "Loading menu..." })}
+          </Box>
+        )}
+        {!loadingPermissions && navigableItems.length === 0 && (
           <Box
             component="li"
             sx={{ px: 1, py: 1, color: "text.secondary", fontSize: "0.85rem" }}

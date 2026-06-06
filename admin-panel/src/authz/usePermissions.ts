@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
 import { canonicalizeResourceKey } from "../utils/adminUiConfig";
-import { indexPermissions, hasAccess, normalizeAction as normalizeActionBase } from "../utils/rbacHelper";
+import { hasAccess, normalizeAction as normalizeActionBase } from "../utils/rbacHelper";
+import { buildCanonicalPermissionMap } from "../utils/permissions";
 
 type Action = "VIEW" | "CREATE" | "UPDATE" | "DEACTIVATE" | "UPLOAD" | string;
 
@@ -15,25 +16,6 @@ const normalizeAction = (action?: string | null) => {
   return upper;
 };
 
-const normalizeActionsArray = (actions: any): string[] => {
-  if (!actions) return [];
-  let arr: any[] = [];
-  if (Array.isArray(actions)) {
-    arr = actions;
-  } else if (typeof actions === "string") {
-    arr = actions.split(",").map((s) => s.trim());
-  } else {
-    return [];
-  }
-  return arr
-    .map((a) => {
-      if (a && typeof a === "object" && "action" in a) return (a as any).action;
-      return a;
-    })
-    .map((a) => normalizeAction(a))
-    .filter(Boolean);
-};
-
 export function usePermissions() {
   const uiConfig = useAdminUiConfig();
   const roleSlug = (uiConfig.role || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
@@ -42,15 +24,14 @@ export function usePermissions() {
     const permSource = uiConfig.permissions || [];
     const fallback = (uiConfig as any).resources || [];
     const merged = [...fallback, ...permSource];
-    const normalized = merged.map((res: any) => ({
-      resource_key: canonicalizeResourceKey(
-        res.resource_key || res.resource || res.key || res.resourceKey || "",
-      ),
-      actions: normalizeActionsArray(res.allowed_actions ?? res.actions ?? res.permissions ?? []),
-    }));
-    const map = indexPermissions(
-      normalized.filter((entry: any) => entry.resource_key),
-    );
+    merged.forEach((permission) => {
+      console.log("RAW_PERMISSION", JSON.stringify(permission, null, 2));
+    });
+    const actionMap = buildCanonicalPermissionMap(merged);
+    const map: Record<string, Set<string>> = {};
+    Object.entries(actionMap).forEach(([key, actions]) => {
+      map[key] = new Set(actions.map((action) => normalizeAction(action)).filter(Boolean));
+    });
     if (roleSlug === "MANDI_ADMIN") {
       const ensure = (resourceKey: string, actions: string[]) => {
         const key = canonicalizeResourceKey(resourceKey);
@@ -81,10 +62,11 @@ export function usePermissions() {
       ensure("lots.map_to_auction", ["UPDATE"]);
       ensure("lots.update_status", ["UPDATE"]);
     }
+    console.log("PERMISSION_MAP", map);
     return map;
   }, [uiConfig.permissions, (uiConfig as any).resources, roleSlug]);
 
-  const can = (resourceKey: string, action: Action) => {
+  const can = (resourceKey: string, action: Action = "VIEW") => {
     const normKey = canonicalizeResourceKey(resourceKey);
     const normAction = normalizeAction(String(action));
     if (!normKey || !normAction) return false;
@@ -104,5 +86,5 @@ export function usePermissions() {
     return permissionsMap[normKey] ? { key: normKey, actions: Array.from(permissionsMap[normKey]) } : null;
   };
 
-  return { permissionsMap, can, authContext, isSuper, getPermissionEntry };
+  return { permissionsMap, can, authContext, isSuper, getPermissionEntry, loadingPermissions: uiConfig.loading };
 }

@@ -26,6 +26,8 @@ import { PageContainer } from "../../components/PageContainer";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { getCurrentAdminUsername } from "../../utils/session";
 import { getUserScope } from "../../utils/userScope";
+import { postEncrypted } from "../../services/sharedEncryptedRequest";
+import { API_ROUTES, API_TAGS } from "../../config/appConfig";
 import {
   listPaymentGatewayConfigs,
   savePaymentGatewayConfig,
@@ -64,7 +66,9 @@ type Row = {
   id: string;
   provider_code: string;
   provider_name?: string;
+  owner_type?: "PLATFORM" | "ORG" | string;
   org_id?: string | null;
+  org_name?: string | null;
   mandi_id?: number | null;
   mode: string;
   priority: number;
@@ -79,6 +83,12 @@ type Row = {
   has_client_secret?: boolean;
   has_webhook_secret?: boolean;
   access_code?: string;
+};
+
+type OrgOption = {
+  id: string;
+  org_name: string;
+  org_code?: string;
 };
 
 type TestResult = {
@@ -97,11 +107,26 @@ type TestResult = {
 
 export const PaymentGatewayConfigsPage: React.FC = () => {
   const userScope = getUserScope("payment-gateway-configs");
-  const scopeLabel = userScope.role === "SUPER_ADMIN"
-    ? "Showing Platform Gateway Configurations"
-    : userScope.role === "ORG_ADMIN"
-      ? "Showing Organisation Gateway Configurations"
-      : "Showing Mandi Gateway Configurations";
+  const isSuperAdmin = userScope.role === "SUPER_ADMIN";
+  const canManageGateway = userScope.role === "SUPER_ADMIN" || userScope.role === "ORG_ADMIN";
+  const orgOwnerName =
+    userScope.rawUser?.org_name ||
+    userScope.rawUser?.orgName ||
+    userScope.rawUser?.org_code ||
+    userScope.orgCode ||
+    "Organisation";
+  const [gatewayScope, setGatewayScope] = useState<"PLATFORM" | "ORG" | "ALL_ORGS">("PLATFORM");
+  const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const selectedOrg = orgOptions.find((org) => org.id === selectedOrgId) || null;
+  const effectiveScope = isSuperAdmin ? gatewayScope : "ORG";
+  const scopeLabel = isSuperAdmin
+    ? gatewayScope === "PLATFORM"
+      ? "Showing Platform Gateway Configurations"
+      : gatewayScope === "ORG"
+        ? "Showing Organisation Gateway Configurations"
+        : "Showing All Organisation Gateway Configurations"
+    : "Organisation Payment Gateway Settings";
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -111,13 +136,43 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>(null);
 
+  const loadOrgs = async () => {
+    if (!isSuperAdmin) return;
+    const username = getCurrentAdminUsername();
+    if (!username) return;
+    try {
+      const resp: any = await postEncrypted(API_ROUTES.admin.getOrganisations, {
+        api: API_TAGS.ORGS.list,
+        username,
+        language: "en",
+      });
+      const list = Array.isArray(resp?.response?.data?.organisations) ? resp.response.data.organisations : [];
+      setOrgOptions(list.map((org: any) => ({
+        id: String(org._id || org.org_id || org.id || ""),
+        org_name: org.org_name || org.label || org.org_code || String(org._id || ""),
+        org_code: org.org_code,
+      })).filter((org: OrgOption) => org.id));
+    } catch (err) {
+      console.error("[payment-gateway-configs] org load failed", err);
+    }
+  };
+
   const load = async () => {
     const username = getCurrentAdminUsername();
     if (!username) return;
+    if (isSuperAdmin && effectiveScope === "ORG" && !selectedOrgId) {
+      setRows([]);
+      setErrorMsg("");
+      return;
+    }
     setLoading(true);
     setErrorMsg("");
     try {
-      const resp: any = await listPaymentGatewayConfigs({ username, payload: {} });
+      const payload: Record<string, any> = { scope: effectiveScope };
+      if (isSuperAdmin && effectiveScope === "ORG") {
+        payload.org_id = selectedOrgId;
+      }
+      const resp: any = await listPaymentGatewayConfigs({ username, payload });
       if (String(resp?.response?.responsecode || "1") !== "0") {
         throw new Error(resp?.response?.description || "Unable to load payment gateway configs.");
       }
@@ -130,7 +185,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadOrgs(); }, [isSuperAdmin]);
+  useEffect(() => { load(); }, [effectiveScope, selectedOrgId]);
 
   const createAddDraft = () => {
     const nextPriority = (rows.reduce((max, row) => Math.max(max, Number(row.priority || 0)), 0) || 0) + 1;
@@ -148,7 +204,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       notify_url: "",
       allowed_methods: ["UPI"],
       fee_borne_by: "TRADER",
-      org_id: null,
+      owner_type: effectiveScope === "ORG" ? "ORG" : "PLATFORM",
+      org_id: effectiveScope === "ORG" ? selectedOrgId || null : null,
+      org_name: effectiveScope === "ORG" ? selectedOrg?.org_name || null : null,
       mandi_id: null,
       has_client_secret: false,
       has_webhook_secret: false,
@@ -156,6 +214,11 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   };
 
   const openAdd = () => {
+    if (!canManageGateway || effectiveScope === "ALL_ORGS") return;
+    if (isSuperAdmin && effectiveScope === "ORG" && !selectedOrgId) {
+      setErrorMsg("Select an organisation before adding an organisation gateway.");
+      return;
+    }
     setEdit(createAddDraft());
     setTestResult(null);
     setTesting(false);
@@ -163,6 +226,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   };
 
   const openEdit = (row: Row) => {
+    if (!canManageGateway || effectiveScope === "ALL_ORGS") return;
     setEdit({
       is_new: false,
       provider_code: row.provider_code,
@@ -177,7 +241,9 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       notify_url: row.notify_url || "",
       allowed_methods: row.allowed_methods?.length ? row.allowed_methods : ["UPI"],
       fee_borne_by: row.fee_borne_by || "TRADER",
+      owner_type: row.owner_type || (row.org_id ? "ORG" : "PLATFORM"),
       org_id: row.org_id ?? null,
+      org_name: row.org_name ?? null,
       mandi_id: row.mandi_id ?? null,
       has_client_secret: Boolean(row.has_client_secret),
       has_webhook_secret: Boolean(row.has_webhook_secret),
@@ -189,13 +255,14 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const onSave = async () => {
     const username = getCurrentAdminUsername();
-    if (!username || !edit) return;
+    if (!username || !edit || !canManageGateway) return;
     setSaving(true);
     setErrorMsg("");
     try {
       if (!String(edit.provider_code || "").trim()) throw new Error("Provider is required.");
       if (!String(edit.mode || "").trim()) throw new Error("Mode is required.");
       if (!String(edit.priority || "").trim()) throw new Error("Priority is required.");
+      if (isSuperAdmin && effectiveScope === "ORG" && !selectedOrgId) throw new Error("Organisation is required.");
       if (!String(edit.client_id || "").trim()) throw new Error("Merchant Key / App ID is required.");
       if (!String(edit.client_secret || "").trim() && !edit?.has_client_secret) throw new Error("Secret key/salt is required.");
       if (String(edit.provider_code || "").toUpperCase() === "CCAVENUE" && !String(edit.access_code || "").trim()) {
@@ -218,7 +285,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         username,
         payload: {
           provider_code: edit.provider_code,
-          org_id: edit.org_id ?? null,
+          scope: effectiveScope,
+          owner_type: effectiveScope === "ORG" ? "ORG" : "PLATFORM",
+          org_id: effectiveScope === "ORG" ? (isSuperAdmin ? selectedOrgId : edit.org_id ?? null) : null,
+          org_name: effectiveScope === "ORG" ? (isSuperAdmin ? selectedOrg?.org_name || null : edit.org_name ?? orgOwnerName) : null,
           mandi_id: edit.mandi_id ?? null,
           mode: edit.mode,
           priority: Number(edit.priority || 1),
@@ -252,7 +322,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const onToggle = async (row: Row) => {
     const username = getCurrentAdminUsername();
-    if (!username) return;
+    if (!username || !canManageGateway || effectiveScope === "ALL_ORGS") return;
     const next = String(row.is_active || "Y") === "Y" ? "N" : "Y";
     const providerCode = String(row.provider_code || "").toUpperCase();
     const supportsOrderCreation = PROVIDER_ORDER_CREATION_SUPPORT[providerCode] !== false;
@@ -265,8 +335,11 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       username,
       payload: {
         provider_code: row.provider_code,
+        scope: effectiveScope,
+        owner_type: row.owner_type || (row.org_id ? "ORG" : "PLATFORM"),
         org_id: row.org_id ?? null,
         mandi_id: row.mandi_id ?? null,
+        mode: row.mode,
         is_active: next,
         allow_future_setup: allowFutureSetup,
       },
@@ -280,7 +353,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const onSetDefault = async (row: Row) => {
     const username = getCurrentAdminUsername();
-    if (!username) return;
+    if (!username || !canManageGateway || effectiveScope === "ALL_ORGS") return;
     const providerCode = String(row.provider_code || "").toUpperCase();
     const supportsOrderCreation = PROVIDER_ORDER_CREATION_SUPPORT[providerCode] !== false;
     const allowFutureSetup = !supportsOrderCreation
@@ -292,8 +365,11 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       username,
       payload: {
         provider_code: row.provider_code,
+        scope: effectiveScope,
+        owner_type: row.owner_type || (row.org_id ? "ORG" : "PLATFORM"),
         org_id: row.org_id ?? null,
         mandi_id: row.mandi_id ?? null,
+        mode: row.mode,
         allow_future_setup: allowFutureSetup,
       },
     });
@@ -306,7 +382,7 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
 
   const onTestConnection = async () => {
     const username = getCurrentAdminUsername();
-    if (!username || !edit) return;
+    if (!username || !edit || !canManageGateway) return;
     setTesting(true);
     setTestResult(null);
     try {
@@ -314,7 +390,10 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
         username,
         payload: {
           provider_code: edit.provider_code,
-          org_id: edit.org_id ?? null,
+          scope: effectiveScope,
+          owner_type: effectiveScope === "ORG" ? "ORG" : "PLATFORM",
+          org_id: effectiveScope === "ORG" ? (isSuperAdmin ? selectedOrgId : edit.org_id ?? null) : null,
+          org_name: effectiveScope === "ORG" ? (isSuperAdmin ? selectedOrg?.org_name || null : edit.org_name ?? orgOwnerName) : null,
           mandi_id: edit.mandi_id ?? null,
           mode: edit.mode,
           client_id: edit.client_id,
@@ -452,6 +531,8 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
   }, [rows]);
 
   const columns = useMemo<GridColDef<Row>[]>(() => [
+    { field: "owner_type", headerName: "Owner Type", width: 130, renderCell: (p) => <Chip size="small" label={String(p.value || (p.row.org_id ? "ORG" : "PLATFORM"))} /> },
+    { field: "org_name", headerName: "Organisation", width: 180, renderCell: (p) => <>{p.row.owner_type === "ORG" ? (p.value || p.row.org_id || "-") : "Platform"}</> },
     { field: "provider_code", headerName: "Provider", width: 130 },
     { field: "mode", headerName: "Mode", width: 100, renderCell: (p) => <Chip size="small" label={String(p.value || "-")} /> },
     { field: "priority", headerName: "Priority", width: 90 },
@@ -468,13 +549,13 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       sortable: false,
       renderCell: (p) => (
         <Stack direction="row" spacing={1}>
-          <Button size="small" variant="outlined" onClick={() => openEdit(p.row)}>Edit</Button>
-          <Button size="small" variant="contained" onClick={() => onSetDefault(p.row)} disabled={String(p.row.is_active) !== "Y" || PROVIDER_ORDER_CREATION_SUPPORT[String(p.row.provider_code || "").toUpperCase()] === false}>Set Default</Button>
-          <Button size="small" variant="outlined" onClick={() => onToggle(p.row)}>{String(p.row.is_active) === "Y" ? "Disable" : "Enable"}</Button>
+          <Button size="small" variant="outlined" onClick={() => openEdit(p.row)} disabled={!canManageGateway || effectiveScope === "ALL_ORGS"}>Edit</Button>
+          <Button size="small" variant="contained" onClick={() => onSetDefault(p.row)} disabled={!canManageGateway || effectiveScope === "ALL_ORGS" || String(p.row.is_active) !== "Y" || PROVIDER_ORDER_CREATION_SUPPORT[String(p.row.provider_code || "").toUpperCase()] === false}>Set Default</Button>
+          <Button size="small" variant="outlined" onClick={() => onToggle(p.row)} disabled={!canManageGateway || effectiveScope === "ALL_ORGS"}>{String(p.row.is_active) === "Y" ? "Disable" : "Enable"}</Button>
         </Stack>
       ),
     },
-  ], []);
+  ], [canManageGateway, effectiveScope]);
 
   const secretLabel = edit?.provider_code === "PAYU"
     ? "Salt"
@@ -556,16 +637,60 @@ export const PaymentGatewayConfigsPage: React.FC = () => {
       <Stack spacing={2}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="h5">Payment Gateway Settings</Typography>
+            <Typography variant="h5">{isSuperAdmin ? "Payment Gateway Settings" : "Organisation Payment Gateway Settings"}</Typography>
             <Typography variant="body2" color="text.secondary">Configure settlement payment gateways used by trader payments.</Typography>
+            {!isSuperAdmin ? <Chip size="small" label={`Owner: ${orgOwnerName}`} sx={{ mt: 1 }} /> : null}
           </Box>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
-            <Button variant="contained" onClick={openAdd}>+ Add Payment Gateway</Button>
+            <Button
+              variant="contained"
+              onClick={openAdd}
+              disabled={!canManageGateway || effectiveScope === "ALL_ORGS" || (isSuperAdmin && effectiveScope === "ORG" && !selectedOrgId)}
+            >
+              + Add Payment Gateway
+            </Button>
           </Stack>
         </Stack>
 
         {errorMsg ? <Card><CardContent><Typography color="error">{errorMsg}</Typography></CardContent></Card> : null}
+
+        {isSuperAdmin ? (
+          <Card>
+            <CardContent>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
+                <FormControl size="small" sx={{ minWidth: 260 }}>
+                  <InputLabel>Gateway Scope</InputLabel>
+                  <Select
+                    label="Gateway Scope"
+                    value={gatewayScope}
+                    onChange={(event) => setGatewayScope(event.target.value as "PLATFORM" | "ORG" | "ALL_ORGS")}
+                  >
+                    <MenuItem value="PLATFORM">Platform Gateways</MenuItem>
+                    <MenuItem value="ORG">Organisation Gateways</MenuItem>
+                    <MenuItem value="ALL_ORGS">All Organisation Gateways</MenuItem>
+                  </Select>
+                </FormControl>
+                {gatewayScope === "ORG" ? (
+                  <FormControl size="small" sx={{ minWidth: 320 }}>
+                    <InputLabel>Organisation</InputLabel>
+                    <Select
+                      label="Organisation"
+                      value={selectedOrgId}
+                      onChange={(event) => setSelectedOrgId(String(event.target.value || ""))}
+                    >
+                      {orgOptions.map((org) => (
+                        <MenuItem key={org.id} value={org.id}>
+                          {org.org_name}{org.org_code ? ` (${org.org_code})` : ""}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : null}
+              </Stack>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
           <Card sx={{ flex: 1 }}><CardContent><Typography variant="body2">Active Gateway</Typography><Typography variant="h6">{summary.activeCount}</Typography></CardContent></Card>

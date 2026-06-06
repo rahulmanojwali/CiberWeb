@@ -168,6 +168,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "platformControlCenter",
+        labelKey: "menu.platformControlCenter",
+        labelOverride: "Platform Control Center",
+        path: "/system/platform-control-center",
+        icon: resolveMenuIcon("security", "platform_control_center.menu"),
+        resourceKey: "platform_control_center.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
         key: "userRoleManager",
         labelKey: "menu.userRoleManager",
         path: "/system/user-role-manager",

@@ -196,7 +196,7 @@ const LANE_TEMPLATE_MAP: Record<CommodityFamily, LaneTemplate[]> = {
   ],
 };
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; code?: string; id?: string; timezone?: string };
 type CloseSummary = {
   mappedCount: number;
   liveCount: number;
@@ -210,10 +210,6 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
-}
-
-function formatDate(value?: string | Date | null) {
-  return formatBusinessDateTime(value);
 }
 
 function deriveDisplayStatus(session: SessionRow, nowMs: number) {
@@ -506,6 +502,42 @@ export const AuctionSessions: React.FC = () => {
     return "";
   }, [scopedMandiCodes, mandiOptions]);
 
+  const userTimezone = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cd_user");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return String(
+        parsed?.timezone ||
+          parsed?.time_zone ||
+          (uiConfig as any)?.user?.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "",
+      ).trim();
+    } catch {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    }
+  }, [uiConfig]);
+
+  const effectiveTimezone = useMemo(() => {
+    return (row?: Pick<SessionRow, "mandi_code" | "org_code"> | null) => {
+      const rowMandi = String(row?.mandi_code || filters.mandi_code || defaultMandiCode || "").trim().toLowerCase();
+      const rowOrg = String(row?.org_code || filters.org_code || defaultOrgCode || "").trim().toLowerCase();
+      const mandiTimezone = mandiOptions.find((m) => {
+        const candidates = [m.value, m.code, m.id, m.label].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+        return rowMandi && candidates.includes(rowMandi);
+      })?.timezone;
+      const orgTimezone = orgOptions.find((o) => {
+        const candidates = [o.value, o.code, o.id, o.label].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+        return rowOrg && candidates.includes(rowOrg);
+      })?.timezone;
+      return mandiTimezone || orgTimezone || userTimezone || "Asia/Kolkata";
+    };
+  }, [defaultMandiCode, defaultOrgCode, filters.mandi_code, filters.org_code, mandiOptions, orgOptions, userTimezone]);
+
+  const formatDate = (value?: string | Date | null, row?: Pick<SessionRow, "mandi_code" | "org_code"> | null) => {
+    return formatBusinessDateTime(value, effectiveTimezone(row));
+  };
+
   const canMenu = useMemo(
     () => can(uiConfig.resources, "auction_sessions.menu", "VIEW") || can(uiConfig.resources, "auction_sessions.list", "VIEW"),
     [uiConfig.resources],
@@ -632,19 +664,19 @@ export const AuctionSessions: React.FC = () => {
         field: "scheduled_end_time",
         headerName: "Scheduled End",
         width: 180,
-        valueFormatter: (value) => formatDate(value) || "—",
+        valueFormatter: (value, row) => formatDate(value, row) || "—",
       },
       {
         field: "start_time",
         headerName: "Start",
         width: 180,
-        valueFormatter: (value) => formatDate(value) || "—",
+        valueFormatter: (value, row) => formatDate(value, row) || "—",
       },
       {
         field: "end_time",
         headerName: "Actual End",
         width: 180,
-        valueFormatter: (value) => formatDate(value) || "—",
+        valueFormatter: (value, row) => formatDate(value, row) || "—",
       },
       { field: "hall_or_zone", headerName: "Hall / Zone", width: 140, valueGetter: (value) => value || "—" },
       { field: "auctioneer_username", headerName: "Auctioneer", width: 160, valueGetter: (value) => value || "—" },
@@ -662,7 +694,7 @@ export const AuctionSessions: React.FC = () => {
         ),
       },
     ],
-    [nowMs],
+    [nowMs, formatDate],
   );
 
   const loadOrganisations = async () => {
@@ -675,6 +707,9 @@ export const AuctionSessions: React.FC = () => {
       list.map((org: any) => ({
         value: org.org_code || org._id || "",
         label: org.org_name ? `${org.org_name} (${org.org_code || org._id})` : org.org_code || org._id,
+        code: org.org_code || "",
+        id: String(org._id || org.org_id || ""),
+        timezone: org.timezone || org.time_zone || "",
       })),
     );
   };
@@ -700,6 +735,9 @@ export const AuctionSessions: React.FC = () => {
       list.map((m: any) => ({
         value: m.mandi_slug || m.slug || String(m.mandi_id || ""),
         label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+        code: m.mandi_code || m.mandi_slug || m.slug || "",
+        id: String(m.mandi_id || ""),
+        timezone: m.timezone || m.time_zone || "",
       })),
     );
   };
@@ -1542,7 +1580,7 @@ export const AuctionSessions: React.FC = () => {
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary">
-                      Scheduled end: {displayValue(formatDate(lane.scheduled_end_time))}
+                      Scheduled end: {displayValue(formatDate(lane.scheduled_end_time, lane))}
                     </Typography>
                     <Stack direction="row" justifyContent="flex-end">
                       <Button size="small" onClick={() => { setSelectedSession(lane); setDetailError(null); setOpenDetail(true); }}>
@@ -1662,10 +1700,10 @@ export const AuctionSessions: React.FC = () => {
                   Session Timing
                 </Typography>
                 <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
-                  <DetailField label="Start Time" value={displayValue(formatDate(selectedSession.start_time))} />
-                  <DetailField label="Actual Start" value={displayValue(formatDate(selectedSession.actual_start || selectedSession.start_time))} />
-                  <DetailField label="Actual End" value={displayValue(formatDate(selectedSession.end_time))} />
-                  <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
+                  <DetailField label="Start Time" value={displayValue(formatDate(selectedSession.start_time, selectedSession))} />
+                  <DetailField label="Actual Start" value={displayValue(formatDate(selectedSession.actual_start || selectedSession.start_time, selectedSession))} />
+                  <DetailField label="Actual End" value={displayValue(formatDate(selectedSession.end_time, selectedSession))} />
+                  <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time, selectedSession))} />
                   <DetailField label="Closure Mode" value={closureModeLabel(selectedSession.closure_mode || "MANUAL_OR_AUTO")} />
                   <DetailField label="Closed By Type" value={displayValue(selectedSession.closed_by_type)} />
                   <DetailField label="Close Reason" value={displayValue(selectedSession.close_reason)} />
@@ -1678,7 +1716,7 @@ export const AuctionSessions: React.FC = () => {
                   <Chip
                     size="small"
                     variant="outlined"
-                    label={getStartCountdownLabel(selectedSession, nowMs) || `Scheduled to end at ${formatDate(selectedSession.scheduled_end_time)}`}
+                    label={getStartCountdownLabel(selectedSession, nowMs) || `Scheduled to end at ${formatDate(selectedSession.scheduled_end_time, selectedSession)}`}
                     sx={{ mt: 1.5 }}
                   />
                 )}
@@ -1751,7 +1789,7 @@ export const AuctionSessions: React.FC = () => {
               <DetailField label="Session Code" value={displayValue(selectedSession.session_code)} />
               <DetailField label="Status" value={selectedSessionDisplayStatus} />
               <DetailField label="Mandi" value={displayValue(selectedSession.mandi_code)} />
-              <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time))} />
+              <DetailField label="Scheduled End" value={displayValue(formatDate(selectedSession.scheduled_end_time, selectedSession))} />
               <DetailField label="Mapped Lots" value={String(closeSummary.mappedCount)} />
               <DetailField label="Active/Live Lots" value={String(closeSummary.liveCount)} />
               <Typography variant="body2" color="text.secondary">

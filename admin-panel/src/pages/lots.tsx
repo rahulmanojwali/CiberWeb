@@ -1132,14 +1132,6 @@ export const Lots: React.FC = () => {
     uiState.settlementDisplayState === "ERROR_PERMISSION"
       ? "Permission required to view settlement details."
       : "Settlement details are temporarily unavailable.";
-  const isDetailBusy = Boolean(
-    detailLoading ||
-      actionLoading ||
-      settlementActionLoading ||
-      settlementPreviewLoading ||
-      auctionResultLoading ||
-      settlementDetailLoading
-  );
 
   useEffect(() => {
     if (!detailLot || !import.meta.env.DEV) return;
@@ -1557,8 +1549,6 @@ export const Lots: React.FC = () => {
               )}
             </Box>
           </Box>
-          {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
-
           <Box className="cm-filter-row">
             <Box className="cm-filter-field">
               <TextField
@@ -1746,7 +1736,6 @@ export const Lots: React.FC = () => {
               </Button>
             </Stack>
           </Stack>
-          {isDetailBusy && <LinearProgress sx={{ mt: 1 }} />}
         </DialogTitle>
 
         <DialogContent sx={{ bgcolor: "background.default" }}>

@@ -3241,7 +3241,6 @@ export const AuctionLots: React.FC = () => {
             <Button size="small" variant="contained" onClick={() => { void loadData({ showLoader: true }); }} disabled={loading}>Apply Filters</Button>
           </Box>
         </Box>
-        {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
         <Box className="cm-filter-row">
           {uiConfig.role === "SUPER_ADMIN" && (
             <TextField
@@ -3680,12 +3679,11 @@ export const AuctionLots: React.FC = () => {
             </Stack>
           </DialogTitle>
           <DialogContent>
-            {createOptionsLoading && <LinearProgress sx={{ mb: 2 }} />}
             <Stack spacing={2} mt={1}>
               {noOrgAllocationConfigured && (
                 <Alert severity="warning">{orgAllocationWarning}</Alert>
               )}
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Box sx={{ p: 0 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
                   Section A — Source Lot
                 </Typography>
@@ -3778,7 +3776,7 @@ export const AuctionLots: React.FC = () => {
                     </Box>
                   </Paper>
                 )}
-              </Paper>
+              </Box>
 
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>

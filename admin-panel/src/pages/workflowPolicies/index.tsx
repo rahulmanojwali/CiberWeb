@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   CircularProgress,
   Divider,
   Drawer,
@@ -94,9 +95,11 @@ type MandiOverrideSummary = {
   source: string;
 };
 
+type MandiLotCreationMode = "GATE_OPERATOR_ALLOWED" | "STRICT_ADMIN_ONLY" | "INHERIT_ORG";
+
 const LOT_CREATION_OPTIONS: Option[] = [
-  { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
-  { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
+  { value: "STRICT_ADMIN_ONLY", label: "Mandi/Admin Creates Lot Only" },
+  { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Can Create Lot" },
 ];
 
 const APPROVAL_OPTIONS: Option[] = [
@@ -678,6 +681,7 @@ export const WorkflowPolicies: React.FC = () => {
   const [helpError, setHelpError] = useState(false);
   const [helpContent, setHelpContent] = useState("");
   const [helpFetched, setHelpFetched] = useState(false);
+  const mandiOverrideFormRef = useRef<HTMLDivElement | null>(null);
 
   const canViewPage = useMemo(
     () =>
@@ -848,19 +852,19 @@ export const WorkflowPolicies: React.FC = () => {
           )
             .trim()
             .toUpperCase();
-
-          if (!auctionMode) return null;
+          const effectiveAuctionMode = String(
+            effective?.auction?.lot_creation_mode || effective?.lot_creation_mode || "STRICT_ADMIN_ONLY",
+          )
+            .trim()
+            .toUpperCase();
+          const source = String(effective?.sources?.auction || effective?.source || "DEFAULT").toUpperCase();
 
           return {
             mandiId: mandi.value,
             mandiName: mandi.label,
-            auctionMode,
-            effectiveAuctionMode: String(
-              effective?.auction?.lot_creation_mode || effective?.lot_creation_mode || "STRICT_ADMIN_ONLY",
-            )
-              .trim()
-              .toUpperCase(),
-            source: String(effective?.sources?.auction || effective?.source || "DEFAULT").toUpperCase(),
+            auctionMode: source === "MANDI" ? auctionMode || effectiveAuctionMode : "Inherits Org Default",
+            effectiveAuctionMode,
+            source,
           } as MandiOverrideSummary;
         }),
       );
@@ -977,9 +981,61 @@ export const WorkflowPolicies: React.FC = () => {
     }
   };
 
+  const saveMandiLotCreationMode = async (mandiId: string, mode: MandiLotCreationMode) => {
+    const username = currentUsername();
+    if (!username || !orgId || !mandiId) return;
+
+    const workflowPayload =
+      mode === "INHERIT_ORG"
+        ? {
+            lot_creation_mode: "",
+            auction: { lot_creation_mode: "" },
+          }
+        : {
+            lot_creation_mode: mode,
+            auction: { lot_creation_mode: mode },
+          };
+
+    setSavingMandi(true);
+    try {
+      const resp = await upsertMandiSettings({
+        username,
+        language,
+        payload: {
+          org_id: orgId,
+          mandi_id: mandiId,
+          workflow_policies: workflowPayload,
+        },
+      });
+
+      const code = String(resp?.response?.responsecode ?? "");
+      if (code !== "0") {
+        enqueueSnackbar(resp?.response?.description || "Failed to update mandi lot creation mode.", {
+          variant: "error",
+        });
+        return;
+      }
+
+      enqueueSnackbar("Mandi lot creation mode updated.", { variant: "success" });
+      if (selectedMandi === mandiId) {
+        await loadSelectedMandi();
+      }
+      await loadMandiOverridesSummary();
+    } finally {
+      setSavingMandi(false);
+    }
+  };
+
   const loadOrgValuesIntoMandiForm = () => {
     setMandiPolicies(JSON.parse(JSON.stringify(orgPolicies)));
     setInfoMessage("Loaded current org defaults into the mandi form. Save to create mandi-specific override.");
+  };
+
+  const editFullMandiPolicy = (mandiId: string) => {
+    setSelectedMandi(mandiId);
+    window.setTimeout(() => {
+      mandiOverrideFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
 
   if (!canViewPage) {
@@ -1036,7 +1092,7 @@ export const WorkflowPolicies: React.FC = () => {
           <>
             <Card>
               <CardContent>
-                <Stack spacing={2}>
+                <Stack spacing={2} ref={mandiOverrideFormRef}>
                   <Typography variant="h6">Mandi Override</Typography>
                   <TextField
                     select
@@ -1065,6 +1121,26 @@ export const WorkflowPolicies: React.FC = () => {
                   ) : null}
 
                   {infoMessage ? <Alert severity="info">{infoMessage}</Alert> : null}
+
+                  {selectedMandi ? (
+                    <Stack spacing={1}>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }}>
+                        <Chip
+                          color={effectivePolicies.auction.lot_creation_mode === "GATE_OPERATOR_ALLOWED" ? "success" : "default"}
+                          label={`Current Effective Mode: ${effectivePolicies.auction.lot_creation_mode}`}
+                        />
+                        <Chip
+                          color={modeSourceLabel(effectiveSources, "auction") === "MANDI" ? "warning" : "primary"}
+                          label={`Source: ${modeSourceLabel(effectiveSources, "auction")}`}
+                        />
+                      </Stack>
+                      {modeSourceLabel(effectiveSources, "auction") === "MANDI" ? (
+                        <Alert severity="warning">
+                          This mandi has its own override. Org default will not apply until you choose Inherit Org Default.
+                        </Alert>
+                      ) : null}
+                    </Stack>
+                  ) : null}
 
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                     <Button
@@ -1142,7 +1218,7 @@ export const WorkflowPolicies: React.FC = () => {
                           <TableCell>Auction Override</TableCell>
                           <TableCell>Effective Auction Mode</TableCell>
                           <TableCell>Source</TableCell>
-                          <TableCell align="right">Action</TableCell>
+                          <TableCell align="right">Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1153,9 +1229,35 @@ export const WorkflowPolicies: React.FC = () => {
                             <TableCell>{row.effectiveAuctionMode}</TableCell>
                             <TableCell>{row.source}</TableCell>
                             <TableCell align="right">
-                              <Button size="small" onClick={() => setSelectedMandi(row.mandiId)}>
-                                Edit
-                              </Button>
+                              <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="flex-end">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => saveMandiLotCreationMode(row.mandiId, "GATE_OPERATOR_ALLOWED")}
+                                  disabled={!canEditMandi || savingMandi}
+                                >
+                                  Set Gate Operator Allowed
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => saveMandiLotCreationMode(row.mandiId, "STRICT_ADMIN_ONLY")}
+                                  disabled={!canEditMandi || savingMandi}
+                                >
+                                  Set Strict Admin Only
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => saveMandiLotCreationMode(row.mandiId, "INHERIT_ORG")}
+                                  disabled={!canEditMandi || savingMandi}
+                                >
+                                  Inherit Org Default
+                                </Button>
+                                <Button size="small" onClick={() => editFullMandiPolicy(row.mandiId)}>
+                                  Edit Full Policy
+                                </Button>
+                              </Stack>
                             </TableCell>
                           </TableRow>
                         ))}

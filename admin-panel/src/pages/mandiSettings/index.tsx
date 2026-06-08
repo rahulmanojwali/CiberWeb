@@ -22,6 +22,13 @@ const LOT_CREATION_OPTIONS = [
   { value: "STRICT_ADMIN_ONLY", label: "Strict Admin Only" },
   { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
 ];
+const MANDI_ASSOCIATION_APPROVAL_OPTIONS = [
+  "MANUAL_APPROVAL",
+  "AUTO_APPROVE",
+  "AUTO_APPROVE_EXISTING_USER_ONLY",
+  "MANDI_ADMIN_APPROVAL",
+  "ORG_ADMIN_APPROVAL",
+];
 
 function currentUsername(): string | null {
   try {
@@ -52,6 +59,15 @@ export const MandiSettings: React.FC = () => {
   const [maxQueuePerLane, setMaxQueuePerLane] = useState("");
   const [maxTotalQueuedLots, setMaxTotalQueuedLots] = useState("");
   const [allowOverflowLanes, setAllowOverflowLanes] = useState(true);
+  const [farmerAssociationApprovalMode, setFarmerAssociationApprovalMode] = useState("MANUAL_APPROVAL");
+  const [traderAssociationApprovalMode, setTraderAssociationApprovalMode] = useState("MANUAL_APPROVAL");
+  const [allowFarmerMultiMandi, setAllowFarmerMultiMandi] = useState(true);
+  const [allowTraderMultiMandi, setAllowTraderMultiMandi] = useState(true);
+  const [requireFarmerDocuments, setRequireFarmerDocuments] = useState(false);
+  const [requireTraderDocuments, setRequireTraderDocuments] = useState(false);
+  const [allowFarmerGateTokenWithoutApproval, setAllowFarmerGateTokenWithoutApproval] = useState(false);
+  const [allowTraderBidWithoutApproval, setAllowTraderBidWithoutApproval] = useState(false);
+  const [maxPendingMandiRequests, setMaxPendingMandiRequests] = useState("5");
 
   const canView = useMemo(
     () => can("mandi_settings.menu", "VIEW"),
@@ -105,6 +121,16 @@ export const MandiSettings: React.FC = () => {
     setMaxQueuePerLane(capacity?.max_queue_per_lane?.toString?.() || "");
     setMaxTotalQueuedLots(capacity?.max_total_queued_lots?.toString?.() || "");
     setAllowOverflowLanes(capacity?.allow_overflow_lanes !== false);
+    const association = settings?.workflow_policies?.mandi_association || {};
+    setFarmerAssociationApprovalMode(String(association?.farmer_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+    setTraderAssociationApprovalMode(String(association?.trader_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+    setAllowFarmerMultiMandi(association?.allow_farmer_multi_mandi !== false);
+    setAllowTraderMultiMandi(association?.allow_trader_multi_mandi !== false);
+    setRequireFarmerDocuments(association?.require_farmer_documents_for_mandi === true);
+    setRequireTraderDocuments(association?.require_trader_documents_for_mandi === true);
+    setAllowFarmerGateTokenWithoutApproval(association?.allow_farmer_gate_token_without_mandi_approval === true);
+    setAllowTraderBidWithoutApproval(association?.allow_trader_bid_without_mandi_approval === true);
+    setMaxPendingMandiRequests(association?.max_pending_mandi_requests_per_user?.toString?.() || "5");
   }, [language, selectedMandi, uiConfig.scope?.org_id]);
 
   useEffect(() => {
@@ -142,6 +168,17 @@ export const MandiSettings: React.FC = () => {
               max_total_queued_lots: maxTotalQueuedLots ? Number(maxTotalQueuedLots) : null,
               allow_overflow_lanes: allowOverflowLanes,
             },
+          },
+          mandi_association: {
+            farmer_approval_mode: farmerAssociationApprovalMode,
+            trader_approval_mode: traderAssociationApprovalMode,
+            allow_farmer_multi_mandi: allowFarmerMultiMandi,
+            allow_trader_multi_mandi: allowTraderMultiMandi,
+            require_farmer_documents_for_mandi: requireFarmerDocuments,
+            require_trader_documents_for_mandi: requireTraderDocuments,
+            allow_farmer_gate_token_without_mandi_approval: allowFarmerGateTokenWithoutApproval,
+            allow_trader_bid_without_mandi_approval: allowTraderBidWithoutApproval,
+            max_pending_mandi_requests_per_user: maxPendingMandiRequests ? Number(maxPendingMandiRequests) : 5,
           },
         },
       },
@@ -221,6 +258,73 @@ export const MandiSettings: React.FC = () => {
           <Typography variant="body2" color="text.secondary">
             Effective value: {effectiveLotCreationMode} ({effectiveLotCreationSource})
           </Typography>
+          <Typography variant="subtitle2">Mandi Association Approval</Typography>
+          <TextField
+            select
+            label="Farmer Mandi Association Approval"
+            value={farmerAssociationApprovalMode}
+            onChange={(e) => setFarmerAssociationApprovalMode(e.target.value)}
+          >
+            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Trader Mandi Association Approval"
+            value={traderAssociationApprovalMode}
+            onChange={(e) => setTraderAssociationApprovalMode(e.target.value)}
+          >
+            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Allow Farmer Multi Mandi</Typography>
+            <Button variant="text" onClick={() => setAllowFarmerMultiMandi((prev) => !prev)}>
+              {allowFarmerMultiMandi ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Allow Trader Multi Mandi</Typography>
+            <Button variant="text" onClick={() => setAllowTraderMultiMandi((prev) => !prev)}>
+              {allowTraderMultiMandi ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Require Farmer Documents for Mandi</Typography>
+            <Button variant="text" onClick={() => setRequireFarmerDocuments((prev) => !prev)}>
+              {requireFarmerDocuments ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Require Trader Documents for Mandi</Typography>
+            <Button variant="text" onClick={() => setRequireTraderDocuments((prev) => !prev)}>
+              {requireTraderDocuments ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Farmer Gate Token Without Mandi Approval</Typography>
+            <Button variant="text" onClick={() => setAllowFarmerGateTokenWithoutApproval((prev) => !prev)}>
+              {allowFarmerGateTokenWithoutApproval ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography>Trader Bid Without Mandi Approval</Typography>
+            <Button variant="text" onClick={() => setAllowTraderBidWithoutApproval((prev) => !prev)}>
+              {allowTraderBidWithoutApproval ? "Yes" : "No"}
+            </Button>
+          </Stack>
+          <TextField
+            label="Max Pending Mandi Requests Per User"
+            type="number"
+            value={maxPendingMandiRequests}
+            onChange={(e) => setMaxPendingMandiRequests(e.target.value)}
+          />
           <Typography variant="subtitle2">Auction Capacity Override</Typography>
           <Typography variant="body2" color="text.secondary">
             These local mandi limits should stay within organisation allocation.

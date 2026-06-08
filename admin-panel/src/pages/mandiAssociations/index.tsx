@@ -63,10 +63,11 @@ function formatDate(value?: string | Date | null) {
 
 function chipColor(status?: string | null) {
   const normalized = String(status || "").toUpperCase();
-  if (normalized === "REQUESTED") return "info";
+  if (normalized === "PENDING" || normalized === "REQUESTED") return "info";
   if (normalized === "TEMP_APPROVED") return "warning";
   if (normalized === "APPROVED") return "success";
   if (normalized === "REJECTED") return "error";
+  if (normalized === "MORE_INFO") return "warning";
   return "default";
 }
 
@@ -93,13 +94,16 @@ export const MandiAssociations: React.FC = () => {
 
   const [tempDialogOpen, setTempDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [moreInfoDialogOpen, setMoreInfoDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AssociationRow | null>(null);
   const [tempHours, setTempHours] = useState("8");
   const [rejectReason, setRejectReason] = useState("");
+  const [moreInfoNote, setMoreInfoNote] = useState("");
 
   const statusOptions: Option[] = [
     { value: "", label: "All" },
-    { value: "REQUESTED", label: "Requested" },
+    { value: "PENDING", label: "Pending" },
+    { value: "MORE_INFO", label: "More Info" },
     { value: "TEMP_APPROVED", label: "Temp Approved" },
     { value: "APPROVED", label: "Approved" },
     { value: "REJECTED", label: "Rejected" },
@@ -265,6 +269,18 @@ export const MandiAssociations: React.FC = () => {
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setMoreInfoNote("");
+                  setMoreInfoDialogOpen(true);
+                }}
+              >
+                INFO
+              </Button>
+            </ActionGate>
+            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
+              <Button
+                size="small"
                 color="error"
                 onClick={() => {
                   setSelectedRow(params.row);
@@ -414,6 +430,35 @@ export const MandiAssociations: React.FC = () => {
             }}
           >
             Approve
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={moreInfoDialogOpen} onClose={() => setMoreInfoDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Request More Info</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Message"
+            value={moreInfoNote}
+            onChange={(e) => setMoreInfoNote(e.target.value)}
+            multiline
+            minRows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMoreInfoDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (!selectedRow) return;
+              handleUpdate(selectedRow, {
+                status: "MORE_INFO",
+                status_note: moreInfoNote.trim() || null,
+              });
+              setMoreInfoDialogOpen(false);
+            }}
+          >
+            Send
           </Button>
         </DialogActions>
       </Dialog>

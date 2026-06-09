@@ -49,7 +49,9 @@ type AssociationRow = {
   source?: string | null;
   status?: string | null;
   org_name?: string | null;
+  org_code?: string | null;
   mandi_name?: string | null;
+  mandi_code?: string | null;
   username?: string | null;
   display_name?: string | null;
   user_name?: string | null;
@@ -94,6 +96,12 @@ function statusLabel(status?: string | null) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function numericFilterValue(value: string) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export const MandiAssociations: React.FC = () => {
@@ -170,8 +178,8 @@ export const MandiAssociations: React.FC = () => {
       });
       setMandiOptions(
         list.map((m: any) => ({
-          value: String(m.mandi_id || m.slug || m.mandi_slug || ""),
-          label: m?.name_i18n?.en || m.mandi_slug || String(m.mandi_id),
+          value: String(m.mandi_id ?? m.id ?? m._id ?? m.mandi_code ?? m.code ?? ""),
+          label: m.mandi_name || m.display_name || m.label || m?.name_i18n?.en || m.mandi_code || m.code || m.mandi_slug || String(m.mandi_id ?? ""),
         })),
       );
     } catch (err) {
@@ -191,7 +199,7 @@ export const MandiAssociations: React.FC = () => {
         language,
         filters: {
           org_id: orgId || undefined,
-          mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
+          mandi_id: numericFilterValue(filters.mandi_id),
           party_type: filters.party_type || undefined,
           status: filters.status || "REQUESTED",
           user_ref_username: filters.mobile || undefined,
@@ -258,8 +266,8 @@ export const MandiAssociations: React.FC = () => {
   const displayMobile = (row?: AssociationRow | null) =>
     row?.mobile || row?.user_ref?.mobile || row?.user_ref?.walkin?.mobile || row?.walkin_mobile || row?.user_ref?.username || row?.party_ref || "-";
 
-  const displayOrg = (row?: AssociationRow | null) => row?.org_name || "Unknown organisation";
-  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || "Unknown mandi";
+  const displayOrg = (row?: AssociationRow | null) => row?.org_name || row?.org_code || "Unknown organisation";
+  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || row?.mandi_code || (row?.mandi_id != null ? String(row.mandi_id) : "Unknown mandi");
 
   const columns = useMemo<GridColDef<AssociationRow>[]>(
     () => [
@@ -308,13 +316,15 @@ export const MandiAssociations: React.FC = () => {
         width: 170,
         sortable: false,
         renderCell: (params) => (
-          <Box>
+          <Box title={params.row.mandi_id != null ? `ID: ${params.row.mandi_id}` : undefined}>
             <Typography variant="body2" fontWeight={700} lineHeight={1.25}>
               {displayMandi(params.row)}
             </Typography>
-            <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-              ID: {params.row.mandi_id || "-"}
-            </Typography>
+            {params.row.mandi_code ? (
+              <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
+                Code: {params.row.mandi_code}
+              </Typography>
+            ) : null}
           </Box>
         ),
       },

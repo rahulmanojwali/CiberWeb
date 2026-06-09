@@ -21,6 +21,7 @@ type FarmerRow = {
   org_code?: string | null;
   mandi_code?: string | null;
   status: string;
+  account_status?: string | null;
   created_on?: string | null;
 };
 
@@ -89,7 +90,8 @@ export const Farmers: React.FC = () => {
       { field: "mobile", headerName: "Mobile", width: 160 },
       { field: "org_code", headerName: "Org Code", width: 140 },
       { field: "mandi_code", headerName: "Mandi Code", width: 160 },
-      { field: "status", headerName: "Status", width: 140 },
+      { field: "status", headerName: "Approval Status", width: 160 },
+      { field: "account_status", headerName: "Account", width: 130 },
       {
         field: "created_on",
         headerName: "Created On",
@@ -107,12 +109,12 @@ export const Farmers: React.FC = () => {
                 View
               </Button>
             )}
-            {canUpdate && String(params.row.status || "").toUpperCase() === "ACTIVE" && (
+            {canUpdate && String(params.row.account_status || "").toUpperCase() === "ACTIVE" && (
               <Button size="small" color="warning" onClick={() => handleStatusChange(params.row, "INACTIVE")}>
                 Deactivate
               </Button>
             )}
-            {canUpdate && String(params.row.status || "").toUpperCase() === "INACTIVE" && (
+            {canUpdate && String(params.row.account_status || "").toUpperCase() === "INACTIVE" && (
               <Button size="small" color="success" onClick={() => handleStatusChange(params.row, "ACTIVE")}>
                 Activate
               </Button>
@@ -177,9 +179,10 @@ export const Farmers: React.FC = () => {
         farmer_id: String(item.farmer_id || ""),
         name: item.name || item.display_name || null,
         mobile: item.mobile || null,
-        org_code: item.org_code || null,
-        mandi_code: item.mandi_code || null,
+        org_code: item.org_code || item.org_id || null,
+        mandi_code: item.mandi_code || item.mandi_id || null,
         status: (item.status || "").toString().toUpperCase(),
+        account_status: (item.account_status || "").toString().toUpperCase(),
         created_on: item.created_on || null,
       }));
       setRows(mapped);
@@ -249,7 +252,7 @@ export const Farmers: React.FC = () => {
         <Stack spacing={0.5}>
           <Typography variant="h5">{t("menu.farmersDirectory", { defaultValue: "Farmers Directory" })}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Registry of farmer accounts with status management.
+            Registered farmers with mandi approval status.
           </Typography>
         </Stack>
         <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} disabled={loading}>
@@ -301,8 +304,12 @@ export const Farmers: React.FC = () => {
           onChange={(e) => updateFilter("status", e.target.value)}
         >
           <MenuItem value="">All</MenuItem>
-          <MenuItem value="ACTIVE">Active</MenuItem>
-          <MenuItem value="INACTIVE">Inactive</MenuItem>
+          <MenuItem value="REGISTERED">Registered</MenuItem>
+          <MenuItem value="REQUESTED">Requested</MenuItem>
+          <MenuItem value="APPROVED">Approved</MenuItem>
+          <MenuItem value="REJECTED">Rejected</MenuItem>
+          <MenuItem value="ACTIVE">Active account</MenuItem>
+          <MenuItem value="INACTIVE">Inactive account</MenuItem>
         </TextField>
 
         <TextField
@@ -401,6 +408,14 @@ export const Farmers: React.FC = () => {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {detail.status || "-"}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Typography variant="subtitle2" sx={{ minWidth: 140 }}>
+                  Account
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {detail.account_status || "-"}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1}>

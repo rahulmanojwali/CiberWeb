@@ -224,7 +224,6 @@ const ResourceRegistryPage: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        {loading && <LinearProgress sx={{ mb: 2 }} />}
         <Table size="small">
           <TableHead>
             <TableRow>

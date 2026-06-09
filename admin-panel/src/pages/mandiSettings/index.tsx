@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  Paper,
   MenuItem,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -38,6 +40,37 @@ function currentUsername(): string | null {
   } catch {
     return null;
   }
+}
+
+function SettingsCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Paper sx={{ p: 2.5, borderRadius: 2 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>{title}</Typography>
+      <Stack spacing={2}>{children}</Stack>
+    </Paper>
+  );
+}
+
+function PolicyToggle({
+  label,
+  helper,
+  checked,
+  onChange,
+}: {
+  label: string;
+  helper: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{label}</Typography>
+        <Typography variant="caption" color="text.secondary">{helper}</Typography>
+      </Box>
+      <Switch checked={checked} onChange={onChange} />
+    </Stack>
+  );
 }
 
 export const MandiSettings: React.FC = () => {
@@ -204,15 +237,15 @@ export const MandiSettings: React.FC = () => {
 
   return (
     <PageContainer>
-      <Stack spacing={0.5} mb={2}>
-        <Typography variant="h5">Mandi Settings</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Configure prelisting approval mode per mandi.
-        </Typography>
-      </Stack>
+      <Stack spacing={2}>
+        <Paper sx={{ p: 2.5, borderRadius: 2 }}>
+          <Typography variant="h5">Mandi Settings</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Configure onboarding, gate, lot, and auction policy overrides for a mandi.
+          </Typography>
+        </Paper>
 
-      <Box sx={{ maxWidth: 700 }}>
-        <Stack spacing={2}>
+        <SettingsCard title="A. Mandi Selection">
           <TextField
             select
             label="Mandi"
@@ -225,25 +258,65 @@ export const MandiSettings: React.FC = () => {
               </MenuItem>
             ))}
           </TextField>
+        </SettingsCard>
+
+        <SettingsCard title="B. Approval & Onboarding">
           <TextField
             select
-            label="Approval Mode"
-            value={approvalMode}
-            onChange={(e) => setApprovalMode(e.target.value)}
+            label="Farmer Approval Mode"
+            value={farmerAssociationApprovalMode}
+            onChange={(e) => setFarmerAssociationApprovalMode(e.target.value)}
+            helperText="Controls farmer mandi association approval at this mandi."
           >
-            {["AUTO", "MANUAL", "TRUST"].map((opt) => (
+            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
               <MenuItem key={opt} value={opt}>
                 {opt}
               </MenuItem>
             ))}
           </TextField>
+          <TextField
+            select
+            label="Trader Approval Mode"
+            value={traderAssociationApprovalMode}
+            onChange={(e) => setTraderAssociationApprovalMode(e.target.value)}
+            helperText="Controls trader mandi association approval at this mandi."
+          >
+            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
+              <MenuItem key={opt} value={opt}>
+                {opt}
+              </MenuItem>
+            ))}
+          </TextField>
+          <PolicyToggle label="Allow Farmer Multi Mandi" helper="Allow a farmer to be approved for more than one mandi." checked={allowFarmerMultiMandi} onChange={() => setAllowFarmerMultiMandi((prev) => !prev)} />
+          <PolicyToggle label="Allow Trader Multi Mandi" helper="Allow a trader to be approved for more than one mandi." checked={allowTraderMultiMandi} onChange={() => setAllowTraderMultiMandi((prev) => !prev)} />
+          <PolicyToggle label="Require Farmer Documents" helper="Require farmer documents before mandi approval." checked={requireFarmerDocuments} onChange={() => setRequireFarmerDocuments((prev) => !prev)} />
+          <PolicyToggle label="Require Trader Documents" helper="Require trader documents before mandi approval." checked={requireTraderDocuments} onChange={() => setRequireTraderDocuments((prev) => !prev)} />
+          <PolicyToggle label="Farmer Gate Token Without Approval" helper="Allow farmer gate token creation before mandi approval. Recommended: No." checked={allowFarmerGateTokenWithoutApproval} onChange={() => setAllowFarmerGateTokenWithoutApproval((prev) => !prev)} />
+          <PolicyToggle label="Trader Bid Without Approval" helper="Allow trader to place bids before mandi approval. Recommended: No." checked={allowTraderBidWithoutApproval} onChange={() => setAllowTraderBidWithoutApproval((prev) => !prev)} />
+          <TextField
+            label="Max Pending Requests Per User"
+            type="number"
+            value={maxPendingMandiRequests}
+            onChange={(e) => setMaxPendingMandiRequests(e.target.value)}
+            inputProps={{ min: 1, max: 100 }}
+            helperText="Maximum open association requests a user can keep pending."
+          />
+        </SettingsCard>
+
+        <SettingsCard title="C. Gate / Lot Policy">
+          <TextField
+            select
+            label="Prelisting Approval Mode"
+            value={approvalMode}
+            onChange={(e) => setApprovalMode(e.target.value)}
+            helperText="Controls approval for pre-market listing submissions."
+          >
+            {["AUTO", "MANUAL", "TRUST"].map((opt) => (
+              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+            ))}
+          </TextField>
           {approvalMode === "TRUST" ? (
-            <TextField
-              label="Trust Min Score"
-              type="number"
-              value={trustMinScore}
-              onChange={(e) => setTrustMinScore(e.target.value)}
-            />
+            <TextField label="Trust Min Score" type="number" value={trustMinScore} onChange={(e) => setTrustMinScore(e.target.value)} />
           ) : null}
           <TextField
             select
@@ -253,83 +326,15 @@ export const MandiSettings: React.FC = () => {
             helperText="Controls whether gate operators can create lots immediately after marking a token IN_YARD."
           >
             {LOT_CREATION_OPTIONS.map((opt) => (
-              <MenuItem key={opt.value || "__inherit__"} value={opt.value}>
-                {opt.label}
-              </MenuItem>
+              <MenuItem key={opt.value || "__inherit__"} value={opt.value}>{opt.label}</MenuItem>
             ))}
           </TextField>
           <Typography variant="body2" color="text.secondary">
             Effective value: {effectiveLotCreationMode} ({effectiveLotCreationSource})
           </Typography>
-          <Typography variant="subtitle2">Mandi Association Approval</Typography>
-          <TextField
-            select
-            label="farmer_mandi_approval_mode"
-            value={farmerAssociationApprovalMode}
-            onChange={(e) => setFarmerAssociationApprovalMode(e.target.value)}
-          >
-            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
-              <MenuItem key={opt} value={opt}>
-                {opt}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="trader_mandi_approval_mode"
-            value={traderAssociationApprovalMode}
-            onChange={(e) => setTraderAssociationApprovalMode(e.target.value)}
-          >
-            {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
-              <MenuItem key={opt} value={opt}>
-                {opt}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Allow Farmer Multi Mandi</Typography>
-            <Button variant="text" onClick={() => setAllowFarmerMultiMandi((prev) => !prev)}>
-              {allowFarmerMultiMandi ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Allow Trader Multi Mandi</Typography>
-            <Button variant="text" onClick={() => setAllowTraderMultiMandi((prev) => !prev)}>
-              {allowTraderMultiMandi ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Require Farmer Documents for Mandi</Typography>
-            <Button variant="text" onClick={() => setRequireFarmerDocuments((prev) => !prev)}>
-              {requireFarmerDocuments ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Require Trader Documents for Mandi</Typography>
-            <Button variant="text" onClick={() => setRequireTraderDocuments((prev) => !prev)}>
-              {requireTraderDocuments ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Farmer Gate Token Without Mandi Approval</Typography>
-            <Button variant="text" onClick={() => setAllowFarmerGateTokenWithoutApproval((prev) => !prev)}>
-              {allowFarmerGateTokenWithoutApproval ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Trader Bid Without Mandi Approval</Typography>
-            <Button variant="text" onClick={() => setAllowTraderBidWithoutApproval((prev) => !prev)}>
-              {allowTraderBidWithoutApproval ? "Yes" : "No"}
-            </Button>
-          </Stack>
-          <TextField
-            label="max_pending_mandi_requests_per_user"
-            type="number"
-            value={maxPendingMandiRequests}
-            onChange={(e) => setMaxPendingMandiRequests(e.target.value)}
-            inputProps={{ min: 1, max: 100 }}
-          />
-          <Typography variant="subtitle2">Auction Capacity Override</Typography>
+        </SettingsCard>
+
+        <SettingsCard title="D. Auction Capacity Override">
           <Typography variant="body2" color="text.secondary">
             These local mandi limits should stay within organisation allocation.
           </Typography>
@@ -357,19 +362,17 @@ export const MandiSettings: React.FC = () => {
             value={maxTotalQueuedLots}
             onChange={(e) => setMaxTotalQueuedLots(e.target.value)}
           />
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography>Allow Overflow Lanes</Typography>
-            <Button variant="text" onClick={() => setAllowOverflowLanes((prev) => !prev)}>
-              {allowOverflowLanes ? "Yes" : "No"}
-            </Button>
-          </Stack>
+          <PolicyToggle label="Allow Overflow Lanes" helper="Allow temporary overflow lanes if configured capacity is exceeded." checked={allowOverflowLanes} onChange={() => setAllowOverflowLanes((prev) => !prev)} />
+        </SettingsCard>
+
+        <SettingsCard title="E. Save Actions">
           {canEdit ? (
             <Button variant="contained" onClick={onSave}>
               Save Settings
             </Button>
           ) : null}
-        </Stack>
-      </Box>
+        </SettingsCard>
+      </Stack>
     </PageContainer>
   );
 };

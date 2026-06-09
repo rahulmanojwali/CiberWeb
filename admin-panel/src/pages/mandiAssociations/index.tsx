@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   MenuItem,
+  Paper,
   Stack,
   TextField,
   Typography,
@@ -47,6 +48,10 @@ type AssociationRow = {
   walkin_mobile?: string | null;
   source?: string | null;
   status?: string | null;
+  org_name?: string | null;
+  mandi_name?: string | null;
+  user_name?: string | null;
+  mobile?: string | null;
   requested_on?: string | null;
   created_on?: string | null;
 };
@@ -99,10 +104,12 @@ export const MandiAssociations: React.FC = () => {
     mandi_id: "",
     party_type: "",
     status: "REQUESTED",
+    mobile: "",
   });
 
   const [tempDialogOpen, setTempDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AssociationRow | null>(null);
   const [tempHours, setTempHours] = useState("8");
   const [rejectReason, setRejectReason] = useState("");
@@ -175,6 +182,7 @@ export const MandiAssociations: React.FC = () => {
           mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
           party_type: filters.party_type || undefined,
           status: filters.status || "REQUESTED",
+          user_ref_username: filters.mobile || undefined,
           page_size: 100,
         },
       });
@@ -220,21 +228,28 @@ export const MandiAssociations: React.FC = () => {
     }
   }, [canUpdate, enqueueSnackbar, language]);
 
+  const stats = useMemo(() => {
+    const base = { REQUESTED: 0, TEMP_APPROVED: 0, APPROVED: 0, REJECTED: 0 };
+    rows.forEach((row) => {
+      const status = String(row.status || "").toUpperCase();
+      if (status in base) base[status as keyof typeof base] += 1;
+    });
+    return base;
+  }, [rows]);
+
+  const displayUser = (row?: AssociationRow | null) =>
+    row?.user_name || row?.user_ref?.walkin?.name || row?.walkin_name || row?.user_ref?.username || row?.party_ref || "-";
+
+  const displayOrg = (row?: AssociationRow | null) => row?.org_name || row?.org_id || "-";
+  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || row?.mandi_id || "-";
+
   const columns = useMemo<GridColDef<AssociationRow>[]>(
     () => [
       {
-        field: "user_name",
-        headerName: "User Name",
+        field: "user",
+        headerName: "User",
         width: 180,
-        valueGetter: (_value, row) => {
-          return row.user_ref?.walkin?.name || row.walkin_name || row.user_ref?.username || row.party_ref || "-";
-        },
-      },
-      {
-        field: "mobile",
-        headerName: "Mobile",
-        width: 150,
-        valueGetter: (_value, row) => row.user_ref?.mobile || row.user_ref?.walkin?.mobile || row.walkin_mobile || row.party_ref || "-",
+        valueGetter: (_value, row) => displayUser(row),
       },
       {
         field: "party_type",
@@ -246,13 +261,13 @@ export const MandiAssociations: React.FC = () => {
         field: "org_id",
         headerName: "Organisation",
         width: 220,
-        valueGetter: (value) => value || "-",
+        valueGetter: (_value, row) => displayOrg(row),
       },
       {
         field: "mandi_id",
         headerName: "Mandi",
-        width: 140,
-        valueGetter: (value) => value || "-",
+        width: 180,
+        valueGetter: (_value, row) => displayMandi(row),
       },
       {
         field: "source",
@@ -285,15 +300,20 @@ export const MandiAssociations: React.FC = () => {
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
+                variant="outlined"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
-                onClick={() => handleUpdate(params.row, { status: "APPROVED" })}
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setApproveDialogOpen(true);
+                }}
               >
-                APPROVE
+                Approve
               </Button>
             </ActionGate>
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
+                variant="outlined"
                 color="error"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
                 onClick={() => {
@@ -302,12 +322,13 @@ export const MandiAssociations: React.FC = () => {
                   setRejectDialogOpen(true);
                 }}
               >
-                REJECT
+                Reject
               </Button>
             </ActionGate>
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
+                variant="outlined"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
                 onClick={() => {
                   setSelectedRow(params.row);
@@ -315,14 +336,14 @@ export const MandiAssociations: React.FC = () => {
                   setTempDialogOpen(true);
                 }}
               >
-                TEMP APPROVE
+                Temp Approve
               </Button>
             </ActionGate>
           </Stack>
         ),
       },
     ],
-    [filters.party_type, handleUpdate],
+    [handleUpdate],
   );
 
   useEffect(() => {
@@ -338,7 +359,7 @@ export const MandiAssociations: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.org_id, filters.mandi_id, filters.party_type, filters.status, uiConfig.scope?.org_id, canView]);
+  }, [filters.org_id, filters.mandi_id, filters.party_type, filters.status, filters.mobile, uiConfig.scope?.org_id, canView]);
 
   if (!canView) {
     return (
@@ -352,8 +373,29 @@ export const MandiAssociations: React.FC = () => {
     <PageContainer>
       <ActionGate resourceKey="mandi_associations.view" action="VIEW">
         <Stack spacing={2} mb={2}>
-          <Typography variant="h5">Mandi Association Requests</Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
+          <Paper sx={{ p: 2.5, borderRadius: 2 }}>
+            <Typography variant="h5">Mandi Association Requests</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Review farmer/trader requests to work with mandis.
+            </Typography>
+          </Paper>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }, gap: 1.5 }}>
+            {[
+              ["Requested", stats.REQUESTED],
+              ["Temp Approved", stats.TEMP_APPROVED],
+              ["Approved", stats.APPROVED],
+              ["Rejected", stats.REJECTED],
+            ].map(([label, value]) => (
+              <Paper key={String(label)} sx={{ p: 2, borderRadius: 2 }}>
+                <Typography variant="body2" color="text.secondary">{label}</Typography>
+                <Typography variant="h5" sx={{ mt: 0.5 }}>{value}</Typography>
+              </Paper>
+            ))}
+          </Box>
+
+          <Paper sx={{ p: 2, borderRadius: 2 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} flexWrap="wrap">
             {uiConfig.role === "SUPER_ADMIN" && (
               <TextField
                 select
@@ -419,6 +461,13 @@ export const MandiAssociations: React.FC = () => {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              label="Mobile"
+              value={filters.mobile}
+              onChange={(e) => setFilters((prev) => ({ ...prev, mobile: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 180 }}
+            />
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
@@ -428,9 +477,10 @@ export const MandiAssociations: React.FC = () => {
               Refresh
             </Button>
           </Stack>
+          </Paper>
         </Stack>
 
-        <Box>
+        <Paper sx={{ p: 1.5, borderRadius: 2 }}>
           <ResponsiveDataGrid
             rows={rows}
             columns={columns}
@@ -441,8 +491,30 @@ export const MandiAssociations: React.FC = () => {
             initialState={{ pagination: { paginationModel: { pageSize: 20, page: 0 } } }}
             minWidth={960}
           />
-        </Box>
+        </Paper>
       </ActionGate>
+
+      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Approve Association</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Approve this {String(selectedRow?.party_type || "request").toUpperCase()} for {displayMandi(selectedRow)}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (!selectedRow) return;
+              handleUpdate(selectedRow, { status: "APPROVED" });
+              setApproveDialogOpen(false);
+            }}
+          >
+            Approve
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={tempDialogOpen} onClose={() => setTempDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Temp Approve (Hours)</DialogTitle>

@@ -35,8 +35,17 @@ type AssociationRow = {
   mandi_id?: number | string | null;
   party_type?: string | null;
   party_ref?: string | null;
+  user_ref?: {
+    username?: string | null;
+    mobile?: string | null;
+    walkin?: {
+      name?: string | null;
+      mobile?: string | null;
+    } | null;
+  } | null;
   walkin_name?: string | null;
   walkin_mobile?: string | null;
+  source?: string | null;
   status?: string | null;
   requested_on?: string | null;
   created_on?: string | null;
@@ -67,7 +76,6 @@ function chipColor(status?: string | null) {
   if (normalized === "TEMP_APPROVED") return "warning";
   if (normalized === "APPROVED") return "success";
   if (normalized === "REJECTED") return "error";
-  if (normalized === "MORE_INFO") return "warning";
   return "default";
 }
 
@@ -89,25 +97,26 @@ export const MandiAssociations: React.FC = () => {
   const [filters, setFilters] = useState({
     org_id: "",
     mandi_id: "",
-    status: "",
+    party_type: "FARMER",
+    status: "REQUESTED",
   });
 
   const [tempDialogOpen, setTempDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [moreInfoDialogOpen, setMoreInfoDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AssociationRow | null>(null);
   const [tempHours, setTempHours] = useState("8");
   const [rejectReason, setRejectReason] = useState("");
-  const [moreInfoNote, setMoreInfoNote] = useState("");
 
   const statusOptions: Option[] = [
-    { value: "", label: "All" },
-    { value: "PENDING", label: "Pending" },
-    { value: "MORE_INFO", label: "More Info" },
+    { value: "REQUESTED", label: "Requested" },
     { value: "TEMP_APPROVED", label: "Temp Approved" },
     { value: "APPROVED", label: "Approved" },
     { value: "REJECTED", label: "Rejected" },
     { value: "EXPIRED", label: "Expired" },
+  ];
+  const partyTypeOptions: Option[] = [
+    { value: "FARMER", label: "Farmer" },
+    { value: "TRADER", label: "Trader" },
   ];
 
   const loadOrganisations = async () => {
@@ -163,7 +172,8 @@ export const MandiAssociations: React.FC = () => {
         filters: {
           org_id: orgId || undefined,
           mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
-          status: filters.status || undefined,
+          party_type: filters.party_type || "FARMER",
+          status: filters.status || "REQUESTED",
           page_size: 100,
         },
       });
@@ -212,25 +222,40 @@ export const MandiAssociations: React.FC = () => {
   const columns = useMemo<GridColDef<AssociationRow>[]>(
     () => [
       {
+        field: "farmer",
+        headerName: `${filters.party_type === "TRADER" ? "Trader" : "Farmer"} Name / Mobile`,
+        width: 220,
+        valueGetter: (_value, row) => {
+          const name = row.user_ref?.walkin?.name || row.walkin_name || row.user_ref?.username || row.party_ref || "-";
+          const mobile = row.user_ref?.mobile || row.user_ref?.walkin?.mobile || row.walkin_mobile || row.party_ref || "";
+          return mobile && mobile !== name ? `${name} / ${mobile}` : name;
+        },
+      },
+      {
+        field: "org_id",
+        headerName: "Organisation",
+        width: 220,
+        valueGetter: (value) => value || "-",
+      },
+      {
+        field: "mandi_id",
+        headerName: "Mandi",
+        width: 140,
+        valueGetter: (value) => value || "-",
+      },
+      {
+        field: "source",
+        headerName: "Source",
+        width: 160,
+        valueGetter: (value) => value || "-",
+      },
+      {
         field: "status",
         headerName: "Status",
         width: 150,
         renderCell: (params) => (
           <Chip size="small" label={params.value || "-"} color={chipColor(params.value)} />
         ),
-      },
-      { field: "party_type", headerName: "Party Type", width: 140 },
-      {
-        field: "party_ref",
-        headerName: "Username / Ref",
-        width: 200,
-        valueGetter: (value, row) => value || row.walkin_name || "-",
-      },
-      {
-        field: "walkin_mobile",
-        headerName: "Walk-in Mobile",
-        width: 160,
-        valueGetter: (value) => value || "-",
       },
       {
         field: "requested_on",
@@ -249,18 +274,7 @@ export const MandiAssociations: React.FC = () => {
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setTempHours("8");
-                  setTempDialogOpen(true);
-                }}
-              >
-                TEMP APPROVE
-              </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
+                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
                 onClick={() => handleUpdate(params.row, { status: "APPROVED" })}
               >
                 APPROVE
@@ -269,19 +283,8 @@ export const MandiAssociations: React.FC = () => {
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setMoreInfoNote("");
-                  setMoreInfoDialogOpen(true);
-                }}
-              >
-                INFO
-              </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
                 color="error"
+                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
                 onClick={() => {
                   setSelectedRow(params.row);
                   setRejectReason("");
@@ -291,11 +294,24 @@ export const MandiAssociations: React.FC = () => {
                 REJECT
               </Button>
             </ActionGate>
+            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
+              <Button
+                size="small"
+                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setTempHours("8");
+                  setTempDialogOpen(true);
+                }}
+              >
+                TEMP APPROVE
+              </Button>
+            </ActionGate>
           </Stack>
         ),
       },
     ],
-    [handleUpdate],
+    [filters.party_type, handleUpdate],
   );
 
   useEffect(() => {
@@ -311,7 +327,7 @@ export const MandiAssociations: React.FC = () => {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.mandi_id, filters.status, uiConfig.scope?.org_id, canView]);
+  }, [filters.org_id, filters.mandi_id, filters.party_type, filters.status, uiConfig.scope?.org_id, canView]);
 
   if (!canView) {
     return (
@@ -325,7 +341,7 @@ export const MandiAssociations: React.FC = () => {
     <PageContainer>
       <ActionGate resourceKey="mandi_associations.view" action="VIEW">
         <Stack spacing={2} mb={2}>
-          <Typography variant="h5">Mandi Associations</Typography>
+          <Typography variant="h5">Mandi Approval Requests</Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
             {uiConfig.role === "SUPER_ADMIN" && (
               <TextField
@@ -359,6 +375,20 @@ export const MandiAssociations: React.FC = () => {
                 <em>All mandis</em>
               </MenuItem>
               {mandiOptions.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Party Type"
+              value={filters.party_type}
+              onChange={(e) => setFilters((prev) => ({ ...prev, party_type: e.target.value }))}
+              size="small"
+              sx={{ minWidth: 160 }}
+            >
+              {partyTypeOptions.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </MenuItem>
@@ -430,35 +460,6 @@ export const MandiAssociations: React.FC = () => {
             }}
           >
             Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={moreInfoDialogOpen} onClose={() => setMoreInfoDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Request More Info</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            label="Message"
-            value={moreInfoNote}
-            onChange={(e) => setMoreInfoNote(e.target.value)}
-            multiline
-            minRows={2}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMoreInfoDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              if (!selectedRow) return;
-              handleUpdate(selectedRow, {
-                status: "MORE_INFO",
-                status_note: moreInfoNote.trim() || null,
-              });
-              setMoreInfoDialogOpen(false);
-            }}
-          >
-            Send
           </Button>
         </DialogActions>
       </Dialog>

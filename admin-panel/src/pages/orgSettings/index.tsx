@@ -14,6 +14,13 @@ const LOT_CREATION_OPTIONS = [
   { value: "GATE_OPERATOR_ALLOWED", label: "Gate Operator Allowed" },
   { value: "FARMER_ALLOWED", label: "Farmer Allowed" },
 ];
+const MANDI_ASSOCIATION_APPROVAL_OPTIONS = [
+  "MANUAL_APPROVAL",
+  "AUTO_APPROVE",
+  "AUTO_APPROVE_EXISTING_USER_ONLY",
+  "MANDI_ADMIN_APPROVAL",
+  "ORG_ADMIN_APPROVAL",
+];
 
 function currentUsername(): string | null {
   try {
@@ -47,6 +54,9 @@ export const OrgSettings: React.FC = () => {
   const [allowSpecialEventLanes, setAllowSpecialEventLanes] = useState(false);
   const [priorityWeight, setPriorityWeight] = useState("");
   const [reservedCapacityEnabled, setReservedCapacityEnabled] = useState(false);
+  const [farmerMandiApprovalMode, setFarmerMandiApprovalMode] = useState("MANUAL_APPROVAL");
+  const [traderMandiApprovalMode, setTraderMandiApprovalMode] = useState("MANUAL_APPROVAL");
+  const [maxPendingMandiRequests, setMaxPendingMandiRequests] = useState("5");
 
   const canView = useMemo(() => can("org_settings.menu", "VIEW"), [can]);
   const canEdit = useMemo(() => can("org_settings.edit", "UPDATE"), [can]);
@@ -87,6 +97,10 @@ export const OrgSettings: React.FC = () => {
       setAllowSpecialEventLanes(capacity?.allow_special_event_lanes === true);
       setPriorityWeight(capacity?.priority_weight?.toString?.() || capacity?.capacity_weight?.toString?.() || "");
       setReservedCapacityEnabled(Boolean(capacity?.reserved_capacity_enabled));
+      const association = data?.workflow_policies?.mandi_association || {};
+      setFarmerMandiApprovalMode(String(data?.farmer_mandi_approval_mode || association?.farmer_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+      setTraderMandiApprovalMode(String(data?.trader_mandi_approval_mode || association?.trader_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+      setMaxPendingMandiRequests((data?.max_pending_mandi_requests_per_user ?? association?.max_pending_mandi_requests_per_user ?? 5).toString());
     } finally {
       setLoading(false);
     }
@@ -112,6 +126,9 @@ export const OrgSettings: React.FC = () => {
         auto_approve_farmers_on_registration: autoApproveFarmers ? "Y" : "N",
         auto_approve_traders_on_registration: autoApproveTraders ? "Y" : "N",
         default_mandi_ids_for_auto_approval: defaultMandis,
+        farmer_mandi_approval_mode: farmerMandiApprovalMode,
+        trader_mandi_approval_mode: traderMandiApprovalMode,
+        max_pending_mandi_requests_per_user: maxPendingMandiRequests ? Number(maxPendingMandiRequests) : 5,
         workflow_policies: {
           lot_creation_mode: lotCreationMode,
           auction: {
@@ -127,6 +144,11 @@ export const OrgSettings: React.FC = () => {
               priority_weight: priorityWeight ? Number(priorityWeight) : null,
               reserved_capacity_enabled: reservedCapacityEnabled,
             },
+          },
+          mandi_association: {
+            farmer_approval_mode: farmerMandiApprovalMode,
+            trader_approval_mode: traderMandiApprovalMode,
+            max_pending_mandi_requests_per_user: maxPendingMandiRequests ? Number(maxPendingMandiRequests) : 5,
           },
         },
       },
@@ -205,6 +227,38 @@ export const OrgSettings: React.FC = () => {
                 ))}
               </TextField>
             </Box>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+              <TextField
+                select
+                label="farmer_mandi_approval_mode"
+                value={farmerMandiApprovalMode}
+                onChange={(e) => setFarmerMandiApprovalMode(e.target.value)}
+                fullWidth
+              >
+                {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="trader_mandi_approval_mode"
+                value={traderMandiApprovalMode}
+                onChange={(e) => setTraderMandiApprovalMode(e.target.value)}
+                fullWidth
+              >
+                {MANDI_ASSOCIATION_APPROVAL_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+            <TextField
+              label="max_pending_mandi_requests_per_user"
+              type="number"
+              value={maxPendingMandiRequests}
+              onChange={(e) => setMaxPendingMandiRequests(e.target.value)}
+              fullWidth
+              inputProps={{ min: 1, max: 100 }}
+            />
           </Stack>
         </CardContent>
       </Card>

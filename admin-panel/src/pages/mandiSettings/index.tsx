@@ -122,15 +122,15 @@ export const MandiSettings: React.FC = () => {
     setMaxTotalQueuedLots(capacity?.max_total_queued_lots?.toString?.() || "");
     setAllowOverflowLanes(capacity?.allow_overflow_lanes !== false);
     const association = settings?.workflow_policies?.mandi_association || {};
-    setFarmerAssociationApprovalMode(String(association?.farmer_approval_mode || "MANUAL_APPROVAL").toUpperCase());
-    setTraderAssociationApprovalMode(String(association?.trader_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+    setFarmerAssociationApprovalMode(String(settings?.farmer_mandi_approval_mode || association?.farmer_approval_mode || "MANUAL_APPROVAL").toUpperCase());
+    setTraderAssociationApprovalMode(String(settings?.trader_mandi_approval_mode || association?.trader_approval_mode || "MANUAL_APPROVAL").toUpperCase());
     setAllowFarmerMultiMandi(association?.allow_farmer_multi_mandi !== false);
     setAllowTraderMultiMandi(association?.allow_trader_multi_mandi !== false);
     setRequireFarmerDocuments(association?.require_farmer_documents_for_mandi === true);
     setRequireTraderDocuments(association?.require_trader_documents_for_mandi === true);
     setAllowFarmerGateTokenWithoutApproval(association?.allow_farmer_gate_token_without_mandi_approval === true);
     setAllowTraderBidWithoutApproval(association?.allow_trader_bid_without_mandi_approval === true);
-    setMaxPendingMandiRequests(association?.max_pending_mandi_requests_per_user?.toString?.() || "5");
+    setMaxPendingMandiRequests((settings?.max_pending_mandi_requests_per_user ?? association?.max_pending_mandi_requests_per_user ?? 5).toString());
   }, [language, selectedMandi, uiConfig.scope?.org_id]);
 
   useEffect(() => {
@@ -158,6 +158,9 @@ export const MandiSettings: React.FC = () => {
           approval_mode: approvalMode,
           trust_min_score: approvalMode === "TRUST" && trustMinScore ? Number(trustMinScore) : undefined,
         },
+        farmer_mandi_approval_mode: farmerAssociationApprovalMode,
+        trader_mandi_approval_mode: traderAssociationApprovalMode,
+        max_pending_mandi_requests_per_user: maxPendingMandiRequests ? Number(maxPendingMandiRequests) : 5,
         workflow_policies: {
           lot_creation_mode: lotCreationMode || null,
           auction: {
@@ -261,7 +264,7 @@ export const MandiSettings: React.FC = () => {
           <Typography variant="subtitle2">Mandi Association Approval</Typography>
           <TextField
             select
-            label="Farmer Mandi Association Approval"
+            label="farmer_mandi_approval_mode"
             value={farmerAssociationApprovalMode}
             onChange={(e) => setFarmerAssociationApprovalMode(e.target.value)}
           >
@@ -273,7 +276,7 @@ export const MandiSettings: React.FC = () => {
           </TextField>
           <TextField
             select
-            label="Trader Mandi Association Approval"
+            label="trader_mandi_approval_mode"
             value={traderAssociationApprovalMode}
             onChange={(e) => setTraderAssociationApprovalMode(e.target.value)}
           >
@@ -320,10 +323,11 @@ export const MandiSettings: React.FC = () => {
             </Button>
           </Stack>
           <TextField
-            label="Max Pending Mandi Requests Per User"
+            label="max_pending_mandi_requests_per_user"
             type="number"
             value={maxPendingMandiRequests}
             onChange={(e) => setMaxPendingMandiRequests(e.target.value)}
+            inputProps={{ min: 1, max: 100 }}
           />
           <Typography variant="subtitle2">Auction Capacity Override</Typography>
           <Typography variant="body2" color="text.secondary">

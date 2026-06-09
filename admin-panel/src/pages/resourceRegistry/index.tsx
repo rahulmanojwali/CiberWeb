@@ -9,6 +9,7 @@ import {
   DialogTitle,
   FormControl,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -51,6 +52,7 @@ const ResourceRegistryPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
 
   const [loading, setLoading] = useState(false);
+  const [slowLoad, setSlowLoad] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registry, setRegistry] = useState<RegistryEntry[]>([]);
   const [editing, setEditing] = useState<RegistryEntry>(DEFAULT_ENTRY);
@@ -58,8 +60,12 @@ const ResourceRegistryPage: React.FC = () => {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   const loadRegistry = async () => {
+    let slowTimer: number | undefined;
     try {
+      setError(null);
+      setSlowLoad(false);
       setLoading(true);
+      slowTimer = window.setTimeout(() => setSlowLoad(true), 10000);
       const resp = await fetchResourceRegistry({ username });
       if (resp?.response?.responsecode !== "0") {
         setError(resp?.response?.description || "Failed to load registry");
@@ -69,6 +75,7 @@ const ResourceRegistryPage: React.FC = () => {
     } catch (err: any) {
       setError(err?.message || "Failed to load registry");
     } finally {
+      if (slowTimer) window.clearTimeout(slowTimer);
       setLoading(false);
     }
   };
@@ -183,6 +190,14 @@ const ResourceRegistryPage: React.FC = () => {
         <div className="cm-page-subtitle">Canonical source of truth for RBAC resource keys and allowed actions.</div>
       </div>
       <Stack spacing={2}>
+      {loading && (
+        <Paper sx={{ p: 0, overflow: "hidden" }}>
+          <LinearProgress />
+          <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
+            {slowLoad ? "Still loading resource registry. The table will appear automatically when data is ready." : "Loading resource registry..."}
+          </Typography>
+        </Paper>
+      )}
       <Paper sx={{ p: 2 }}>
         <Typography variant="body2" color="text.secondary">
           Manage, review and activate resource keys used by system policy enforcement.
@@ -209,6 +224,7 @@ const ResourceRegistryPage: React.FC = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
+        {loading && <LinearProgress sx={{ mb: 2 }} />}
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -221,6 +237,15 @@ const ResourceRegistryPage: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
+            {!loading && registry.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    No resources found.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
             {registry.map((r) => (
               <TableRow key={r.resource_key}>
                 <TableCell>{r.resource_key}</TableCell>

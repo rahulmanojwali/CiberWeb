@@ -50,6 +50,8 @@ type AssociationRow = {
   status?: string | null;
   org_name?: string | null;
   mandi_name?: string | null;
+  username?: string | null;
+  display_name?: string | null;
   user_name?: string | null;
   mobile?: string | null;
   requested_on?: string | null;
@@ -77,11 +79,21 @@ function formatDate(value?: string | Date | null) {
 
 function chipColor(status?: string | null) {
   const normalized = String(status || "").toUpperCase();
-  if (normalized === "PENDING" || normalized === "REQUESTED") return "info";
+  if (normalized === "PENDING" || normalized === "REQUESTED") return "primary";
   if (normalized === "TEMP_APPROVED") return "warning";
   if (normalized === "APPROVED") return "success";
   if (normalized === "REJECTED") return "error";
   return "default";
+}
+
+function statusLabel(status?: string | null) {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (!normalized) return "-";
+  return normalized
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export const MandiAssociations: React.FC = () => {
@@ -238,49 +250,80 @@ export const MandiAssociations: React.FC = () => {
   }, [rows]);
 
   const displayUser = (row?: AssociationRow | null) =>
-    row?.user_name || row?.user_ref?.walkin?.name || row?.walkin_name || row?.user_ref?.username || row?.party_ref || "-";
+    row?.display_name || row?.user_name || row?.user_ref?.walkin?.name || row?.walkin_name || row?.user_ref?.username || row?.party_ref || "-";
 
-  const displayOrg = (row?: AssociationRow | null) => row?.org_name || row?.org_id || "-";
-  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || row?.mandi_id || "-";
+  const displayUsername = (row?: AssociationRow | null) =>
+    row?.username || row?.user_ref?.username || row?.party_ref || row?.mobile || "-";
+
+  const displayMobile = (row?: AssociationRow | null) =>
+    row?.mobile || row?.user_ref?.mobile || row?.user_ref?.walkin?.mobile || row?.walkin_mobile || row?.user_ref?.username || row?.party_ref || "-";
+
+  const displayOrg = (row?: AssociationRow | null) => row?.org_name || "Unknown organisation";
+  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || "Unknown mandi";
 
   const columns = useMemo<GridColDef<AssociationRow>[]>(
     () => [
       {
         field: "user",
         headerName: "User",
-        width: 180,
-        valueGetter: (_value, row) => displayUser(row),
+        width: 190,
+        sortable: false,
+        renderCell: (params) => (
+          <Box>
+            <Typography variant="body2" fontWeight={700} lineHeight={1.25}>
+              {displayUser(params.row)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
+              {displayUsername(params.row)}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "mobile",
+        headerName: "Mobile",
+        width: 135,
+        valueGetter: (_value, row) => displayMobile(row),
       },
       {
         field: "party_type",
-        headerName: "Party Type",
-        width: 130,
+        headerName: "Party",
+        width: 105,
         valueGetter: (value) => value || "-",
       },
       {
         field: "org_id",
         headerName: "Organisation",
         width: 220,
-        valueGetter: (_value, row) => displayOrg(row),
+        sortable: false,
+        renderCell: (params) => (
+          <Typography variant="body2" fontWeight={600} noWrap title={displayOrg(params.row)}>
+            {displayOrg(params.row)}
+          </Typography>
+        ),
       },
       {
         field: "mandi_id",
         headerName: "Mandi",
-        width: 180,
-        valueGetter: (_value, row) => displayMandi(row),
-      },
-      {
-        field: "source",
-        headerName: "Source",
-        width: 160,
-        valueGetter: (value) => value || "-",
+        width: 170,
+        sortable: false,
+        renderCell: (params) => (
+          <Box>
+            <Typography variant="body2" fontWeight={700} lineHeight={1.25}>
+              {displayMandi(params.row)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
+              ID: {params.row.mandi_id || "-"}
+            </Typography>
+          </Box>
+        ),
       },
       {
         field: "status",
         headerName: "Status",
-        width: 150,
+        width: 135,
         renderCell: (params) => (
-          <Chip size="small" label={params.value || "-"} color={chipColor(params.value)} />
+          <Chip size="small" label={statusLabel(params.value)} color={chipColor(params.value)} sx={{ fontWeight: 700 }} />
         ),
       },
       {
@@ -294,14 +337,19 @@ export const MandiAssociations: React.FC = () => {
         headerName: "Actions",
         sortable: false,
         filterable: false,
-        width: 260,
+        width: 330,
+        minWidth: 330,
+        align: "left",
+        headerAlign: "left",
         renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ width: "100%" }}>
             <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
               <Button
                 size="small"
-                variant="outlined"
+                variant="contained"
+                color="success"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
+                sx={{ minWidth: 78, px: 1.25, py: 0.35, fontSize: 12, boxShadow: "none" }}
                 onClick={() => {
                   setSelectedRow(params.row);
                   setApproveDialogOpen(true);
@@ -316,6 +364,7 @@ export const MandiAssociations: React.FC = () => {
                 variant="outlined"
                 color="error"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
+                sx={{ minWidth: 70, px: 1.25, py: 0.35, fontSize: 12 }}
                 onClick={() => {
                   setSelectedRow(params.row);
                   setRejectReason("");
@@ -329,7 +378,9 @@ export const MandiAssociations: React.FC = () => {
               <Button
                 size="small"
                 variant="outlined"
+                color="warning"
                 disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
+                sx={{ minWidth: 112, px: 1.25, py: 0.35, fontSize: 12 }}
                 onClick={() => {
                   setSelectedRow(params.row);
                   setTempHours("8");
@@ -480,25 +531,39 @@ export const MandiAssociations: React.FC = () => {
           </Paper>
         </Stack>
 
-        <Paper sx={{ p: 1.5, borderRadius: 2 }}>
+        <Paper sx={{ p: 2, borderRadius: 2 }}>
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="h6">Pending Requests</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Review farmer/trader access requests for mandis.
+            </Typography>
+          </Box>
           <ResponsiveDataGrid
             rows={rows}
             columns={columns}
             loading={loading}
             autoHeight
+            rowHeight={58}
             getRowId={(r) => r.id}
             pageSizeOptions={[20, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 20, page: 0 } } }}
-            minWidth={960}
+            minWidth={1180}
+            sx={{
+              boxShadow: "none",
+              "& .MuiDataGrid-cell": {
+                alignItems: "center",
+                display: "flex",
+              },
+            }}
           />
         </Paper>
       </ActionGate>
 
       <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Approve Association</DialogTitle>
+        <DialogTitle>Approve request?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Approve this {String(selectedRow?.party_type || "request").toUpperCase()} for {displayMandi(selectedRow)}?
+            {displayUser(selectedRow)} will be allowed to sell in {displayMandi(selectedRow)}.
           </Typography>
         </DialogContent>
         <DialogActions>

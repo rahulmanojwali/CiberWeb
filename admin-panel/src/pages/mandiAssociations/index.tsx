@@ -97,7 +97,7 @@ export const MandiAssociations: React.FC = () => {
   const [filters, setFilters] = useState({
     org_id: "",
     mandi_id: "",
-    party_type: "FARMER",
+    party_type: "",
     status: "REQUESTED",
   });
 
@@ -115,6 +115,7 @@ export const MandiAssociations: React.FC = () => {
     { value: "EXPIRED", label: "Expired" },
   ];
   const partyTypeOptions: Option[] = [
+    { value: "", label: "All" },
     { value: "FARMER", label: "Farmer" },
     { value: "TRADER", label: "Trader" },
   ];
@@ -172,7 +173,7 @@ export const MandiAssociations: React.FC = () => {
         filters: {
           org_id: orgId || undefined,
           mandi_id: filters.mandi_id ? Number(filters.mandi_id) : undefined,
-          party_type: filters.party_type || "FARMER",
+          party_type: filters.party_type || undefined,
           status: filters.status || "REQUESTED",
           page_size: 100,
         },
@@ -222,14 +223,24 @@ export const MandiAssociations: React.FC = () => {
   const columns = useMemo<GridColDef<AssociationRow>[]>(
     () => [
       {
-        field: "farmer",
-        headerName: `${filters.party_type === "TRADER" ? "Trader" : "Farmer"} Name / Mobile`,
-        width: 220,
+        field: "user_name",
+        headerName: "User Name",
+        width: 180,
         valueGetter: (_value, row) => {
-          const name = row.user_ref?.walkin?.name || row.walkin_name || row.user_ref?.username || row.party_ref || "-";
-          const mobile = row.user_ref?.mobile || row.user_ref?.walkin?.mobile || row.walkin_mobile || row.party_ref || "";
-          return mobile && mobile !== name ? `${name} / ${mobile}` : name;
+          return row.user_ref?.walkin?.name || row.walkin_name || row.user_ref?.username || row.party_ref || "-";
         },
+      },
+      {
+        field: "mobile",
+        headerName: "Mobile",
+        width: 150,
+        valueGetter: (_value, row) => row.user_ref?.mobile || row.user_ref?.walkin?.mobile || row.walkin_mobile || row.party_ref || "-",
+      },
+      {
+        field: "party_type",
+        headerName: "Party Type",
+        width: 130,
+        valueGetter: (value) => value || "-",
       },
       {
         field: "org_id",
@@ -341,7 +352,7 @@ export const MandiAssociations: React.FC = () => {
     <PageContainer>
       <ActionGate resourceKey="mandi_associations.view" action="VIEW">
         <Stack spacing={2} mb={2}>
-          <Typography variant="h5">Mandi Approval Requests</Typography>
+          <Typography variant="h5">Mandi Association Requests</Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
             {uiConfig.role === "SUPER_ADMIN" && (
               <TextField

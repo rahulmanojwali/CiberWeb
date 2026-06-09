@@ -298,6 +298,7 @@ function App() {
                   <Route path="/weighment-tickets" element={<WeighmentTickets />} />
                   <Route path="/gate-movements" element={<GateMovements />} />
                   <Route path="/mandi-associations" element={<MandiAssociations />} />
+                  <Route path="/admin/mandi-associations" element={<MandiAssociations />} />
                   <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
                   <Route path="/system/role-policy-manager" element={<PermissionsManager />} />
                   <Route path="/system/permissions-manager" element={<PermissionsManager />} />

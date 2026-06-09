@@ -495,10 +495,10 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   {
     "category": "Mandi Setup",
     "resource_key": "mandi_associations.menu",
-    "menu_name": "Mandi Associations",
+    "menu_name": "Mandi Association Requests",
     "name_source": "label_i18n.en",
     "i18n_key": "",
-    "route": "/mandi-associations",
+    "route": "/admin/mandi-associations",
     "icon_key": "Link",
     "order": 220,
     "metadata_group": "",

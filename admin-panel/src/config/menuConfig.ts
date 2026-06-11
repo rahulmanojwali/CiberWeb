@@ -178,6 +178,25 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "notifications",
+        labelKey: "menu.notifications",
+        labelOverride: "Notifications",
+        icon: React.createElement(SecurityOutlinedIcon),
+        roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+        children: [
+          {
+            key: "notificationTemplates",
+            labelKey: "menu.notificationTemplates",
+            labelOverride: "Notification Templates",
+            path: "/system/notifications/templates",
+            icon: React.createElement(SecurityOutlinedIcon),
+            resourceKey: "notification_templates.menu",
+            requiredAction: "VIEW",
+            roles: ["SUPER_ADMIN", "ORG_ADMIN"],
+          },
+        ],
+      },
+      {
         key: "userRoleManager",
         labelKey: "menu.userRoleManager",
         path: "/system/user-role-manager",

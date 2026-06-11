@@ -113,6 +113,7 @@ import ResourceHealthPage from "./pages/resourceHealth";
 import { WorkflowPolicies } from "./pages/workflowPolicies";
 import MobileDashboardAdminPage from "./pages/mobileDashboard";
 import PlatformControlCenterPage from "./pages/platformControlCenter";
+import NotificationTemplates from "./pages/notificationTemplates";
 
 import { Layout } from "./components/layout";
 
@@ -305,6 +306,7 @@ function App() {
                   <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                   <Route path="/system/resource-health" element={<ResourceHealthPage />} />
                   <Route path="/system/platform-control-center" element={<PlatformControlCenterPage />} />
+                  <Route path="/system/notifications/templates" element={<NotificationTemplates />} />
                   <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />

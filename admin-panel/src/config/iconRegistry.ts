@@ -59,6 +59,7 @@ import SchemaOutlinedIcon from "@mui/icons-material/SchemaOutlined";
 import PhonelinkLockOutlinedIcon from "@mui/icons-material/PhonelinkLockOutlined";
 import SecurityUpdateOutlinedIcon from "@mui/icons-material/SecurityUpdateOutlined";
 import RuleFolderOutlinedIcon from "@mui/icons-material/RuleFolderOutlined";
+import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 import DeveloperBoardOutlinedIcon from "@mui/icons-material/DeveloperBoardOutlined";
 import PhoneIphoneOutlinedIcon from "@mui/icons-material/PhoneIphoneOutlined";
 import SpeedOutlinedIcon from "@mui/icons-material/SpeedOutlined";
@@ -174,6 +175,7 @@ const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {
   "mandi_prices.menu": React.createElement(PriceChangeOutlinedIcon),
   "system_security.menu": React.createElement(SecurityOutlinedIcon),
   "platform_control_center.menu": React.createElement(DeveloperBoardOutlinedIcon),
+  "notification_templates.menu": React.createElement(NotificationsActiveOutlinedIcon),
   "user_roles.menu": React.createElement(SupervisorAccountOutlinedIcon),
   "resource_registry.menu": React.createElement(SchemaOutlinedIcon),
   "security_2fa.menu": React.createElement(PhonelinkLockOutlinedIcon),

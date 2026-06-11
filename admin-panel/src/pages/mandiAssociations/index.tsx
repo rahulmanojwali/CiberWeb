@@ -115,6 +115,7 @@ export const MandiAssociations: React.FC = () => {
   const canUpdate = useMemo(() => can("mandi_associations.update", "UPDATE"), [can]);
 
   const [rows, setRows] = useState<AssociationRow[]>([]);
+  const [statusCounts, setStatusCounts] = useState({ REQUESTED: 0, TEMP_APPROVED: 0, APPROVED: 0, REJECTED: 0 });
   const [loading, setLoading] = useState(false);
   const [orgOptions, setOrgOptions] = useState<Option[]>([]);
   const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
@@ -207,6 +208,13 @@ export const MandiAssociations: React.FC = () => {
         },
       });
       const list = resp?.data?.items || resp?.response?.data?.items || [];
+      const counts = resp?.data?.status_counts || resp?.response?.data?.status_counts || {};
+      setStatusCounts({
+        REQUESTED: Number(counts.REQUESTED || 0),
+        TEMP_APPROVED: Number(counts.TEMP_APPROVED || 0),
+        APPROVED: Number(counts.APPROVED || 0),
+        REJECTED: Number(counts.REJECTED || 0),
+      });
       setRows(
         list.map((item: any) => ({
           id: item._id || item.id,
@@ -248,14 +256,7 @@ export const MandiAssociations: React.FC = () => {
     }
   }, [canUpdate, enqueueSnackbar, language]);
 
-  const stats = useMemo(() => {
-    const base = { REQUESTED: 0, TEMP_APPROVED: 0, APPROVED: 0, REJECTED: 0 };
-    rows.forEach((row) => {
-      const status = String(row.status || "").toUpperCase();
-      if (status in base) base[status as keyof typeof base] += 1;
-    });
-    return base;
-  }, [rows]);
+  const stats = statusCounts;
 
   const displayUser = (row?: AssociationRow | null) =>
     row?.display_name || row?.user_name || row?.user_ref?.walkin?.name || row?.walkin_name || row?.user_ref?.username || row?.party_ref || "-";

@@ -118,6 +118,18 @@ const ADMIN_USER_CREATE_ROLE_FALLBACKS = ["YARD_SUPERVISOR"];
 
 const MANUAL_PASSWORD_MIN_LENGTH = 8;
 
+type AdminRoleApiItem = {
+  role_slug?: string | null;
+  role_code?: string | null;
+  code?: string | null;
+  slug?: string | null;
+  value?: string | null;
+  name?: string | null;
+  name_i18n?: {
+    en?: string | null;
+  } | null;
+};
+
 
 const SINGLE_MANDI_ROLE_SLUGS = new Set(["GATE_OPERATOR", "YARD_SUPERVISOR", "LOADING_SUPERVISOR", "WEIGHBRIDGE_OPERATOR"]);
 const MANDI_REQUIRED_ROLE_SLUGS = new Set([
@@ -363,7 +375,7 @@ const ADMIN_ROLE_ORDER = [
   "SUPER_ADMIN",
 ];
 
-const extractRoleCode = (role: any): string | null => {
+const extractRoleCode = (role: AdminRoleApiItem): string | null => {
   const raw =
     role?.role_slug ||
     role?.role_code ||
@@ -397,7 +409,7 @@ const loadRoles = useCallback(async () => {
     const resp = res?.response || {};
     if (String(resp.responsecode) !== "0") return;
 
-    const apiRoles = Array.isArray(res?.data?.roles) ? res.data.roles : [];
+    const apiRoles: AdminRoleApiItem[] = Array.isArray(res?.data?.roles) ? res.data.roles : [];
 
     let roles: string[] = apiRoles
       .map(extractRoleCode)

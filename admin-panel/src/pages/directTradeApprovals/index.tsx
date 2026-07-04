@@ -43,6 +43,7 @@ import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
+import { firstMediaUrl, firstThumbnailUrl, mediaCandidates, thumbnailCandidates, mediaTypeOf } from "../../utils/mediaUrl";
 import {
   getDirectTradeApprovalDetails,
   listDirectTradeApprovalQueue,
@@ -126,8 +127,10 @@ function responseMessage(resp: any, fallback: string) {
 }
 
 const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({ media, onClick }) => {
-  const isVideo = String(media?.type).toUpperCase() === "VIDEO";
-  const thumb = media?.thumbnail_url || media?.url;
+  const isVideo = mediaTypeOf(media) === "VIDEO";
+  const [thumbIndex, setThumbIndex] = React.useState(0);
+  const thumbs = thumbnailCandidates(media);
+  const thumb = thumbs[thumbIndex] || "";
   return (
     <Box
       onClick={onClick}
@@ -147,7 +150,7 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({ media, onCl
       }}
     >
       {thumb ? (
-        <Box component="img" src={thumb} alt={media?.media_id || "media"} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <Box component="img" src={thumb} alt={media?.media_id || "media"} onError={() => setThumbIndex((i) => Math.min(i + 1, thumbs.length - 1))} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
         <BrokenImageOutlinedIcon color="disabled" />
       )}
@@ -156,6 +159,57 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({ media, onCl
           <PlayCircleOutlineIcon sx={{ color: "white", fontSize: 34 }} />
         </Box>
       )}
+    </Box>
+  );
+};
+
+
+const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
+  const type = mediaTypeOf(media);
+  const candidates = mediaCandidates(media);
+  const [idx, setIdx] = React.useState(0);
+  const src = candidates[idx] || firstMediaUrl(media) || firstThumbnailUrl(media);
+
+  React.useEffect(() => {
+    setIdx(0);
+  }, [media?.media_id]);
+
+  if (!src) {
+    return <Alert severity="warning">No playable media URL found for this item.</Alert>;
+  }
+
+  if (type === "VIDEO") {
+    return (
+      <Box>
+        <Box
+          component="video"
+          src={src}
+          controls
+          autoPlay
+          playsInline
+          preload="metadata"
+          onError={() => setIdx((i) => Math.min(i + 1, candidates.length - 1))}
+          sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          Source {Math.min(idx + 1, candidates.length)} of {Math.max(candidates.length, 1)}
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Box
+        component="img"
+        src={src}
+        alt="media preview"
+        onError={() => setIdx((i) => Math.min(i + 1, candidates.length - 1))}
+        sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
+      />
+      <Typography variant="caption" color="text.secondary">
+        Source {Math.min(idx + 1, candidates.length)} of {Math.max(candidates.length, 1)}
+      </Typography>
     </Box>
   );
 };
@@ -424,13 +478,9 @@ const DirectTradeApprovalsPage: React.FC = () => {
       </Dialog>
 
       <Dialog open={Boolean(mediaPreview)} onClose={() => setMediaPreview(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{mediaPreview?.type === "VIDEO" ? "Video Preview" : "Image Preview"}</DialogTitle>
+        <DialogTitle>{mediaTypeOf(mediaPreview) === "VIDEO" ? "Video Preview" : "Image Preview"}</DialogTitle>
         <DialogContent dividers>
-          {mediaPreview?.type === "VIDEO" ? (
-            <Box component="video" src={mediaPreview?.url} controls autoPlay sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }} />
-          ) : (
-            <Box component="img" src={mediaPreview?.url || mediaPreview?.thumbnail_url} alt="media preview" sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }} />
-          )}
+          {mediaPreview ? <MediaPreviewBody media={mediaPreview} /> : null}
         </DialogContent>
         <DialogActions><Button onClick={() => setMediaPreview(null)}>Close</Button></DialogActions>
       </Dialog>

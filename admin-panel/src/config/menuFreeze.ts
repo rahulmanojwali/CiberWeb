@@ -18,7 +18,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "menu_name": "Direct Trade Approvals",
     "name_source": "screen",
     "i18n_key": "menu.directTradeApprovals",
-    "route": "/direct-trade-approvals",
+    "route": "/direct-trade/approvals",
     "icon_key": "approval",
     "order": 15,
     "metadata_group": "main_sidebar",

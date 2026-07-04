@@ -223,6 +223,7 @@ function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
+                  <Route path="/direct-trade/approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/system/platform-users" element={<PlatformUsers />} />
                   <Route path="/platform-users" element={<PlatformUsers />} />
                   <Route path="/orgs" element={<Orgs />} />

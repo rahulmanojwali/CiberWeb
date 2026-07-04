@@ -173,7 +173,7 @@ export const APP_MENU: AppMenuItem[] = [
         key: "directTradeApprovals",
         labelKey: "menu.directTradeApprovals",
         labelOverride: "Direct Trade Approvals",
-        path: "/direct-trade-approvals",
+        path: "/direct-trade/approvals",
         icon: React.createElement(TaskAltOutlinedIcon),
         resourceKey: "direct_trade_approvals.menu",
         requiredAction: "VIEW",
@@ -1196,6 +1196,13 @@ export function filterMenuByResources(
     const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
+      const staticMenuItem = findMenuItemByResourceKey(APP_MENU, freeze.resource_key);
+      const roleAllowed =
+        isSuperAdmin ||
+        !staticMenuItem?.roles?.length ||
+        staticMenuItem.roles.includes(normalizedRole as RoleSlug);
+      if (!roleAllowed) return;
+
       const dbMenu = dbMenusByResourceKey.get(key) || (!key ? dbMenusByRoute.get(normalizeRoute(freeze.route)) : undefined);
       if (dbMenu && !isDbActive((dbMenu as any).is_active)) return;
       if (!dbMenu && !isSuperAdmin) return;

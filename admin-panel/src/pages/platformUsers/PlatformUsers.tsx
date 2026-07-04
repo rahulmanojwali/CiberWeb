@@ -55,6 +55,7 @@ const ROLE_LABELS: Record<string, string> = {
   PLATFORM_SUPERVISOR: "Platform Supervisor",
   DIRECT_TRADE_REVIEWER: "Direct Trade Reviewer",
   DIRECT_TRADE_APPROVER: "Direct Trade Approver",
+  PLATFORM_OPERATIONS_MANAGER: "Platform Operations Manager",
 };
 
 function formatRoleLabel(role?: string | null) {
@@ -158,6 +159,9 @@ const PlatformUsers: React.FC = () => {
       }
       const list: PlatformRole[] = Array.isArray(res?.data?.roles) ? res.data.roles : [];
       setRoles(list);
+      if (!list.length) {
+        setError("No PLATFORM roles are configured. Please run the platform role seed script once.");
+      }
       setForm((prev) => ({
         ...prev,
         role_code: prev.role_code || list[0]?.role_code || list[0]?.role_slug || "",
@@ -223,6 +227,10 @@ const PlatformUsers: React.FC = () => {
   };
 
   const openCreateDialog = () => {
+    if (!roles.length) {
+      handleToast("No platform roles are available. Please run the platform role seed script once.", "error");
+      return;
+    }
     resetForm();
     setDialogOpen(true);
   };
@@ -414,6 +422,8 @@ const PlatformUsers: React.FC = () => {
                   }}
                 >
                   <MenuItem value="">All Roles</MenuItem>
+                  {roles.length === 0 && <MenuItem value="" disabled>No platform roles configured</MenuItem>}
+                  {roles.length === 0 && <MenuItem value="" disabled>No platform roles configured</MenuItem>}
                   {roles.map((role) => {
                     const code = role.role_code || role.role_slug || "";
                     return (

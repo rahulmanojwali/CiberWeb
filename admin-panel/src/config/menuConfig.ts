@@ -39,7 +39,11 @@ export type RoleSlug =
   | "LOADING_SUPERVISOR"
   | "WEIGHBRIDGE_OPERATOR"
   | "AUDITOR"
-  | "VIEWER";
+  | "VIEWER"
+  | "PLATFORM_REVIEWER"
+  | "PLATFORM_APPROVER"
+  | "PLATFORM_SUPERVISOR"
+  | "PLATFORM_OPERATIONS_MANAGER";
 
 export type AppMenuItem = {
   key?: string;
@@ -68,6 +72,10 @@ const ALL_ROLES: RoleSlug[] = [
   "WEIGHBRIDGE_OPERATOR",
   "AUDITOR",
   "VIEWER",
+  "PLATFORM_REVIEWER",
+  "PLATFORM_APPROVER",
+  "PLATFORM_SUPERVISOR",
+  "PLATFORM_OPERATIONS_MANAGER",
 ];
 
 export const APP_MENU: AppMenuItem[] = [
@@ -152,6 +160,27 @@ export const APP_MENU: AppMenuItem[] = [
     },
   ],
 },
+
+
+  {
+    key: "platformOperations",
+    labelKey: "menu.platformOperations",
+    labelOverride: "Platform Operations",
+    icon: React.createElement(TaskAltOutlinedIcon),
+    roles: ["PLATFORM_REVIEWER", "PLATFORM_APPROVER", "PLATFORM_SUPERVISOR", "PLATFORM_OPERATIONS_MANAGER", "SUPER_ADMIN"],
+    children: [
+      {
+        key: "directTradeApprovals",
+        labelKey: "menu.directTradeApprovals",
+        labelOverride: "Direct Trade Approvals",
+        path: "/direct-trade-approvals",
+        icon: React.createElement(TaskAltOutlinedIcon),
+        resourceKey: "direct_trade_approvals.menu",
+        requiredAction: "VIEW",
+        roles: ["PLATFORM_REVIEWER", "PLATFORM_APPROVER", "PLATFORM_SUPERVISOR", "PLATFORM_OPERATIONS_MANAGER", "SUPER_ADMIN"],
+      },
+    ],
+  },
 
       {
         key: "system",

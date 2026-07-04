@@ -193,6 +193,43 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     deduped.set(key, { ...payload, resource_key: key, parent_resource_key: canonicalizeResourceKey(payload.parent_resource_key) || null });
   };
 
+  // CiberMandi platform/internal operations resources.
+  // These are injected as a safety net so PLATFORM users can render their task menu
+  // even when the DB menu cache is stale. Permission checks still decide visibility.
+  ensure({
+    resource_key: "direct_trade_approvals.menu",
+    screen: "Direct Trade Approvals",
+    element: "Direct Trade approvals menu",
+    ui_type: "MENU",
+    route: "/direct-trade-approvals",
+    parent_resource_key: null,
+    allowed_actions: ["VIEW"],
+    is_active: true,
+    metadata: { injected: true, group: "Platform Operations" },
+  } as UiResource);
+  ensure({
+    resource_key: "direct_trade_approvals.list",
+    screen: "Direct Trade Approvals",
+    element: "Direct Trade approval queue",
+    ui_type: "TABLE",
+    route: "/direct-trade-approvals",
+    parent_resource_key: "direct_trade_approvals.menu",
+    allowed_actions: ["VIEW", "APPROVE", "REJECT", "CHANGE_REQUEST"],
+    is_active: true,
+    metadata: { injected: true, group: "Platform Operations" },
+  } as UiResource);
+  ensure({
+    resource_key: "platform_users.menu",
+    screen: "CiberMandi Users",
+    element: "CiberMandi users menu",
+    ui_type: "MENU",
+    route: "/system/platform-users",
+    parent_resource_key: null,
+    allowed_actions: ["VIEW"],
+    is_active: true,
+    metadata: { injected: true, group: "System" },
+  } as UiResource);
+
   const mandiView = ["VIEW"];
   const mandiCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
   ensure({

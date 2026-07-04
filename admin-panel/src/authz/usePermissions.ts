@@ -32,6 +32,30 @@ export function usePermissions() {
     Object.entries(actionMap).forEach(([key, actions]) => {
       map[key] = new Set(actions.map((action) => normalizeAction(action)).filter(Boolean));
     });
+    if (
+      roleSlug === "PLATFORM_REVIEWER" ||
+      roleSlug === "PLATFORM_APPROVER" ||
+      roleSlug === "PLATFORM_SUPERVISOR" ||
+      roleSlug === "PLATFORM_OPERATIONS_MANAGER"
+    ) {
+      const ensure = (resourceKey: string, actions: string[]) => {
+        const key = canonicalizeResourceKey(resourceKey);
+        if (!key) return;
+        const existing = map[key] || new Set<string>();
+        actions.forEach((a) => existing.add(a));
+        map[key] = existing;
+      };
+      const reviewActions =
+        roleSlug === "PLATFORM_REVIEWER"
+          ? ["VIEW", "REVIEW", "CHANGE_REQUEST", "REJECT"]
+          : ["VIEW", "REVIEW", "APPROVE", "REJECT", "CHANGE_REQUEST"];
+      ensure("dashboard.menu", ["VIEW"]);
+      ensure("direct_trade_approvals.menu", ["VIEW"]);
+      ensure("direct_trade_approvals.list", reviewActions);
+      ensure("direct_trade_approvals.detail", reviewActions);
+      ensure("direct_trade_approvals.review", reviewActions);
+    }
+
     if (roleSlug === "MANDI_ADMIN") {
       const ensure = (resourceKey: string, actions: string[]) => {
         const key = canonicalizeResourceKey(resourceKey);

@@ -13,6 +13,30 @@ export type FrozenMenuItem = {
 
 export const MENU_FREEZE: FrozenMenuItem[] = [
   {
+    "category": "Platform Operations",
+    "resource_key": "direct_trade_approvals.menu",
+    "menu_name": "Direct Trade Approvals",
+    "name_source": "screen",
+    "i18n_key": "menu.directTradeApprovals",
+    "route": "/direct-trade-approvals",
+    "icon_key": "approval",
+    "order": 15,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "System",
+    "resource_key": "platform_users.menu",
+    "menu_name": "CiberMandi Users",
+    "name_source": "screen",
+    "i18n_key": "menu.platformUsers",
+    "route": "/system/platform-users",
+    "icon_key": "users",
+    "order": 887,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
     "category": "Auction",
     "resource_key": "auction_methods_masters.menu",
     "menu_name": "Auction Methods",

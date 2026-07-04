@@ -115,6 +115,7 @@ import MobileDashboardAdminPage from "./pages/mobileDashboard";
 import PlatformControlCenterPage from "./pages/platformControlCenter";
 import NotificationTemplates from "./pages/notificationTemplates";
 import DirectTradeApprovalsPage from "./pages/directTradeApprovals";
+import PlatformUsers from "./pages/platformUsers/PlatformUsers";
 
 import { Layout } from "./components/layout";
 
@@ -222,6 +223,8 @@ function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
+                  <Route path="/system/platform-users" element={<PlatformUsers />} />
+                  <Route path="/platform-users" element={<PlatformUsers />} />
                   <Route path="/orgs" element={<Orgs />} />
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />

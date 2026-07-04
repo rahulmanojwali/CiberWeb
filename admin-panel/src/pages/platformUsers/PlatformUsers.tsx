@@ -443,7 +443,14 @@ const PlatformUsers: React.FC = () => {
 
   const columns: GridColDef<PlatformUser>[] = useMemo(
     () => [
-      { field: "username", headerName: "Username", flex: 0.9, minWidth: 160 },
+      {
+        field: "username",
+        headerName: "Username",
+        flex: 0.9,
+        minWidth: 170,
+        renderHeader: () => <Typography variant="subtitle2" fontWeight={700}>Username</Typography>,
+        renderCell: (params: any) => <Typography variant="body2" fontWeight={600}>{params?.row?.username || "—"}</Typography>,
+      },
       { field: "display_name", headerName: "Full Name", flex: 1, minWidth: 180 },
       {
         field: "role_code",
@@ -560,7 +567,6 @@ const PlatformUsers: React.FC = () => {
                 >
                   <MenuItem value="">All Roles</MenuItem>
                   {roles.length === 0 && <MenuItem value="" disabled>No platform roles configured</MenuItem>}
-                  {roles.length === 0 && <MenuItem value="" disabled>No platform roles configured</MenuItem>}
                   {roles.map((role) => {
                     const code = role.role_code || role.role_slug || "";
                     return (
@@ -641,6 +647,7 @@ const PlatformUsers: React.FC = () => {
                   onChange={handleFormChange}
                   helperText={dialogMode === "create" ? "Lowercase letters, numbers, dot, underscore or hyphen." : "Username cannot be changed after creation."}
                   disabled={dialogMode === "edit"}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               {dialogMode === "create" && (

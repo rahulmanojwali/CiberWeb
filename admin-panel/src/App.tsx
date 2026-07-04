@@ -33,7 +33,6 @@ import { Dashboard } from "./pages/dashboard";
 import { Orgs } from "./pages/orgs";
 import { Mandis } from "./pages/mandis";
 import { AdminUsers } from "./pages/adminUsers";
-import { PlatformUsers } from "./pages/platformUsers";
 import { TraderApprovals } from "./pages/traderApprovals";
 import { Traders } from "./pages/traders";
 import { Farmers } from "./pages/farmers";
@@ -115,6 +114,7 @@ import { WorkflowPolicies } from "./pages/workflowPolicies";
 import MobileDashboardAdminPage from "./pages/mobileDashboard";
 import PlatformControlCenterPage from "./pages/platformControlCenter";
 import NotificationTemplates from "./pages/notificationTemplates";
+import DirectTradeApprovalsPage from "./pages/directTradeApprovals";
 
 import { Layout } from "./components/layout";
 
@@ -221,10 +221,10 @@ function App() {
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/orgs" element={<Orgs />} />
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />
-                  <Route path="/system/platform-users" element={<PlatformUsers />} />
                   <Route path="/trader-approvals" element={<TraderApprovals />} />
                   <Route path="/farmer-approvals" element={<FarmerApprovals />} />
                   <Route path="/traders" element={<Traders />} />

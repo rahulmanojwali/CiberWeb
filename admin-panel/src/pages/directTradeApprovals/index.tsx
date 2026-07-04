@@ -43,7 +43,7 @@ import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
-import { firstMediaUrl, firstThumbnailUrl, mediaCandidates, thumbnailCandidates, mediaTypeOf } from "../../utils/mediaUrl";
+import { imagePreviewUrl, mediaTypeOf, thumbnailCandidates, videoEmbedUrl, videoPlaybackUrl } from "../../utils/mediaUrl";
 import {
   getDirectTradeApprovalDetails,
   listDirectTradeApprovalQueue,
@@ -166,33 +166,76 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({ media, onCl
 
 const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
   const type = mediaTypeOf(media);
-  const candidates = mediaCandidates(media);
-  const [idx, setIdx] = React.useState(0);
-  const src = candidates[idx] || firstMediaUrl(media) || firstThumbnailUrl(media);
+  const [imageFailed, setImageFailed] = React.useState(false);
 
   React.useEffect(() => {
-    setIdx(0);
+    setImageFailed(false);
   }, [media?.media_id]);
 
-  if (!src) {
-    return <Alert severity="warning">No playable media URL found for this item.</Alert>;
-  }
-
   if (type === "VIDEO") {
+    const embedUrl = videoEmbedUrl(media);
+    const playbackUrl = videoPlaybackUrl(media);
+
+    if (embedUrl) {
+      return (
+        <Box>
+          <Box
+            component="iframe"
+            src={embedUrl}
+            title="video preview"
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+            sx={{ width: "100%", height: { xs: 260, md: 430 }, border: 0, bgcolor: "black" }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Google Drive video preview
+          </Typography>
+        </Box>
+      );
+    }
+
+    if (!playbackUrl) {
+      return <Alert severity="warning">No playable video URL found for this item.</Alert>;
+    }
+
     return (
       <Box>
         <Box
           component="video"
-          src={src}
+          src={playbackUrl}
           controls
           autoPlay
           playsInline
           preload="metadata"
-          onError={() => setIdx((i) => Math.min(i + 1, candidates.length - 1))}
           sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }}
         />
         <Typography variant="caption" color="text.secondary">
-          Source {Math.min(idx + 1, candidates.length)} of {Math.max(candidates.length, 1)}
+          Direct video playback
+        </Typography>
+      </Box>
+    );
+  }
+
+  const imgUrl = imagePreviewUrl(media);
+  const embedUrl = videoEmbedUrl(media);
+
+  if (!imgUrl && !embedUrl) {
+    return <Alert severity="warning">No image preview URL found for this item.</Alert>;
+  }
+
+  if (imageFailed && embedUrl) {
+    return (
+      <Box>
+        <Box
+          component="iframe"
+          src={embedUrl}
+          title="image preview"
+          allow="fullscreen"
+          allowFullScreen
+          sx={{ width: "100%", height: { xs: 320, md: 520 }, border: 0 }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          Google Drive image preview
         </Typography>
       </Box>
     );
@@ -202,13 +245,13 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
     <Box>
       <Box
         component="img"
-        src={src}
+        src={imgUrl}
         alt="media preview"
-        onError={() => setIdx((i) => Math.min(i + 1, candidates.length - 1))}
+        onError={() => setImageFailed(true)}
         sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
       />
       <Typography variant="caption" color="text.secondary">
-        Source {Math.min(idx + 1, candidates.length)} of {Math.max(candidates.length, 1)}
+        Image preview
       </Typography>
     </Box>
   );

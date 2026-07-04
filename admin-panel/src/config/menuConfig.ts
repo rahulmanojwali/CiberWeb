@@ -25,6 +25,7 @@ import { resolveMenuLabel } from "../utils/uiLabel";
 import { resolveMenuIcon } from "./iconRegistry";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
+import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 
 export type RoleSlug =
   | "SUPER_ADMIN"
@@ -174,6 +175,16 @@ export const APP_MENU: AppMenuItem[] = [
         path: "/system/platform-control-center",
         icon: resolveMenuIcon("security", "platform_control_center.menu"),
         resourceKey: "platform_control_center.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
+        key: "platformUsers",
+        labelKey: "menu.platformUsers",
+        labelOverride: "CiberMandi Users",
+        path: "/system/platform-users",
+        icon: React.createElement(PeopleAltOutlinedIcon),
+        resourceKey: "platform_users.menu",
         requiredAction: "VIEW",
         roles: ["SUPER_ADMIN"],
       },

@@ -24,6 +24,12 @@ export const API_TAGS = {
     listRoles: "getAdminRoles",
     listOrgs: "get_Organisations21",
   },
+  PLATFORM_USERS: {
+    listRoles: "listPlatformRoles",
+    list: "listPlatformUsers",
+    create: "createPlatformUser",
+    updateStatus: "updatePlatformUserStatus",
+  },
   ADMIN_2FA: {
     requireStepUp: "requireStepUp",
     getSetup: "getSetup",
@@ -456,6 +462,10 @@ export const API_ROUTES = {
     requestAdminPasswordReset: "/admin/requestAdminPasswordReset",
     confirmAdminPasswordReset: "/admin/confirmAdminPasswordReset",
     getAdminRoles: "/admin/getAdminRoles",
+    listPlatformRoles: "/admin/platform-users/listPlatformRoles",
+    listPlatformUsers: "/admin/platform-users/listPlatformUsers",
+    createPlatformUser: "/admin/platform-users/createPlatformUser",
+    updatePlatformUserStatus: "/admin/platform-users/updatePlatformUserStatus",
     getStepupPolicyRules: "/admin/security/getStepupPolicyRules",
     saveStepupPolicyRule: "/admin/security/saveStepupPolicyRule",
     getStepupPolicyScreens: "/admin/security/getStepupPolicyScreens",
@@ -732,7 +742,7 @@ export const APP_STRINGS = {
 //     listRoles: "getAdminRoles",
 //     listOrgs: "get_Organisations21",
 //   },
-//   ADMIN_2FA: {
+//   PLATFORM_USERS: {
 //     requireStepUp: "requireStepUp",
 //     getSetup: "getSetup",
 //     enable: "enable",
@@ -1014,7 +1024,7 @@ export const APP_STRINGS = {
 //     requestAdminPasswordReset: "/admin/requestAdminPasswordReset",
 //     confirmAdminPasswordReset: "/admin/confirmAdminPasswordReset",
 //     getAdminRoles: "/admin/getAdminRoles",
-//     getStepupPolicyRules: "/admin/security/getStepupPolicyRules",
+//     listPlatformRoles: "/admin/platform-users/listPlatformRoles",
 //     saveStepupPolicyRule: "/admin/security/saveStepupPolicyRule",
 //     getStepupPolicyScreens: "/admin/security/getStepupPolicyScreens",
 //     saveStepupPolicySelection: "/admin/security/saveStepupPolicySelection",

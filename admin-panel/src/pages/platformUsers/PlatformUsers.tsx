@@ -25,6 +25,8 @@ import {
 import { type GridColDef } from "@mui/x-data-grid";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LockResetOutlinedIcon from "@mui/icons-material/LockResetOutlined";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
@@ -36,6 +38,8 @@ import {
   createPlatformUser,
   fetchPlatformRoles,
   fetchPlatformUsers,
+  resetPlatformUserPassword,
+  updatePlatformUser,
   updatePlatformUserStatus,
 } from "../../services/platformUsersApi";
 
@@ -124,7 +128,14 @@ const PlatformUsers: React.FC = () => {
   const [total, setTotal] = useState(0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<PlatformUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [form, setForm] = useState<FormState>({
     username: "",
     password: "",
@@ -231,8 +242,38 @@ const PlatformUsers: React.FC = () => {
       handleToast("No platform roles are available. Please run the platform role seed script once.", "error");
       return;
     }
+    setDialogMode("create");
+    setSelectedUser(null);
     resetForm();
     setDialogOpen(true);
+  };
+
+  const openEditDialog = (user: PlatformUser) => {
+    if (!roles.length) {
+      handleToast("No platform roles are available. Please run the platform role seed script once.", "error");
+      return;
+    }
+    setDialogMode("edit");
+    setSelectedUser(user);
+    setForm({
+      username: user.username || "",
+      password: "",
+      display_name: user.display_name || "",
+      email: user.email || "",
+      mobile: user.mobile || "",
+      role_code: user.role_code || user.role_slug || roles[0]?.role_code || roles[0]?.role_slug || "",
+      is_active: user.is_active === "Y",
+    });
+    setShowPassword(false);
+    setDialogOpen(true);
+  };
+
+  const openResetPasswordDialog = (user: PlatformUser) => {
+    setResetPasswordTarget(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowResetPassword(false);
+    setResetDialogOpen(true);
   };
 
   const handleFormChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,34 +281,72 @@ const PlatformUsers: React.FC = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     const actor = currentUsername();
     if (!actor) {
       handleToast("Session expired. Please login again.", "error");
       return;
     }
-    const newUsername = form.username.trim().toLowerCase();
-    if (!USERNAME_PATTERN.test(newUsername)) {
-      handleToast("Username must be 3-64 chars, lowercase letters/numbers/._- only.", "error");
-      return;
-    }
-    if (form.password.trim().length < PASSWORD_MIN_LENGTH) {
-      handleToast(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`, "error");
-      return;
-    }
+
     if (!form.role_code) {
       handleToast("Please select a platform role.", "error");
       return;
     }
 
+    if (dialogMode === "create") {
+      const newUsername = form.username.trim().toLowerCase();
+      if (!USERNAME_PATTERN.test(newUsername)) {
+        handleToast("Username must be 3-64 chars, lowercase letters/numbers/._- only.", "error");
+        return;
+      }
+      if (form.password.trim().length < PASSWORD_MIN_LENGTH) {
+        handleToast(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`, "error");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await createPlatformUser({
+          username: actor,
+          language,
+          payload: {
+            new_username: newUsername,
+            password: form.password.trim(),
+            display_name: form.display_name.trim() || null,
+            email: form.email.trim().toLowerCase() || null,
+            mobile: form.mobile.trim() || null,
+            role_code: form.role_code,
+            is_active: form.is_active ? "Y" : "N",
+          },
+        });
+        const resp = res?.response || {};
+        if (String(resp.responsecode ?? "") !== "0") {
+          handleToast(resp.description || "Unable to create platform user.", "error");
+          return;
+        }
+        handleToast("CiberMandi platform user created successfully.", "success");
+        setDialogOpen(false);
+        await loadUsers();
+      } catch (err: any) {
+        handleToast(err?.message || "Network error while creating platform user.", "error");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (!selectedUser?.username) {
+      handleToast("No platform user selected for edit.", "error");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await createPlatformUser({
+      const res = await updatePlatformUser({
         username: actor,
         language,
         payload: {
-          new_username: newUsername,
-          password: form.password.trim(),
+          target_username: selectedUser.username,
           display_name: form.display_name.trim() || null,
           email: form.email.trim().toLowerCase() || null,
           mobile: form.mobile.trim() || null,
@@ -277,14 +356,60 @@ const PlatformUsers: React.FC = () => {
       });
       const resp = res?.response || {};
       if (String(resp.responsecode ?? "") !== "0") {
-        handleToast(resp.description || "Unable to create platform user.", "error");
+        handleToast(resp.description || "Unable to update platform user.", "error");
         return;
       }
-      handleToast("CiberMandi platform user created successfully.", "success");
+      handleToast("Platform user updated successfully.", "success");
       setDialogOpen(false);
+      setSelectedUser(null);
       await loadUsers();
     } catch (err: any) {
-      handleToast(err?.message || "Network error while creating platform user.", "error");
+      handleToast(err?.message || "Network error while updating platform user.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    const actor = currentUsername();
+    if (!actor) {
+      handleToast("Session expired. Please login again.", "error");
+      return;
+    }
+    if (!resetPasswordTarget?.username) {
+      handleToast("No platform user selected for password reset.", "error");
+      return;
+    }
+    if (newPassword.trim().length < PASSWORD_MIN_LENGTH) {
+      handleToast(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`, "error");
+      return;
+    }
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      handleToast("New password and confirm password do not match.", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await resetPlatformUserPassword({
+        username: actor,
+        language,
+        target_username: resetPasswordTarget.username,
+        password: newPassword.trim(),
+      });
+      const resp = res?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
+        handleToast(resp.description || "Unable to reset password.", "error");
+        return;
+      }
+      handleToast("Password reset successfully.", "success");
+      setResetDialogOpen(false);
+      setResetPasswordTarget(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      await loadUsers();
+    } catch (err: any) {
+      handleToast(err?.message || "Network error while resetting password.", "error");
     } finally {
       setLoading(false);
     }
@@ -354,24 +479,36 @@ const PlatformUsers: React.FC = () => {
       {
         field: "actions",
         headerName: "Actions",
-        minWidth: 130,
+        minWidth: 210,
         sortable: false,
         renderCell: (params: any) => {
           const row = params.row as PlatformUser;
           return (
-            <Tooltip title={row.is_active === "Y" ? "Deactivate" : "Activate"}>
-              <Switch
-                size="small"
-                checked={row.is_active === "Y"}
-                onChange={() => handleToggleStatus(row)}
-                disabled={loading}
-              />
-            </Tooltip>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Tooltip title="Edit user">
+                <IconButton size="small" onClick={() => openEditDialog(row)} disabled={loading}>
+                  <EditOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Reset password">
+                <IconButton size="small" onClick={() => openResetPasswordDialog(row)} disabled={loading}>
+                  <LockResetOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={row.is_active === "Y" ? "Deactivate" : "Activate"}>
+                <Switch
+                  size="small"
+                  checked={row.is_active === "Y"}
+                  onChange={() => handleToggleStatus(row)}
+                  disabled={loading}
+                />
+              </Tooltip>
+            </Stack>
           );
         },
       },
     ],
-    [handleToggleStatus, loading, roleMap],
+    [handleToggleStatus, loading, roleMap, roles],
   );
 
   return (
@@ -487,7 +624,7 @@ const PlatformUsers: React.FC = () => {
       </Stack>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Create CiberMandi Platform User</DialogTitle>
+        <DialogTitle>{dialogMode === "create" ? "Create CiberMandi Platform User" : "Edit CiberMandi Platform User"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Alert severity="warning">
@@ -502,29 +639,32 @@ const PlatformUsers: React.FC = () => {
                   name="username"
                   value={form.username}
                   onChange={handleFormChange}
-                  helperText="Lowercase letters, numbers, dot, underscore or hyphen."
+                  helperText={dialogMode === "create" ? "Lowercase letters, numbers, dot, underscore or hyphen." : "Username cannot be changed after creation."}
+                  disabled={dialogMode === "edit"}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={handleFormChange}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword((prev) => !prev)} edge="end">
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
+              {dialogMode === "create" && (
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={handleFormChange}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword((prev) => !prev)} edge="end">
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+              )}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -576,8 +716,56 @@ const PlatformUsers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={loading}>
-            Save
+          <Button variant="contained" onClick={handleSave} disabled={loading}>
+            {dialogMode === "create" ? "Save" : "Update"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Reset Platform User Password</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Alert severity="warning">
+              Password will be reset for {resetPasswordTarget?.display_name || resetPasswordTarget?.username}. Share it securely and ask the user to change it after login.
+            </Alert>
+            <TextField
+              fullWidth
+              label="Username"
+              value={resetPasswordTarget?.username || ""}
+              disabled
+            />
+            <TextField
+              fullWidth
+              required
+              label="New Password"
+              type={showResetPassword ? "text" : "password"}
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowResetPassword((prev) => !prev)} edge="end">
+                      {showResetPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              required
+              label="Confirm Password"
+              type={showResetPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleResetPassword} disabled={loading}>
+            Reset Password
           </Button>
         </DialogActions>
       </Dialog>

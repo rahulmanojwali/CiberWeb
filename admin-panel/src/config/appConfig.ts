@@ -28,6 +28,8 @@ export const API_TAGS = {
     listRoles: "listPlatformRoles",
     list: "listPlatformUsers",
     create: "createPlatformUser",
+    update: "updatePlatformUser",
+    resetPassword: "resetPlatformUserPassword",
     updateStatus: "updatePlatformUserStatus",
   },
   ADMIN_2FA: {
@@ -465,6 +467,8 @@ export const API_ROUTES = {
     listPlatformRoles: "/admin/platform-users/listPlatformRoles",
     listPlatformUsers: "/admin/platform-users/listPlatformUsers",
     createPlatformUser: "/admin/platform-users/createPlatformUser",
+    updatePlatformUser: "/admin/platform-users/updatePlatformUser",
+    resetPlatformUserPassword: "/admin/platform-users/resetPlatformUserPassword",
     updatePlatformUserStatus: "/admin/platform-users/updatePlatformUserStatus",
     getStepupPolicyRules: "/admin/security/getStepupPolicyRules",
     saveStepupPolicyRule: "/admin/security/saveStepupPolicyRule",

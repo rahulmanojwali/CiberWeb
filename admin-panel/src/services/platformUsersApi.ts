@@ -60,6 +60,45 @@ export async function createPlatformUser({
   return postEncrypted(API_ROUTES.admin.createPlatformUser, items);
 }
 
+export async function updatePlatformUser({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.PLATFORM_USERS.update,
+    username,
+    language,
+    ...payload,
+  };
+  return postEncrypted(API_ROUTES.admin.updatePlatformUser, items);
+}
+
+export async function resetPlatformUserPassword({
+  username,
+  language = DEFAULT_LANGUAGE,
+  target_username,
+  password,
+}: {
+  username: string;
+  language?: string;
+  target_username: string;
+  password: string;
+}) {
+  const items: Record<string, any> = {
+    api: API_TAGS.PLATFORM_USERS.resetPassword,
+    username,
+    language,
+    target_username,
+    password,
+  };
+  return postEncrypted(API_ROUTES.admin.resetPlatformUserPassword, items);
+}
+
 export async function updatePlatformUserStatus({
   username,
   language = DEFAULT_LANGUAGE,

@@ -142,6 +142,34 @@ function responseMessage(resp: any, fallback: string) {
   return resp?.response?.description || resp?.description || fallback;
 }
 
+
+function normalizeDecision(value: any) {
+  const v = String(value || "PENDING").trim().toUpperCase().replace(/\s+/g, "_");
+  if (["PENDING", "APPROVED", "REJECTED", "REQUEST_REPLACEMENT", "REMOVED"].includes(v)) return v;
+  if (v === "NEEDS_CHANGE" || v === "REQUEST_CHANGE") return "REQUEST_REPLACEMENT";
+  return "PENDING";
+}
+
+function buildReviewPayload(media: any[], decisions: Record<string, string>) {
+  const mediaReviews = (media || []).map((m: any) => ({
+    media_id: m.media_id,
+    type: m.type || m.media_type,
+    decision: normalizeDecision(decisions[m.media_id]),
+  }));
+  return {
+    checklist: {
+      product: true,
+      quantity: true,
+      price: true,
+      pickup: true,
+      gps: true,
+      media: mediaReviews.length > 0 && mediaReviews.every((m) => m.decision === "APPROVED"),
+    },
+    media_reviews: mediaReviews,
+    all_items_approved: mediaReviews.length > 0 && mediaReviews.every((m) => m.decision === "APPROVED"),
+  };
+}
+
 const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
   media,
   onClick,
@@ -349,6 +377,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
   const [actionBusy, setActionBusy] = useState(false);
   const [missingPhotoReason, setMissingPhotoReason] = useState("MEDIA_DELETED");
   const [missingVideoReason, setMissingVideoReason] = useState("MEDIA_DELETED");
+  const [mediaDecisions, setMediaDecisions] = useState<Record<string, string>>({});
 
   const roleCopy = useMemo(() => {
     if (role === "PLATFORM_APPROVER") {
@@ -423,6 +452,24 @@ const DirectTradeApprovalsPage: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    const media = details?.media || details?.listing?.media || [];
+    const initial: Record<string, string> = {};
+    (media || []).forEach((m: any) => {
+      if (m?.media_id) initial[m.media_id] = "PENDING";
+    });
+    setMediaDecisions(initial);
+  }, [details?.listing?.listing_id]);
+
+  const currentWorkflow = details?.workflow || {};
+  const currentMediaForReview = details?.media || details?.listing?.media || [];
+  const reviewPayload = useMemo(
+    () => buildReviewPayload(currentMediaForReview, mediaDecisions),
+    [currentMediaForReview, mediaDecisions],
+  );
+  const allMediaApproved = Boolean(reviewPayload.all_items_approved);
+  const canSubmitApprove = !currentWorkflow.read_only && allMediaApproved;
+
   async function submitAction() {
     const listingId = details?.listing?.listing_id || selected?.listing_id;
     if (!listingId || !actionOpen) return;
@@ -442,6 +489,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
         listing_id: listingId,
         approval_action: actionOpen,
         remarks,
+        review_payload: reviewPayload,
       });
       if (responseOk(resp)) {
         enqueueSnackbar(responseMessage(resp, "Approval updated"), {
@@ -1041,17 +1089,20 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                     <InputLabel>Media decision</InputLabel>
                                     <Select
                                       label="Media decision"
-                                      defaultValue="APPROVED"
+                                      value={mediaDecisions[m.media_id] || "PENDING"}
+                                      onChange={(e) =>
+                                        setMediaDecisions((prev) => ({
+                                          ...prev,
+                                          [m.media_id]: e.target.value,
+                                        }))
+                                      }
+                                      disabled={Boolean(currentWorkflow.read_only)}
                                     >
-                                      <MenuItem value="APPROVED">
-                                        Approved
-                                      </MenuItem>
-                                      <MenuItem value="REJECTED">
-                                        Reject
-                                      </MenuItem>
-                                      <MenuItem value="NEEDS_CHANGE">
-                                        Needs Change
-                                      </MenuItem>
+                                      <MenuItem value="PENDING">Pending Review</MenuItem>
+                                      <MenuItem value="APPROVED">Approved</MenuItem>
+                                      <MenuItem value="REQUEST_REPLACEMENT">Request Replacement</MenuItem>
+                                      <MenuItem value="REJECTED">Reject</MenuItem>
+                                      <MenuItem value="REMOVED">Removed</MenuItem>
                                     </Select>
                                   </FormControl>
                                   <FormControl size="small" fullWidth>
@@ -1136,30 +1187,53 @@ const DirectTradeApprovalsPage: React.FC = () => {
                         Listing Decision
                       </Typography>
                       <Stack spacing={1}>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          startIcon={<CheckCircleOutlineIcon />}
-                          onClick={() => setActionOpen("APPROVE")}
-                        >
-                          Approve / Move Next Level
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="warning"
-                          startIcon={<ChangeCircleOutlinedIcon />}
-                          onClick={() => setActionOpen("REQUEST_CHANGES")}
-                        >
-                          Request Changes
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          startIcon={<CancelOutlinedIcon />}
-                          onClick={() => setActionOpen("REJECT")}
-                        >
-                          Reject
-                        </Button>
+                        {currentWorkflow.read_only ? (
+                          <Alert severity={currentWorkflow.is_published ? "success" : "info"}>
+                            {currentWorkflow.is_published
+                              ? "This listing has already been final approved/published."
+                              : currentWorkflow.user_has_approved
+                                ? "You have already reviewed this listing. It is now read-only for your level."
+                                : currentWorkflow.approve_blocked_reason || "No action is available for your role at this stage."}
+                          </Alert>
+                        ) : !allMediaApproved ? (
+                          <Alert severity="warning">
+                            Complete all media review items before approval. Mark every image/video as Approved or request changes/reject the listing.
+                          </Alert>
+                        ) : null}
+                        {!currentWorkflow.read_only && allMediaApproved && (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<CheckCircleOutlineIcon />}
+                            onClick={() => setActionOpen("APPROVE")}
+                            disabled={!canSubmitApprove}
+                          >
+                            {currentWorkflow.is_final_level ? "Final Approve / Publish" : "Approve / Move Next Level"}
+                          </Button>
+                        )}
+                        {currentWorkflow.can_request_changes !== false && !currentWorkflow.read_only && (
+                          <Button
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<ChangeCircleOutlinedIcon />}
+                            onClick={() => setActionOpen("REQUEST_CHANGES")}
+                          >
+                            Request Changes
+                          </Button>
+                        )}
+                        {currentWorkflow.can_reject !== false && !currentWorkflow.read_only && (
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<CancelOutlinedIcon />}
+                            onClick={() => setActionOpen("REJECT")}
+                          >
+                            Reject
+                          </Button>
+                        )}
+                        {currentWorkflow.stage_label && (
+                          <Chip size="small" label={currentWorkflow.stage_label} />
+                        )}
                       </Stack>
                     </CardContent>
                   </Card>
@@ -1355,7 +1429,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
           <Button
             variant="contained"
             onClick={submitAction}
-            disabled={actionBusy}
+            disabled={actionBusy || (actionOpen === "APPROVE" && !canSubmitApprove)}
           >
             {actionBusy ? "Saving..." : "Submit"}
           </Button>

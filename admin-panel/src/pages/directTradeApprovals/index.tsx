@@ -63,10 +63,8 @@ import {
 const STATUS_OPTIONS = [
   { value: "PENDING_APPROVAL", label: "Pending Approval" },
   { value: "RESUBMITTED", label: "Resubmitted" },
-  { value: "CHANGE_REQUEST", label: "Change Requested" },
-  { value: "REJECTED", label: "Rejected" },
-  { value: "APPROVED", label: "Approved" },
-  { value: "PUBLISHED", label: "Published" },
+  { value: "NEEDS_ATTENTION", label: "Needs Attention" },
+  { value: "APPROVED", label: "Approved / Published" },
   { value: "ALL", label: "All" },
 ];
 
@@ -631,7 +629,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   <Typography variant="h6">Pending</Typography>
                 </Stack>
                 <Typography variant="h4" sx={{ mt: 2 }}>
-                  {counts.PENDING_APPROVAL || 0}
+                  {(counts.PENDING_APPROVAL || 0) + (counts.PENDING_REVIEW || 0)}
                 </Typography>
                 <Typography color="text.secondary">
                   Listings waiting for review.
@@ -663,7 +661,9 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   <Typography variant="h6">Needs Attention</Typography>
                 </Stack>
                 <Typography variant="h4" sx={{ mt: 2 }}>
-                  {(counts.REJECTED || 0) + (counts.CHANGE_REQUEST || 0)}
+                  {(counts.REJECTED || 0) +
+                    (counts.CHANGE_REQUEST || 0) +
+                    (counts.CHANGE_REQUESTED || 0)}
                 </Typography>
                 <Typography color="text.secondary">
                   Rejected or change-requested listings.

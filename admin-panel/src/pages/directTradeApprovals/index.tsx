@@ -1405,14 +1405,16 @@ const DirectTradeApprovalsPage: React.FC = () => {
                 ? "This will move the listing to the next approval level or publish it if this is the final level."
                 : "Remarks will be visible in the approval history and should clearly explain what the farmer must fix."}
             </Alert>
-            <TextField
-              label={actionOpen === "APPROVE" ? "Remarks" : "Remarks *"}
-              multiline
-              minRows={4}
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              fullWidth
-            />
+            {actionOpen !== "APPROVE" && (
+              <TextField
+                label="Remarks *"
+                multiline
+                minRows={4}
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                fullWidth
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>

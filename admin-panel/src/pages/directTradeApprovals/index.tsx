@@ -50,6 +50,7 @@ import {
   imagePreviewUrl,
   mediaTypeOf,
   thumbnailCandidates,
+  videoEmbedUrl,
   videoPlaybackUrl,
 } from "../../utils/mediaUrl";
 import {
@@ -229,22 +230,18 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
 const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
   const type = mediaTypeOf(media);
   const [imageFailed, setImageFailed] = React.useState(false);
-  const [videoFailed, setVideoFailed] = React.useState(false);
 
   React.useEffect(() => {
     setImageFailed(false);
-    setVideoFailed(false);
   }, [media?.media_id, media?.playback_url, media?.preview_url, media?.url]);
 
   if (type === "VIDEO") {
     const playbackUrl = videoPlaybackUrl(media);
 
-    if (!playbackUrl || videoFailed) {
+    if (!playbackUrl) {
       return (
         <Alert severity="warning">
-          Video preview is not available yet. The file may still be processing,
-          missing, private, or not available as a secure stream. Reviewers cannot
-          download or open the original Google Drive file from this screen.
+          No secure playable video stream found for this item.
         </Alert>
       );
     }
@@ -260,12 +257,11 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
           preload="metadata"
           controlsList="nodownload noplaybackrate noremoteplayback"
           disablePictureInPicture
-          onContextMenu={(event) => event.preventDefault()}
-          onError={() => setVideoFailed(true)}
+          onContextMenu={(event: React.MouseEvent) => event.preventDefault()}
           sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }}
         />
         <Typography variant="caption" color="text.secondary">
-          Secure video preview. Download and external Google Drive access are disabled.
+          Secure CiberMandi video stream. Download and Google Drive access are disabled.
         </Typography>
       </Box>
     );
@@ -273,11 +269,18 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
 
   const imgUrl = imagePreviewUrl(media);
 
-  if (!imgUrl || imageFailed) {
+  if (!imgUrl) {
     return (
       <Alert severity="warning">
-        Image preview is not available. The file may be missing, private,
-        corrupted, or still processing.
+        No image preview URL found for this item.
+      </Alert>
+    );
+  }
+
+  if (imageFailed) {
+    return (
+      <Alert severity="warning">
+        Image preview is not available for this item.
       </Alert>
     );
   }
@@ -289,11 +292,10 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
         src={imgUrl}
         alt="media preview"
         onError={() => setImageFailed(true)}
-        onContextMenu={(event) => event.preventDefault()}
         sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
       />
       <Typography variant="caption" color="text.secondary">
-        Secure image preview.
+        Image preview
       </Typography>
     </Box>
   );

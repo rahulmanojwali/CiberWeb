@@ -146,8 +146,28 @@ function responseMessage(resp: any, fallback: string) {
 function normalizeDecision(value: any) {
   const v = String(value || "PENDING").trim().toUpperCase().replace(/\s+/g, "_");
   if (["PENDING", "APPROVED", "REJECTED", "REQUEST_REPLACEMENT", "REMOVED"].includes(v)) return v;
-  if (v === "NEEDS_CHANGE" || v === "REQUEST_CHANGE") return "REQUEST_REPLACEMENT";
+  if (v === "NEEDS_CHANGE" || v === "REQUEST_CHANGE" || v === "CHANGE_REQUESTED") return "REQUEST_REPLACEMENT";
   return "PENDING";
+}
+
+function decisionFromMedia(m: any) {
+  return normalizeDecision(
+    m?.decision ||
+      m?.review_status ||
+      m?.moderation?.decision ||
+      m?.moderation?.status ||
+      m?.moderation_status ||
+      "PENDING",
+  );
+}
+
+function mediaLocked(m: any) {
+  return Boolean(m?.is_locked) || decisionFromMedia(m) === "APPROVED";
+}
+
+function needsReason(decision: string) {
+  const d = normalizeDecision(decision);
+  return d === "REJECTED" || d === "REQUEST_REPLACEMENT" || d === "REMOVED";
 }
 
 function buildReviewPayload(media: any[], decisions: Record<string, string>) {
@@ -424,7 +444,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
     const media = details?.media || details?.listing?.media || [];
     const initial: Record<string, string> = {};
     (media || []).forEach((m: any) => {
-      if (m?.media_id) initial[m.media_id] = "PENDING";
+      if (m?.media_id) initial[m.media_id] = decisionFromMedia(m);
     });
     setMediaDecisions(initial);
   }, [details?.listing?.listing_id]);
@@ -1050,21 +1070,24 @@ const DirectTradeApprovalsPage: React.FC = () => {
                               </Box>
                               <CardContent sx={{ pt: 0 }}>
                                 <Stack spacing={1}>
-                                  <Typography variant="body2" fontWeight={700}>
-                                    {m.type} • {m.moderation_status || m.status}
-                                  </Typography>
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="body2" fontWeight={700}>
+                                      {m.type} • {mediaDecisions[m.media_id] || decisionFromMedia(m)}
+                                    </Typography>
+                                    {mediaLocked(m) && <Chip size="small" color="success" label="Locked / Approved" />}
+                                  </Stack>
                                   <FormControl size="small" fullWidth>
                                     <InputLabel>Media decision</InputLabel>
                                     <Select
                                       label="Media decision"
-                                      value={mediaDecisions[m.media_id] || "PENDING"}
+                                      value={mediaDecisions[m.media_id] || decisionFromMedia(m)}
                                       onChange={(e) =>
                                         setMediaDecisions((prev) => ({
                                           ...prev,
                                           [m.media_id]: e.target.value,
                                         }))
                                       }
-                                      disabled={Boolean(currentWorkflow.read_only)}
+                                      disabled={Boolean(currentWorkflow.read_only) || mediaLocked(m)}
                                     >
                                       <MenuItem value="PENDING">Pending Review</MenuItem>
                                       <MenuItem value="APPROVED">Approved</MenuItem>
@@ -1073,16 +1096,18 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                       <MenuItem value="REMOVED">Removed</MenuItem>
                                     </Select>
                                   </FormControl>
-                                  <FormControl size="small" fullWidth>
-                                    <InputLabel>Reason</InputLabel>
-                                    <Select label="Reason" defaultValue="OTHER">
-                                      {reasons.map((r: string) => (
-                                        <MenuItem key={r} value={r}>
-                                          {r}
-                                        </MenuItem>
-                                      ))}
-                                    </Select>
-                                  </FormControl>
+                                  {needsReason(mediaDecisions[m.media_id] || decisionFromMedia(m)) && (
+                                    <FormControl size="small" fullWidth>
+                                      <InputLabel>Reason</InputLabel>
+                                      <Select label="Reason" defaultValue={m.review_reason_code || "OTHER"} disabled={mediaLocked(m)}>
+                                        {reasons.map((r: string) => (
+                                          <MenuItem key={r} value={r}>
+                                            {r}
+                                          </MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
+                                  )}
                                 </Stack>
                               </CardContent>
                             </Card>

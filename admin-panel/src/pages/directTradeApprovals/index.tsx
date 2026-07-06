@@ -50,7 +50,6 @@ import {
   imagePreviewUrl,
   mediaTypeOf,
   thumbnailCandidates,
-  videoEmbedUrl,
   videoPlaybackUrl,
 } from "../../utils/mediaUrl";
 import {
@@ -230,42 +229,22 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
 const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
   const type = mediaTypeOf(media);
   const [imageFailed, setImageFailed] = React.useState(false);
+  const [videoFailed, setVideoFailed] = React.useState(false);
 
   React.useEffect(() => {
     setImageFailed(false);
+    setVideoFailed(false);
   }, [media?.media_id, media?.playback_url, media?.preview_url, media?.url]);
 
   if (type === "VIDEO") {
-    const embedUrl = videoEmbedUrl(media);
     const playbackUrl = videoPlaybackUrl(media);
 
-    if (embedUrl) {
-      return (
-        <Box>
-          <Box
-            component="iframe"
-            src={embedUrl}
-            title="video preview"
-            allow="autoplay; encrypted-media; fullscreen"
-            allowFullScreen
-            sx={{
-              width: "100%",
-              height: { xs: 260, md: 430 },
-              border: 0,
-              bgcolor: "black",
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            Google Drive video preview
-          </Typography>
-        </Box>
-      );
-    }
-
-    if (!playbackUrl) {
+    if (!playbackUrl || videoFailed) {
       return (
         <Alert severity="warning">
-          No playable video URL found for this item.
+          Video preview is not available yet. The file may still be processing,
+          missing, private, or not available as a secure stream. Reviewers cannot
+          download or open the original Google Drive file from this screen.
         </Alert>
       );
     }
@@ -279,41 +258,27 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
           autoPlay
           playsInline
           preload="metadata"
+          controlsList="nodownload noplaybackrate noremoteplayback"
+          disablePictureInPicture
+          onContextMenu={(event) => event.preventDefault()}
+          onError={() => setVideoFailed(true)}
           sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }}
         />
         <Typography variant="caption" color="text.secondary">
-          Direct video playback
+          Secure video preview. Download and external Google Drive access are disabled.
         </Typography>
       </Box>
     );
   }
 
   const imgUrl = imagePreviewUrl(media);
-  const embedUrl = videoEmbedUrl(media);
 
-  if (!imgUrl && !embedUrl) {
+  if (!imgUrl || imageFailed) {
     return (
       <Alert severity="warning">
-        No image preview URL found for this item.
+        Image preview is not available. The file may be missing, private,
+        corrupted, or still processing.
       </Alert>
-    );
-  }
-
-  if (imageFailed && embedUrl) {
-    return (
-      <Box>
-        <Box
-          component="iframe"
-          src={embedUrl}
-          title="image preview"
-          allow="fullscreen"
-          allowFullScreen
-          sx={{ width: "100%", height: { xs: 320, md: 520 }, border: 0 }}
-        />
-        <Typography variant="caption" color="text.secondary">
-          Google Drive image preview
-        </Typography>
-      </Box>
     );
   }
 
@@ -324,10 +289,11 @@ const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
         src={imgUrl}
         alt="media preview"
         onError={() => setImageFailed(true)}
+        onContextMenu={(event) => event.preventDefault()}
         sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
       />
       <Typography variant="caption" color="text.secondary">
-        Image preview
+        Secure image preview.
       </Typography>
     </Box>
   );

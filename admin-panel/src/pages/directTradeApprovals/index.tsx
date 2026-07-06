@@ -153,8 +153,8 @@ function normalizeDecision(value: any) {
 
 function decisionFromMedia(m: any) {
   return normalizeDecision(
-    m?.decision ||
-      m?.review_status ||
+    m?.review_status ||
+      m?.decision ||
       m?.moderation?.decision ||
       m?.moderation?.status ||
       m?.moderation_status ||
@@ -172,11 +172,17 @@ function needsReason(decision: string) {
   return d === "REJECTED" || d === "REQUEST_REPLACEMENT" || d === "REMOVED";
 }
 
-function buildReviewPayload(media: any[], decisions: Record<string, string>) {
+function buildReviewPayload(
+  media: any[],
+  decisions: Record<string, string>,
+  reasons: Record<string, string>,
+) {
   const mediaReviews = (media || []).map((m: any) => ({
     media_id: m.media_id,
-    type: m.type || m.media_type,
+    media_type: m.media_type || m.type,
     decision: normalizeDecision(decisions[m.media_id]),
+    reason_code: reasons[m.media_id] || m.review_reason || m.review_reason_code || m.reason_code || "",
+    remarks: m.review_remarks || "",
   }));
   return {
     checklist: {
@@ -368,6 +374,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
   const [missingPhotoReason, setMissingPhotoReason] = useState("MEDIA_DELETED");
   const [missingVideoReason, setMissingVideoReason] = useState("MEDIA_DELETED");
   const [mediaDecisions, setMediaDecisions] = useState<Record<string, string>>({});
+  const [mediaReasons, setMediaReasons] = useState<Record<string, string>>({});
 
   const roleCopy = useMemo(() => {
     if (role === "PLATFORM_APPROVER") {
@@ -445,17 +452,23 @@ const DirectTradeApprovalsPage: React.FC = () => {
   useEffect(() => {
     const media = details?.media || details?.listing?.media || [];
     const initial: Record<string, string> = {};
+    const initialReasons: Record<string, string> = {};
     (media || []).forEach((m: any) => {
-      if (m?.media_id) initial[m.media_id] = decisionFromMedia(m);
+      if (m?.media_id) {
+        initial[m.media_id] = decisionFromMedia(m);
+        initialReasons[m.media_id] =
+          m.review_reason || m.review_reason_code || m.reason_code || "OTHER";
+      }
     });
     setMediaDecisions(initial);
+    setMediaReasons(initialReasons);
   }, [details?.listing?.listing_id]);
 
   const currentWorkflow = details?.workflow || {};
   const currentMediaForReview = details?.media || details?.listing?.media || [];
   const reviewPayload = useMemo(
-    () => buildReviewPayload(currentMediaForReview, mediaDecisions),
-    [currentMediaForReview, mediaDecisions],
+    () => buildReviewPayload(currentMediaForReview, mediaDecisions, mediaReasons),
+    [currentMediaForReview, mediaDecisions, mediaReasons],
   );
   const allMediaApproved = Boolean(reviewPayload.all_items_approved);
   const canSubmitApprove = !currentWorkflow.read_only && allMediaApproved;
@@ -1109,7 +1122,17 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                   {needsReason(mediaDecisions[m.media_id] || decisionFromMedia(m)) && (
                                     <FormControl size="small" fullWidth>
                                       <InputLabel>Reason</InputLabel>
-                                      <Select label="Reason" defaultValue={m.review_reason_code || "OTHER"} disabled={mediaLocked(m, mediaDecisions)}>
+                                      <Select
+                                        label="Reason"
+                                        value={mediaReasons[m.media_id] || "OTHER"}
+                                        onChange={(e) =>
+                                          setMediaReasons((prev) => ({
+                                            ...prev,
+                                            [m.media_id]: e.target.value,
+                                          }))
+                                        }
+                                        disabled={mediaLocked(m, mediaDecisions)}
+                                      >
                                         {reasons.map((r: string) => (
                                           <MenuItem key={r} value={r}>
                                             {r}

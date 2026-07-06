@@ -56,6 +56,7 @@ export async function updateDirectTradeApprovalStatus({
   approval_action,
   remarks,
   review_payload,
+  media_reviews,
 }: {
   username: string;
   language?: string;
@@ -63,6 +64,7 @@ export async function updateDirectTradeApprovalStatus({
   approval_action: "APPROVE" | "REJECT" | "REQUEST_CHANGES" | "PUBLISH";
   remarks?: string;
   review_payload?: any;
+  media_reviews?: any[];
 }) {
   const response = await postEncrypted("/admin/direct-trade/approval-action", {
     api: "updateDirectTradeApprovalStatus",
@@ -72,6 +74,7 @@ export async function updateDirectTradeApprovalStatus({
     approval_action,
     remarks: remarks || "",
     review_payload: review_payload || {},
+    media_reviews: media_reviews || review_payload?.media_reviews || [],
   });
   return response;
 }

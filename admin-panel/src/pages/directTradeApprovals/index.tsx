@@ -40,6 +40,7 @@ import BrokenImageOutlinedIcon from "@mui/icons-material/BrokenImageOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import ArrowBackIosNewOutlinedIcon from "@mui/icons-material/ArrowBackIosNewOutlined";
 import ArrowForwardIosOutlinedIcon from "@mui/icons-material/ArrowForwardIosOutlined";
@@ -161,8 +162,9 @@ function decisionFromMedia(m: any) {
   );
 }
 
-function mediaLocked(m: any) {
-  return Boolean(m?.is_locked) || decisionFromMedia(m) === "APPROVED";
+function mediaLocked(m: any, decisions?: Record<string, string>) {
+  const current = normalizeDecision(decisions?.[m?.media_id] || decisionFromMedia(m));
+  return Boolean(m?.is_locked || m?.locked) || current === "APPROVED";
 }
 
 function needsReason(decision: string) {
@@ -478,6 +480,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
         approval_action: actionOpen,
         remarks,
         review_payload: reviewPayload,
+        media_reviews: reviewPayload.media_reviews,
       });
       if (responseOk(resp)) {
         enqueueSnackbar(responseMessage(resp, "Approval updated"), {
@@ -1074,7 +1077,14 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                     <Typography variant="body2" fontWeight={700}>
                                       {m.type} • {mediaDecisions[m.media_id] || decisionFromMedia(m)}
                                     </Typography>
-                                    {mediaLocked(m) && <Chip size="small" color="success" label="Locked / Approved" />}
+                                    {mediaLocked(m, mediaDecisions) && (
+                                      <Chip
+                                        size="small"
+                                        color="success"
+                                        icon={<LockOutlinedIcon />}
+                                        label="Approved / Locked"
+                                      />
+                                    )}
                                   </Stack>
                                   <FormControl size="small" fullWidth>
                                     <InputLabel>Media decision</InputLabel>
@@ -1087,7 +1097,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                           [m.media_id]: e.target.value,
                                         }))
                                       }
-                                      disabled={Boolean(currentWorkflow.read_only) || mediaLocked(m)}
+                                      disabled={Boolean(currentWorkflow.read_only) || mediaLocked(m, mediaDecisions)}
                                     >
                                       <MenuItem value="PENDING">Pending Review</MenuItem>
                                       <MenuItem value="APPROVED">Approved</MenuItem>
@@ -1099,7 +1109,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
                                   {needsReason(mediaDecisions[m.media_id] || decisionFromMedia(m)) && (
                                     <FormControl size="small" fullWidth>
                                       <InputLabel>Reason</InputLabel>
-                                      <Select label="Reason" defaultValue={m.review_reason_code || "OTHER"} disabled={mediaLocked(m)}>
+                                      <Select label="Reason" defaultValue={m.review_reason_code || "OTHER"} disabled={mediaLocked(m, mediaDecisions)}>
                                         {reasons.map((r: string) => (
                                           <MenuItem key={r} value={r}>
                                             {r}
@@ -1405,16 +1415,14 @@ const DirectTradeApprovalsPage: React.FC = () => {
                 ? "This will move the listing to the next approval level or publish it if this is the final level."
                 : "Remarks will be visible in the approval history and should clearly explain what the farmer must fix."}
             </Alert>
-            {actionOpen !== "APPROVE" && (
-              <TextField
-                label="Remarks *"
-                multiline
-                minRows={4}
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                fullWidth
-              />
-            )}
+            <TextField
+              label={actionOpen === "APPROVE" ? "Remarks" : "Remarks *"}
+              multiline
+              minRows={4}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              fullWidth
+            />
           </Stack>
         </DialogContent>
         <DialogActions>

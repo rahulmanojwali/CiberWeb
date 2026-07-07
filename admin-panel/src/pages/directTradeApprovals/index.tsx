@@ -121,6 +121,43 @@ function money(price: any) {
   return amount !== undefined && amount !== null ? `₹${amount} / ${unit}` : "-";
 }
 
+function compactAddress(parts: any[] = []) {
+  return parts
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part, index, arr) => arr.findIndex((v) => v.toLowerCase() === part.toLowerCase()) === index)
+    .join(", ");
+}
+
+function farmerEnteredPickupAddress(pickup: any = {}) {
+  return compactAddress([
+    pickup.address_line_1 || pickup.address_line || pickup.manual_address,
+    pickup.address_line_2,
+    pickup.locality || pickup.village,
+    pickup.district,
+    pickup.state || pickup.state_code,
+    pickup.pincode,
+  ]);
+}
+
+function gpsVerifiedPickupAddress(pickup: any = {}) {
+  const gps = pickup.gps || {};
+  return compactAddress([
+    gps.address || pickup.gps_address,
+    gps.district,
+    gps.state || gps.state_code,
+    gps.pincode || pickup.gps_pincode,
+  ]);
+}
+
+function gpsCoords(pickup: any = {}) {
+  const gps = pickup.gps || {};
+  const lat = gps.lat ?? pickup.lat ?? pickup.gps_lat;
+  const lng = gps.lng ?? pickup.lng ?? pickup.gps_lng;
+  if (lat === undefined || lat === null || lng === undefined || lng === null) return "";
+  return `${lat}, ${lng}`;
+}
+
 function qty(quantity: any) {
   if (!quantity) return "-";
   const value = quantity.value ?? quantity.quantity ?? quantity.weight_kg;
@@ -1009,17 +1046,23 @@ const DirectTradeApprovalsPage: React.FC = () => {
                         Pickup & GPS Verification
                       </Typography>
                       <Grid container spacing={1}>
-                        <Grid item xs={6}>
+                        <Grid item xs={12} md={6}>
                           <Typography color="text.secondary">
-                            Address
+                            Farmer Entered Address
                           </Typography>
                           <Typography>
-                            {detailListing.pickup?.address_line ||
-                              detailListing.pickup?.manual_address ||
-                              "-"}
+                            {farmerEnteredPickupAddress(detailListing.pickup) || "-"}
                           </Typography>
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid item xs={12} md={6}>
+                          <Typography color="text.secondary">
+                            GPS Verified Address
+                          </Typography>
+                          <Typography>
+                            {gpsVerifiedPickupAddress(detailListing.pickup) || "-"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
                           <Typography color="text.secondary">
                             District / State / Pincode
                           </Typography>
@@ -1029,6 +1072,14 @@ const DirectTradeApprovalsPage: React.FC = () => {
                               detailListing.pickup?.state_code ||
                               "-"}{" "}
                             - {detailListing.pickup?.pincode || "-"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography color="text.secondary">
+                            GPS Coordinates
+                          </Typography>
+                          <Typography>
+                            {gpsCoords(detailListing.pickup) || "-"}
                           </Typography>
                         </Grid>
                         <Grid item xs={12}>

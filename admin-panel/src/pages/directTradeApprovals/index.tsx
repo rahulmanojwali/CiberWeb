@@ -42,6 +42,8 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
 import ArrowBackIosNewOutlinedIcon from "@mui/icons-material/ArrowBackIosNewOutlined";
 import ArrowForwardIosOutlinedIcon from "@mui/icons-material/ArrowForwardIosOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
@@ -167,6 +169,18 @@ function qty(quantity: any) {
     : "-";
 }
 
+function joinUnique(parts: any[] = []) {
+  return parts
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .filter((part, index, arr) => arr.findIndex((v) => v.toLowerCase() === part.toLowerCase()) === index)
+    .join(" • ");
+}
+
+function statusLabel(status: any) {
+  return String(status || "-").trim().toUpperCase().replace(/\s+/g, "_");
+}
+
 function responseOk(resp: any) {
   const code = String(
     resp?.response?.responsecode ?? resp?.responsecode ?? "1",
@@ -233,9 +247,18 @@ function buildReviewPayload(
   };
 }
 
-const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
+const MediaThumb: React.FC<{
+  media: any;
+  onClick: () => void;
+  width?: number;
+  height?: number;
+  overlayCount?: number;
+}> = ({
   media,
   onClick,
+  width = 86,
+  height = 70,
+  overlayCount = 0,
 }) => {
   const isVideo = mediaTypeOf(media) === "VIDEO";
   const [thumbIndex, setThumbIndex] = React.useState(0);
@@ -245,8 +268,9 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
     <Box
       onClick={onClick}
       sx={{
-        width: 86,
-        height: 70,
+        width,
+        height,
+        flex: "0 0 auto",
         border: "1px solid",
         borderColor: "divider",
         borderRadius: 1.5,
@@ -283,12 +307,156 @@ const MediaThumb: React.FC<{ media: any; onClick: () => void }> = ({
             bgcolor: "rgba(0,0,0,.18)",
           }}
         >
-          <PlayCircleOutlineIcon sx={{ color: "white", fontSize: 34 }} />
+          <PlayCircleOutlineIcon sx={{ color: "white", fontSize: Math.min(34, height - 8) }} />
+        </Box>
+      )}
+      {overlayCount > 0 && (
+        <Box
+          sx={{
+            position: "absolute",
+            right: 2,
+            bottom: 2,
+            minWidth: 20,
+            height: 18,
+            px: 0.4,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "rgba(15, 23, 42, .68)",
+            borderRadius: 1,
+            color: "white",
+            fontWeight: 800,
+            fontSize: 11,
+            lineHeight: 1,
+          }}
+        >
+          +{overlayCount}
         </Box>
       )}
     </Box>
   );
 };
+
+const MediaStackPreview: React.FC<{
+  media: any[];
+  summary?: any;
+  onOpen: (index: number) => void;
+}> = ({ media = [], summary = {}, onOpen }) => {
+  const visible = (Array.isArray(media) ? media : []).slice(0, 4);
+  const extra = Math.max(0, (media?.length || 0) - visible.length);
+  const photoCount = Number(summary?.actual_photo_count ?? media.filter((m) => mediaTypeOf(m) !== "VIDEO").length ?? 0);
+  const videoCount = Number(summary?.actual_video_count ?? media.filter((m) => mediaTypeOf(m) === "VIDEO").length ?? 0);
+  const missingPhoto = Number(summary?.missing_photo_count || 0);
+  const missingVideo = Number(summary?.missing_video_count || 0);
+
+  return (
+    <Box sx={{ width: 136, maxWidth: 136 }}>
+      <Stack direction="row" spacing={0.5} sx={{ width: 136, overflow: "hidden" }}>
+        {visible.map((m: any, idx: number) => (
+          <MediaThumb
+            key={m.media_id || idx}
+            media={m}
+            width={30}
+            height={30}
+            overlayCount={idx === visible.length - 1 ? extra : 0}
+            onClick={() => onOpen(idx)}
+          />
+        ))}
+        {visible.length === 0 && (
+          <Box
+            sx={{
+              width: 64,
+              height: 30,
+              border: "1px dashed",
+              borderColor: "divider",
+              borderRadius: 1.5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: "background.default",
+            }}
+          >
+            <ImageOutlinedIcon color="disabled" fontSize="small" />
+          </Box>
+        )}
+      </Stack>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        title={`${photoCount} photos • ${videoCount} video${videoCount === 1 ? "" : "s"}`}
+        sx={{ display: "block", mt: 0.75, whiteSpace: "nowrap" }}
+      >
+        {photoCount} photos • {videoCount} video{videoCount === 1 ? "" : "s"}
+      </Typography>
+      {(missingPhoto > 0 || missingVideo > 0) && (
+        <Typography
+          variant="caption"
+          color="warning.main"
+          sx={{ display: "block", whiteSpace: "nowrap", fontWeight: 700 }}
+        >
+          {[missingPhoto > 0 ? `${missingPhoto} image missing` : "", missingVideo > 0 ? `${missingVideo} video missing` : ""].filter(Boolean).join(" • ")}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+const StatusBadge: React.FC<{ status: any }> = ({ status }) => {
+  const value = statusLabel(status);
+  const palette: Record<string, { bg: string; color: string; border: string }> = {
+    PUBLISHED: { bg: "#e8f5ec", color: "#1f6f3a", border: "#b9dfc3" },
+    APPROVED: { bg: "#e8f5ec", color: "#1f6f3a", border: "#b9dfc3" },
+    PENDING_APPROVAL: { bg: "#fff4df", color: "#925400", border: "#f1cf91" },
+    PENDING_REVIEW: { bg: "#fff4df", color: "#925400", border: "#f1cf91" },
+    CHANGE_REQUEST: { bg: "#fff0e8", color: "#a34512", border: "#efc0a8" },
+    CHANGE_REQUESTED: { bg: "#fff0e8", color: "#a34512", border: "#efc0a8" },
+    REJECTED: { bg: "#fdecec", color: "#b42318", border: "#f3b8b3" },
+    DRAFT: { bg: "#eef3f8", color: "#41566f", border: "#c8d5e2" },
+    CLOSED: { bg: "#f1f3f5", color: "#4b5563", border: "#d7dde3" },
+  };
+  const tone = palette[value] || { bg: "#f1f3f5", color: "#4b5563", border: "#d7dde3" };
+
+  return (
+    <Chip
+      size="small"
+      label={value}
+      sx={{
+        maxWidth: "100%",
+        height: 24,
+        bgcolor: tone.bg,
+        color: tone.color,
+        border: "1px solid",
+        borderColor: tone.border,
+        fontWeight: 800,
+        fontSize: 11,
+        "& .MuiChip-label": {
+          px: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        },
+      }}
+    />
+  );
+};
+
+const GpsVerifiedBadge: React.FC<{ verified: boolean }> = ({ verified }) => (
+  <Chip
+    size="small"
+    icon={verified ? <VerifiedOutlinedIcon /> : undefined}
+    label={verified ? "GPS verified" : "GPS pending"}
+    sx={{
+      height: 22,
+      bgcolor: verified ? "#e8f5ec" : "#f1f3f5",
+      color: verified ? "#1f6f3a" : "#667085",
+      border: "1px solid",
+      borderColor: verified ? "#b9dfc3" : "#d7dde3",
+      fontWeight: 700,
+      fontSize: 11,
+      "& .MuiChip-icon": { color: "inherit", fontSize: 15 },
+      "& .MuiChip-label": { px: 0.75 },
+    }}
+  />
+);
 
 const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
   const type = mediaTypeOf(media);
@@ -613,10 +781,19 @@ const DirectTradeApprovalsPage: React.FC = () => {
       subtitle="CiberMandi internal review and approval workspace for Direct Trade listings."
     >
       <Stack spacing={2}>
-        <Alert severity="info">
+        <Alert
+          icon={<InfoOutlinedIcon />}
+          sx={{
+            bgcolor: "#eef7ec",
+            color: "#1f3f2b",
+            border: "1px solid #cfe4c9",
+            borderRadius: 2,
+            "& .MuiAlert-icon": { color: "#3f6f3c" },
+          }}
+        >
           You are signed in as <strong>{username || "platform user"}</strong>.
           Role: <strong>{role || "PLATFORM"}</strong>. Pending listings, images
-          and videos are now loaded from the Direct Trade approval APIs.
+          and videos are loaded from the Direct Trade approval APIs.
         </Alert>
 
         <Card>
@@ -711,11 +888,12 @@ const DirectTradeApprovalsPage: React.FC = () => {
         </Grid>
 
         <Card>
-          <CardContent>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
+          <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid item xs={12} md={5} lg={4.6}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Search listing / farmer / product / location"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -727,8 +905,8 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
+              <Grid item xs={12} sm={6} md={2.5}>
+                <FormControl fullWidth size="small">
                   <InputLabel>Status</InputLabel>
                   <Select
                     label="Status"
@@ -746,8 +924,8 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
+              <Grid item xs={12} sm={6} md={2.5}>
+                <FormControl fullWidth size="small">
                   <InputLabel>Media</InputLabel>
                   <Select
                     label="Media"
@@ -765,7 +943,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid item xs={12} md={2} lg={1.9}>
                 <Button
                   fullWidth
                   variant="contained"
@@ -774,6 +952,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
                     loadQueue(0, limit);
                   }}
                   disabled={loading}
+                  sx={{ minHeight: "40px !important" }}
                 >
                   Apply
                 </Button>
@@ -788,18 +967,36 @@ const DirectTradeApprovalsPage: React.FC = () => {
               <CircularProgress size={26} />
             </Box>
           )}
-          <TableContainer>
-            <Table size="small">
+          <TableContainer sx={{ display: { xs: "none", lg: "block" }, overflowX: "hidden" }}>
+            <Table
+              size="small"
+              sx={{
+                width: "100%",
+                tableLayout: "fixed",
+                "& th": {
+                  color: "text.secondary",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  whiteSpace: "nowrap",
+                  bgcolor: "#faf8f2",
+                },
+                "& td": {
+                  py: 1.25,
+                  verticalAlign: "middle",
+                  overflow: "hidden",
+                },
+              }}
+            >
               <TableHead>
                 <TableRow>
-                  <TableCell>Media</TableCell>
+                  <TableCell sx={{ width: 150 }}>Media</TableCell>
                   <TableCell>Listing / Product</TableCell>
-                  <TableCell>Farmer</TableCell>
-                  <TableCell>Qty / Price</TableCell>
-                  <TableCell>Pickup</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Submitted</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell sx={{ width: 150 }}>Farmer</TableCell>
+                  <TableCell sx={{ width: 126 }}>Qty / Price</TableCell>
+                  <TableCell sx={{ width: 154 }}>Pickup</TableCell>
+                  <TableCell sx={{ width: 146 }}>Status</TableCell>
+                  <TableCell sx={{ width: 134 }}>Submitted</TableCell>
+                  <TableCell sx={{ width: 70 }} align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -811,135 +1008,64 @@ const DirectTradeApprovalsPage: React.FC = () => {
                   </TableRow>
                 )}
                 {rows.map((row) => {
-                  const missingPhoto = Number(
-                    row?.media_summary?.missing_photo_count || 0,
-                  );
-                  const missingVideo = Number(
-                    row?.media_summary?.missing_video_count || 0,
-                  );
+                  const productTitle = row.product_name || row.commodity_name || "Direct Trade Listing";
+                  const productMeta = joinUnique([row.commodity_name, row.product_name || row.variety_name, row.grade_name]);
+                  const pickupText = compactAddress([row.pickup?.district, row.pickup?.state || row.pickup?.state_code]) || "-";
                   return (
-                    <TableRow key={row.listing_id} hover>
-                      <TableCell sx={{ minWidth: 160 }}>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {(row.media || [])
-                            .slice(0, 3)
-                            .map((m: any, idx: number) => (
-                              <MediaThumb
-                                key={m.media_id}
-                                media={m}
-                                onClick={() =>
-                                  openMediaGallery(row.media || [], idx)
-                                }
-                              />
-                            ))}
-                          {(!row.media || row.media.length === 0) && (
-                            <Box
-                              sx={{
-                                width: 86,
-                                height: 70,
-                                border: "1px dashed",
-                                borderColor: "divider",
-                                borderRadius: 1.5,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <ImageOutlinedIcon color="disabled" />
-                            </Box>
-                          )}
-                        </Stack>
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          sx={{ mt: 1 }}
-                          flexWrap="wrap"
-                        >
-                          <Chip
-                            size="small"
-                            label={`${row.media_summary?.actual_photo_count || 0} photos`}
-                          />
-                          <Chip
-                            size="small"
-                            label={`${row.media_summary?.actual_video_count || 0} videos`}
-                          />
-                          {missingPhoto > 0 && (
-                            <Chip
-                              color="warning"
-                              size="small"
-                              label={`${missingPhoto} image missing`}
-                            />
-                          )}
-                          {missingVideo > 0 && (
-                            <Chip
-                              color="warning"
-                              size="small"
-                              label={`${missingVideo} video missing`}
-                            />
-                          )}
-                        </Stack>
+                    <TableRow key={row.listing_id} hover sx={{ "&:last-child td": { borderBottom: 0 } }}>
+                      <TableCell>
+                        <MediaStackPreview
+                          media={row.media || []}
+                          summary={row.media_summary}
+                          onOpen={(idx) => openMediaGallery(row.media || [], idx)}
+                        />
                       </TableCell>
                       <TableCell>
-                        <Typography fontWeight={700}>
-                          {row.product_name ||
-                            row.commodity_name ||
-                            "Direct Trade Listing"}
+                        <Typography fontWeight={800} noWrap title={productTitle}>
+                          {productTitle}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {row.commodity_name}{" "}
-                          {row.variety_name ? `• ${row.variety_name}` : ""}{" "}
-                          {row.grade_name ? `• ${row.grade_name}` : ""}
+                        <Typography variant="body2" color="text.secondary" noWrap title={productMeta}>
+                          {productMeta || "-"}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" noWrap title={String(row.listing_no || row.listing_id || "")} sx={{ display: "block" }}>
                           {row.listing_no || row.listing_id}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography>{row.farmer_name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography fontWeight={700} noWrap title={row.farmer_name || "-"}>
+                          {row.farmer_name || "-"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap title={row.farmer_mobile || row.farmer_username || ""} sx={{ display: "block" }}>
                           {row.farmer_mobile || row.farmer_username}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography>{qty(row.quantity)}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography fontWeight={800} noWrap title={qty(row.quantity)}>
+                          {qty(row.quantity)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap title={money(row.price)} sx={{ display: "block" }}>
                           {money(row.price)}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography>
-                          {row.pickup?.district || "-"},{" "}
-                          {row.pickup?.state || row.pickup?.state_code || ""}
+                        <Typography fontWeight={700} noWrap title={pickupText}>
+                          {pickupText}
                         </Typography>
-                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                          <Chip
-                            size="small"
-                            color={row.gps_verified ? "success" : "default"}
-                            label={
-                              row.gps_verified ? "GPS verified" : "GPS pending"
-                            }
-                          />
+                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, minWidth: 0 }}>
+                          <GpsVerifiedBadge verified={Boolean(row.gps_verified)} />
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          color={
-                            row.status === "PENDING_APPROVAL"
-                              ? "warning"
-                              : row.status === "REJECTED"
-                                ? "error"
-                                : row.status === "PUBLISHED"
-                                  ? "success"
-                                  : "default"
-                          }
-                          label={row.status}
-                        />
+                        <StatusBadge status={row.status} />
                       </TableCell>
-                      <TableCell>{fmtDate(row.submitted_on)}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" noWrap title={fmtDate(row.submitted_on)}>
+                          {fmtDate(row.submitted_on)}
+                        </Typography>
+                      </TableCell>
                       <TableCell align="right">
                         <Tooltip title="Open review workspace">
-                          <IconButton onClick={() => openDetails(row)}>
+                          <IconButton size="small" onClick={() => openDetails(row)}>
                             <VisibilityOutlinedIcon />
                           </IconButton>
                         </Tooltip>
@@ -950,6 +1076,96 @@ const DirectTradeApprovalsPage: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          <Stack spacing={1.25} sx={{ display: { xs: "flex", lg: "none" }, p: 1.5 }}>
+            {!loading && rows.length === 0 && (
+              <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
+                No Direct Trade listings found for this filter.
+              </Box>
+            )}
+            {rows.map((row) => {
+              const productTitle = row.product_name || row.commodity_name || "Direct Trade Listing";
+              const productMeta = joinUnique([row.commodity_name, row.product_name || row.variety_name, row.grade_name]);
+              const pickupText = compactAddress([row.pickup?.district, row.pickup?.state || row.pickup?.state_code]) || "-";
+              return (
+                <Box
+                  key={row.listing_id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    p: 1.5,
+                    bgcolor: "background.paper",
+                  }}
+                >
+                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                    <MediaStackPreview
+                      media={row.media || []}
+                      summary={row.media_summary}
+                      onOpen={(idx) => openMediaGallery(row.media || [], idx)}
+                    />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography fontWeight={800} noWrap title={productTitle}>
+                            {productTitle}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" noWrap title={productMeta}>
+                            {productMeta || "-"}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap title={String(row.listing_no || row.listing_id || "")} sx={{ display: "block" }}>
+                            {row.listing_no || row.listing_id}
+                          </Typography>
+                        </Box>
+                        <Tooltip title="Open review workspace">
+                          <IconButton size="small" onClick={() => openDetails(row)}>
+                            <VisibilityOutlinedIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                      <Grid container spacing={1} sx={{ mt: 1 }}>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="caption" color="text.secondary">Farmer</Typography>
+                          <Typography variant="body2" fontWeight={700} noWrap title={row.farmer_name || "-"}>
+                            {row.farmer_name || "-"}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap title={row.farmer_mobile || row.farmer_username || ""} sx={{ display: "block" }}>
+                            {row.farmer_mobile || row.farmer_username}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="caption" color="text.secondary">Qty / Price</Typography>
+                          <Typography variant="body2" fontWeight={800} noWrap title={qty(row.quantity)}>
+                            {qty(row.quantity)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap title={money(row.price)} sx={{ display: "block" }}>
+                            {money(row.price)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="caption" color="text.secondary">Pickup</Typography>
+                          <Typography variant="body2" fontWeight={700} noWrap title={pickupText}>
+                            {pickupText}
+                          </Typography>
+                          <Box sx={{ mt: 0.35 }}>
+                            <GpsVerifiedBadge verified={Boolean(row.gps_verified)} />
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Typography variant="caption" color="text.secondary">Status</Typography>
+                          <Stack spacing={0.5} alignItems="flex-start">
+                            <StatusBadge status={row.status} />
+                            <Typography variant="caption" color="text.secondary" noWrap title={fmtDate(row.submitted_on)} sx={{ display: "block", maxWidth: "100%" }}>
+                              {fmtDate(row.submitted_on)}
+                            </Typography>
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Stack>
+                </Box>
+              );
+            })}
+          </Stack>
           <TablePagination
             component="div"
             count={total}

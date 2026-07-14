@@ -179,6 +179,16 @@ export const APP_MENU: AppMenuItem[] = [
         requiredAction: "VIEW",
         roles: ["PLATFORM_REVIEWER", "PLATFORM_APPROVER", "PLATFORM_SUPERVISOR", "PLATFORM_OPERATIONS_MANAGER", "SUPER_ADMIN"],
       },
+      {
+        key: "directTradeOrders",
+        labelKey: "menu.directTradeOrders",
+        labelOverride: "Direct Trade Orders",
+        path: "/direct-trade/orders",
+        icon: React.createElement(TaskAltOutlinedIcon),
+        resourceKey: "direct_trade_orders.menu",
+        requiredAction: "VIEW",
+        roles: ["PLATFORM_REVIEWER", "PLATFORM_APPROVER", "PLATFORM_SUPERVISOR", "PLATFORM_OPERATIONS_MANAGER", "SUPER_ADMIN"],
+      },
     ],
   },
 

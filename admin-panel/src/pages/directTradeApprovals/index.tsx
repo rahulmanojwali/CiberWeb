@@ -1,3 +1,9 @@
+/**
+ * Author: CiberMandi Development Team
+ * Date: 2026-07-14
+ * Description: Direct Trade approval workspace with controlled review-message selection and reviewer attribution.
+ * Major methods: list/load approval data, load controlled messages, submit approval decision.
+ */
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -59,7 +65,9 @@ import {
 import {
   getDirectTradeApprovalDetails,
   listDirectTradeApprovalQueue,
+  listDirectTradeApprovalRemarkTemplates,
   updateDirectTradeApprovalStatus,
+  type DirectTradeApprovalRemarkTemplate,
 } from "../../services/directTradeApprovalsApi";
 
 const STATUS_OPTIONS = [
@@ -91,6 +99,19 @@ const LOCAL_REASONS = [
   "Upload failed",
   "Under moderation",
   "Other",
+];
+
+
+const FALLBACK_REMARK_TEMPLATES: DirectTradeApprovalRemarkTemplate[] = [
+  { code: "APPROVE_DETAILS_VERIFIED", action: "APPROVE", label: "Details verified", message: "Product, quantity, price, pickup and media details have been verified.", sort_order: 10 },
+  { code: "APPROVE_MEDIA_VERIFIED", action: "APPROVE", label: "Media verified", message: "All submitted photos and videos are clear, relevant and approved.", sort_order: 20 },
+  { code: "APPROVE_FINAL", action: "APPROVE", label: "Approved for publication", message: "Listing meets Direct Trade requirements and is approved for publication.", sort_order: 30 },
+  { code: "CHANGE_PRODUCT_DETAILS", action: "REQUEST_CHANGES", label: "Correct product details", message: "Please correct the product, grade, quantity, price or remarks and resubmit the listing.", sort_order: 10 },
+  { code: "CHANGE_MEDIA", action: "REQUEST_CHANGES", label: "Replace or improve media", message: "Please replace unclear, incorrect or incomplete product photos/videos and resubmit.", sort_order: 20 },
+  { code: "CHANGE_PICKUP", action: "REQUEST_CHANGES", label: "Correct pickup details", message: "Please correct the pickup address or GPS verification details and resubmit.", sort_order: 30 },
+  { code: "REJECT_INVALID_PRODUCT", action: "REJECT", label: "Invalid or prohibited product", message: "The listing cannot be approved because the product is invalid, prohibited or outside Direct Trade policy.", sort_order: 10 },
+  { code: "REJECT_MISLEADING", action: "REJECT", label: "Misleading listing", message: "The listing has been rejected because the submitted information or media is misleading or unverifiable.", sort_order: 20 },
+  { code: "REJECT_POLICY", action: "REJECT", label: "Policy violation", message: "The listing has been rejected because it does not comply with CiberMandi Direct Trade policy.", sort_order: 30 },
 ];
 
 function getStoredUser() {
@@ -554,6 +575,9 @@ const DirectTradeApprovalsPage: React.FC = () => {
   const role = normalizeRole(
     user?.default_role_code || user?.role_slug || user?.role_code || user?.role,
   );
+  const language = String(
+    user?.language || localStorage.getItem("i18nextLng") || "en",
+  ).split("-")[0];
   const [rows, setRows] = useState<any[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
@@ -573,6 +597,10 @@ const DirectTradeApprovalsPage: React.FC = () => {
     null | "APPROVE" | "REJECT" | "REQUEST_CHANGES"
   >(null);
   const [remarks, setRemarks] = useState("");
+  const [remarkCode, setRemarkCode] = useState("");
+  const [remarkTemplates, setRemarkTemplates] = useState<DirectTradeApprovalRemarkTemplate[]>([]);
+  const [remarkTemplatesLoading, setRemarkTemplatesLoading] = useState(false);
+  const [usingRemarkFallback, setUsingRemarkFallback] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [missingPhotoReason, setMissingPhotoReason] = useState("MEDIA_DELETED");
   const [missingVideoReason, setMissingVideoReason] = useState("MEDIA_DELETED");
@@ -676,14 +704,41 @@ const DirectTradeApprovalsPage: React.FC = () => {
   const allMediaApproved = Boolean(reviewPayload.all_items_approved);
   const canSubmitApprove = !currentWorkflow.read_only && allMediaApproved;
 
+  async function loadRemarkTemplates(action: "APPROVE" | "REJECT" | "REQUEST_CHANGES") {
+    setRemarkTemplatesLoading(true);
+    setRemarkCode("");
+    setRemarks("");
+    try {
+      const items = await listDirectTradeApprovalRemarkTemplates({
+        username,
+        language,
+        action,
+      });
+      if (items.length) {
+        setRemarkTemplates(items);
+        setUsingRemarkFallback(false);
+      } else {
+        setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
+        setUsingRemarkFallback(true);
+      }
+    } catch {
+      setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
+      setUsingRemarkFallback(true);
+    } finally {
+      setRemarkTemplatesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (actionOpen) loadRemarkTemplates(actionOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionOpen, language]);
+
   async function submitAction() {
     const listingId = details?.listing?.listing_id || selected?.listing_id;
     if (!listingId || !actionOpen) return;
-    if (
-      (actionOpen === "REJECT" || actionOpen === "REQUEST_CHANGES") &&
-      !remarks.trim()
-    ) {
-      enqueueSnackbar("Remarks are required for reject/request changes.", {
+    if (!remarkCode || !remarks.trim()) {
+      enqueueSnackbar("Select an approved review message before submitting.", {
         variant: "warning",
       });
       return;
@@ -695,6 +750,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
         listing_id: listingId,
         approval_action: actionOpen,
         remarks,
+        remark_code: remarkCode,
         review_payload: reviewPayload,
         media_reviews: reviewPayload.media_reviews,
       });
@@ -704,6 +760,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
         });
         setActionOpen(null);
         setRemarks("");
+        setRemarkCode("");
         setSelected(null);
         setDetails(null);
         await loadQueue();
@@ -1679,7 +1736,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
 
       <Dialog
         open={Boolean(actionOpen)}
-        onClose={() => setActionOpen(null)}
+        onClose={() => { setActionOpen(null); setRemarkCode(""); setRemarks(""); }}
         maxWidth="sm"
         fullWidth
       >
@@ -1705,24 +1762,49 @@ const DirectTradeApprovalsPage: React.FC = () => {
                 ? "This will move the listing to the next approval level or publish it if this is the final level."
                 : "Remarks will be visible in the approval history and should clearly explain what the farmer must fix."}
             </Alert>
-            <TextField
-              label={actionOpen === "APPROVE" ? "Remarks" : "Remarks *"}
-              multiline
-              minRows={4}
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              fullWidth
-            />
+            <Alert severity="info" icon={<VerifiedOutlinedIcon />}>
+              This decision will be recorded against <strong>{username || "Current user"}</strong>
+              {role ? ` (${role.replaceAll("_", " ")})` : ""}. The selected message cannot be edited.
+            </Alert>
+            <FormControl fullWidth required disabled={remarkTemplatesLoading}>
+              <InputLabel id="direct-trade-review-message-label">Approved review message</InputLabel>
+              <Select
+                labelId="direct-trade-review-message-label"
+                label="Approved review message"
+                value={remarkCode}
+                onChange={(event) => {
+                  const code = String(event.target.value);
+                  const template = remarkTemplates.find((item) => item.code === code);
+                  setRemarkCode(code);
+                  setRemarks(template?.message || "");
+                }}
+              >
+                {remarkTemplates.map((template) => (
+                  <MenuItem key={template.code} value={template.code}>
+                    {template.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {remarks ? (
+              <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5, bgcolor: "background.default" }}>
+                <Typography variant="caption" color="text.secondary">Message to farmer</Typography>
+                <Typography variant="body2" sx={{ mt: 0.5 }}>{remarks}</Typography>
+              </Box>
+            ) : null}
+            {usingRemarkFallback ? (
+              <Alert severity="warning">Template service is unavailable. Controlled bundled templates are being used temporarily.</Alert>
+            ) : null}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setActionOpen(null)} disabled={actionBusy}>
+          <Button onClick={() => { setActionOpen(null); setRemarkCode(""); setRemarks(""); }} disabled={actionBusy}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={submitAction}
-            disabled={actionBusy || (actionOpen === "APPROVE" && !canSubmitApprove)}
+            disabled={actionBusy || remarkTemplatesLoading || !remarkCode || (actionOpen === "APPROVE" && !canSubmitApprove)}
           >
             {actionBusy ? "Saving..." : "Submit"}
           </Button>

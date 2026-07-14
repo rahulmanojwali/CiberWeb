@@ -1763,8 +1763,8 @@ const DirectTradeApprovalsPage: React.FC = () => {
                 : "Remarks will be visible in the approval history and should clearly explain what the farmer must fix."}
             </Alert>
             <Alert severity="info" icon={<VerifiedOutlinedIcon />}>
-              This decision will be recorded against <strong>{username || "Current user"}</strong>
-              {role ? ` (${role.replaceAll("_", " ")})` : ""}. The selected message cannot be edited.
+              This decision will be recorded against <strong>{username || "Current user"}</strong>        
+         {role ? ` (${role.replace(/_/g, " ")})` : ""}. The selected message cannot be edited.
             </Alert>
             <FormControl fullWidth required disabled={remarkTemplatesLoading}>
               <InputLabel id="direct-trade-review-message-label">Approved review message</InputLabel>

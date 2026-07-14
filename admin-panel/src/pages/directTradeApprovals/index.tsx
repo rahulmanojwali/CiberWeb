@@ -668,6 +668,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
     try {
       const data = await getDirectTradeApprovalDetails({
         username,
+        language,
         listing_id: row.listing_id,
       });
       setDetails(data);
@@ -718,11 +719,11 @@ const DirectTradeApprovalsPage: React.FC = () => {
         setRemarkTemplates(items);
         setUsingRemarkFallback(false);
       } else {
-        setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
+        setRemarkTemplates([]);
         setUsingRemarkFallback(true);
       }
     } catch {
-      setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
+      setRemarkTemplates([]);
       setUsingRemarkFallback(true);
     } finally {
       setRemarkTemplatesLoading(false);
@@ -747,6 +748,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
     try {
       const resp = await updateDirectTradeApprovalStatus({
         username,
+        language,
         listing_id: listingId,
         approval_action: actionOpen,
         remarks,
@@ -1793,7 +1795,7 @@ const DirectTradeApprovalsPage: React.FC = () => {
               </Box>
             ) : null}
             {usingRemarkFallback ? (
-              <Alert severity="warning">Template service is unavailable. Controlled bundled templates are being used temporarily.</Alert>
+              <Alert severity="warning">Template service is unavailable. Approval submission is disabled until localized templates are available.</Alert>
             ) : null}
           </Stack>
         </DialogContent>

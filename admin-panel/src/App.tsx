@@ -257,6 +257,22 @@ function App() {
                   />
                   <Route path="/payment-gateway-configs" element={<PaymentGatewayConfigsPage />} />
                   <Route
+                    path="/platform-module-payment-gateways"
+                    element={
+                      <ProtectedRoute resourceKey="platform_module_payment_gateway_configs.list">
+                        <PlatformModulePaymentGatewaySettingsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/platform-module-settlement-charges"
+                    element={
+                      <ProtectedRoute resourceKey="platform_module_settlement_charges.list">
+                        <PlatformModuleSettlementChargesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/finance/payment-vendor-accounts"
                     element={
                       <ProtectedRoute resourceKey="payment_vendor_accounts.view">

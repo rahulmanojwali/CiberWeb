@@ -943,6 +943,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "platformModulePaymentGatewayConfigs",
+        labelKey: "menu.platformModulePaymentGatewaySettings",
+        labelOverride: "Platform Module Gateway Settings",
+        path: "/platform-module-payment-gateways",
+        icon: React.createElement(SettingsOutlinedIcon),
+        resourceKey: "platform_module_payment_gateway_configs.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
         key: "settlementChargeSettings",
         labelKey: "menu.settlementChargeSettings",
         labelOverride: "Settlement Charge Settings",

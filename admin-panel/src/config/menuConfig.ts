@@ -953,6 +953,16 @@ export const APP_MENU: AppMenuItem[] = [
         roles: ["SUPER_ADMIN"],
       },
       {
+        key: "platformModuleSettlementCharges",
+        labelKey: "menu.platformModuleSettlementCharges",
+        labelOverride: "Platform Module Settlement Charges",
+        path: "/platform-module-settlement-charges",
+        icon: React.createElement(PriceChangeOutlinedIcon),
+        resourceKey: "platform_module_settlement_charges.menu",
+        requiredAction: "VIEW",
+        roles: ["SUPER_ADMIN"],
+      },
+      {
         key: "settlementChargeSettings",
         labelKey: "menu.settlementChargeSettings",
         labelOverride: "Settlement Charge Settings",

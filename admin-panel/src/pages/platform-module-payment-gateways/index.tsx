@@ -83,10 +83,10 @@ export function PlatformModulePaymentGatewayConfigsPage() {
   const testCount = filtered.filter((r) => r.mode === "TEST").length;
   const liveCount = filtered.filter((r) => r.mode === "LIVE").length;
 
-  const load = async () => {
+  const load = async (preserveMessage = false) => {
     const username = getCurrentAdminUsername();
     if (!username || !isSuperAdmin) return;
-    setLoading(true); setMessage(null);
+    setLoading(true); if (!preserveMessage) setMessage(null);
     try {
       const resp: any = await listPlatformModuleGatewayConfigs({ username, payload: {} });
       if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Unable to load gateway settings.");
@@ -110,26 +110,16 @@ export function PlatformModulePaymentGatewayConfigsPage() {
       const payload: Draft = { ...draft, ...generatedUrls };
       const resp: any = await savePlatformModuleGatewayConfig({ username, payload });
       if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Save failed.");
-      setOpen(false); setMessage({ severity: "success", text: "Platform module gateway saved." }); await load();
+      setOpen(false); await load(true); setMessage({ severity: "success", text: "Platform module gateway saved successfully." });
     } catch (e: any) { setMessage({ severity: "error", text: e?.message || "Save failed." }); }
   };
   const mutate = async (fn: any, row: Row, payload: Record<string, any>, success: string) => {
     const username = getCurrentAdminUsername(); if (!username) return;
     try {
       const resp: any = await fn({ username, payload: { module_code: row.module_code, provider_code: row.provider_code, mode: row.mode, ...payload } });
-      if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || resp?.data?.message || "Operation failed.");
-      const detail = String(resp?.data?.message || "").trim();
-      const orderId = String(resp?.data?.order_id || "").trim();
-      const sessionCreated = resp?.data?.payment_session_id_exists === true;
-      const resultText = [detail || success, orderId ? `Test order: ${orderId}` : "", sessionCreated ? "Payment session created." : ""]
-        .filter(Boolean)
-        .join(" ");
-      setMessage({ severity: "success", text: resultText });
-      await load();
-    } catch (e: any) {
-      const responseMessage = e?.response?.data?.response?.description || e?.response?.data?.data?.message;
-      setMessage({ severity: "error", text: responseMessage || e?.message || "Operation failed." });
-    }
+      if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Operation failed.");
+      await load(true); setMessage({ severity: "success", text: success });
+    } catch (e: any) { setMessage({ severity: "error", text: e?.message || "Operation failed." }); }
   };
 
   if (!isSuperAdmin) return <PageContainer title="Platform Module Gateway Settings"><Alert severity="error">This page is available only to CiberMandi SUPER_ADMIN.</Alert></PageContainer>;
@@ -166,7 +156,32 @@ export function PlatformModulePaymentGatewayConfigsPage() {
             <TableCell><Stack direction="row" spacing={0.5}>
               <Button size="small" onClick={() => { setDraft({ ...r, client_secret: '', webhook_secret: '' }); setOpen(true); }}>Edit</Button>
               {!r.is_default && r.is_active === 'Y' && <Button size="small" onClick={() => mutate(setDefaultPlatformModuleGatewayConfig, r, {}, 'Default gateway updated.')}>Default</Button>}
-              <Button size="small" onClick={() => mutate(testPlatformModuleGatewayConfig, r, {}, `${r.provider_code} gateway test completed successfully.`)}>Test</Button>
+              <Button size="small" onClick={async () => {
+                const username = getCurrentAdminUsername();
+                if (!username) return;
+                setMessage(null);
+                try {
+                  const resp: any = await testPlatformModuleGatewayConfig({
+                    username,
+                    payload: {
+                      module_code: r.module_code,
+                      provider_code: r.provider_code,
+                      mode: r.mode,
+                    },
+                  });
+                  if (String(resp?.response?.responsecode || "1") !== "0" || resp?.data?.ok !== true) {
+                    throw new Error(resp?.response?.description || resp?.data?.message || "Gateway test failed.");
+                  }
+                  const details = [
+                    resp?.data?.message || "Gateway test completed successfully.",
+                    resp?.data?.order_id ? `Order ID: ${resp.data.order_id}` : "",
+                    resp?.data?.payment_session_id_exists ? "Payment session created." : "",
+                  ].filter(Boolean).join(" ");
+                  setMessage({ severity: "success", text: details });
+                } catch (e: any) {
+                  setMessage({ severity: "error", text: e?.message || "Gateway test failed." });
+                }
+              }}>Test</Button>
             </Stack></TableCell>
           </TableRow>)}</TableBody>
         </Table>

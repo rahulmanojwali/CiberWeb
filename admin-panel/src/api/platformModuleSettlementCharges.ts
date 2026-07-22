@@ -1,6 +1,6 @@
 import { postEncrypted } from "../services/sharedEncryptedRequest";
 
-const BASE = "/api/admin/platform-module-settlement-charges";
+const BASE = "/admin/platform-module-settlement-charges";
 export const listPlatformModuleSettlementCharges = (username: string, payload: Record<string, any> = {}) =>
   postEncrypted(`${BASE}/list`, { api: "listPlatformModuleSettlementCharges", username, country: "IN", ...payload });
 export const savePlatformModuleSettlementCharges = (username: string, payload: Record<string, any>) =>

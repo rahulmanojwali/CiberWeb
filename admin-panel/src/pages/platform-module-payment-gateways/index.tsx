@@ -117,9 +117,19 @@ export function PlatformModulePaymentGatewayConfigsPage() {
     const username = getCurrentAdminUsername(); if (!username) return;
     try {
       const resp: any = await fn({ username, payload: { module_code: row.module_code, provider_code: row.provider_code, mode: row.mode, ...payload } });
-      if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Operation failed.");
-      setMessage({ severity: "success", text: success }); await load();
-    } catch (e: any) { setMessage({ severity: "error", text: e?.message || "Operation failed." }); }
+      if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || resp?.data?.message || "Operation failed.");
+      const detail = String(resp?.data?.message || "").trim();
+      const orderId = String(resp?.data?.order_id || "").trim();
+      const sessionCreated = resp?.data?.payment_session_id_exists === true;
+      const resultText = [detail || success, orderId ? `Test order: ${orderId}` : "", sessionCreated ? "Payment session created." : ""]
+        .filter(Boolean)
+        .join(" ");
+      setMessage({ severity: "success", text: resultText });
+      await load();
+    } catch (e: any) {
+      const responseMessage = e?.response?.data?.response?.description || e?.response?.data?.data?.message;
+      setMessage({ severity: "error", text: responseMessage || e?.message || "Operation failed." });
+    }
   };
 
   if (!isSuperAdmin) return <PageContainer title="Platform Module Gateway Settings"><Alert severity="error">This page is available only to CiberMandi SUPER_ADMIN.</Alert></PageContainer>;
@@ -156,7 +166,7 @@ export function PlatformModulePaymentGatewayConfigsPage() {
             <TableCell><Stack direction="row" spacing={0.5}>
               <Button size="small" onClick={() => { setDraft({ ...r, client_secret: '', webhook_secret: '' }); setOpen(true); }}>Edit</Button>
               {!r.is_default && r.is_active === 'Y' && <Button size="small" onClick={() => mutate(setDefaultPlatformModuleGatewayConfig, r, {}, 'Default gateway updated.')}>Default</Button>}
-              <Button size="small" onClick={() => mutate(testPlatformModuleGatewayConfig, r, {}, 'Gateway test completed.')}>Test</Button>
+              <Button size="small" onClick={() => mutate(testPlatformModuleGatewayConfig, r, {}, `${r.provider_code} gateway test completed successfully.`)}>Test</Button>
             </Stack></TableCell>
           </TableRow>)}</TableBody>
         </Table>

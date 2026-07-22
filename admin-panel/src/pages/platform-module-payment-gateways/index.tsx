@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent,
-  DialogTitle, FormControl, Grid, InputLabel, MenuItem, Select, Stack, Switch,
+  DialogTitle, FormControl, Grid, InputLabel, MenuItem, OutlinedInput, Select, Stack, Switch,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 import { PageContainer } from "../../components/PageContainer";
@@ -32,6 +32,38 @@ type Draft = Row & { client_secret?: string; webhook_secret?: string };
 const blank = (): Draft => ({ module_code: "DIRECT_TRADE", provider_code: "CASHFREE", mode: "TEST", priority: 1, is_default: false, is_active: "Y", allowed_methods: ["UPI"], fee_borne_by: "TRADER", client_id: "", client_secret: "", webhook_secret: "", return_url: "", notify_url: "", access_code: "" });
 const label = (value: string): string => value.replace(/_/g, " ").replace(/\b\w/g, (match: string) => match.toUpperCase());
 
+const PROVIDER_FIELDS: Record<string, { clientId: string; secret: string; webhook?: string; accessCode?: boolean; credentialsRequired?: boolean; note: string }> = {
+  CASHFREE: { clientId: "App ID", secret: "Secret Key", webhook: "Webhook Secret", note: "Use the Cashfree App ID (x-client-id) and Secret Key (x-client-secret) from Developers > API Keys." },
+  PAYU: { clientId: "Merchant Key", secret: "Salt", webhook: "Webhook Secret", note: "Use the PayU Merchant Key and Salt issued for the selected TEST/LIVE environment." },
+  RAZORPAY: { clientId: "Key ID", secret: "Key Secret", webhook: "Webhook Secret", note: "Use the Razorpay Key ID and Key Secret. Configure the webhook secret separately when webhooks are enabled." },
+  PHONEPE: { clientId: "Merchant ID", secret: "Salt Key / Client Secret", webhook: "Webhook Username / Secret", note: "Use the PhonePe Merchant ID and the configured Salt Key or Client Secret for the selected integration version." },
+  PAYTM: { clientId: "MID", secret: "Merchant Key", webhook: "Webhook Secret", note: "Use the Paytm Merchant ID (MID) and Merchant Key for the selected environment." },
+  CCAVENUE: { clientId: "Merchant ID", secret: "Working Key", webhook: "Webhook Secret", accessCode: true, note: "CCAvenue requires Merchant ID, Working Key and Access Code." },
+  INSTAMOJO: { clientId: "API Key", secret: "Auth Token", webhook: "Webhook Secret", note: "Use the Instamojo API Key and Auth Token." },
+  STRIPE_INDIA: { clientId: "Publishable Key", secret: "Secret Key", webhook: "Webhook Signing Secret", note: "Use the Stripe publishable key, secret key and webhook signing secret." },
+  ZAAKPAY: { clientId: "Merchant Identifier", secret: "Secret Key", webhook: "Webhook Secret", note: "Use the Zaakpay Merchant Identifier and Secret Key." },
+  PAYONEER: { clientId: "Client ID", secret: "Client Secret", webhook: "Webhook Secret", note: "Payoneer is available for future payout integration and may not support checkout order creation." },
+  MANUAL: { clientId: "Reference Prefix", secret: "Not Required", webhook: "Not Required", credentialsRequired: false, note: "Manual payment does not require external gateway API credentials." },
+};
+
+const getProviderFields = (providerCode: string) => PROVIDER_FIELDS[String(providerCode || "").toUpperCase()] || {
+  clientId: "Client ID",
+  secret: "Client Secret",
+  webhook: "Webhook Secret",
+  note: "Enter the credentials issued by the selected payment provider.",
+};
+
+const getProviderUrls = (providerCode: string, mode = "TEST") => {
+  const provider = String(providerCode || "").trim().toLowerCase();
+  const live = String(mode || "TEST").toUpperCase() === "LIVE";
+  return {
+    return_url: live
+      ? `https://cibermandi.ciberdukaan.com/payment-return/${provider}`
+      : `https://cibermandi.ciberdukaan.com/payment-test-return/${provider}`,
+    notify_url: `https://api.cibermandi.ciberdukaan.com/api/webhooks/${provider}/settlement-payment`,
+  };
+};
+
 export function PlatformModulePaymentGatewayConfigsPage() {
   const scope = getUserScope("platform-module-payment-gateways");
   const isSuperAdmin = scope.role === "SUPER_ADMIN";
@@ -42,6 +74,8 @@ export function PlatformModulePaymentGatewayConfigsPage() {
   const [message, setMessage] = useState<{ severity: "success" | "error"; text: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(blank());
+  const providerFields = getProviderFields(draft.provider_code);
+  const credentialsRequired = providerFields.credentialsRequired !== false;
 
   const filtered = useMemo(() => rows.filter((r) => (!moduleFilter || r.module_code === moduleFilter) && (!modeFilter || r.mode === modeFilter)), [rows, moduleFilter, modeFilter]);
   const active = filtered.filter((r) => r.is_active === "Y").length;
@@ -65,7 +99,16 @@ export function PlatformModulePaymentGatewayConfigsPage() {
   const save = async () => {
     const username = getCurrentAdminUsername(); if (!username) return;
     try {
-      const resp: any = await savePlatformModuleGatewayConfig({ username, payload: draft });
+      if (!String(draft.module_code || "").trim()) throw new Error("Module is required.");
+      if (!String(draft.provider_code || "").trim()) throw new Error("Provider is required.");
+      if (!String(draft.mode || "").trim()) throw new Error("Mode is required.");
+      if (!Number.isFinite(Number(draft.priority)) || Number(draft.priority) < 1) throw new Error("Priority must be 1 or greater.");
+      if (credentialsRequired && !String(draft.client_id || "").trim()) throw new Error(`${providerFields.clientId} is required for ${draft.provider_code}.`);
+      if (credentialsRequired && !String(draft.client_secret || "").trim() && !draft.has_client_secret) throw new Error(`${providerFields.secret} is required for ${draft.provider_code}.`);
+      if (providerFields.accessCode && !String(draft.access_code || "").trim()) throw new Error("Access Code is required for CCAvenue.");
+      const generatedUrls = getProviderUrls(draft.provider_code, draft.mode);
+      const payload: Draft = { ...draft, ...generatedUrls };
+      const resp: any = await savePlatformModuleGatewayConfig({ username, payload });
       if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Save failed.");
       setOpen(false); setMessage({ severity: "success", text: "Platform module gateway saved." }); await load();
     } catch (e: any) { setMessage({ severity: "error", text: e?.message || "Save failed." }); }
@@ -124,17 +167,20 @@ export function PlatformModulePaymentGatewayConfigsPage() {
         <DialogTitle>{draft._id ? 'Edit Platform Module Gateway' : 'Add Platform Module Gateway'}</DialogTitle>
         <DialogContent dividers><Grid container spacing={2} sx={{ pt: 1 }}>
           <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Module</InputLabel><Select label="Module" value={draft.module_code} onChange={(e) => setDraft({ ...draft, module_code: String(e.target.value) })}>{MODULES.map((m) => <MenuItem key={m} value={m}>{label(m)}</MenuItem>)}</Select></FormControl></Grid>
-          <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Provider</InputLabel><Select label="Provider" value={draft.provider_code} onChange={(e) => setDraft({ ...draft, provider_code: String(e.target.value) })}>{PROVIDERS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}</Select></FormControl></Grid>
-          <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Mode</InputLabel><Select label="Mode" value={draft.mode} onChange={(e) => setDraft({ ...draft, mode: String(e.target.value) })}>{MODES.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Grid>
-          <Grid item xs={12} md={6}><TextField fullWidth label={draft.provider_code === 'CCAVENUE' ? 'Merchant ID' : 'Client ID'} value={draft.client_id || ''} onChange={(e) => setDraft({ ...draft, client_id: e.target.value })} /></Grid>
-          <Grid item xs={12} md={6}><TextField fullWidth type="password" label={draft.provider_code === 'CCAVENUE' ? 'Working Key' : 'Client Secret'} helperText={draft.has_client_secret ? 'Leave blank to keep saved secret.' : ''} value={draft.client_secret || ''} onChange={(e) => setDraft({ ...draft, client_secret: e.target.value })} /></Grid>
-          {draft.provider_code === 'CCAVENUE' && <Grid item xs={12} md={6}><TextField fullWidth label="Access Code" value={draft.access_code || ''} onChange={(e) => setDraft({ ...draft, access_code: e.target.value })} /></Grid>}
-          <Grid item xs={12} md={6}><TextField fullWidth type="password" label="Webhook Secret" helperText={draft.has_webhook_secret ? 'Leave blank to keep saved secret.' : ''} value={draft.webhook_secret || ''} onChange={(e) => setDraft({ ...draft, webhook_secret: e.target.value })} /></Grid>
-          <Grid item xs={12} md={6}><TextField fullWidth label="Return URL" value={draft.return_url || ''} onChange={(e) => setDraft({ ...draft, return_url: e.target.value })} /></Grid>
-          <Grid item xs={12} md={6}><TextField fullWidth label="Notify URL" value={draft.notify_url || ''} onChange={(e) => setDraft({ ...draft, notify_url: e.target.value })} /></Grid>
+          <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Provider</InputLabel><Select label="Provider" value={draft.provider_code} onChange={(e) => { const provider_code = String(e.target.value); setDraft({ ...draft, provider_code, client_id: "", client_secret: "", webhook_secret: "", access_code: "", ...getProviderUrls(provider_code, draft.mode) }); }}>{PROVIDERS.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}</Select></FormControl></Grid>
+          <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Mode</InputLabel><Select label="Mode" value={draft.mode} onChange={(e) => { const mode = String(e.target.value); setDraft({ ...draft, mode, ...getProviderUrls(draft.provider_code, mode) }); }}>{MODES.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Grid>
+          <Grid item xs={12}>
+            <Alert severity={draft.provider_code === "MANUAL" ? "info" : "success"}>{providerFields.note}</Alert>
+          </Grid>
+          {credentialsRequired && <Grid item xs={12} md={4}><TextField fullWidth label={providerFields.clientId} value={draft.client_id || ''} onChange={(e) => setDraft({ ...draft, client_id: e.target.value })} /></Grid>}
+          {credentialsRequired && <Grid item xs={12} md={4}><TextField fullWidth type="password" label={providerFields.secret} helperText={draft.has_client_secret ? 'Leave blank to keep saved secret.' : ''} value={draft.client_secret || ''} onChange={(e) => setDraft({ ...draft, client_secret: e.target.value })} /></Grid>}
+          {providerFields.accessCode && <Grid item xs={12} md={4}><TextField fullWidth label="Access Code" value={draft.access_code || ''} onChange={(e) => setDraft({ ...draft, access_code: e.target.value })} /></Grid>}
+          {credentialsRequired && <Grid item xs={12} md={4}><TextField fullWidth type="password" label={providerFields.webhook || "Webhook Secret"} helperText={draft.has_webhook_secret ? 'Leave blank to keep saved webhook secret.' : 'Optional unless required by the provider webhook setup.'} value={draft.webhook_secret || ''} onChange={(e) => setDraft({ ...draft, webhook_secret: e.target.value })} /></Grid>}
+          <Grid item xs={12} md={6}><TextField fullWidth label="Return URL" value={draft.return_url || ''} disabled InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
+          <Grid item xs={12} md={6}><TextField fullWidth label="Notify / Webhook URL" value={draft.notify_url || ''} disabled InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
           <Grid item xs={12} md={3}><TextField fullWidth type="number" label="Priority" value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: Number(e.target.value) })} /></Grid>
           <Grid item xs={12} md={3}><FormControl fullWidth><InputLabel>Fee Borne By</InputLabel><Select label="Fee Borne By" value={draft.fee_borne_by || 'TRADER'} onChange={(e) => setDraft({ ...draft, fee_borne_by: String(e.target.value) })}><MenuItem value="TRADER">Trader</MenuItem><MenuItem value="PLATFORM">Platform</MenuItem></Select></FormControl></Grid>
-          <Grid item xs={12} md={6}><FormControl fullWidth><InputLabel>Allowed Methods</InputLabel><Select multiple label="Allowed Methods" value={draft.allowed_methods || []} onChange={(e) => setDraft({ ...draft, allowed_methods: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[] })}>{METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Grid>
+          <Grid item xs={12} md={6}><FormControl fullWidth><InputLabel>Allowed Methods</InputLabel><Select multiple value={draft.allowed_methods || []} input={<OutlinedInput label="Allowed Methods" />} onChange={(e) => setDraft({ ...draft, allowed_methods: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[] })}>{METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Grid>
         </Grid></DialogContent>
         <DialogActions><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="contained" sx={{ bgcolor: GREEN }} onClick={save}>Save</Button></DialogActions>
       </Dialog>

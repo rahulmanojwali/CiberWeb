@@ -128,7 +128,7 @@ export function PlatformModulePaymentGatewayConfigsPage() {
     <PageContainer
       title="Platform Module Gateway Settings"
       subtitle="Configure gateways used by CiberMandi-owned modules. Organisation and mandi gateways are not used here."
-      actions={<Stack direction="row" spacing={1}><Button variant="outlined" onClick={load}>Refresh</Button><Button variant="contained" sx={{ bgcolor: GREEN }} onClick={() => { setDraft({ ...blank(), module_code: moduleFilter || "DIRECT_TRADE" }); setOpen(true); }}>+ Add Gateway</Button></Stack>}
+      actions={<Stack direction="row" spacing={1}><Button variant="outlined" onClick={() => load()}>Refresh</Button><Button variant="contained" sx={{ bgcolor: GREEN }} onClick={() => { setDraft({ ...blank(), module_code: moduleFilter || "DIRECT_TRADE" }); setOpen(true); }}>+ Add Gateway</Button></Stack>}
       sx={{ bgcolor: "#FBFAF6" }}
     >
       {message && <Alert severity={message.severity} onClose={() => setMessage(null)}>{message.text}</Alert>}

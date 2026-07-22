@@ -23,7 +23,7 @@ const METHODS = ["UPI", "CARD", "NETBANKING"];
 
 type Row = {
   _id?: string; module_code: string; provider_code: string; provider_name?: string; mode: string;
-  priority: number; is_default?: boolean; is_active: string; allowed_methods?: string[];
+  priority: number; is_default?: boolean | string; is_active: string; allowed_methods?: string[];
   fee_borne_by?: string; updated_on?: string; client_id?: string; has_client_secret?: boolean;
   has_webhook_secret?: boolean; return_url?: string; notify_url?: string; access_code?: string;
 };
@@ -79,7 +79,8 @@ export function PlatformModulePaymentGatewayConfigsPage() {
 
   const filtered = useMemo(() => rows.filter((r) => (!moduleFilter || r.module_code === moduleFilter) && (!modeFilter || r.mode === modeFilter)), [rows, moduleFilter, modeFilter]);
   const active = filtered.filter((r) => r.is_active === "Y").length;
-  const def = filtered.find((r) => r.is_default)?.provider_code || "Not set";
+  const isDefaultGateway = (row: Row): boolean => row.is_default === true || String(row.is_default || "").toUpperCase() === "Y";
+  const def = filtered.find(isDefaultGateway)?.provider_name || filtered.find(isDefaultGateway)?.provider_code || "Not set";
   const testCount = filtered.filter((r) => r.mode === "TEST").length;
   const liveCount = filtered.filter((r) => r.mode === "LIVE").length;
 
@@ -110,7 +111,30 @@ export function PlatformModulePaymentGatewayConfigsPage() {
       const payload: Draft = { ...draft, ...generatedUrls };
       const resp: any = await savePlatformModuleGatewayConfig({ username, payload });
       if (String(resp?.response?.responsecode || "1") !== "0") throw new Error(resp?.response?.description || "Save failed.");
-      setOpen(false); await load(true); setMessage({ severity: "success", text: "Platform module gateway saved successfully." });
+
+      const hasDefaultForScope = rows.some((row) =>
+        row.module_code === draft.module_code &&
+        row.mode === draft.mode &&
+        isDefaultGateway(row)
+      );
+
+      if (!hasDefaultForScope && draft.is_active === "Y") {
+        const defaultResp: any = await setDefaultPlatformModuleGatewayConfig({
+          username,
+          payload: {
+            module_code: draft.module_code,
+            provider_code: draft.provider_code,
+            mode: draft.mode,
+          },
+        });
+        if (String(defaultResp?.response?.responsecode || "1") !== "0") {
+          throw new Error(defaultResp?.response?.description || "Gateway saved, but default gateway could not be set.");
+        }
+      }
+
+      setOpen(false);
+      await load(true);
+      setMessage({ severity: "success", text: hasDefaultForScope ? "Platform module gateway saved successfully." : "Platform module gateway saved and set as default." });
     } catch (e: any) { setMessage({ severity: "error", text: e?.message || "Save failed." }); }
   };
   const mutate = async (fn: any, row: Row, payload: Record<string, any>, success: string) => {
@@ -148,15 +172,19 @@ export function PlatformModulePaymentGatewayConfigsPage() {
           <TableBody>{filtered.map((r) => <TableRow key={`${r.module_code}-${r.provider_code}-${r.mode}`} hover>
             <TableCell>{label(r.module_code)}</TableCell><TableCell>{r.provider_name || r.provider_code}</TableCell>
             <TableCell><Chip size="small" label={r.mode} sx={{ bgcolor: r.mode === 'TEST' ? '#FFF4D6' : '#E9F6EA' }} /></TableCell>
-            <TableCell>{r.priority}</TableCell><TableCell>{r.is_default ? <Chip size="small" label="Yes" color="success" /> : 'No'}</TableCell>
+            <TableCell>{r.priority}</TableCell><TableCell>{isDefaultGateway(r) ? <Chip size="small" label="Current Default" color="success" /> : <Chip size="small" label="No" variant="outlined" />}</TableCell>
             <TableCell><Switch size="small" checked={r.is_active === 'Y'} onChange={(_, checked) => mutate(togglePlatformModuleGatewayConfig, r, { is_active: checked ? 'Y' : 'N' }, 'Gateway status updated.')} /></TableCell>
             <TableCell>{(r.allowed_methods || []).join(', ') || '—'}</TableCell><TableCell>{r.fee_borne_by || 'TRADER'}</TableCell>
             <TableCell><Chip size="small" label={r.has_client_secret ? 'Saved' : 'Missing'} color={r.has_client_secret ? 'info' : 'warning'} /></TableCell>
             <TableCell>{r.updated_on ? new Date(r.updated_on).toLocaleString() : '—'}</TableCell>
-            <TableCell><Stack direction="row" spacing={0.5}>
-              <Button size="small" onClick={() => { setDraft({ ...r, client_secret: '', webhook_secret: '' }); setOpen(true); }}>Edit</Button>
-              {!r.is_default && r.is_active === 'Y' && <Button size="small" onClick={() => mutate(setDefaultPlatformModuleGatewayConfig, r, {}, 'Default gateway updated.')}>Default</Button>}
-              <Button size="small" onClick={async () => {
+            <TableCell><Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={() => { setDraft({ ...r, client_secret: '', webhook_secret: '', ...getProviderUrls(r.provider_code, r.mode) }); setOpen(true); }}>Edit</Button>
+              {isDefaultGateway(r) ? (
+                <Chip size="small" label="Current Default" color="success" />
+              ) : (
+                <Button size="small" variant="contained" sx={{ bgcolor: GREEN }} disabled={r.is_active !== 'Y'} onClick={() => mutate(setDefaultPlatformModuleGatewayConfig, r, {}, 'Default gateway updated.')}>Make Default</Button>
+              )}
+              <Button size="small" variant="outlined" onClick={async () => {
                 const username = getCurrentAdminUsername();
                 if (!username) return;
                 setMessage(null);
@@ -181,7 +209,7 @@ export function PlatformModulePaymentGatewayConfigsPage() {
                 } catch (e: any) {
                   setMessage({ severity: "error", text: e?.message || "Gateway test failed." });
                 }
-              }}>Test</Button>
+              }}>Test Connection</Button>
             </Stack></TableCell>
           </TableRow>)}</TableBody>
         </Table>
@@ -201,8 +229,8 @@ export function PlatformModulePaymentGatewayConfigsPage() {
           {credentialsRequired && <Grid item xs={12} md={4}><TextField fullWidth type="password" label={providerFields.secret} helperText={draft.has_client_secret ? 'Leave blank to keep saved secret.' : ''} value={draft.client_secret || ''} onChange={(e) => setDraft({ ...draft, client_secret: e.target.value })} /></Grid>}
           {providerFields.accessCode && <Grid item xs={12} md={4}><TextField fullWidth label="Access Code" value={draft.access_code || ''} onChange={(e) => setDraft({ ...draft, access_code: e.target.value })} /></Grid>}
           {credentialsRequired && <Grid item xs={12} md={4}><TextField fullWidth type="password" label={providerFields.webhook || "Webhook Secret"} helperText={draft.has_webhook_secret ? 'Leave blank to keep saved webhook secret.' : 'Optional unless required by the provider webhook setup.'} value={draft.webhook_secret || ''} onChange={(e) => setDraft({ ...draft, webhook_secret: e.target.value })} /></Grid>}
-          <Grid item xs={12} md={6}><TextField fullWidth label="Return URL" value={draft.return_url || ''} disabled InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
-          <Grid item xs={12} md={6}><TextField fullWidth label="Notify / Webhook URL" value={draft.notify_url || ''} disabled InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
+          <Grid item xs={12} md={6}><TextField fullWidth label="Return URL" value={draft.return_url || ''} disabled InputLabelProps={{ shrink: true }} InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
+          <Grid item xs={12} md={6}><TextField fullWidth label="Notify / Webhook URL" value={draft.notify_url || ''} disabled InputLabelProps={{ shrink: true }} InputProps={{ readOnly: true }} helperText="Auto-generated by CiberMandi. Copy this URL into the provider dashboard." /></Grid>
           <Grid item xs={12} md={3}><TextField fullWidth type="number" label="Priority" value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: Number(e.target.value) })} /></Grid>
           <Grid item xs={12} md={3}><FormControl fullWidth><InputLabel>Fee Borne By</InputLabel><Select label="Fee Borne By" value={draft.fee_borne_by || 'TRADER'} onChange={(e) => setDraft({ ...draft, fee_borne_by: String(e.target.value) })}><MenuItem value="TRADER">Trader</MenuItem><MenuItem value="PLATFORM">Platform</MenuItem></Select></FormControl></Grid>
           <Grid item xs={12} md={6}><FormControl fullWidth><InputLabel>Allowed Methods</InputLabel><Select multiple value={draft.allowed_methods || []} input={<OutlinedInput label="Allowed Methods" />} onChange={(e) => setDraft({ ...draft, allowed_methods: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[] })}>{METHODS.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</Select></FormControl></Grid>

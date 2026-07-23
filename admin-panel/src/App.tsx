@@ -118,6 +118,7 @@ import PlatformControlCenterPage from "./pages/platformControlCenter";
 import NotificationTemplates from "./pages/notificationTemplates";
 import DirectTradeApprovalsPage from "./pages/directTradeApprovals";
 import DirectTradeOrdersPage from "./pages/directTradeOrders";
+import BulkTradePage from "./pages/bulkTrade";
 import PlatformUsers from "./pages/platformUsers/PlatformUsers";
 
 import { Layout } from "./components/layout";
@@ -228,6 +229,7 @@ function App() {
                   <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/orders" element={<DirectTradeOrdersPage />} />
+                  <Route path="/bulk-trade" element={<BulkTradePage />} />
                   <Route path="/system/platform-users" element={<PlatformUsers />} />
                   <Route path="/platform-users" element={<PlatformUsers />} />
                   <Route path="/orgs" element={<Orgs />} />

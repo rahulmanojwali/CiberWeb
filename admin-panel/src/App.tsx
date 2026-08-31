@@ -90,6 +90,7 @@ import { StallFees } from "./pages/stallFees";
 import { StallFeeCollect } from "./pages/stallFees/collect";
 import { StallFeeReport } from "./pages/stallFees/report";
 import { MarketPrices } from "./pages/marketPrices";
+import PublicNewsPage from "./pages/publicNews";
 import { PaymentsLanding } from "./pages/paymentsLanding";
 import { PaymentModels } from "./pages/paymentModels";
 import { OrgPaymentSettings } from "./pages/orgPaymentSettings";
@@ -355,6 +356,7 @@ function App() {
                   <Route path="/stall-fees/collect" element={<StallFeeCollect />} />
                   <Route path="/stall-fees/report" element={<StallFeeReport />} />
                   <Route path="/market-prices" element={<MarketPrices />} />
+                  <Route path="/public-news" element={<PublicNewsPage />} />
                   <Route path="/auction-results" element={<AuctionResults />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports" element={<Reports />} />

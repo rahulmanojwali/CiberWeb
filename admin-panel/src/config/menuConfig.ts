@@ -26,6 +26,7 @@ import { resolveMenuIcon } from "./iconRegistry";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 
 export type RoleSlug =
   | "SUPER_ADMIN"
@@ -607,6 +608,16 @@ export const APP_MENU: AppMenuItem[] = [
       resourceKey: "stall_fees.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
+    },
+    {
+      key: "publicNews",
+      labelKey: "menu.publicNews",
+      labelOverride: "Public News & Updates",
+      path: "/public-news",
+      icon: React.createElement(CampaignOutlinedIcon),
+      resourceKey: "public_news.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN"],
     },
     {
       key: "marketPrices",

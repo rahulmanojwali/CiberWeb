@@ -121,7 +121,8 @@
       "direct": "Direct Workflow",
       "contract": "Contract Workflow",
       "haat": "Haat Workflow"
-    }
+    },
+    "publicNews": "Public News & Updates"
   },
   "header": {
     "sign_out": "Sign Out",

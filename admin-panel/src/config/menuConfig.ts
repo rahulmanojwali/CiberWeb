@@ -89,6 +89,18 @@ export const APP_MENU: AppMenuItem[] = [
     requiredAction: "VIEW",
     roles: ALL_ROLES,
   },
+
+  {
+    key: "publicNews",
+    labelKey: "menu.publicNews",
+    labelOverride: "News & Updates",
+    path: "/public-news",
+    icon: React.createElement(CampaignOutlinedIcon),
+    resourceKey: "public_news.menu",
+    requiredAction: "VIEW",
+    roles: ["SUPER_ADMIN"],
+    order: 295,
+  },
   
   // {
   //   key: "organisationsAccess",
@@ -608,16 +620,6 @@ export const APP_MENU: AppMenuItem[] = [
       resourceKey: "stall_fees.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN", "MANDI_MANAGER", "GATE_OPERATOR", "WEIGHBRIDGE_OPERATOR"],
-    },
-    {
-      key: "publicNews",
-      labelKey: "menu.publicNews",
-      labelOverride: "Public News & Updates",
-      path: "/public-news",
-      icon: React.createElement(CampaignOutlinedIcon),
-      resourceKey: "public_news.menu",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN"],
     },
     {
       key: "marketPrices",

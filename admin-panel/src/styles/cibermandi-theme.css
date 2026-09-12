@@ -4324,3 +4324,143 @@ main,
   }
 }
 
+
+/* SUPER_ADMIN — Platform Command Centre */
+.cm-superadmin-dashboard .cm-ant-page-header {
+  margin-bottom: 18px;
+}
+
+.cm-superadmin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cm-superadmin-scope-card.ant-card {
+  background: linear-gradient(135deg, var(--cm-surface) 0%, var(--cm-bg-elevated) 100%);
+  border-color: var(--cm-border-strong);
+}
+
+.cm-superadmin-scope-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.cm-superadmin-scope-kicker {
+  display: block;
+  color: var(--cm-text-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cm-superadmin-scope-title.ant-typography {
+  margin: 4px 0 0;
+  color: var(--cm-text);
+}
+
+.cm-superadmin-scope-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: 10px;
+  width: min(620px, 100%);
+}
+
+.cm-superadmin-scope-controls .ant-select {
+  width: 100%;
+}
+
+.cm-superadmin-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cm-superadmin-card-heading .ant-typography {
+  margin: 0;
+}
+
+.cm-superadmin-card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--cm-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+.cm-superadmin-card-icon-warning {
+  color: var(--cm-warning);
+  background: color-mix(in srgb, var(--cm-warning) 12%, white);
+}
+
+.cm-superadmin-alert-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.cm-superadmin-alert-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cm-superadmin-link-stack,
+.cm-superadmin-link-stack .ant-space-item,
+.cm-superadmin-link-stack a {
+  width: 100%;
+}
+
+.cm-superadmin-governance-card .ant-btn {
+  min-height: 42px;
+  justify-content: flex-start;
+}
+
+.cm-superadmin-metrics-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cm-superadmin-metrics-list > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-muted);
+}
+
+.cm-superadmin-quick-admin .ant-btn {
+  min-height: 40px;
+}
+
+@media (max-width: 900px) {
+  .cm-superadmin-scope-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cm-superadmin-scope-controls {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .cm-superadmin-scope-controls,
+  .cm-superadmin-metrics-list {
+    grid-template-columns: 1fr;
+  }
+}

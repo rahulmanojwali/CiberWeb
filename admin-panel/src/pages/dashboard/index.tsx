@@ -33,6 +33,7 @@ import { getUserRoleFromStorage } from "../../utils/roles";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { useTranslation } from "react-i18next";
+import { SuperadminDashboard } from "./SuperadminDashboard";
 
 const { Text, Title } = Typography;
 
@@ -68,7 +69,7 @@ const getStoredDisplayName = () => {
 const roleLabel = (role: string | null | undefined) =>
   role ? role.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") : "Admin User";
 
-export const Dashboard: React.FC = () => {
+const StandardDashboard: React.FC = () => {
   const { i18n } = useTranslation();
   const language = i18n.language || "en";
   const uiConfig = useAdminUiConfig();
@@ -80,6 +81,7 @@ export const Dashboard: React.FC = () => {
   const currentRole = useMemo(() => String(uiConfig.role || getUserRoleFromStorage("Dashboard") || "").toUpperCase(), [uiConfig.role]);
   const isMandiManager = currentRole === "MANDI_MANAGER";
   const displayName = useMemo(() => getStoredDisplayName(), []);
+
 
   const fetchSummary = async () => {
     const username = getCurrentAdminUsername();
@@ -382,4 +384,15 @@ export const Dashboard: React.FC = () => {
       )}
     </PageContainer>
   );
+};
+
+
+export const Dashboard: React.FC = () => {
+  const uiConfig = useAdminUiConfig();
+  const currentRole = useMemo(
+    () => String(uiConfig.role || getUserRoleFromStorage("Dashboard") || "").toUpperCase(),
+    [uiConfig.role],
+  );
+
+  return currentRole === "SUPER_ADMIN" ? <SuperadminDashboard /> : <StandardDashboard />;
 };

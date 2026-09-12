@@ -3081,7 +3081,7 @@ export const AuctionLots: React.FC = () => {
   }
 
   return (
-    <PageContainer sx={{ pt: { xs: 2.5, md: 3 } }}>
+    <PageContainer>
       <div className="cm-page">
       <div className="cm-page-header">
         <h1 className="cm-page-title">{t("menu.auctionLots", { defaultValue: "Auction Lots" })}</h1>

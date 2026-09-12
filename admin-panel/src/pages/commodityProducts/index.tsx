@@ -450,7 +450,7 @@ export const CommodityProducts: React.FC = () => {
   ]);
 
   return (
-    <PageContainer sx={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
+    <PageContainer style={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
       <Stack spacing={2} mb={2}>
         <Typography variant="h5">{t("menu.commodityProducts", { defaultValue: "Commodity Products" })}</Typography>
         <Stack

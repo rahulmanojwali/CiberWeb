@@ -161,16 +161,16 @@ export const CustomSider: React.FC = () => {
   const selectedKey = useMemo(() => {
     let winner: { key: string; length: number } | null = null;
 
-    menuModel.pathByKey.forEach((item, key) => {
-      if (!item.path) return;
+    for (const [key, item] of menuModel.pathByKey.entries()) {
+      if (!item.path) continue;
       if (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) {
         if (!winner || item.path.length > winner.length) {
           winner = { key, length: item.path.length };
         }
       }
-    });
+    }
 
-    return winner?.key || "";
+    return winner ? winner.key : "";
   }, [location.pathname, menuModel.pathByKey]);
 
   useEffect(() => {

@@ -70,7 +70,7 @@ type ApprovalRow = {
   raw: any;
 };
 
-const getItems = (resp: any) => {
+const getItems = (resp: any): any[] => {
   const data = resp?.data || resp?.response?.data || {};
   return Array.isArray(data?.items) ? data.items : Array.isArray(data?.rows) ? data.rows : [];
 };

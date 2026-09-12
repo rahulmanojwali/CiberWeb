@@ -1,22 +1,40 @@
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box,
+  Alert,
   Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Grid,
-  Stack,
+  Col,
+  Empty,
+  List,
+  Row,
+  Skeleton,
+  Space,
+  Tag,
   Typography,
-} from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
+} from "antd";
+import {
+  AlertOutlined,
+  ArrowRightOutlined,
+  BarChartOutlined,
+  BellOutlined,
+  DollarOutlined,
+  LineChartOutlined,
+  ReloadOutlined,
+  RiseOutlined,
+  ShopOutlined,
+} from "@ant-design/icons";
+import { Link as RouterLink } from "react-router-dom";
 import { PageContainer } from "../../components/PageContainer";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
 import { getDashboardSummary } from "../../services/dashboardApi";
 import { getCurrentAdminUsername } from "../../utils/session";
+import { getUserRoleFromStorage } from "../../utils/roles";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
 import { useTranslation } from "react-i18next";
-import { Link as RouterLink } from "react-router-dom";
+
+const { Text, Title } = Typography;
 
 const defaultPayload = {
   scope: { org_id: null, mandi_ids: [] },
@@ -26,6 +44,30 @@ const defaultPayload = {
   },
 };
 
+const formatNumber = (value: unknown, fallback = "0") => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString("en-IN") : fallback;
+};
+
+const formatPercent = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? `${n.toFixed(2)}%` : "—";
+};
+
+const getStoredDisplayName = () => {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.display_name || parsed?.name || parsed?.username || null;
+  } catch {
+    return null;
+  }
+};
+
+const roleLabel = (role: string | null | undefined) =>
+  role ? role.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") : "Admin User";
+
 export const Dashboard: React.FC = () => {
   const { i18n } = useTranslation();
   const language = i18n.language || "en";
@@ -33,11 +75,17 @@ export const Dashboard: React.FC = () => {
   const canView = useMemo(() => can(uiConfig.resources, "dashboard.view", "VIEW"), [uiConfig.resources]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const currentRole = useMemo(() => String(uiConfig.role || getUserRoleFromStorage("Dashboard") || "").toUpperCase(), [uiConfig.role]);
+  const isMandiManager = currentRole === "MANDI_MANAGER";
+  const displayName = useMemo(() => getStoredDisplayName(), []);
 
   const fetchSummary = async () => {
     const username = getCurrentAdminUsername();
     if (!username || !canView) return;
     setLoading(true);
+    setError(null);
     try {
       const resp = await getDashboardSummary({
         username,
@@ -45,8 +93,9 @@ export const Dashboard: React.FC = () => {
         payload: defaultPayload,
       });
       setSummary(resp?.data || null);
-    } catch (error) {
-      console.error("Dashboard load error:", error);
+    } catch (err: any) {
+      console.error("Dashboard load error:", err);
+      setError(err?.message || "Unable to load dashboard data.");
     } finally {
       setLoading(false);
     }
@@ -58,243 +107,279 @@ export const Dashboard: React.FC = () => {
 
   const cards = summary?.cards ?? {};
   const charts = summary?.charts ?? {};
-  const ticker = summary?.ticker ?? [];
-  const alerts = summary?.alerts ?? [];
-  const quickLinks = summary?.quickLinks ?? [];
+  const ticker = Array.isArray(summary?.ticker) ? summary.ticker : [];
+  const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
+  const quickLinks = Array.isArray(summary?.quickLinks) ? summary.quickLinks : [];
 
-  const summaryCardList = [
-    {
-      title: "Today's Trade Value",
-      content: {
-        primary: `${cards.todayTradeValue?.total_amount?.toLocaleString("en-IN") || "—"} ${cards.todayTradeValue?.currency || "INR"}`,
-        secondary: `Lots: ${cards.todayTradeValue?.lots_count || 0} | Price vs MSP: ${cards.todayTradeValue?.price_vs_msp_percent?.toFixed(2)}%`
-      }
-    },
-    {
-      title: "Live Auctions",
-      content: {
-        primary: `${cards.liveAuctions?.count || 0} auctions`,
-        secondary: `Mandis: ${cards.liveAuctions?.mandis_count || 0}`
-      }
-    },
-    {
-      title: "Settlements",
-      content: {
-        primary: `Outstanding: ${cards.settlements?.total_outstanding?.toLocaleString("en-IN") || 0}`,
-        secondary: `Overdue: ${cards.settlements?.total_overdue?.toLocaleString("en-IN") || 0}`
-      }
-    },
-    {
-      title: "Subscriptions",
-      content: {
-        primary: `MRR ₹${cards.subscriptions?.mrr?.toLocaleString("en-IN") || 0}`,
-        secondary: `ARR ₹${cards.subscriptions?.arr?.toLocaleString("en-IN") || 0}`
-      }
-    },
-  ];
+  const pageTitle = isMandiManager ? "Mandi Manager Dashboard" : "CiberMandi Command Center";
+  const pageSubtitle = isMandiManager
+    ? "Overview of today’s mandi operations and items that need attention."
+    : "Live operations overview across auctions, settlements, trade and alerts.";
 
-  const renderCard = (card: { title: string; content: { primary: string; secondary: string } }) => (
-    <Card sx={{ flex: "1 1 230px", minWidth: 230, bgcolor: "var(--cm-surface-muted)" }} key={card.title}>
-      <CardContent>
-        <Typography variant="subtitle2" color="text.secondary">
-          {card.title}
-        </Typography>
-        <Typography variant="h6">{card.content.primary}</Typography>
-        <Typography variant="body2" sx={{ mt: 1 }}>
-          {card.content.secondary}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
+  const tradeAmount = cards.todayTradeValue?.total_amount;
+  const tradeCurrency = cards.todayTradeValue?.currency || "INR";
+  const priceVsMsp = formatPercent(cards.todayTradeValue?.price_vs_msp_percent);
 
   return (
-    <PageContainer>
-      <div className="cm-page">
-        <div className="cm-page-header">
-          <h1 className="cm-page-title">CiberMandi Command Center</h1>
-          <div className="cm-page-subtitle">Live operations overview across auctions, settlements, trade and alerts.</div>
-        </div>
-      <Stack spacing={3}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Button variant="contained" color="secondary" onClick={fetchSummary} disabled={!canView}>
+    <PageContainer className="cm-dashboard-page">
+      <CmPageHeader
+        title={pageTitle}
+        subtitle={pageSubtitle}
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={fetchSummary} disabled={!canView || loading}>
             Refresh
           </Button>
-        </Stack>
+        }
+      />
 
-        {loading && (
-          <Stack alignItems="center">
-            <CircularProgress />
-          </Stack>
-        )}
+      {error && (
+        <Alert
+          className="cm-dashboard-error"
+          type="error"
+          showIcon
+          message="Dashboard could not be loaded"
+          description={error}
+          action={<Button size="small" onClick={fetchSummary}>Try again</Button>}
+        />
+      )}
 
-        {!loading && (
-          <>
-            <Box
-              sx={{
-                display: "flex",
-                overflowX: "auto",
-                gap: 2,
-                bgcolor: "var(--cm-primary-dark)",
-                color: "#fff",
-                p: 1,
-                borderRadius: 2,
-              }}
-            >
-              {ticker.map((item: any) => (
-                <Box key={`${item.commodity_id}-${item.mandi_id}`} sx={{ minWidth: 200 }}>
-                  <Typography variant="subtitle2">
-                    {item.commodity_name} ({item.mandi_name})
-                  </Typography>
-                  <Typography variant="h6">{item.last_price}</Typography>
-                  <Chip
-                    label={`${item.change_percent.toFixed(2)}%`}
-                    size="small"
-                    sx={{
-                      bgcolor: item.change_percent >= 0 ? "var(--cm-success)" : "var(--cm-danger)",
-                      color: "#fff",
-                    }}
+      {loading && !summary ? (
+        <div className="cm-dashboard-loading">
+          <Skeleton active paragraph={{ rows: 10 }} />
+        </div>
+      ) : (
+        <div className="cm-dashboard-stack">
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={16}>
+              <CmSectionCard className="cm-dashboard-attention-card">
+                <div className="cm-dashboard-section-heading-row">
+                  <div className="cm-dashboard-section-title-wrap">
+                    <div className="cm-dashboard-section-icon cm-dashboard-section-icon-warning">
+                      <AlertOutlined />
+                    </div>
+                    <div>
+                      <Title level={4} className="cm-dashboard-card-title">Attention Required</Title>
+                      <Text type="secondary">
+                        {alerts.length ? `${alerts.length} item${alerts.length === 1 ? "" : "s"} need your review and action` : "No urgent items require action"}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+
+                {alerts.length ? (
+                  <List
+                    className="cm-dashboard-alert-list"
+                    dataSource={alerts.slice(0, 5)}
+                    renderItem={(alert: any) => (
+                      <List.Item>
+                        <div className="cm-dashboard-alert-row">
+                          <span className="cm-dashboard-alert-dot" />
+                          <Text className="cm-dashboard-alert-message">{alert?.message || "Alert"}</Text>
+                          <Tag color={String(alert?.severity || "").toUpperCase() === "HIGH" ? "error" : "warning"}>
+                            {alert?.severity || "NOTICE"}
+                          </Tag>
+                        </div>
+                      </List.Item>
+                    )}
                   />
-                </Box>
-              ))}
-            </Box>
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing needs immediate attention" />
+                )}
+              </CmSectionCard>
+            </Col>
 
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              {summaryCardList.map(renderCard)}
-            </Stack>
+            <Col xs={24} xl={8}>
+              <CmSectionCard className="cm-dashboard-welcome-card">
+                <Text className="cm-dashboard-welcome-kicker">Good to see you</Text>
+                <Title level={3} className="cm-dashboard-welcome-name">{displayName || "CiberMandi Admin"}</Title>
+                <Text type="secondary">{roleLabel(currentRole)}</Text>
+                <div className="cm-dashboard-welcome-divider" />
+                <Space size={[8, 8]} wrap>
+                  <Tag icon={<ShopOutlined />}>Operations</Tag>
+                  <Tag icon={<BellOutlined />}>Live alerts</Tag>
+                  <Tag icon={<RiseOutlined />}>Market visibility</Tag>
+                </Space>
+              </CmSectionCard>
+            </Col>
+          </Row>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={7}>
-                <Card sx={{ minHeight: 320 }}>
-                  <CardContent>
-                    <Typography variant="subtitle1">Mandi Price Heatmap</Typography>
-                    <Grid container spacing={1} sx={{ mt: 1 }}>
-                      {charts.mandiPriceHeatmap?.cells?.slice(0, 12).map((cell: any, idx: number) => (
-                        <Grid item xs={4} key={`${cell.commodity_id}-${cell.mandi_id}-${idx}`}>
-                          <Box
-                            sx={{
-                              p: 1,
-                              bgcolor: "var(--cm-primary-soft)",
-                              borderRadius: 1,
-                              textAlign: "center",
-                            }}
-                          >
-                            <Typography variant="caption">
-                              {cell.commodity_id}/{cell.mandi_id}
-                            </Typography>
-                            <Typography variant="body2">{cell.price}</Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: cell.diff_percent >= 0 ? "var(--cm-success)" : "var(--cm-danger)" }}
-                            >
-                              {cell.diff_percent}%
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={5}>
-                <Card sx={{ minHeight: 320 }}>
-                  <CardContent>
-                    <Typography variant="subtitle1">Auctions by Commodity</Typography>
-                    <Stack spacing={1} mt={1}>
-                      {(charts.auctionByCommodity || []).slice(0, 5).map((item: any) => (
-                        <Stack key={item.commodity_id} direction="row" justifyContent="space-between">
-                          <Typography variant="body2">{item.commodity_name}</Typography>
-                          <Typography variant="body2">{item.auctions} auctions</Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} xl={6}>
+              <CmStatCard
+                label="Today's Trade Value"
+                value={`${formatNumber(tradeAmount, "—")} ${tradeCurrency}`}
+                helper={`Lots: ${formatNumber(cards.todayTradeValue?.lots_count)} · Price vs MSP: ${priceVsMsp}`}
+                icon={<DollarOutlined />}
+                tone="olive"
+              />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <CmStatCard
+                label="Live Auctions"
+                value={formatNumber(cards.liveAuctions?.count)}
+                helper={`Mandis: ${formatNumber(cards.liveAuctions?.mandis_count)}`}
+                icon={<BarChartOutlined />}
+                tone="amber"
+              />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <CmStatCard
+                label="Settlement Outstanding"
+                value={formatNumber(cards.settlements?.total_outstanding)}
+                helper={`Overdue: ${formatNumber(cards.settlements?.total_overdue)}`}
+                icon={<DollarOutlined />}
+                tone="neutral"
+              />
+            </Col>
+            <Col xs={24} sm={12} xl={6}>
+              <CmStatCard
+                label="Subscription MRR"
+                value={`₹${formatNumber(cards.subscriptions?.mrr)}`}
+                helper={`ARR ₹${formatNumber(cards.subscriptions?.arr)}`}
+                icon={<RiseOutlined />}
+                tone="olive"
+              />
+            </Col>
+          </Row>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle1">Trade by Day</Typography>
-                    <Stack spacing={1} mt={1}>
-                      {(charts.tradeByDay || []).slice(-7).map((entry: any) => (
-                        <Stack key={entry.date} direction="row" justifyContent="space-between">
-                          <Typography variant="caption">{entry.date}</Typography>
-                          <Typography variant="body2">{entry.amount?.toLocaleString("en-IN")}</Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle1">Gate Traffic by Hour</Typography>
-                    <Stack spacing={1} mt={1}>
-                      {(charts.gateTrafficByHour || []).map((entry: any) => (
-                        <Stack key={entry.hour} direction="row" justifyContent="space-between">
-                          <Typography variant="caption">{entry.hour}:00</Typography>
-                          <Typography variant="body2">{entry.vehicles} vehicles</Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+          {ticker.length > 0 && (
+            <CmSectionCard title="Market Pulse" className="cm-dashboard-market-pulse">
+              <div className="cm-dashboard-ticker">
+                {ticker.slice(0, 8).map((item: any, index: number) => {
+                  const change = Number(item?.change_percent);
+                  const isPositive = Number.isFinite(change) && change >= 0;
+                  return (
+                    <div className="cm-dashboard-ticker-item" key={`${item?.commodity_id}-${item?.mandi_id}-${index}`}>
+                      <Text className="cm-dashboard-ticker-name">{item?.commodity_name || "Commodity"}</Text>
+                      <Text type="secondary" className="cm-dashboard-ticker-mandi">{item?.mandi_name || "Mandi"}</Text>
+                      <div className="cm-dashboard-ticker-value-row">
+                        <Text strong>{item?.last_price ?? "—"}</Text>
+                        <Tag color={isPositive ? "success" : "error"}>{formatPercent(item?.change_percent)}</Tag>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CmSectionCard>
+          )}
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle1">Alerts</Typography>
-                    <Stack spacing={1} mt={1}>
-                      {alerts.length
-                        ? alerts.map((alert: any) => (
-                            <Box key={alert.message} sx={{ p: 1, bgcolor: "#fff" }}>
-                              <Chip
-                                label={alert.severity}
-                                size="small"
-                                sx={{
-                                  bgcolor: alert.severity === "HIGH" ? "var(--cm-danger)" : "var(--cm-secondary)",
-                                  color: "#fff",
-                                  mr: 1,
-                                }}
-                              />
-                              <Typography variant="body2">{alert.message}</Typography>
-                            </Box>
-                          ))
-                        : "No alerts."}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle1">Quick Actions</Typography>
-                    <Stack spacing={1} mt={1}>
-                      {quickLinks.map((link: any) => (
-                        <Button
-                          key={link.label}
-                          variant="outlined"
-                          component={RouterLink}
-                          to={link.target_route}
-                        >
-                          {link.label}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </>
-        )}
-      </Stack>
-      </div>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={14}>
+              <CmSectionCard
+                title="Mandi Price Snapshot"
+                extra={<Text type="secondary">Latest API values</Text>}
+                className="cm-dashboard-chart-card"
+              >
+                {charts.mandiPriceHeatmap?.cells?.length ? (
+                  <div className="cm-dashboard-heatmap-grid">
+                    {charts.mandiPriceHeatmap.cells.slice(0, 12).map((cell: any, idx: number) => {
+                      const diff = Number(cell?.diff_percent);
+                      return (
+                        <div className="cm-dashboard-heatmap-cell" key={`${cell?.commodity_id}-${cell?.mandi_id}-${idx}`}>
+                          <Text type="secondary" className="cm-dashboard-heatmap-label">
+                            {cell?.commodity_name || cell?.commodity_id || "Commodity"}
+                          </Text>
+                          <Text strong className="cm-dashboard-heatmap-price">{cell?.price ?? "—"}</Text>
+                          <Text className={Number.isFinite(diff) && diff < 0 ? "cm-value-negative" : "cm-value-positive"}>
+                            {formatPercent(diff)}
+                          </Text>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No mandi price data returned" />
+                )}
+              </CmSectionCard>
+            </Col>
+
+            <Col xs={24} xl={10}>
+              <CmSectionCard title="Auctions by Commodity" className="cm-dashboard-chart-card">
+                {Array.isArray(charts.auctionByCommodity) && charts.auctionByCommodity.length ? (
+                  <List
+                    className="cm-dashboard-metric-list"
+                    dataSource={charts.auctionByCommodity.slice(0, 7)}
+                    renderItem={(item: any) => (
+                      <List.Item>
+                        <Text>{item?.commodity_name || "Commodity"}</Text>
+                        <Text strong>{formatNumber(item?.auctions)} auctions</Text>
+                      </List.Item>
+                    )}
+                  />
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No auction commodity data returned" />
+                )}
+              </CmSectionCard>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={12}>
+              <CmSectionCard title="Trade by Day" className="cm-dashboard-chart-card">
+                {Array.isArray(charts.tradeByDay) && charts.tradeByDay.length ? (
+                  <List
+                    className="cm-dashboard-metric-list"
+                    dataSource={charts.tradeByDay.slice(-7)}
+                    renderItem={(entry: any) => (
+                      <List.Item>
+                        <Text type="secondary">{entry?.date || "—"}</Text>
+                        <Text strong>{formatNumber(entry?.amount, "—")}</Text>
+                      </List.Item>
+                    )}
+                  />
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No daily trade data returned" />
+                )}
+              </CmSectionCard>
+            </Col>
+
+            <Col xs={24} lg={12}>
+              <CmSectionCard title="Gate Traffic by Hour" className="cm-dashboard-chart-card">
+                {Array.isArray(charts.gateTrafficByHour) && charts.gateTrafficByHour.length ? (
+                  <List
+                    className="cm-dashboard-metric-list"
+                    dataSource={charts.gateTrafficByHour.slice(0, 10)}
+                    renderItem={(entry: any) => (
+                      <List.Item>
+                        <Text type="secondary">{entry?.hour !== undefined ? `${entry.hour}:00` : "—"}</Text>
+                        <Text strong>{formatNumber(entry?.vehicles)} vehicles</Text>
+                      </List.Item>
+                    )}
+                  />
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No gate traffic data returned" />
+                )}
+              </CmSectionCard>
+            </Col>
+          </Row>
+
+          <CmSectionCard title="Quick Actions" className="cm-dashboard-quick-actions">
+            {quickLinks.length ? (
+              <Space size={[10, 10]} wrap>
+                {quickLinks.map((link: any, index: number) => (
+                  <RouterLink key={`${link?.label}-${index}`} to={link?.target_route || "#"}>
+                    <Button icon={<ArrowRightOutlined />} iconPosition="end">
+                      {link?.label || "Open"}
+                    </Button>
+                  </RouterLink>
+                ))}
+              </Space>
+            ) : (
+              <Text type="secondary">No quick actions are available for your current permissions.</Text>
+            )}
+          </CmSectionCard>
+
+          {!summary && !loading && !error && (
+            <Alert
+              icon={<LineChartOutlined />}
+              type="info"
+              showIcon
+              message="No dashboard data returned"
+              description="The dashboard API completed without returning summary content for the current scope."
+            />
+          )}
+        </div>
+      )}
     </PageContainer>
   );
 };

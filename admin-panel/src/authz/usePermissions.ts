@@ -56,6 +56,28 @@ export function usePermissions() {
       ensure("direct_trade_approvals.review", reviewActions);
     }
 
+    if (roleSlug === "MANDI_MANAGER") {
+      const ensure = (resourceKey: string, actions: string[]) => {
+        const key = canonicalizeResourceKey(resourceKey);
+        if (!key) return;
+        const existing = map[key] || new Set<string>();
+        actions.forEach((a) => existing.add(normalizeAction(a)));
+        map[key] = existing;
+      };
+
+      // MANDI_MANAGER root navigation safety grants. The DB policy remains
+      // authoritative for backend access; these keep the frontend menu stable
+      // when the UI-resource cache is stale or an older payload omits actions.
+      ensure("dashboard.menu", ["VIEW"]);
+      ensure("dashboard.view", ["VIEW"]);
+      ensure("mandi_operations.menu", ["VIEW"]);
+      ensure("mandi_approvals.menu", ["VIEW"]);
+      ensure("mandi_staff.menu", ["VIEW"]);
+      ensure("mandi_staff.list", ["VIEW"]);
+      ensure("mandi_reports.menu", ["VIEW"]);
+      ensure("mandi_management.menu", ["VIEW"]);
+    }
+
     if (roleSlug === "MANDI_ADMIN") {
       const ensure = (resourceKey: string, actions: string[]) => {
         const key = canonicalizeResourceKey(resourceKey);

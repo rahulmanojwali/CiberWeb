@@ -1,6 +1,6 @@
 import { ThemeProvider, createTheme, alpha } from "@mui/material/styles";
 import { RefineThemes } from "@refinedev/mui";
-import { BRAND_COLORS } from "../../config/appConfig";
+import { CM_COLORS, applyCmThemeVariables } from "../../design-system/theme/tokens";
 import React, {
   PropsWithChildren,
   createContext,
@@ -34,6 +34,10 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
     window.localStorage.setItem("colorMode", mode);
   }, [mode]);
 
+  useEffect(() => {
+    applyCmThemeVariables();
+  }, []);
+
   const setColorMode = () => {
     if (mode === "light") {
       setMode("dark");
@@ -47,26 +51,26 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       ...RefineThemes.Blue.palette,
       primary: {
         ...(RefineThemes.Blue.palette?.primary || {}),
-        main: BRAND_COLORS.primary,
+        main: CM_COLORS.primary,
         contrastText: "#ffffff",
       },
       secondary: {
         ...(RefineThemes.Blue.palette?.secondary || {}),
-        main: BRAND_COLORS.secondary,
+        main: CM_COLORS.accent,
       },
       background: {
         ...(RefineThemes.Blue.palette?.background || {}),
-        default: BRAND_COLORS.bg,
-        paper: BRAND_COLORS.surface,
+        default: CM_COLORS.background,
+        paper: CM_COLORS.surface,
       },
       text: {
         ...(RefineThemes.Blue.palette?.text || {}),
-        primary: BRAND_COLORS.text,
-        secondary: BRAND_COLORS.textMuted,
+        primary: CM_COLORS.text,
+        secondary: CM_COLORS.textMuted,
       },
       error: {
         ...(RefineThemes.Blue.palette?.error || {}),
-        main: BRAND_COLORS.error,
+        main: CM_COLORS.error,
       },
     },
     components: {
@@ -84,28 +88,28 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
             textTransform: "none",
           },
           containedPrimary: {
-            backgroundColor: BRAND_COLORS.primary,
+            backgroundColor: CM_COLORS.primary,
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: BRAND_COLORS.primaryDark,
+              backgroundColor: CM_COLORS.primaryDeep,
             },
           },
           outlinedPrimary: {
-            borderColor: BRAND_COLORS.primary,
-            color: BRAND_COLORS.primaryDark,
+            borderColor: CM_COLORS.primary,
+            color: CM_COLORS.primary,
             "&:hover": {
-              backgroundColor: BRAND_COLORS.bg,
-              borderColor: BRAND_COLORS.primaryDark,
+              backgroundColor: CM_COLORS.background,
+              borderColor: CM_COLORS.primary,
             },
           },
           textPrimary: {
-            color: BRAND_COLORS.primaryDark,
+            color: CM_COLORS.primary,
           },
           containedSecondary: {
-            backgroundColor: BRAND_COLORS.secondary,
+            backgroundColor: CM_COLORS.accent,
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: BRAND_COLORS.secondary,
+              backgroundColor: CM_COLORS.accent,
               opacity: 0.9,
             },
           },
@@ -114,10 +118,10 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiIconButton: {
         styleOverrides: {
           root: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
             "&:hover": {
-              backgroundColor: alpha(BRAND_COLORS.bg, 0.6),
-              color: BRAND_COLORS.secondary,
+              backgroundColor: alpha(CM_COLORS.background, 0.6),
+              color: CM_COLORS.accent,
             },
           },
         },
@@ -146,17 +150,17 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: alpha(BRAND_COLORS.textMuted, 0.45),
+              borderColor: alpha(CM_COLORS.textMuted, 0.45),
             },
             "&:hover .MuiOutlinedInput-notchedOutline": {
-              borderColor: BRAND_COLORS.secondary,
+              borderColor: CM_COLORS.accent,
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: BRAND_COLORS.primary,
+              borderColor: CM_COLORS.primary,
               borderWidth: 1.5,
             },
             "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
-              borderColor: alpha(BRAND_COLORS.textMuted, 0.35),
+              borderColor: alpha(CM_COLORS.textMuted, 0.35),
             },
           },
         },
@@ -164,7 +168,7 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiSelect: {
         styleOverrides: {
           icon: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
           },
         },
       },
@@ -181,16 +185,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiFilledInput: {
         styleOverrides: {
           root: {
-            backgroundColor: BRAND_COLORS.surface,
+            backgroundColor: CM_COLORS.surface,
             borderRadius: 8,
             "&:before": {
-              borderBottomColor: alpha(BRAND_COLORS.textMuted, 0.45),
+              borderBottomColor: alpha(CM_COLORS.textMuted, 0.45),
             },
             "&:hover:before": {
-              borderBottomColor: BRAND_COLORS.secondary,
+              borderBottomColor: CM_COLORS.accent,
             },
             "&.Mui-focused:after": {
-              borderBottomColor: BRAND_COLORS.primary,
+              borderBottomColor: CM_COLORS.primary,
             },
           },
         },
@@ -198,9 +202,9 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiInputLabel: {
         styleOverrides: {
           root: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
             "&.Mui-focused": {
-              color: BRAND_COLORS.primaryDark,
+              color: CM_COLORS.primary,
             },
           },
         },
@@ -213,27 +217,27 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       ...RefineThemes.BlueDark.palette,
       primary: {
         ...(RefineThemes.BlueDark.palette?.primary || {}),
-        main: BRAND_COLORS.primary,
+        main: CM_COLORS.primary,
         contrastText: "#ffffff",
       },
       secondary: {
         ...(RefineThemes.BlueDark.palette?.secondary || {}),
-        main: BRAND_COLORS.secondary,
+        main: CM_COLORS.accent,
       },
       background: {
         ...(RefineThemes.BlueDark.palette?.background || {}),
-        default: BRAND_COLORS.bg,
-        paper: BRAND_COLORS.surface,
+        default: CM_COLORS.background,
+        paper: CM_COLORS.surface,
       },
       text: {
         ...(RefineThemes.BlueDark.palette?.text || {}),
-        primary: BRAND_COLORS.text,
-        secondary: BRAND_COLORS.textMuted,
+        primary: CM_COLORS.text,
+        secondary: CM_COLORS.textMuted,
       },
-      divider: alpha(BRAND_COLORS.textMuted, 0.2),
+      divider: alpha(CM_COLORS.textMuted, 0.2),
       error: {
         ...(RefineThemes.BlueDark.palette?.error || {}),
-        main: BRAND_COLORS.error,
+        main: CM_COLORS.error,
       },
     },
     components: {
@@ -251,28 +255,28 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
             textTransform: "none",
           },
           containedPrimary: {
-            backgroundColor: BRAND_COLORS.primary,
+            backgroundColor: CM_COLORS.primary,
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: BRAND_COLORS.primaryDark,
+              backgroundColor: CM_COLORS.primaryDeep,
             },
           },
           outlinedPrimary: {
-            borderColor: BRAND_COLORS.primary,
-            color: BRAND_COLORS.primaryDark,
+            borderColor: CM_COLORS.primary,
+            color: CM_COLORS.primary,
             "&:hover": {
-              backgroundColor: BRAND_COLORS.bg,
-              borderColor: BRAND_COLORS.primaryDark,
+              backgroundColor: CM_COLORS.background,
+              borderColor: CM_COLORS.primary,
             },
           },
           textPrimary: {
-            color: BRAND_COLORS.primaryDark,
+            color: CM_COLORS.primary,
           },
           containedSecondary: {
-            backgroundColor: BRAND_COLORS.secondary,
+            backgroundColor: CM_COLORS.accent,
             color: "#ffffff",
             "&:hover": {
-              backgroundColor: BRAND_COLORS.secondary,
+              backgroundColor: CM_COLORS.accent,
               opacity: 0.9,
             },
           },
@@ -281,10 +285,10 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiIconButton: {
         styleOverrides: {
           root: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
             "&:hover": {
-              backgroundColor: alpha(BRAND_COLORS.bg, 0.6),
-              color: BRAND_COLORS.secondary,
+              backgroundColor: alpha(CM_COLORS.background, 0.6),
+              color: CM_COLORS.accent,
             },
           },
         },
@@ -313,17 +317,17 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
         styleOverrides: {
           root: {
             "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: alpha(BRAND_COLORS.textMuted, 0.45),
+              borderColor: alpha(CM_COLORS.textMuted, 0.45),
             },
             "&:hover .MuiOutlinedInput-notchedOutline": {
-              borderColor: BRAND_COLORS.secondary,
+              borderColor: CM_COLORS.accent,
             },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: BRAND_COLORS.primary,
+              borderColor: CM_COLORS.primary,
               borderWidth: 1.5,
             },
             "&.Mui-disabled .MuiOutlinedInput-notchedOutline": {
-              borderColor: alpha(BRAND_COLORS.textMuted, 0.35),
+              borderColor: alpha(CM_COLORS.textMuted, 0.35),
             },
           },
         },
@@ -331,7 +335,7 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiSelect: {
         styleOverrides: {
           icon: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
           },
         },
       },
@@ -348,16 +352,16 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiFilledInput: {
         styleOverrides: {
           root: {
-            backgroundColor: BRAND_COLORS.surface,
+            backgroundColor: CM_COLORS.surface,
             borderRadius: 8,
             "&:before": {
-              borderBottomColor: alpha(BRAND_COLORS.textMuted, 0.45),
+              borderBottomColor: alpha(CM_COLORS.textMuted, 0.45),
             },
             "&:hover:before": {
-              borderBottomColor: BRAND_COLORS.secondary,
+              borderBottomColor: CM_COLORS.accent,
             },
             "&.Mui-focused:after": {
-              borderBottomColor: BRAND_COLORS.primary,
+              borderBottomColor: CM_COLORS.primary,
             },
           },
         },
@@ -365,9 +369,9 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
       MuiInputLabel: {
         styleOverrides: {
           root: {
-            color: BRAND_COLORS.textMuted,
+            color: CM_COLORS.textMuted,
             "&.Mui-focused": {
-              color: BRAND_COLORS.primaryDark,
+              color: CM_COLORS.primary,
             },
           },
         },

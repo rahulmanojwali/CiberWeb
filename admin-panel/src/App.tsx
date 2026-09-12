@@ -4,7 +4,6 @@ import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import {
   ErrorComponent,
   RefineSnackbarProvider,
-  ThemedLayout,
   useNotificationProvider,
 } from "@refinedev/mui";
 import { SnackbarProvider } from "notistack";
@@ -21,7 +20,6 @@ import { BrowserRouter, Outlet, Route, Routes, Navigate } from "react-router-dom
 import { useSnackbar } from "notistack";
 
 import { authProvider } from "./authProvider";
-import { Header } from "./components/header";
 import Box from "@mui/material/Box";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import { LeftSider } from "./components/LeftSider";
@@ -30,6 +28,11 @@ import { Register } from "./pages/register";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { ResetPasswordPage } from "./pages/resetPassword";
 import { Dashboard } from "./pages/dashboard";
+import { MandiManagerOperations } from "./pages/mandiManagerOperations";
+import { MandiManagerApprovals } from "./pages/mandiManagerApprovals";
+import { MandiManagerStaff } from "./pages/mandiManagerStaff";
+import { MandiManagerReports } from "./pages/mandiManagerReports";
+import { MandiManagerManagement } from "./pages/mandiManagerManagement";
 import { Orgs } from "./pages/orgs";
 import { Mandis } from "./pages/mandis";
 import { AdminUsers } from "./pages/adminUsers";
@@ -123,8 +126,8 @@ import BulkTradePage from "./pages/bulkTrade";
 import PlatformUsers from "./pages/platformUsers/PlatformUsers";
 
 import { Layout } from "./components/layout";
+import { CmAdminShell } from "./components/layout/CmAdminShell";
 
-import { CustomSider } from "./components/customSider";
 import { getUserRoleFromStorage } from "./utils/roles";
 import { AdminUiConfigProvider } from "./contexts/admin-ui-config";
 import { PermissionsDebugPanel } from "./components/PermissionsDebugPanel";
@@ -136,6 +139,7 @@ import { TOKEN_KEY } from "./authProvider";
 import "./services/apiClient";
 import { ApiLoadingProvider } from "./context/ApiLoadingContext";
 import { GlobalApiProgressBar } from "./components/GlobalApiProgressBar";
+import { CmAntDesignProvider } from "./design-system/CmAntDesignProvider";
 
 function SessionExpiryHandler() {
   const { enqueueSnackbar } = useSnackbar();
@@ -183,6 +187,7 @@ function App() {
       <BrowserRouter basename="/admin">
       <RefineKbarProvider>
         <ColorModeContextProvider>
+          <CmAntDesignProvider>
           <CssBaseline />
           <GlobalStyles
             styles={{
@@ -213,11 +218,11 @@ function App() {
                         <AdminUiConfigProvider>
                           <StepUpProvider>
                             <PermissionsDebugPanel />
-                            <ThemedLayout Header={Header} Sider={CustomSider}>
+                            <CmAdminShell>
                               <StepUpRouteEnforcer>
                                 <Outlet />
                               </StepUpRouteEnforcer>
-                            </ThemedLayout>
+                            </CmAdminShell>
                           </StepUpProvider>
                         </AdminUiConfigProvider>
                       </AdminRoleGuard>
@@ -227,6 +232,11 @@ function App() {
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/operations" element={<MandiManagerOperations />} />
+                  <Route path="/approvals" element={<MandiManagerApprovals />} />
+                  <Route path="/staff" element={<MandiManagerStaff />} />
+                  <Route path="/manager-reports" element={<MandiManagerReports />} />
+                  <Route path="/mandi-management" element={<MandiManagerManagement />} />
                   <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/orders" element={<DirectTradeOrdersPage />} />
@@ -378,6 +388,7 @@ function App() {
               </Refine>
             </RefineSnackbarProvider>
           </SnackbarProvider>
+          </CmAntDesignProvider>
         </ColorModeContextProvider>
       </RefineKbarProvider>
       </BrowserRouter>

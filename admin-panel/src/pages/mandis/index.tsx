@@ -26,6 +26,15 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
+import { Button as AntButton, Dropdown, Input as AntInput } from "antd";
+import {
+  CheckCircleOutlined,
+  DownOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined as AntSearchOutlined,
+  StopOutlined,
+} from "@ant-design/icons";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -36,6 +45,9 @@ import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 
 import { PageContainer } from "../../components/PageContainer";
+import { CmInput } from "../../design-system/components/CmInput";
+import { CmSelect } from "../../design-system/components/CmSelect";
+import { CmReadOnlyField } from "../../design-system/components/CmReadOnlyField";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { usePermissions } from "../../authz/usePermissions";
 import {
@@ -49,6 +61,53 @@ import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 import { useSnackbar } from "notistack";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { useTheme } from "@mui/material/styles";
+
+
+
+type MandisDropdownOption = { value: string | number; label: React.ReactNode };
+
+const MandisBoxedDropdown = ({
+  id,
+  value,
+  options,
+  onChange,
+  disabled = false,
+}: {
+  id: string;
+  value: string | number;
+  options: MandisDropdownOption[];
+  onChange: (value: string | number) => void;
+  disabled?: boolean;
+}) => {
+  const selected = options.find((option) => String(option.value) === String(value));
+  return (
+    <Dropdown
+      disabled={disabled}
+      trigger={["click"]}
+      menu={{
+        selectedKeys: [String(value)],
+        items: options.map((option) => ({
+          key: String(option.value),
+          label: option.label,
+        })),
+        onClick: ({ key }) => {
+          const option = options.find((item) => String(item.value) === String(key));
+          if (option) onChange(option.value);
+        },
+      }}
+    >
+      <AntButton
+        id={id}
+        disabled={disabled}
+        className="cm-mandis-dropdown-trigger"
+        style={{ width: "100%", height: 40, display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <span>{selected?.label ?? "Select"}</span>
+        <DownOutlined />
+      </AntButton>
+    </Dropdown>
+  );
+};
 
 type MandiLite = {
   _id?: string;
@@ -876,61 +935,76 @@ export const Mandis: React.FC = () => {
             gap: 1,
           }}
         >
-          <TextField
-            select
-            label="State"
-            size="small"
-            value={myState}
-            onChange={(e) => {
-              setMyState(e.target.value);
-              setMyPage(1);
+          <Box sx={{ width: { xs: "100%", sm: 220 }, flex: "0 0 auto" }}>
+            <Typography component="label" htmlFor="mandis-my-state" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+              State
+            </Typography>
+            <MandisBoxedDropdown
+              id="mandis-my-state"
+              value={myState}
+              onChange={(value) => {
+                setMyState(String(value || ""));
+                setMyPage(1);
+              }}
+              options={[
+                { value: "", label: "All States" },
+                ...STATE_OPTIONS.map((code) => ({ value: code, label: STATE_NAME_MAP[code] || code })),
+              ]}
+            />
+          </Box>
+
+          <Box sx={{ width: { xs: "100%", sm: 320 }, flex: "0 0 auto" }}>
+            <Typography component="label" htmlFor="mandis-my-search" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+              Search
+            </Typography>
+            <AntInput
+              id="mandis-my-search"
+              value={mySearch}
+              prefix={<AntSearchOutlined />}
+              placeholder="Search mandi"
+              onChange={(e) => {
+                setMySearch(e.target.value);
+                setMyPage(1);
+              }}
+              style={{ width: "100%" }}
+              allowClear
+            />
+          </Box>
+
+          <Box sx={{ width: { xs: "100%", sm: 120 }, flex: "0 0 auto" }}>
+            <Typography component="label" htmlFor="mandis-my-page-size" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+              Page Size
+            </Typography>
+            <MandisBoxedDropdown
+              id="mandis-my-page-size"
+              value={myPageSize}
+              onChange={(value) => {
+                setMyPageSize(Number(value));
+                setMyPage(1);
+              }}
+              options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
+            />
+          </Box>
+
+          {/* Actions align to the same 40px control baseline as State/Search/Page Size. */}
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{
+              ml: { sm: "auto" },
+              alignSelf: { xs: "stretch", sm: "flex-end" },
+              height: 40,
             }}
-            sx={{ minWidth: 160 }}
           >
-            <MenuItem value="">All States</MenuItem>
-            {STATE_OPTIONS.map((s) => (
-              <MenuItem key={s} value={s}>
-                {STATE_NAME_MAP[s] || s}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Search"
-            size="small"
-            value={mySearch}
-            onChange={(e) => {
-              setMySearch(e.target.value);
-              setMyPage(1);
-            }}
-            sx={{ minWidth: 200 }}
-          />
-
-          <TextField
-            select
-            label="Page Size"
-            size="small"
-            value={myPageSize}
-            onChange={(e) => {
-              setMyPageSize(Number(e.target.value));
-              setMyPage(1);
-            }}
-            sx={{ width: 140 }}
-          >
-            {PAGE_SIZES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {/* ✅ Icon-only actions */}
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ ml: { sm: "auto" } }}>
             <Tooltip title="Refresh" arrow>
               <span>
-                <IconButton onClick={resetMy} size="small" aria-label="Refresh">
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
+                <AntButton
+                  aria-label="Refresh"
+                  icon={<ReloadOutlined />}
+                  onClick={resetMy}
+                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                />
               </span>
             </Tooltip>
 
@@ -945,15 +1019,14 @@ export const Mandis: React.FC = () => {
               arrow
             >
               <span>
-                <IconButton
-                  size="small"
-                  color="error"
+                <AntButton
+                  danger
                   aria-label="Deactivate selected"
+                  icon={<StopOutlined />}
                   disabled={!canRemove || activeSelectedRows.length === 0}
                   onClick={handleRemoveSelected}
-                >
-                  <BlockOutlinedIcon fontSize="small" />
-                </IconButton>
+                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                />
               </span>
             </Tooltip>
 
@@ -968,29 +1041,26 @@ export const Mandis: React.FC = () => {
               arrow
             >
               <span>
-                <IconButton
-                  size="small"
-                  color="primary"
+                <AntButton
                   aria-label="Activate selected"
+                  icon={<CheckCircleOutlined />}
                   disabled={!canRemove || inactiveSelectedRows.length === 0}
                   onClick={handleActivateSelected}
-                >
-                  <CheckCircleOutlineIcon fontSize="small" />
-                </IconButton>
+                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                />
               </span>
             </Tooltip>
 
             <Tooltip title={addTooltip || "Add custom mandi"} arrow>
               <span>
-                <IconButton
-                  size="small"
-                  color="primary"
+                <AntButton
+                  type="primary"
                   aria-label="Add custom mandi"
+                  icon={<PlusOutlined />}
                   disabled={!canCreate}
                   onClick={() => canCreate && setCreateModalOpen(true)}
-                >
-                  <AddIcon fontSize="small" />
-                </IconButton>
+                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                />
               </span>
             </Tooltip>
           </Stack>
@@ -1063,81 +1133,102 @@ export const Mandis: React.FC = () => {
           }}
         >
           <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-            <TextField
-              select
-              label="State"
-              size="small"
-              value={impState}
-              onChange={(e) => {
-                setImpState(String(e.target.value || ""));
-                setImpPage(1);
-                setImpSelectionModel([]);
+            <Box sx={{ width: { xs: "100%", sm: 240 }, flex: "0 0 auto" }}>
+              <Typography component="label" htmlFor="mandis-import-state" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+                State
+              </Typography>
+              <MandisBoxedDropdown
+                id="mandis-import-state"
+                value={impState}
+                onChange={(value) => {
+                  setImpState(String(value || ""));
+                  setImpPage(1);
+                  setImpSelectionModel([]);
+                }}
+                options={[
+                  { value: "", label: "Select state" },
+                  ...STATE_OPTIONS.map((code) => ({ value: code, label: STATE_NAME_MAP?.[code] || code })),
+                ]}
+              />
+            </Box>
+
+            <Box sx={{ width: { xs: "100%", sm: 320 }, flex: "0 0 auto" }}>
+              <Typography component="label" htmlFor="mandis-import-search" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+                Search
+              </Typography>
+              <AntInput
+                id="mandis-import-search"
+                value={impSearch}
+                prefix={<AntSearchOutlined />}
+                placeholder="Search system mandi"
+                onChange={(e) => {
+                  setImpSearch(e.target.value);
+                  setImpPage(1);
+                }}
+                disabled={!impState}
+                style={{ width: "100%" }}
+                allowClear
+              />
+            </Box>
+
+            <Box sx={{ width: { xs: "100%", sm: 120 }, flex: "0 0 auto" }}>
+              <Typography component="label" htmlFor="mandis-import-page-size" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+                Page Size
+              </Typography>
+              <MandisBoxedDropdown
+                id="mandis-import-page-size"
+                value={impPageSize}
+                onChange={(value) => {
+                  setImpPageSize(Number(value));
+                  setImpPage(1);
+                }}
+                options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
+                disabled={!impState}
+              />
+            </Box>
+
+            <Box sx={{ width: { xs: "100%", sm: "auto" }, alignSelf: { sm: "flex-end" } }}>
+              <AntButton
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  if (impState) fetchSystemMandis();
+                }}
+                disabled={!impState}
+                block={isSmDown}
+                style={{ height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              >
+                Refresh
+              </AntButton>
+            </Box>
+
+            <Box sx={{ width: { xs: "100%", sm: "auto" }, alignSelf: { sm: "flex-end" } }}>
+              <Tooltip title={!canImport ? "No permission" : ""} arrow>
+                <span style={{ display: "block" }}>
+                  <AntButton
+                    type="primary"
+                    disabled={!canImport || !impState || selectedImportMandiIds.length === 0}
+                    onClick={handleImport}
+                    block={isSmDown}
+                    style={{ height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    Import Selected
+                  </AntButton>
+                </span>
+              </Tooltip>
+            </Box>
+
+            <Typography
+              variant="body2"
+              sx={{
+                opacity: 0.72,
+                alignSelf: { xs: "stretch", sm: "flex-end" },
+                minHeight: 40,
+                display: "flex",
+                alignItems: "center",
+                whiteSpace: "nowrap",
+                px: { xs: 0, sm: 0.5 },
               }}
-              sx={{ minWidth: 220 }}
             >
-              <MenuItem value="">Select state</MenuItem>
-              {STATE_OPTIONS.map((code) => (
-                <MenuItem key={`imp_state_${code}`} value={code}>
-                  {STATE_NAME_MAP?.[code] || code}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              label="Search"
-              size="small"
-              value={impSearch}
-              onChange={(e) => {
-                setImpSearch(e.target.value);
-                setImpPage(1);
-              }}
-              sx={{ minWidth: 220 }}
-              disabled={!impState}
-            />
-
-            <TextField
-              select
-              label="Page Size"
-              size="small"
-              value={impPageSize}
-              onChange={(e) => {
-                setImpPageSize(Number(e.target.value));
-                setImpPage(1);
-              }}
-              sx={{ width: 140 }}
-              disabled={!impState}
-            >
-              {PAGE_SIZES.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                if (impState) fetchSystemMandis();
-              }}
-              disabled={!impState}
-            >
-              Refresh
-            </Button>
-
-            <Tooltip title={!canImport ? "No permission" : ""} arrow>
-              <span>
-                <Button
-                  variant="contained"
-                  disabled={!canImport || !impState || selectedImportMandiIds.length === 0}
-                  onClick={handleImport}
-                >
-                  Import Selected
-                </Button>
-              </span>
-            </Tooltip>
-
-            <Typography variant="body2" sx={{ opacity: 0.7 }}>
               Selected: {selectedImportMandiIds.length} (max 25) • Total: {impTotal}
             </Typography>
           </Box>
@@ -1201,51 +1292,42 @@ export const Mandis: React.FC = () => {
       <DialogTitle>Add Custom Mandi</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
+          <CmInput
             label="Mandi name (English)"
             value={createForm.name}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, name: value }))}
             required
-            fullWidth
           />
 
-          <TextField
+          <CmInput
             label="Pincode"
             value={createForm.pincode}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, pincode: e.target.value }))}
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, pincode: value }))}
             required
-            fullWidth
-            inputProps={{ maxLength: 6, inputMode: "numeric", pattern: "\\d*" }}
-            helperText={pincodeError || "Enter a 6-digit pincode"}
+            maxLength={6}
+            inputMode="numeric"
+            help={pincodeError || (pincodeStatus === "loading" ? "Looking up pincode…" : "Enter a 6-digit pincode")}
             error={Boolean(pincodeError) && pincodeStatus === "error"}
-            InputProps={{
-              endAdornment:
-                pincodeStatus === "loading" ? (
-                  <InputAdornment position="end">
-                    <CircularProgress size={18} />
-                  </InputAdornment>
-                ) : undefined,
-            }}
           />
 
-          <TextField label="State" value={pincodeLookup.state_name || ""} InputProps={{ readOnly: true }} disabled fullWidth />
-          <TextField label="District" value={pincodeLookup.district_name || ""} InputProps={{ readOnly: true }} disabled fullWidth />
+          <div className="cm-form-grid cm-form-grid-2">
+            <CmReadOnlyField label="State" value={pincodeLookup.state_name} />
+            <CmReadOnlyField label="District" value={pincodeLookup.district_name} />
+          </div>
 
-          <TextField
+          <CmInput
             label="Address line"
             value={createForm.address}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, address: e.target.value }))}
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, address: value }))}
             required
-            fullWidth
             multiline
-            minRows={2}
+            rows={3}
           />
 
-          <TextField
+          <CmInput
             label="Contact number"
             value={createForm.contact}
-            onChange={(e) => setCreateForm((prev) => ({ ...prev, contact: e.target.value }))}
-            fullWidth
+            onChange={(value) => setCreateForm((prev) => ({ ...prev, contact: value }))}
           />
 
           <Stack direction="row" spacing={2}>
@@ -1291,7 +1373,8 @@ export const Mandis: React.FC = () => {
   return (
     <>
       <PageContainer>
-        <Stack spacing={2}>
+        <Box className="cm-mandis-page">
+          <Stack spacing={2}>
           <Typography variant="h5">Mandis</Typography>
 
           <Tabs
@@ -1310,7 +1393,8 @@ export const Mandis: React.FC = () => {
           </Tabs>
 
           {activeTab === "MY" ? renderMyMandis() : renderImportMandis()}
-        </Stack>
+          </Stack>
+        </Box>
       </PageContainer>
 
       {renderCreateDialog()}

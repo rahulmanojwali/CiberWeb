@@ -1,40 +1,28 @@
-import DarkModeOutlined from "@mui/icons-material/DarkModeOutlined";
-import LightModeOutlined from "@mui/icons-material/LightModeOutlined";
-import LogoutIcon from "@mui/icons-material/Logout";
-import MenuIcon from "@mui/icons-material/Menu";
-import CloseIcon from "@mui/icons-material/Close";
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import ExpandMore from "@mui/icons-material/ExpandMore";
-
-import AppBar from "@mui/material/AppBar";
-import Avatar from "@mui/material/Avatar";
-import IconButton from "@mui/material/IconButton";
-import Stack from "@mui/material/Stack";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Box from "@mui/material/Box";
-import FormControl from "@mui/material/FormControl";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import SwipeableDrawer from "@mui/material/SwipeableDrawer";
-import Collapse from "@mui/material/Collapse";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Divider from "@mui/material/Divider";
-import { useTheme } from "@mui/material/styles";
-
+import React, { useContext, useEffect, useMemo, useState } from "react";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Drawer,
+  Dropdown,
+  Grid,
+  Menu,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
+import type { MenuProps } from "antd";
+import {
+  BellOutlined,
+  CheckOutlined,
+  DownOutlined,
+  GlobalOutlined,
+  LogoutOutlined,
+  MenuOutlined,
+  MoonOutlined,
+  SunOutlined,
+} from "@ant-design/icons";
 import { useGetIdentity, useLogout } from "@refinedev/core";
-import { RefineThemedLayoutHeaderProps } from "@refinedev/mui";
-
-// import React, { useContext, useMemo, useState } from "react";
-import React, { useCallback, useContext, useMemo, useState, useEffect } from "react";
-
-
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 
@@ -45,8 +33,6 @@ import {
   SUPPORTED_LANGUAGES,
   normalizeLanguageCode,
 } from "../../config/languages";
-
-
 import {
   filterMenuByResources,
   type MenuItem as NavMenuItem,
@@ -58,22 +44,16 @@ import { useMenuNavigation } from "../../hooks/useMenuNavigation";
 import { filterMenuTreeByPlatformControl } from "../../utils/platformMenuVisibility";
 import { usePlatformMenuControls } from "../../hooks/usePlatformMenuControls";
 
+const { Text, Title } = Typography;
+
 const flattenNavMenuItems = (items: NavMenuItem[]): NavMenuItem[] => {
   const flattened: NavMenuItem[] = [];
   items.forEach((item) => {
-    if (item.path) {
-      flattened.push(item);
-    }
-    if (item.children?.length) {
-      flattened.push(...flattenNavMenuItems(item.children));
-    }
+    if (item.path) flattened.push(item);
+    if (item.children?.length) flattened.push(...flattenNavMenuItems(item.children));
   });
   return flattened;
 };
-
-
-// Height of the mobile AppBar (toolbar)
-const APPBAR_MOBILE_HEIGHT = 56;
 
 type IUser = {
   id: number;
@@ -81,488 +61,302 @@ type IUser = {
   avatar: string;
 };
 
-export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
-  sticky = true,
-}) => {
+type HeaderProps = {
+  sticky?: boolean;
+};
+
+export const Header: React.FC<HeaderProps> = ({ sticky = true }) => {
   const { mode, setMode } = useContext(ColorModeContext);
   const { mutate: logout } = useLogout();
   const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const menuNavigate = useMenuNavigation();
+  const screens = Grid.useBreakpoint();
+  const isSmall = !screens.md;
 
-  const theme = useTheme();
-  const isSmall = useMediaQuery((themeParam: any) =>
-    themeParam.breakpoints.down("md"),
+  const { data: user } = useGetIdentity<IUser>();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const currentLanguage = normalizeLanguageCode(
+    i18n.language || DEFAULT_LANGUAGE,
   );
 
-  const CM = {
-    primary: "#6E7C3A",
-    primaryDark: "#55632C",
-    secondary: "#C57A35",
-    bg: "#F6F1E8",
-    surface: "#FFFFFF",
-    text: "#3B3B3B",
-    textMuted: "#6B6B6B",
-  };
-  
-   // 👇 Override browser tab title when header is mounted
+  const {
+    ui_resources,
+    role: configRole,
+    resources: compatResources,
+  } = useAdminUiConfig();
+  const { permissionsMap, loadingPermissions } = usePermissions();
+
+  const role = getUserRoleFromStorage("Header");
+  const effectiveRole = (configRole as any) || role;
+  const roleLabel = String(effectiveRole || "ADMIN").replace(/_/g, " ");
+
+  const menuResources = ui_resources?.length
+    ? ui_resources
+    : compatResources || [];
+  const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
+
+  const navItems: NavMenuItem[] = useMemo(() => {
+    if (loadingPermissions) return [];
+    const items = filterMenuByResources(
+      menuResources,
+      effectiveRole,
+      permissionsMap,
+    );
+    return filterMenuTreeByPlatformControl(items, platformMenuControls);
+  }, [
+    effectiveRole,
+    loadingPermissions,
+    menuResources,
+    permissionsMap,
+    platformMenuControls,
+  ]);
+
+  const flattenedNavItems = useMemo(
+    () => flattenNavMenuItems(navItems),
+    [navItems],
+  );
+
+  const menuLabel = (item: NavMenuItem) =>
+    item.labelOverride && String(item.labelOverride).trim()
+      ? String(item.labelOverride)
+      : t(item.labelKey);
+
+  const antMenuItems = useMemo<MenuProps["items"]>(() => {
+    const build = (items: NavMenuItem[]): MenuProps["items"] =>
+      items.map((item, index) => {
+        const hasChildren = !!item.children?.length && !item.path;
+        const key = item.path || `group:${item.key || item.labelKey || index}`;
+        return {
+          key,
+          icon: item.icon || undefined,
+          label: menuLabel(item),
+          children: hasChildren ? build(item.children || []) : undefined,
+          disabled: (item as any).disabled === true,
+        } as any;
+      });
+    return build(navItems);
+  }, [navItems, t]);
+
+  const selectedMobileKey = useMemo(() => {
+    const path = location.pathname.toLowerCase();
+    const matched = flattenedNavItems
+      .filter((item) => item.path && path.startsWith(item.path.toLowerCase()))
+      .sort((a, b) => (b.path?.length || 0) - (a.path?.length || 0))[0];
+    return matched?.path ? [matched.path] : [];
+  }, [flattenedNavItems, location.pathname]);
+
+  const currentSection = useMemo(() => {
+    const path = location.pathname.toLowerCase();
+    const matched = flattenedNavItems
+      .filter((item) => item.path && path.startsWith(item.path.toLowerCase()))
+      .sort((a, b) => (b.path?.length || 0) - (a.path?.length || 0))[0];
+
+    if (matched) return menuLabel(matched);
+    return path.includes("dashboard") ? "Command Center" : "Operations Console";
+  }, [flattenedNavItems, location.pathname, t]);
+
   useEffect(() => {
     document.title = "CiberMandi Admin Console";
   }, []);
 
-  const menuNavigate = useMenuNavigation();
-  const location = useLocation();
-  const handleNavClick = useCallback(
-    (path: string, resourceKey?: string) => {
-      if (!path) return;
-      menuNavigate(path, resourceKey, () => setMobileMenuOpen(false));
-    },
-    [menuNavigate],
-  );
-
-  const { data: user } = useGetIdentity<IUser>();
-  const currentLanguage = normalizeLanguageCode(
-    i18n.language || DEFAULT_LANGUAGE,
-  );
-  const { ui_resources, role: configRole, resources: compatResources, refresh: refreshAdminUiConfig } = useAdminUiConfig();
-  const { permissionsMap, loadingPermissions } = usePermissions();
-
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [menuExpanded, setMenuExpanded] = useState<Record<string, boolean>>({});
-
-  const role = getUserRoleFromStorage("Header");
-  const effectiveRole = (configRole as any) || role;
-  console.log("[Header] resolved role from cd_user:", role, "config role:", configRole);
-
-  const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
-  const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
-  const navItems: NavMenuItem[] = useMemo(() => {
-    if (loadingPermissions) return [];
-    const source = menuResources;
-    const items = filterMenuByResources(source, effectiveRole, permissionsMap);
-    const visibleItems = filterMenuTreeByPlatformControl(items, platformMenuControls);
-    console.log("[Header] navItems via resources", { effectiveRole, resourcesCount: source.length }, items);
-    return visibleItems;
-  }, [effectiveRole, loadingPermissions, menuResources, permissionsMap, platformMenuControls]);
-  const flattenedNavItems = useMemo(() => flattenNavMenuItems(navItems), [navItems]);
-  const handleToggleGroup = useCallback((key: string) => {
-    setMenuExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) {
-      setMenuExpanded({});
-    }
-    if (isSmall) {
-      document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      if (isSmall) {
-        document.body.style.overflow = "";
-      }
-    };
-  }, [mobileMenuOpen, isSmall]);
-
-  useEffect(() => {
-    const loadMenuControls = () => {
-      refreshAdminUiConfig({ invalidate: true }).catch((err) => {
-        console.error("[header] platform menu controls refresh failed", err);
-      });
-    };
-    window.addEventListener("platform-menu-controls-updated", loadMenuControls);
-    return () => window.removeEventListener("platform-menu-controls-updated", loadMenuControls);
-  }, [refreshAdminUiConfig]);
-
-  const resolveKey = (item: NavMenuItem) =>
-    item.key ?? item.labelKey ?? item.path ?? item.labelKey;
-
-  const renderMobileMenuItem = useCallback(
-    (item: NavMenuItem, depth = 0): React.ReactNode => {
-      const key = resolveKey(item);
-      const hasChildren = !!item.children?.length && !item.path;
-      const active = item.path ? location.pathname.startsWith(item.path) : false;
-      if (hasChildren) {
-        const isExpanded = !!menuExpanded[key];
-        return (
-          <Box key={key} sx={{ mt: depth === 0 ? 1 : 0 }}>
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => handleToggleGroup(key)}
-                sx={{
-                  minHeight: 48,
-                  py: 0.75,
-                  justifyContent: "flex-start",
-                  px: 2.5,
-                }}
-              >
-                {item.icon && (
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 0,
-                      mr: 1.25,
-                      justifyContent: "center",
-                      "& svg": { fontSize: 20 },
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                )}
-                <ListItemText
-                  primary={item.labelOverride && String(item.labelOverride).trim() ? item.labelOverride : t(item.labelKey)}
-                  primaryTypographyProps={{
-                    fontWeight: 600,
-                    variant: "subtitle2",
-                    fontSize: { xs: "0.78rem", sm: "0.82rem", md: "0.85rem" },
-                  }}
-                />
-                {isExpanded ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
-              </ListItemButton>
-            </ListItem>
-            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {item.children!.map((child) => renderMobileMenuItem(child, depth + 1))}
-              </List>
-            </Collapse>
-          </Box>
-        );
-      }
-
-      return (
-        <ListItem
-          key={key}
-          disablePadding
-          sx={{ display: "block" }}
-        >
-          <ListItemButton
-            selected={active}
-            onClick={() => item.path && handleNavClick(item.path, item.resourceKey)}
-            sx={{
-              minHeight: 48,
-              py: 0.75,
-              justifyContent: "flex-start",
-              px: 3 + depth * 1.5,
-              "&.Mui-selected": {
-                backgroundColor: CM.bg,
-                color: CM.primaryDark,
-                "& .MuiListItemIcon-root": { color: CM.secondary },
-                "& .MuiListItemText-primary": { color: CM.primaryDark },
-              },
-            }}
-          >
-            {item.icon && (
-              <ListItemIcon
-                sx={{
-                  minWidth: 0,
-                  mr: 1.25,
-                  justifyContent: "center",
-                  color: active ? CM.secondary : CM.textMuted,
-                  "& svg": { fontSize: 20 },
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-            )}
-            <ListItemText
-              primary={item.labelOverride && String(item.labelOverride).trim() ? item.labelOverride : t(item.labelKey)}
-              primaryTypographyProps={{
-                fontWeight: active ? 600 : 500,
-                variant: "body2",
-                fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
-              }}
-            />
-          </ListItemButton>
-        </ListItem>
-      );
-    },
-    [handleNavClick, handleToggleGroup, location.pathname, menuExpanded, t],
-  );
-
-
-
-
-  const handleLanguageChange = (event: any) => {
-    const next = event.target.value;
+  const handleLanguageChange = (next: string) => {
     i18n.changeLanguage(next);
     try {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
     } catch {
-      // ignore storage errors
+      // localStorage can be unavailable in hardened browser contexts.
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleMobileMenuClick: MenuProps["onClick"] = ({ key }) => {
+    if (!String(key).startsWith("/")) return;
+    const item = flattenedNavItems.find((navItem) => navItem.path === key);
+    menuNavigate(String(key), item?.resourceKey, () => setMobileMenuOpen(false));
   };
+
+  const currentLanguageOption =
+    SUPPORTED_LANGUAGES.find((lang) => lang.code === currentLanguage) ||
+    SUPPORTED_LANGUAGES[0];
+
+  const languageMenuItems: MenuProps["items"] = SUPPORTED_LANGUAGES.map((lang) => ({
+    key: lang.code,
+    label: (
+      <div className="cm-language-menu-item">
+        <span className="cm-language-menu-copy">
+          <span className="cm-language-menu-native">{lang.nativeLabel}</span>
+          <span className="cm-language-menu-english">{lang.label}</span>
+        </span>
+        {lang.code === currentLanguage ? <CheckOutlined /> : null}
+      </div>
+    ),
+  }));
+
+  const profileMenuItems: MenuProps["items"] = [
+    {
+      key: "identity",
+      disabled: true,
+      label: (
+        <div className="cm-profile-menu-identity">
+          <strong>{user?.name || roleLabel}</strong>
+          <span>{roleLabel}</span>
+        </div>
+      ),
+    },
+    { type: "divider" },
+    {
+      key: "logout",
+      danger: true,
+      icon: <LogoutOutlined />,
+      label: "Sign out",
+    },
+  ];
 
   return (
     <>
-      <AppBar
-        className="cm-topbar"
-        position={sticky ? "sticky" : "relative"}
-        color="transparent"
-        elevation={0}
-        sx={{
-          boxShadow: "0 6px 16px rgba(110, 124, 58, 0.25)",
-          bgcolor: CM.primary,
-          color: CM.surface,
-        }}
+      <header
+        className={`cm-topbar cm-ant-topbar${sticky ? " cm-topbar-sticky" : ""}`}
       >
-        <Toolbar sx={{ py: 1.25, px: { xs: 1.5, md: 3 } }}>
-          <Stack
-            direction="row"
-            width="100%"
-            alignItems="center"
-            justifyContent="space-between"
-            gap={2}
-          >
-            {/* LEFT SIDE: Logo + hamburger on mobile */}
-            <Stack
-              direction="row"
-              spacing={isSmall ? 1 : 2}
-              alignItems="center"
-            >
-              {isSmall && (
-                <IconButton
-                  edge="start"
-                  color="inherit"
-                  aria-label="open navigation"
-                  onClick={() => setMobileMenuOpen(true)}
-                  sx={{
-                    mr: 0.5,
-                    borderRadius: 2,
-                    bgcolor: "rgba(255,255,255,0.10)",
-                  }}
-                >
-                  <MenuIcon />
-                </IconButton>
-              )}
+        <div className="cm-topbar-inner">
+          <div className="cm-topbar-leading">
+            {isSmall && (
+              <Button
+                type="text"
+                className="cm-ant-icon-button"
+                aria-label="Open navigation"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileMenuOpen(true)}
+              />
+            )}
 
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Box
-                  component="img"
-                  src={BRAND_ASSETS.logo}
-                  alt="CiberMandi"
-                  sx={{
-                    height: isSmall ? 32 : 42,
-                    width: "auto",
-                    filter: "brightness(0) invert(1)",
-                  }}
-                />
-                <Box>
-                  <Typography
-                    variant={isSmall ? "subtitle1" : "h6"}
-                    sx={{ fontWeight: 700, lineHeight: 1.1 }}
-                  >
-                    CiberMandi
-                  </Typography>
-                  {!isSmall && (
-                    <Typography
-                      variant="body2"
-                      sx={{ opacity: 0.9, fontWeight: 400 }}
-                    >
-                      India&apos;s Digital Mandi Network
-                    </Typography>
-                  )}
-                </Box>
-              </Stack>
-            </Stack>
-
-            {/* RIGHT SIDE: theme toggle, language, profile, logout */}
-            <Stack
-              direction="row"
-              spacing={isSmall ? 1 : 2}
-              alignItems="center"
-              justifyContent="flex-end"
-            >
-              {/* Dark / light mode toggle */}
-              <IconButton
-                sx={{
-                  color: "#fff",
-                  bgcolor: "rgba(255,255,255,0.12)",
-                  "&:hover": {
-                    bgcolor: "rgba(255,255,255,0.24)",
-                  },
-                }}  
-           
-                onClick={setMode}
-
-              >
-                {mode === "dark" ? <LightModeOutlined /> : <DarkModeOutlined />}
-              </IconButton>
-
-              {/* Language select – hide on very small screens */}
-              {!isSmall && (
-                <FormControl
-                  size="small"
-                  sx={{
-                    minWidth: 120,
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.4)",
-                    },
-                    "& .MuiSvgIcon-root": {
-                      color: "#fff",
-                    },
-                  }}
-                >
-                  <Select
-                    value={currentLanguage}
-                    onChange={handleLanguageChange}
-                    color="secondary"
-                    sx={{
-                      color: "#fff",
-                      "& .MuiSelect-select": { py: 0.75 },
-                    }}
-                  >
-                    {SUPPORTED_LANGUAGES.map((lang) => (
-                      <MenuItem key={lang.code} value={lang.code}>
-                        {lang.nativeLabel} ({lang.label})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {/* User name + avatar */}
-              {(user?.avatar || user?.name) && (
-                <Stack direction="row" gap="12px" alignItems="center">
-                  {user?.name && (
-                    <Typography
-                      sx={{
-                        display: {
-                          xs: "none",
-                          sm: "block",
-                        },
-                        color: "#ffffff",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {user.name}
-                    </Typography>
-                  )}
-                  {user?.avatar && (
-                    <Avatar
-                      src={user.avatar}
-                      alt={user.name}
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        border: "2px solid rgba(255,255,255,0.7)",
-                      }}
-                    />
-                  )}
-                </Stack>
-              )}
-
-              {/* Sign out */}
-              {isSmall ? (
-                <IconButton
-                  color="inherit"
-                  onClick={handleLogout}
-                  sx={{
-                    bgcolor: "rgba(255,255,255,0.12)",
-                    "&:hover": {
-                      bgcolor: "rgba(255,255,255,0.24)",
-                    },
-                  }}
-                >
-                  <LogoutIcon />
-                </IconButton>
-              ) : (
-                <Button
-                  variant="outlined"
-                  startIcon={<LogoutIcon />}
-                  onClick={handleLogout}
-                  sx={{
-                    borderColor: "rgba(255,255,255,0.7)",
-                    color: "#ffffff",
-                    fontWeight: 600,
-                    "&:hover": {
-                      bgcolor: "rgba(255,255,255,0.3)",
-                    },
-                  }}
-                >
-                  {t("header.sign_out")}
-                </Button>
-              )}
-            </Stack>
-          </Stack>
-        </Toolbar>
-      </AppBar>
-
-      {/* MOBILE NAV DRAWER */}
-      <SwipeableDrawer
-        anchor="left"
-        disableDiscovery={false}
-        open={mobileMenuOpen && isSmall}
-        onOpen={() => setMobileMenuOpen(true)}
-        onClose={() => setMobileMenuOpen(false)}
-        PaperProps={{
-          sx: {
-            width: "80%",
-            maxWidth: 340,
-            bgcolor: theme.palette.background.default,
-            top: APPBAR_MOBILE_HEIGHT,
-            height: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
-            position: "fixed",
-          },
-        }}
-      >
-        {/* User info inside drawer */}
-        {user && (
-          <Box
-            sx={{
-              px: 2,
-              py: 2,
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-            }}
-          >
-            <Avatar
-              src={user.avatar}
-              alt={user.name}
-              sx={{
-                width: 44,
-                height: 44,
-              }}
+            <img
+              src={BRAND_ASSETS.logo}
+              alt="CiberMandi"
+              className="cm-topbar-logo"
             />
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {user.name}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ color: "text.secondary" }}
+
+            <div className="cm-topbar-heading">
+              <Text className="cm-topbar-eyebrow">CiberMandi</Text>
+              <Title level={4} className="cm-topbar-title" ellipsis>
+                {currentSection}
+              </Title>
+            </div>
+          </div>
+
+          <div className="cm-topbar-actions">
+            {!isSmall && (
+              <Tag className="cm-topbar-role-pill" bordered={false}>
+                <span className="cm-topbar-role-dot" />
+                {roleLabel}
+              </Tag>
+            )}
+
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomRight"
+              menu={{
+                items: languageMenuItems,
+                selectedKeys: [currentLanguage],
+                onClick: ({ key }) => handleLanguageChange(String(key)),
+              }}
+              overlayClassName="cm-language-dropdown"
+            >
+              <Button
+                type="text"
+                className="cm-topbar-language-button"
+                aria-label="Change language"
               >
-                {t("header.signed_in_as", {
-                  defaultValue: "Signed in",
-                })}
-              </Typography>
-            </Box>
-          </Box>
-        )}
+                <GlobalOutlined />
+                {!isSmall && (
+                  <span className="cm-topbar-language-label">
+                    {currentLanguageOption?.label || "English"}
+                  </span>
+                )}
+                <DownOutlined className="cm-topbar-language-chevron" />
+              </Button>
+            </Dropdown>
 
-        <Divider />
+            <Badge dot offset={[-5, 5]}>
+              <Button
+                type="text"
+                className="cm-ant-icon-button"
+                aria-label="Notifications"
+                icon={<BellOutlined />}
+              />
+            </Badge>
 
-        {/* Navigation list */}
-        <Box
-          sx={{
-            py: 1,
-            maxHeight: `calc(100% - ${APPBAR_MOBILE_HEIGHT}px)`,
-            overflowY: "auto",
-            overscrollBehavior: "contain",
-          }}
-        >
-          <List component="nav" disablePadding>
-            {navItems.map((item, idx) => (
-              <React.Fragment key={resolveKey(item)}>
-                {renderMobileMenuItem(item)}
-                {idx < navItems.length - 1 && <Divider sx={{ my: 1, opacity: 0.3 }} />}
-              </React.Fragment>
-            ))}
-          </List>
-        </Box>
-      </SwipeableDrawer>
+            <Button
+              type="text"
+              className="cm-ant-icon-button"
+              aria-label="Toggle theme"
+              icon={mode === "dark" ? <SunOutlined /> : <MoonOutlined />}
+              onClick={setMode}
+            />
+
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomRight"
+              menu={{
+                items: profileMenuItems,
+                onClick: ({ key }) => {
+                  if (key === "logout") logout();
+                },
+              }}
+              overlayClassName="cm-profile-dropdown"
+            >
+              <Button
+                type="text"
+                className="cm-topbar-profile-button"
+                aria-label="Open profile menu"
+              >
+                <Avatar src={user?.avatar} className="cm-topbar-avatar">
+                  {(user?.name || roleLabel).charAt(0).toUpperCase()}
+                </Avatar>
+                {!isSmall && (
+                  <div className="cm-topbar-profile-copy">
+                    <Text className="cm-topbar-profile-name">
+                      {user?.name || roleLabel}
+                    </Text>
+                    <Text className="cm-topbar-profile-role">Signed in</Text>
+                  </div>
+                )}
+                <DownOutlined className="cm-topbar-profile-chevron" />
+              </Button>
+            </Dropdown>
+          </div>
+        </div>
+      </header>
+
+      <Drawer
+        className="cm-ant-mobile-drawer"
+        rootClassName="cm-ant-mobile-drawer-root"
+        title={
+          <Space size={10}>
+            <img
+              src={BRAND_ASSETS.logo}
+              alt="CiberMandi"
+              className="cm-mobile-drawer-logo"
+            />
+            <div className="cm-mobile-drawer-heading">
+              <Text strong className="cm-mobile-drawer-brand">CiberMandi</Text>
+              <Text className="cm-mobile-drawer-role">{roleLabel}</Text>
+            </div>
+          </Space>
+        }
+        placement="left"
+        width={320}
+        open={mobileMenuOpen && isSmall}
+        onClose={() => setMobileMenuOpen(false)}
+      >
+        <Menu
+          mode="inline"
+          items={antMenuItems}
+          selectedKeys={selectedMobileKey}
+          onClick={handleMobileMenuClick}
+          className="cm-ant-mobile-menu"
+        />
+      </Drawer>
     </>
   );
 };

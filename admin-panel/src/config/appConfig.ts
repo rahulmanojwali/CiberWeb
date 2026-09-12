@@ -1,3 +1,5 @@
+import { CM_COLORS } from "../design-system/theme/tokens";
+import ciberMandiLogo from "../../logo_transparent.png";
 // Prefer explicit API origin; fallback to env or relative /api for local dev
 // Keep /api suffix so route fragments map correctly (e.g., /auth/loginUser -> /api/auth/loginUser)
 
@@ -691,14 +693,14 @@ export const API_ROUTES = {
 } as const;
 
 export const BRAND_COLORS = {
-  primary: "#6E7C3A",
-  primaryDark: "#55632C",
-  secondary: "#C57A35",
-  surface: "#FFFFFF",
-  bg: "#F6F1E8",
-  text: "#3B3B3B",
-  textMuted: "#6B6B6B",
-  error: "#B00020",
+  primary: CM_COLORS.primarySoft,
+  primaryDark: CM_COLORS.primary,
+  secondary: CM_COLORS.accent,
+  surface: CM_COLORS.surface,
+  bg: CM_COLORS.background,
+  text: CM_COLORS.text,
+  textMuted: CM_COLORS.textMuted,
+  error: CM_COLORS.error,
 };
 
 // export const BRAND_ASSETS = {
@@ -706,7 +708,7 @@ export const BRAND_COLORS = {
 //   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
 // };
 
-export const BRAND_ASSETS = { logo: "/admin/logo_transparent.png" };
+export const BRAND_ASSETS = { logo: ciberMandiLogo };
 
 
 export const COLLECTIONS = {
@@ -1159,7 +1161,7 @@ export const APP_STRINGS = {
 // //   logo: `${import.meta.env.BASE_URL}/assets/logo_transparent.png`,
 // // };
 
-// export const BRAND_ASSETS = { logo: "/admin/logo_transparent.png" };
+// export const BRAND_ASSETS = { logo: ciberMandiLogo };
 
 
 // export const COLLECTIONS = {

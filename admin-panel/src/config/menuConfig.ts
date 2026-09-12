@@ -1,32 +1,34 @@
 import * as React from "react";
-import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
-import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
-import StoreMallDirectoryOutlinedIcon from "@mui/icons-material/StoreMallDirectoryOutlined";
-import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
-import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
-import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
-import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
-import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
-import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
-import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
-import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import {
+  AppstoreOutlined as DashboardOutlinedIcon,
+  ApartmentOutlined as ApartmentOutlinedIcon,
+  ShopOutlined as StoreMallDirectoryOutlinedIcon,
+  TeamOutlined as GroupsOutlinedIcon,
+  CheckCircleOutlined as TaskAltOutlinedIcon,
+  EnvironmentOutlined as MapOutlinedIcon,
+  DollarOutlined as PriceChangeOutlinedIcon,
+  BarChartOutlined as AssessmentOutlinedIcon,
+  DeploymentUnitOutlined as HubOutlinedIcon,
+  QrcodeOutlined as QrCodeScannerOutlinedIcon,
+  ColumnHeightOutlined as ScaleOutlinedIcon,
+  LineChartOutlined as TimelineOutlinedIcon,
+  IdcardOutlined as BadgeOutlinedIcon,
+  AuditOutlined as GavelOutlinedIcon,
+  WalletOutlined as AccountBalanceWalletOutlinedIcon,
+  BankOutlined as AccountBalanceOutlinedIcon,
+  SettingOutlined as SettingsOutlinedIcon,
+  FileTextOutlined as ReceiptLongOutlinedIcon,
+  InboxOutlined as Inventory2OutlinedIcon,
+  SafetyCertificateOutlined as SecurityOutlinedIcon,
+  KeyOutlined as VpnKeyOutlinedIcon,
+  UsergroupAddOutlined as PeopleAltOutlinedIcon,
+  NotificationOutlined as CampaignOutlinedIcon,
+} from "@ant-design/icons";
 import { canonicalizeResourceKey, isDbActive, normalizeRoute, type UiResource } from "../utils/adminUiConfig";
 import { computeAllowedSidebar } from "../utils/rbacHelper";
 import { MENU_FREEZE } from "./menuFreeze";
 import { resolveMenuLabel } from "../utils/uiLabel";
 import { resolveMenuIcon } from "./iconRegistry";
-import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
-import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
-import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
-import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 
 export type RoleSlug =
   | "SUPER_ADMIN"
@@ -88,6 +90,66 @@ export const APP_MENU: AppMenuItem[] = [
     resourceKey: "dashboard.menu",
     requiredAction: "VIEW",
     roles: ALL_ROLES,
+  },
+
+  {
+    key: "mandiOperations",
+    labelKey: "menu.mandiOperations",
+    labelOverride: "Operations",
+    path: "/operations",
+    icon: React.createElement(HubOutlinedIcon),
+    resourceKey: "mandi_operations.menu",
+    requiredAction: "VIEW",
+    roles: ["MANDI_MANAGER"],
+    order: 11,
+  },
+
+  {
+    key: "mandiApprovals",
+    labelKey: "menu.mandiApprovals",
+    labelOverride: "Approvals",
+    path: "/approvals",
+    icon: React.createElement(TaskAltOutlinedIcon),
+    resourceKey: "mandi_approvals.menu",
+    requiredAction: "VIEW",
+    roles: ["MANDI_MANAGER"],
+    order: 12,
+  },
+
+  {
+    key: "mandiStaff",
+    labelKey: "menu.mandiStaff",
+    labelOverride: "Staff & Team",
+    path: "/staff",
+    icon: React.createElement(PeopleAltOutlinedIcon),
+    resourceKey: "mandi_staff.menu",
+    requiredAction: "VIEW",
+    roles: ["MANDI_MANAGER"],
+    order: 13,
+  },
+
+  {
+    key: "mandiReports",
+    labelKey: "menu.mandiReports",
+    labelOverride: "Reports & MIS",
+    path: "/manager-reports",
+    icon: React.createElement(AssessmentOutlinedIcon),
+    resourceKey: "mandi_reports.menu",
+    requiredAction: "VIEW",
+    roles: ["MANDI_MANAGER"],
+    order: 14,
+  },
+
+  {
+    key: "mandiManagement",
+    labelKey: "menu.mandiManagement",
+    labelOverride: "Mandi Management",
+    path: "/mandi-management",
+    icon: React.createElement(SettingsOutlinedIcon),
+    resourceKey: "mandi_management.menu",
+    requiredAction: "VIEW",
+    roles: ["MANDI_MANAGER"],
+    order: 15,
   },
 
   {
@@ -1384,28 +1446,8 @@ export function filterMenuByResources(
 
 
 // import * as React from "react";
-// import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
-// import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
-// import StoreMallDirectoryOutlinedIcon from "@mui/icons-material/StoreMallDirectoryOutlined";
-// import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
-// import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-// import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
-// import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
-// import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-// import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-// import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
-// import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
-// import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
-// import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
-// import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
-// import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-// import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
-// import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-// import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-// import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 // import { type UiResource } from "../utils/adminUiConfig";
-// import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
-
+// 
 // export type RoleSlug =
 //   | "SUPER_ADMIN"
 //   | "ORG_ADMIN"

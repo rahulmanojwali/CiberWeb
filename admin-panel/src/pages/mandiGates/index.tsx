@@ -31,6 +31,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
+import { CmSelect } from "../../design-system/components/CmSelect";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { fetchOrganisations } from "../../services/adminUsersApi";
@@ -687,59 +688,38 @@ export const MandiGates: React.FC = () => {
           </Typography>
         )}
 
-        <Autocomplete
-          size="small"
-          options={mandiOptions}
-          getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-          isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-          filterOptions={(opts) => opts}
-          loading={mandiOptions.length === 0}
-          value={selectedMandiOption}
-          onChange={(_, val: any) => {
-            setSelectedMandi(val ? String(val.mandi_id) : "");
-            setMandiSearchText(val ? val.label || String(val.mandi_id) : "");
-          }}
-          inputValue={mandiSearchText}
-          onInputChange={(_, val: string, reason: string) => {
-            if (reason === "clear") {
-              setMandiSearchText("");
-              setSelectedMandi("");
-              return;
-            }
-            setMandiSearchText(val);
-          }}
-          renderInput={(params: any) => (
-            <TextField
-              {...params}
-              label="Mandi"
-              placeholder="Select Mandi"
-              fullWidth
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <>
-                    {mandiOptions.length === 0 ? <CircularProgress color="inherit" size={16} /> : null}
-                    {params.InputProps.endAdornment}
-                  </>
-                ),
-              }}
-            />
-          )}
-          sx={{ minWidth: 260 }}
-        />
+        <div style={{ minWidth: 280 }}>
+          <CmSelect
+            label="Mandi"
+            showSearch
+            value={selectedMandi || undefined}
+            placeholder="Select Mandi"
+            optionFilterProp="label"
+            options={mandiOptions
+              .filter((item: any) => item.mandi_id !== "")
+              .map((item: any) => ({ value: String(item.mandi_id), label: item.label || String(item.mandi_id) }))}
+            onSearch={(value) => setMandiSearchText(value)}
+            onChange={(value) => {
+              const next = String(value || "");
+              setSelectedMandi(next);
+              const match = mandiOptions.find((item: any) => String(item.mandi_id) === next);
+              setMandiSearchText(match?.label || next);
+            }}
+          />
+        </div>
 
-        <TextField
-          select
-          label="Status"
-          size="small"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          sx={{ width: 140 }}
-        >
-          <MenuItem value="ALL">All</MenuItem>
-          <MenuItem value="Y">Active</MenuItem>
-          <MenuItem value="N">Inactive</MenuItem>
-        </TextField>
+        <div style={{ width: 150 }}>
+          <CmSelect
+            label="Status"
+            value={statusFilter}
+            options={[
+              { value: "ALL", label: "All" },
+              { value: "Y", label: "Active" },
+              { value: "N", label: "Inactive" },
+            ]}
+            onChange={(value) => setStatusFilter(value as any)}
+          />
+        </div>
 
         <Tooltip title="Refresh">
           <IconButton onClick={handleRefresh}>
@@ -957,6 +937,7 @@ export const MandiGates: React.FC = () => {
 // import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 // import { useTranslation } from "react-i18next";
 // import { PageContainer } from "../../components/PageContainer";
+
 // import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 // import { normalizeLanguageCode } from "../../config/languages";
 // import { fetchOrganisations } from "../../services/adminUsersApi";
@@ -1803,6 +1784,7 @@ export const MandiGates: React.FC = () => {
 // import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 // import { useTranslation } from "react-i18next";
 // import { PageContainer } from "../../components/PageContainer";
+
 // import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 // import { normalizeLanguageCode } from "../../config/languages";
 // import { fetchOrganisations } from "../../services/adminUsersApi";

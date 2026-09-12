@@ -13,6 +13,66 @@ export type FrozenMenuItem = {
 
 export const MENU_FREEZE: FrozenMenuItem[] = [
   {
+    "category": "Operations",
+    "resource_key": "mandi_operations.menu",
+    "menu_name": "Operations",
+    "name_source": "screen",
+    "i18n_key": "menu.mandiOperations",
+    "route": "/operations",
+    "icon_key": "operations",
+    "order": 1,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Operations",
+    "resource_key": "mandi_approvals.menu",
+    "menu_name": "Approvals",
+    "name_source": "screen",
+    "i18n_key": "menu.mandiApprovals",
+    "route": "/approvals",
+    "icon_key": "approval",
+    "order": 2,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Operations",
+    "resource_key": "mandi_staff.menu",
+    "menu_name": "Staff & Team",
+    "name_source": "screen",
+    "i18n_key": "menu.mandiStaff",
+    "route": "/staff",
+    "icon_key": "staff",
+    "order": 3,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Operations",
+    "resource_key": "mandi_reports.menu",
+    "menu_name": "Reports & MIS",
+    "name_source": "screen",
+    "i18n_key": "menu.mandiReports",
+    "route": "/manager-reports",
+    "icon_key": "reports",
+    "order": 4,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Operations",
+    "resource_key": "mandi_management.menu",
+    "menu_name": "Mandi Management",
+    "name_source": "screen",
+    "i18n_key": "menu.mandiManagement",
+    "route": "/mandi-management",
+    "icon_key": "mandi",
+    "order": 5,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
     "category": "Platform Operations",
     "resource_key": "direct_trade_approvals.menu",
     "menu_name": "Direct Trade Approvals",

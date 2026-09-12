@@ -25,6 +25,8 @@ import BlockIcon from "@mui/icons-material/BlockOutlined";
 import CheckIcon from "@mui/icons-material/CheckCircleOutline";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
+import { CmSelect } from "../../design-system/components/CmSelect";
+import { CmSearchInput } from "../../design-system/components/CmSearchInput";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useCrudPermissions } from "../../utils/useCrudPermissions";
@@ -396,39 +398,35 @@ export const MandiFacilities: React.FC = () => {
             alignItems={{ xs: "stretch", md: "center" }}
             sx={{ mb: 2 }}
           >
-            <TextField
-              label="Mandi"
-              size="small"
-              select
-              value={selectedMandiId}
-              onChange={(event) => setSelectedMandiId(String(event.target.value))}
-              sx={{ minWidth: 200 }}
-            >
-              <MenuItem value="">Select mandi</MenuItem>
-              {mandis.map((mandi) => (
-                <MenuItem key={mandi.mandi_id} value={String(mandi.mandi_id)}>
-                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Status"
-              size="small"
-              select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as "ALL" | "Y" | "N")}
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="ALL">All</MenuItem>
-              <MenuItem value="Y">Active</MenuItem>
-              <MenuItem value="N">Inactive</MenuItem>
-            </TextField>
-            <TextField
-              label="Search"
-              size="small"
+            <div style={{ minWidth: 210 }}>
+              <CmSelect
+                label="Mandi"
+                value={selectedMandiId}
+                placeholder="Select mandi"
+                options={mandis.map((mandi) => ({
+                  value: String(mandi.mandi_id),
+                  label: mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || String(mandi.mandi_id),
+                }))}
+                onChange={(value) => setSelectedMandiId(String(value || ""))}
+              />
+            </div>
+            <div style={{ minWidth: 150 }}>
+              <CmSelect
+                label="Status"
+                value={statusFilter}
+                options={[
+                  { value: "ALL", label: "All" },
+                  { value: "Y", label: "Active" },
+                  { value: "N", label: "Inactive" },
+                ]}
+                onChange={(value) => setStatusFilter(value as "ALL" | "Y" | "N")}
+              />
+            </div>
+            <CmSearchInput
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              sx={{ minWidth: 200 }}
+              onChange={setSearch}
+              placeholder="Search facilities"
+              width={280}
             />
             <Box sx={{ flex: 1 }} />
             {canCreate && (

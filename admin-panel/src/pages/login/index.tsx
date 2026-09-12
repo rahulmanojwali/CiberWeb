@@ -2,21 +2,26 @@ import * as React from "react";
 import { useLogin } from "@refinedev/core";
 import {
   Box,
-  Card,
-  CardContent,
-  TextField,
   Button,
-  Typography,
-  Stack,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Divider,
-  useMediaQuery,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
   Link,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
 } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
+import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
+import PublicOutlinedIcon from "@mui/icons-material/PublicOutlined";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 
@@ -33,27 +38,23 @@ import {
 } from "../../config/languages";
 
 type LoginPayload = {
-  username: string; // admin username
+  username: string;
   password: string;
-  country: string;  // e.g., "IN"
+  country: string;
 };
 
 export const Login: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  
   const { mutate: login, isPending } = useLogin<LoginPayload>();
-
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
 
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
   const [country, setCountry] = React.useState(DEFAULT_COUNTRY);
   const [language, setLanguage] = React.useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_LANGUAGE;
     try {
-      const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-      return normalizeLanguageCode(stored);
+      return normalizeLanguageCode(localStorage.getItem(LANGUAGE_STORAGE_KEY));
     } catch {
       return DEFAULT_LANGUAGE;
     }
@@ -69,17 +70,17 @@ export const Login: React.FC = () => {
     try {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
     } catch {
-      // ignore storage errors
+      // Storage availability must never block authentication.
     }
     i18n.changeLanguage(value).catch(() => undefined);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
 
     if (!username.trim() || !password || !country) {
-      setError("Please fill all the fields.");
+      setError("Please enter your username, password and country.");
       return;
     }
 
@@ -87,250 +88,193 @@ export const Login: React.FC = () => {
       { username: username.trim(), password, country },
       {
         onError: (err: any) => {
-          const msg =
+          setError(
             err?.message ||
-            err?.error?.message ||
-            "Login failed. Please check your credentials.";
-          setError(msg);
+              err?.error?.message ||
+              "Login failed. Please check your credentials.",
+          );
         },
       },
     );
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        bgcolor: "background.default",
-        px: { xs: 2, sm: 3 },
-        py: { xs: 4, sm: 6 },
-      }}
-    >
-      <Box sx={{ width: "100%", maxWidth: 1120 }}>
-        <Card
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            borderRadius: 4,
-            overflow: "hidden",
-            boxShadow: 4,
-          }}
-        >
-          {/* Left side – illustration / branding (hidden on very small screens) */}
-          <Box
-            sx={{
-              display: { xs: "none", md: "flex" },
-              flex: 1,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.success.dark})`,
-              color: "#fff",
-              alignItems: "center",
-              justifyContent: "center",
-              p: 4,
-            }}
-          >
-            <Stack spacing={3} maxWidth={360}>
-              <Box
-                component="img"
-                src={BRAND_ASSETS.logo}
-                alt="CiberMandi"
-                sx={{
-                  width: 120,
-                  height: "auto",
-                  filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))",
-                }}
-              />
+    <Box className="cm-login-page">
+      <Box className="cm-login-orb cm-login-orb-one" />
+      <Box className="cm-login-orb cm-login-orb-two" />
+
+      <Box className="cm-login-shell">
+        <Box className="cm-login-brand-panel">
+          <Stack className="cm-login-brand-content" spacing={0}>
+            <Stack direction="row" alignItems="center" spacing={1.5} className="cm-login-brand-lockup">
+              <Box component="img" src={BRAND_ASSETS.logo} alt="CiberMandi" className="cm-login-logo" />
               <Box>
-                <Typography variant="h5" fontWeight={600}>
-                  {APP_STRINGS.title}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9, mt: 1.5 }}>
-                  Secure admin console for managing organisations, mandis,
-                  and marketplace operations across the CiberMandi network.
-                </Typography>
+                <Typography className="cm-login-brand-name">CiberMandi</Typography>
+                <Typography className="cm-login-brand-kicker">Enterprise Operations Console</Typography>
               </Box>
-              <Divider
-                sx={{
-                  borderColor: "rgba(255,255,255,0.25)",
-                  my: 2,
-                }}
-              />
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                Tip: Use your Superadmin / Org Admin / Mandi Admin credentials
-                provided by Ciberdukaan Technologies.
+            </Stack>
+
+            <Box className="cm-login-brand-copy">
+              <Typography component="h1" className="cm-login-hero-title">
+                One command centre for the complete mandi network.
+              </Typography>
+              <Typography className="cm-login-hero-copy">
+                Securely manage organisations, mandis, operations, approvals, staff and reporting from one governed workspace.
+              </Typography>
+            </Box>
+
+            <Stack className="cm-login-trust-list" spacing={1.35}>
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <Box className="cm-login-trust-icon"><ShieldOutlinedIcon /></Box>
+                <Box>
+                  <Typography className="cm-login-trust-title">Role-scoped access</Typography>
+                  <Typography className="cm-login-trust-copy">Permissions and operational scope remain server-authoritative.</Typography>
+                </Box>
+              </Stack>
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <Box className="cm-login-trust-icon"><VerifiedUserOutlinedIcon /></Box>
+                <Box>
+                  <Typography className="cm-login-trust-title">Protected administration</Typography>
+                  <Typography className="cm-login-trust-copy">Built for controlled administrative and operational workflows.</Typography>
+                </Box>
+              </Stack>
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <Box className="cm-login-trust-icon"><PublicOutlinedIcon /></Box>
+                <Box>
+                  <Typography className="cm-login-trust-title">Responsive everywhere</Typography>
+                  <Typography className="cm-login-trust-copy">A consistent console across desktop, laptop, tablet and mobile.</Typography>
+                </Box>
+              </Stack>
+            </Stack>
+
+            <Typography className="cm-login-brand-footnote">
+              CiberMandi · India&apos;s Digital Mandi Network
+            </Typography>
+          </Stack>
+        </Box>
+
+        <Box className="cm-login-form-panel">
+          <Box className="cm-login-form-wrap">
+            <Stack direction="row" alignItems="center" spacing={1.25} className="cm-login-mobile-brand">
+              <Box component="img" src={BRAND_ASSETS.logo} alt="CiberMandi" className="cm-login-mobile-logo" />
+              <Box>
+                <Typography className="cm-login-mobile-name">CiberMandi</Typography>
+                <Typography className="cm-login-mobile-tagline">Enterprise Operations Console</Typography>
+              </Box>
+            </Stack>
+
+            <Box className="cm-login-form-heading">
+              <Box className="cm-login-lock-badge"><LockOutlinedIcon /></Box>
+              <Typography component="h2" className="cm-login-form-title">Welcome back</Typography>
+              <Typography className="cm-login-form-subtitle">
+                Sign in with your authorised CiberMandi administrator account.
+              </Typography>
+            </Box>
+
+            <Box component="form" onSubmit={handleSubmit} noValidate>
+              <Stack spacing={2.1}>
+                <TextField
+                  label="Username"
+                  fullWidth
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoFocus
+                  className="cm-login-field"
+                />
+
+                <TextField
+                  label="Password"
+                  fullWidth
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="cm-login-field"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          onClick={() => setShowPassword((value) => !value)}
+                          edge="end"
+                          size="small"
+                        >
+                          {showPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                  <FormControl fullWidth className="cm-login-select">
+                    <InputLabel id="cm-login-language-label">Language</InputLabel>
+                    <Select
+                      labelId="cm-login-language-label"
+                      label="Language"
+                      value={language}
+                      onChange={(e) => handleLanguageChange(e.target.value as string)}
+                    >
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <MenuItem key={lang.code} value={lang.code}>
+                          {lang.nativeLabel} ({lang.label})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth className="cm-login-select">
+                    <InputLabel id="cm-login-country-label">Country</InputLabel>
+                    <Select
+                      labelId="cm-login-country-label"
+                      label="Country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value as string)}
+                    >
+                      <MenuItem value="IN">India</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                <Stack direction="row" justifyContent="flex-end">
+                  <Link component={RouterLink} to="/forgot-password" className="cm-login-forgot-link">
+                    Forgot password?
+                  </Link>
+                </Stack>
+
+                {error && (
+                  <Box role="alert" className="cm-login-error">
+                    <Typography>{error}</Typography>
+                  </Box>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  disabled={isPending}
+                  endIcon={!isPending ? <ArrowForwardRoundedIcon /> : undefined}
+                  className="cm-login-submit"
+                >
+                  {isPending ? "Signing in…" : "Sign in securely"}
+                </Button>
+              </Stack>
+            </Box>
+
+            <Divider className="cm-login-divider" />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={0.75} justifyContent="space-between">
+              <Typography className="cm-login-footer-text">
+                © {new Date().getFullYear()} Ciberdukaan Technologies
+              </Typography>
+              <Typography className="cm-login-footer-text">
+                Need access? Contact your organisation administrator.
               </Typography>
             </Stack>
           </Box>
-
-          {/* Right side – actual login form */}
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              alignItems: "stretch",
-              bgcolor: "background.paper",
-            }}
-          >
-            <CardContent
-              sx={{
-                width: "100%",
-                p: { xs: 3, sm: 4, md: 5 },
-              }}
-            >
-              {/* Mobile logo / title */}
-              {isMobile && (
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  spacing={2}
-                  sx={{ mb: 3 }}
-                >
-                  <Box
-                    component="img"
-                    src={BRAND_ASSETS.logo}
-                    alt="CiberMandi"
-                    sx={{ width: 64, height: "auto" }}
-                  />
-                  <Box>
-                    <Typography variant="h6" fontWeight={600}>
-                      {APP_STRINGS.title}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                    >
-                      {APP_STRINGS.tagline}
-                    </Typography>
-                  </Box>
-                </Stack>
-              )}
-
-              {/* Heading */}
-              <Stack spacing={0.5} sx={{ mb: 3 }}>
-                <Typography variant="h5" fontWeight={600}>
-                  Admin Login
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Sign in to manage organisations, mandis and admin users.
-                </Typography>
-              </Stack>
-
-              {/* Language & Country row */}
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                sx={{ mb: 3 }}
-              >
-                <FormControl fullWidth size="small">
-                  <InputLabel id="language-label">Language</InputLabel>
-                  <Select
-                    labelId="language-label"
-                    label="Language"
-                    value={language}
-                    onChange={(e) =>
-                      handleLanguageChange(e.target.value as string)
-                    }
-                  >
-                    {SUPPORTED_LANGUAGES.map((lang) => (
-                      <MenuItem key={lang.code} value={lang.code}>
-                        {lang.nativeLabel} ({lang.label})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small">
-                  <InputLabel id="country-label">Country</InputLabel>
-                  <Select
-                    labelId="country-label"
-                    label="Country"
-                    value={country}
-                    onChange={(e) =>
-                      setCountry(e.target.value as string)
-                    }
-                  >
-                    {/* You can add more countries later if needed */}
-                    <MenuItem value="IN">India</MenuItem>
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              {/* Login form */}
-              <Box component="form" onSubmit={handleSubmit} noValidate>
-                <Stack spacing={2.5}>
-                  <TextField
-                    label="Username"
-                    fullWidth
-                    size="small"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    autoComplete="username"
-                  />
-                  <TextField
-                    label="Password"
-                    fullWidth
-                    size="small"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                  />
-                  {/* CM_FORGOT_PASSWORD_FLOW_20251227 */}
-                  <Link
-                    component={RouterLink}
-                    to="/forgot-password"
-                    variant="body2"
-                    sx={{ alignSelf: "flex-end" }}
-                  >
-                    Forgot password?
-                  </Link>
-
-                  {error && (
-                    <Typography
-                      variant="body2"
-                      color="error"
-                      sx={{ mt: 0.5 }}
-                    >
-                      {error}
-                    </Typography>
-                  )}
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    fullWidth
-                    size="medium"
-                    disabled={isPending}
-                    sx={{ mt: 1.5, py: 1.1 }}
-                  >
-                    {isPending ? "Signing in..." : "Sign in"}
-                  </Button>
-                </Stack>
-              </Box>
-
-              {/* Footer hint */}
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={1}
-                justifyContent="space-between"
-                alignItems={{ xs: "flex-start", sm: "center" }}
-                sx={{ mt: 3 }}
-              >
-                <Typography variant="caption" color="text.secondary">
-                  © {new Date().getFullYear()} Ciberdukaan Technologies.
-                </Typography>
-
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                >
-                  Need access? Contact your organisation admin.
-                </Typography>
-              </Stack>
-            </CardContent>
-          </Box>
-        </Card>
+        </Box>
       </Box>
     </Box>
   );

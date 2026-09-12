@@ -16,7 +16,7 @@ export const ResponsiveDataGrid: React.FC<ResponsiveDataGridProps> = ({
   ...rest
 }) => {
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%", maxWidth: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
       <DataGrid
         autoHeight={autoHeight}
         density={density}
@@ -55,7 +55,9 @@ export const ResponsiveDataGrid: React.FC<ResponsiveDataGridProps> = ({
           "& .MuiDataGrid-main": {
             overflowX: "auto",
           },
-          minWidth,
+          minWidth: { xs: minWidth, md: "100%" },
+          width: "100%",
+          "& .MuiDataGrid-cell, & .MuiDataGrid-columnHeader": { outline: "none !important" },
           ...sx,
         }}
         {...rest}

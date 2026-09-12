@@ -25,6 +25,9 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import AgricultureOutlinedIcon from "@mui/icons-material/AgricultureOutlined";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import { PageContainer } from "../../components/PageContainer";
+import { CMFilterField } from "../../components/ui/CMFilterField";
+import { CmInput } from "../../design-system/components/CmInput";
+import { CmSelect } from "../../design-system/components/CmSelect";
 import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
 import { listAuctionSettlements, rejectSettlementPayment, updateAuctionSettlementStatus, verifySettlementPayment } from "../../api/settlements";
 import { getCurrentAdminUsername } from "../../utils/session";
@@ -464,107 +467,61 @@ export const SettlementsPage: React.FC = () => {
           </div>
           {loading && <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />}
           <div className="cm-filter-row">
-            <TextField
+            <CMFilterField
               select
-              fullWidth
-              size="small"
               label="Organisation"
               value={filters.org_id}
               onChange={(e) => setFilters((prev) => ({ ...prev, org_id: String(e.target.value || "") }))}
               disabled={orgDropdownDisabled}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={BusinessOutlinedIcon} />,
-              }}
             >
-              {showAllOrganisationsOption && <MenuItem value=""><em>All Organisations</em></MenuItem>}
-              {orgOptions.map((o) => (
-                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-              ))}
-            </TextField>
+              {showAllOrganisationsOption && <MenuItem value="">All Organisations</MenuItem>}
+              {orgOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </CMFilterField>
 
-            <TextField
+            <CMFilterField
               select
-              fullWidth
-              size="small"
               label="Mandi"
               value={filters.mandi_id}
               onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: String(e.target.value || "") }))}
               disabled={!effectiveOrgId}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
-              }}
             >
-              <MenuItem value=""><em>All Mandis</em></MenuItem>
-              {mandiOptions.map((m) => (
-                <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-              ))}
-            </TextField>
+              <MenuItem value="">All Mandis</MenuItem>
+              {mandiOptions.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+            </CMFilterField>
 
-            <TextField
+            <CMFilterField
               select
-              fullWidth
-              size="small"
               label="Settlement Status"
               value={filters.status}
               onChange={(e) => setFilters((prev) => ({ ...prev, status: String(e.target.value || "") }))}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={ReceiptLongOutlinedIcon} />,
-              }}
             >
-              <MenuItem value=""><em>All Statuses</em></MenuItem>
-              {STATUS_CHOICES.map((s) => (
-                <MenuItem key={s} value={s}>{s}</MenuItem>
-              ))}
-            </TextField>
+              <MenuItem value="">All Statuses</MenuItem>
+              {STATUS_CHOICES.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+            </CMFilterField>
 
-            <TextField
+            <CMFilterField
               select
-              fullWidth
-              size="small"
               label="Payment Status"
               value={filters.payment_status}
               onChange={(e) => setFilters((prev) => ({ ...prev, payment_status: String(e.target.value || "") }))}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={PaymentsOutlinedIcon} />,
-              }}
             >
-              <MenuItem value=""><em>All Payment Statuses</em></MenuItem>
-              {PAYMENT_STATUS_CHOICES.map((s) => (
-                <MenuItem key={s} value={s}>{s}</MenuItem>
-              ))}
-            </TextField>
+              <MenuItem value="">All Payment Statuses</MenuItem>
+              {PAYMENT_STATUS_CHOICES.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+            </CMFilterField>
 
           </div>
 
           <div className="cm-filter-row">
             {sessionDropdownEnabled ? (
-              <Autocomplete
+              <CmSelect
+                label="Auction Session"
+                value={filters.session_id || undefined}
+                showSearch
+                allowClear
+                optionFilterProp="label"
                 options={sessionOptions}
-                value={sessionOptions.find((opt) => opt.value === filters.session_id) || null}
-                inputValue={sessionSearchText}
-                onInputChange={(_e, value) => setSessionSearchText(value)}
-                onChange={(_e, option) => {
-                  setFilters((prev) => ({ ...prev, session_id: option?.value || "" }));
-                }}
-                getOptionLabel={(option) => option.label}
-                isOptionEqualToValue={(opt, val) => opt.value === val.value}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    fullWidth
-                    size="small"
-                    label="Auction Session"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <>
-                          <FilterInputAdornment icon={EventNoteOutlinedIcon} />
-                          {params.InputProps.startAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
+                onSearch={setSessionSearchText}
+                onChange={(value) => setFilters((prev) => ({ ...prev, session_id: String(value || "") }))}
               />
             ) : (
               <TextField
@@ -578,59 +535,38 @@ export const SettlementsPage: React.FC = () => {
                 }}
               />
             )}
-            <TextField
-              fullWidth
-              size="small"
+            <CMFilterField
               label="Lot Code"
               value={filters.lot_code}
-              onChange={(e) => setFilters((prev) => ({ ...prev, lot_code: e.target.value }))}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={ConfirmationNumberOutlinedIcon} />,
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, lot_code: String(e.target.value || "") }))}
             />
 
-            <TextField
-              fullWidth
-              size="small"
+            <CMFilterField
               label="Trader Username"
               value={filters.trader_username}
-              onChange={(e) => setFilters((prev) => ({ ...prev, trader_username: e.target.value }))}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={PersonOutlineIcon} />,
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, trader_username: String(e.target.value || "") }))}
             />
 
-            <TextField
-              fullWidth
-              size="small"
+            <CMFilterField
               label="Farmer Username"
               value={filters.farmer_username}
-              onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: e.target.value }))}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={AgricultureOutlinedIcon} />,
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, farmer_username: String(e.target.value || "") }))}
             />
           </div>
 
           <div className="cm-filter-row">
-            <TextField
-              fullWidth
-              size="small"
+            <CMFilterField
               type="date"
               label="Date From"
               value={filters.date_from}
-              InputLabelProps={{ shrink: true }}
-              onChange={(e) => setFilters((prev) => ({ ...prev, date_from: e.target.value }))}
+              onChange={(e) => setFilters((prev) => ({ ...prev, date_from: String(e.target.value || "") }))}
             />
 
-            <TextField
-              fullWidth
-              size="small"
+            <CMFilterField
               type="date"
               label="Date To"
               value={filters.date_to}
-              InputLabelProps={{ shrink: true }}
-              onChange={(e) => setFilters((prev) => ({ ...prev, date_to: e.target.value }))}
+              onChange={(e) => setFilters((prev) => ({ ...prev, date_to: String(e.target.value || "") }))}
             />
 
             <div className="cm-filter-field" />

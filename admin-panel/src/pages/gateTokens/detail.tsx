@@ -7,7 +7,6 @@ import {
   CircularProgress,
   Divider,
   Stack,
-  TextField,
   Typography,
   List,
   ListItem,
@@ -18,6 +17,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSnackbar } from "notistack";
 import { PageContainer } from "../../components/PageContainer";
+import { CmReadOnlyField } from "../../design-system/components/CmReadOnlyField";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { can } from "../../utils/adminUiConfig";
@@ -284,41 +284,21 @@ export const GateTokenDetail: React.FC = () => {
         <Typography color="text.secondary">No data found.</Typography>
       ) : (
         <Stack spacing={3} divider={<Divider flexItem />}>
-          <Stack spacing={2}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Token Code" value={detail.token_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Type" value={detail.token_type || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Status" value={detail.status || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Last Step" value={lastMovementStep || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Reason" value={detail.reason_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Vehicle" value={detail.vehicle_no || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Gate" value={detail.gate_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Device" value={detail.device_code || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField
-                label="Mandi"
-                value={detail.mandi_name || (detail.mandi_id ? String(detail.mandi_id) : "")}
-                size="small"
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Created On" value={formatDate(detail.created_on)} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Created By" value={detail.created_by || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField label="Updated On" value={formatDate(detail.updated_on)} size="small" InputProps={{ readOnly: true }} fullWidth />
-              <TextField label="Updated By" value={detail.updated_by || ""} size="small" InputProps={{ readOnly: true }} fullWidth />
-            </Stack>
-          </Stack>
+          <div className="cm-form-row">
+            <CmReadOnlyField label="Token Code" value={detail.token_code} />
+            <CmReadOnlyField label="Type" value={detail.token_type} />
+            <CmReadOnlyField label="Status" value={detail.status} />
+            <CmReadOnlyField label="Last Step" value={lastMovementStep} />
+            <CmReadOnlyField label="Reason" value={detail.reason_code} />
+            <CmReadOnlyField label="Vehicle" value={detail.vehicle_no} />
+            <CmReadOnlyField label="Gate" value={detail.gate_code} />
+            <CmReadOnlyField label="Device" value={detail.device_code} />
+            <CmReadOnlyField label="Mandi" value={detail.mandi_name || (detail.mandi_id ? String(detail.mandi_id) : "")} />
+            <CmReadOnlyField label="Created On" value={formatDate(detail.created_on)} />
+            <CmReadOnlyField label="Created By" value={detail.created_by} />
+            <CmReadOnlyField label="Updated On" value={formatDate(detail.updated_on)} />
+            <CmReadOnlyField label="Updated By" value={detail.updated_by} />
+          </div>
 
           <Box id="movements">
             <Stack spacing={1} direction="row" alignItems="center" mb={1}>

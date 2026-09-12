@@ -24,10 +24,8 @@
 // import { getCurrentAdminUsername, getStoredAdminUser } from "../../utils/session";
 // import { getStepupLockedSet, loadStepupLockedSetOnce } from "../../utils/stepupCache";
 // import { getBrowserSessionId } from "./browserSession";
-// import SecurityIcon from "@mui/icons-material/Security";
-// import KeyIcon from "@mui/icons-material/VpnKey";
-// import CloseIcon from "@mui/icons-material/Close";
-
+// // import KeyIcon from "@mui/icons-material/VpnKey";
+// 
 // type StepUpRequestSource = "MENU" | "ROUTE" | "GUARD" | "OTHER";
 
 // type StepUpPrompt = {
@@ -542,19 +540,8 @@
 // // working well, however cross button and mobile comptiable is missing dont delete it 04 jan 2026 dont delete it 
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Typography,
-} from "@mui/material";
+import { Button, Modal } from "antd";
+import { SafetyCertificateOutlined } from "@ant-design/icons";
 import { useSnackbar } from "@refinedev/mui";
 
 import { requireStepUp, verifyStepUp } from "../../services/adminUsersApi";
@@ -565,8 +552,6 @@ import {
   loadStepupLockedSetOnce,
 } from "../../utils/stepupCache";
 import { getBrowserSessionId } from "./browserSession";
-import SecurityIcon from "@mui/icons-material/Security";
-import CloseIcon from "@mui/icons-material/Close";
 import { registerStepUpTrigger } from "./stepupService";
 import { getUserRoleFromStorage } from "../../utils/roles";
 
@@ -670,7 +655,7 @@ function buildStepUpMessage(prompt: StepUpPrompt | null, roleLabel: string): str
     }
     return `Additional authentication required to ${verb} ${resourceLabel}.`;
   }
-  return `Additional authentication required for ${roleLabel} actions.`;
+  return "Additional authentication is required to continue.";
 }
 
 type StepUpContextValue = {
@@ -1064,98 +1049,46 @@ const StepUpModal: React.FC<{
   );
 
   return (
-    <Dialog
-      className="cm-modal"
+    <Modal
       open={open}
-      onClose={(_, reason) => {
-        if (verifying && reason === "backdropClick") return;
-        if (verifying && reason === "escapeKeyDown") return;
-        onClose();
-      }}
-      fullWidth
-      maxWidth="xs"
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          border: "1px solid",
-          borderColor: "divider",
-          boxShadow: "0 10px 32px rgba(0,0,0,0.16)",
-          overflow: "hidden",
-        },
-      }}
+      centered
+      width={520}
+      className="cm-stepup-modal"
+      title={null}
+      footer={null}
+      closable={!verifying}
+      maskClosable={!verifying}
+      keyboard={!verifying}
+      onCancel={onClose}
+      destroyOnHidden={false}
     >
-      <DialogTitle
-        sx={{
-          px: 2,
-          pt: 1.75,
-          pb: 1.25,
-          display: "flex",
-          gap: 1.25,
-          alignItems: "center",
-        }}
-      >
-        <Box
-          className="cm-stepup-icon-wrap"
-          sx={{
-            width: 38,
-            height: 38,
-            flex: "0 0 auto",
-          }}
-        >
-          <SecurityIcon fontSize="small" />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography className="cm-stepup-title" sx={{ lineHeight: 1.2, fontSize: 17 }}>
-            Verification required
-          </Typography>
-          <Typography className="cm-stepup-subtitle" sx={{ mt: 0.35 }}>
-            {message}
-          </Typography>
-        </Box>
-        <Chip
-          size="small"
-          label={roleLabel}
-          variant="outlined"
-          sx={{
-            fontWeight: 700,
-            maxWidth: 132,
-            height: 26,
-            "& .MuiChip-label": {
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            },
-          }}
-        />
-        <IconButton
-          aria-label="Close verification dialog"
-          onClick={onClose}
-          disabled={verifying}
-          sx={{ ml: 0.5 }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
+      <div className="cm-stepup-header">
+        <div className="cm-stepup-icon" aria-hidden="true">
+          <SafetyCertificateOutlined />
+        </div>
+        <div className="cm-stepup-heading-copy">
+          <div className="cm-stepup-kicker">SECURE VERIFICATION</div>
+          <h2 className="cm-stepup-heading">Verify it’s you</h2>
+          <p className="cm-stepup-description">{message}</p>
+        </div>
+      </div>
 
-      <Divider />
-
-      <DialogContent sx={{ px: 2, py: 1.75 }}>
-        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: "text.primary" }}>
-          Enter OTP
-        </Typography>
-        <Typography sx={{ mt: 0.35, mb: 1.4, fontSize: 12.5, color: "text.secondary" }}>
+      <div className="cm-stepup-body">
+        <div className="cm-stepup-section-title">Enter 6-digit code</div>
+        <p className="cm-stepup-help">
           {usesSmsOtp
-            ? "Use the 6-digit SMS OTP sent to your registered mobile number."
-            : "Use the 6-digit code from your authenticator app."}
-        </Typography>
+            ? "Enter the 6-digit SMS OTP sent to your registered mobile number."
+            : "Enter the current 6-digit code from your authenticator app."}
+        </p>
 
-        <Box sx={{ display: "flex", gap: 0.75, justifyContent: "space-between" }}>
+        <div className="cm-stepup-otp-row" role="group" aria-label="Six digit verification code">
           {otpDigits.map((digit, index) => (
-            <Box
+            <input
               key={index}
-              component="input"
               ref={(node: HTMLInputElement | null) => {
                 inputRefs.current[index] = node;
               }}
+              className="cm-stepup-otp-input"
               value={digit}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
                 handleDigitChange(index, event.target.value)
@@ -1165,62 +1098,40 @@ const StepUpModal: React.FC<{
               }
               onPaste={handlePaste}
               inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={1}
               autoComplete={index === 0 ? "one-time-code" : "off"}
               aria-label={`OTP digit ${index + 1}`}
               disabled={verifying}
-              sx={{
-                width: 42,
-                height: 46,
-                borderRadius: 1.25,
-                border: "1px solid",
-                borderColor: digit ? "primary.main" : "divider",
-                bgcolor: "background.paper",
-                color: "text.primary",
-                fontSize: 20,
-                fontWeight: 800,
-                textAlign: "center",
-                outline: "none",
-                transition: "border-color 120ms ease, box-shadow 120ms ease",
-                "&:focus": {
-                  borderColor: "primary.main",
-                  boxShadow: "0 0 0 3px rgba(25, 118, 210, 0.14)",
-                },
-                "&:disabled": {
-                  opacity: 0.65,
-                },
-              }}
             />
           ))}
-        </Box>
+        </div>
 
-        <Typography sx={{ mt: 1.1, color: "text.secondary", fontSize: 12 }}>
+        <p className="cm-stepup-note">
           {usesSmsOtp
-            ? "OTP expires shortly. Request a new SMS OTP from the previous screen if needed."
-            : "Codes refresh every 30 seconds. Use the latest code before it expires."}
-        </Typography>
-      </DialogContent>
+            ? "The OTP expires shortly. Request a new SMS OTP if the current code expires."
+            : "Authenticator codes refresh every 30 seconds. Use the latest code."}
+        </p>
+      </div>
 
-      <Divider />
-
-      <DialogActions sx={{ px: 2, py: 1.25, gap: 1 }}>
+      <div className="cm-stepup-actions">
         <Button
-          variant="outlined"
           onClick={onClose}
           disabled={verifying}
-          sx={{ borderRadius: 2 }}
+          className="cm-stepup-cancel"
         >
           Cancel
         </Button>
-
         <Button
-          variant="contained"
+          type="primary"
           onClick={onVerify}
+          loading={verifying}
           disabled={verifying || otp.length !== OTP_LENGTH}
-          sx={{ borderRadius: 2, minWidth: 130 }}
+          className="cm-stepup-verify"
         >
-          {verifying ? <CircularProgress size={20} /> : "Verify"}
+          Verify
         </Button>
-      </DialogActions>
-    </Dialog>
+      </div>
+    </Modal>
   );
 };

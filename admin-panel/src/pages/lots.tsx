@@ -39,6 +39,9 @@ import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import { type GridColDef } from "@mui/x-data-grid";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../components/PageContainer";
+import { CMFilterField } from "../components/ui/CMFilterField";
+import { CmInput } from "../design-system/components/CmInput";
+import { CmSelect } from "../design-system/components/CmSelect";
 import { ResponsiveDataGrid } from "../components/ResponsiveDataGrid";
 import { ScreenHelpDrawer } from "../components/ScreenHelpDrawer";
 import { FilterInputAdornment } from "../components/ui/FilterInputAdornment";
@@ -1550,53 +1553,30 @@ export const Lots: React.FC = () => {
             </Box>
           </Box>
           <Box className="cm-filter-row">
-            <Box className="cm-filter-field">
-              <TextField
-                select
-                size="small"
-                fullWidth
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                InputProps={{
-                  startAdornment: <FilterInputAdornment icon={CheckCircleOutlineIcon} />,
-                }}
-              >
-                  <MenuItem value="">All</MenuItem>
-                  {STATUS_OPTIONS.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {humanizeLotStatus(status)}
-                    </MenuItem>
-                  ))}
-              </TextField>
-            </Box>
+            <CMFilterField
+              select
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(String(e.target.value || ""))}
+            >
+              <MenuItem value="">All</MenuItem>
+              {STATUS_OPTIONS.map((status) => (
+                <MenuItem key={status} value={status}>{humanizeLotStatus(status)}</MenuItem>
+              ))}
+            </CMFilterField>
 
-            <Box className="cm-filter-field">
-              <TextField
-                label="Mandi"
-                placeholder="Enter mandi code or ID"
-                size="small"
-                value={mandiFilter}
-                onChange={(e) => setMandiFilter(e.target.value)}
-                InputProps={{
-                  startAdornment: <FilterInputAdornment icon={StorefrontIcon} />,
-                }}
-                fullWidth
-              />
-            </Box>
+            <CMFilterField
+              label="Mandi"
+              placeholder="Enter mandi code or ID"
+              value={mandiFilter}
+              onChange={(e) => setMandiFilter(String(e.target.value || ""))}
+            />
 
-            <Box className="cm-filter-field">
-              <TextField
-                label="Token Code"
-                size="small"
-                value={tokenFilter}
-                onChange={(e) => setTokenFilter(e.target.value)}
-                InputProps={{
-                  startAdornment: <FilterInputAdornment icon={SearchIcon} />,
-                }}
-                fullWidth
-              />
-            </Box>
+            <CMFilterField
+              label="Token Code"
+              value={tokenFilter}
+              onChange={(e) => setTokenFilter(String(e.target.value || ""))}
+            />
           </Box>
         </Box>
 

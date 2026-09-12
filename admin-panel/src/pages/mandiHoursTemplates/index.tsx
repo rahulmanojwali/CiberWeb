@@ -22,6 +22,8 @@ import EditIcon from "@mui/icons-material/EditOutlined";
 import BlockIcon from "@mui/icons-material/BlockOutlined";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
+import { CmInput } from "../../design-system/components/CmInput";
+import { CmSelect } from "../../design-system/components/CmSelect";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
@@ -461,33 +463,30 @@ export const MandiHoursTemplates: React.FC = () => {
       <Card>
         <CardContent>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <TextField
+            <CmSelect
               label="Mandi"
-              size="small"
-              select
               value={selectedMandiId}
-              onChange={(event) => setSelectedMandiId(String(event.target.value))}
-              sx={{ minWidth: 200 }}
-            >
-              <MenuItem value="">Select mandi</MenuItem>
-              {mandis.map((mandi) => (
-                <MenuItem key={mandi.mandi_id} value={String(mandi.mandi_id)}>
-                  {mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || mandi.mandi_id}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
+              onChange={(value) => setSelectedMandiId(String(value || ""))}
+              options={[
+                { value: "", label: "Select mandi" },
+                ...mandis.map((mandi) => ({
+                  value: String(mandi.mandi_id),
+                  label: mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || String(mandi.mandi_id),
+                })),
+              ]}
+              style={{ minWidth: 220 }}
+            />
+            <CmSelect
               label="Status"
-              size="small"
-              select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as "ALL" | "Y" | "N")}
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value="ALL">All</MenuItem>
-              <MenuItem value="Y">Active</MenuItem>
-              <MenuItem value="N">Inactive</MenuItem>
-            </TextField>
+              onChange={(value) => setStatusFilter(String(value) as "ALL" | "Y" | "N")}
+              options={[
+                { value: "ALL", label: "All" },
+                { value: "Y", label: "Active" },
+                { value: "N", label: "Inactive" },
+              ]}
+              style={{ minWidth: 160 }}
+            />
             <Box sx={{ flex: 1 }} />
             {canCreate && (
               <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} disabled={!selectedMandiId}>

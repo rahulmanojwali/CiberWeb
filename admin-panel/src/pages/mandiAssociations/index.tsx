@@ -18,6 +18,8 @@ import { type GridColDef } from "@mui/x-data-grid";
 import { useSnackbar } from "notistack";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
+import { CmInput } from "../../design-system/components/CmInput";
+import { CmSelect } from "../../design-system/components/CmSelect";
 import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
 import { normalizeLanguageCode } from "../../config/languages";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
@@ -459,76 +461,41 @@ export const MandiAssociations: React.FC = () => {
           <Paper sx={{ p: 2, borderRadius: 2 }}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} flexWrap="wrap">
             {uiConfig.role === "SUPER_ADMIN" && (
-              <TextField
-                select
+              <CmSelect
                 label="Organisation"
                 value={filters.org_id}
-                onChange={(e) => setFilters((prev) => ({ ...prev, org_id: e.target.value, mandi_id: "" }))}
-                size="small"
-                sx={{ minWidth: 220 }}
-              >
-                <MenuItem value="">
-                  <em>Select org</em>
-                </MenuItem>
-                {orgOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
+                onChange={(value) => setFilters((prev) => ({ ...prev, org_id: String(value || ""), mandi_id: "" }))}
+                options={[{ value: "", label: "Select org" }, ...orgOptions]}
+                style={{ minWidth: 220 }}
+              />
             )}
-            <TextField
-              select
+            <CmSelect
               label="Mandi"
               value={filters.mandi_id}
-              onChange={(e) => setFilters((prev) => ({ ...prev, mandi_id: e.target.value }))}
-              size="small"
-              sx={{ minWidth: 200 }}
+              onChange={(value) => setFilters((prev) => ({ ...prev, mandi_id: String(value || "") }))}
+              options={[{ value: "", label: "All mandis" }, ...mandiOptions]}
+              style={{ minWidth: 200 }}
               disabled={uiConfig.role === "SUPER_ADMIN" && !filters.org_id}
-            >
-              <MenuItem value="">
-                <em>All mandis</em>
-              </MenuItem>
-              {mandiOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
+            />
+            <CmSelect
               label="Party Type"
               value={filters.party_type}
-              onChange={(e) => setFilters((prev) => ({ ...prev, party_type: e.target.value }))}
-              size="small"
-              sx={{ minWidth: 160 }}
-            >
-              {partyTypeOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
+              onChange={(value) => setFilters((prev) => ({ ...prev, party_type: String(value || "") }))}
+              options={partyTypeOptions}
+              style={{ minWidth: 160 }}
+            />
+            <CmSelect
               label="Status"
               value={filters.status}
-              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-              size="small"
-              sx={{ minWidth: 200 }}
-            >
-              {statusOptions.map((opt) => (
-                <MenuItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
+              onChange={(value) => setFilters((prev) => ({ ...prev, status: String(value || "") }))}
+              options={statusOptions}
+              style={{ minWidth: 200 }}
+            />
+            <CmInput
               label="Mobile"
               value={filters.mobile}
-              onChange={(e) => setFilters((prev) => ({ ...prev, mobile: e.target.value }))}
-              size="small"
-              sx={{ minWidth: 180 }}
+              onChange={(value) => setFilters((prev) => ({ ...prev, mobile: value }))}
+              style={{ minWidth: 180 }}
             />
             <Button
               variant="outlined"
@@ -595,12 +562,13 @@ export const MandiAssociations: React.FC = () => {
       <Dialog open={tempDialogOpen} onClose={() => setTempDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Temp Approve (Hours)</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
+          <CmInput
             label="Valid for (hours)"
             type="number"
             value={tempHours}
-            onChange={(e) => setTempHours(e.target.value)}
-            inputProps={{ min: 1, max: 72 }}
+            onChange={setTempHours}
+            min={1}
+            max={72}
           />
         </DialogContent>
         <DialogActions>
@@ -626,12 +594,12 @@ export const MandiAssociations: React.FC = () => {
       <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Reject Association</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
+          <CmInput
             label="Reason"
             value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            onChange={setRejectReason}
             multiline
-            minRows={2}
+            rows={3}
           />
         </DialogContent>
         <DialogActions>

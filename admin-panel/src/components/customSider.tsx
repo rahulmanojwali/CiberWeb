@@ -1,28 +1,8 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import {
-  RefineThemedLayoutSiderProps,
-} from "@refinedev/mui";
-
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
+import React, { useEffect, useMemo, useState } from "react";
+import type { MenuProps } from "antd";
+import { Button, Menu, Tooltip, Typography } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-
-import Box from "@mui/material/Box";
-import Avatar from "@mui/material/Avatar";
-import Typography from "@mui/material/Typography";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Divider from "@mui/material/Divider";
-import Collapse from "@mui/material/Collapse";
-import IconButton from "@mui/material/IconButton";
-
-import CloseIcon from "@mui/icons-material/Close";
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import ExpandMore from "@mui/icons-material/ExpandMore";
-
 import { useLocation } from "react-router-dom";
 
 import {
@@ -32,36 +12,46 @@ import {
 } from "../config/menuConfig";
 import { getUserRoleFromStorage } from "../utils/roles";
 import { useAdminUiConfig } from "../contexts/admin-ui-config";
-import { getCurrentAdminUsername } from "../utils/session";
 import { usePermissions } from "../authz/usePermissions";
 import { useMenuNavigation } from "../hooks/useMenuNavigation";
 import { filterMenuTreeByPlatformControl } from "../utils/platformMenuVisibility";
 import { usePlatformMenuControls } from "../hooks/usePlatformMenuControls";
 import { resolveMenuLabel } from "../utils/uiLabel";
+import { CM_SHELL } from "../design-system/theme/tokens";
 
+const { Text } = Typography;
 
-export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
-  const theme = useTheme();
-  const isSmall = useMediaQuery(theme.breakpoints.down("md"));
+type AntMenuItem = Required<MenuProps>["items"][number];
+
+const itemKey = (item: NavMenuItem, fallback: string) =>
+  String(item.key || item.resourceKey || item.path || item.labelKey || fallback);
+
+export const CustomSider: React.FC = () => {
   const { t } = useTranslation();
-
-  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { ui_resources, resources: compatResources, role: configRole, loading: loadingUiConfig, refresh: refreshAdminUiConfig } = useAdminUiConfig();
+  const menuNavigate = useMenuNavigation();
+
+  const {
+    ui_resources,
+    resources: compatResources,
+    role: configRole,
+    loading: loadingUiConfig,
+    refresh: refreshAdminUiConfig,
+  } = useAdminUiConfig();
+
   const storageRole = getUserRoleFromStorage("CustomSider");
   const effectiveRole = (configRole as any) || storageRole;
   const { permissionsMap, loadingPermissions, isSuper } = usePermissions();
   const isSuperAdmin = isSuper;
 
-  const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
-  const [menuError, setMenuError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const menuResources = ui_resources?.length ? ui_resources : compatResources || [];
   const resourcesCount = menuResources?.length || 0;
   const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
-  const toggleGroup = useCallback((key: string) => {
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [navItems, setNavItems] = useState<NavMenuItem[]>([]);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   useEffect(() => {
     try {
@@ -70,39 +60,52 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
         setNavItems(!loadingUiConfig && isSuperAdmin ? filterMenuByRole("SUPER_ADMIN") : []);
         return;
       }
+
       if (loadingPermissions) {
         setMenuError(null);
         setNavItems([]);
         return;
       }
+
       const built = filterMenuByResources(menuResources, effectiveRole, permissionsMap);
-      const builtCount = built.length;
-      if (builtCount === 0 && isSuperAdmin) {
+      if (built.length === 0 && isSuperAdmin) {
         setMenuError(null);
         setNavItems(filterMenuByRole("SUPER_ADMIN"));
         return;
       }
-      if (resourcesCount > 0 && builtCount === 0 && !isSuperAdmin) {
-        console.warn("[menu] built menu empty after pruning; showing empty state");
+
+      if (resourcesCount > 0 && built.length === 0 && !isSuperAdmin) {
         setMenuError("No menu access assigned. Contact admin.");
         setNavItems([]);
         return;
       }
 
       setMenuError(null);
-      setNavItems(builtCount > 0 ? built : []);
-    } catch (e) {
-      console.error("[sidebar] build failed", e, { resourcesSample: (menuResources || []).slice(0, 5) });
+      setNavItems(built);
+    } catch (error) {
+      console.error("[sidebar] build failed", error, {
+        resourcesSample: (menuResources || []).slice(0, 5),
+      });
       setMenuError("Menu failed to load.");
+      setNavItems([]);
     }
-  }, [effectiveRole, isSuperAdmin, loadingPermissions, loadingUiConfig, menuResources, resourcesCount, permissionsMap]);
+  }, [
+    effectiveRole,
+    isSuperAdmin,
+    loadingPermissions,
+    loadingUiConfig,
+    menuResources,
+    permissionsMap,
+    resourcesCount,
+  ]);
 
   useEffect(() => {
     const loadMenuControls = () => {
-      refreshAdminUiConfig({ invalidate: true }).catch((err) => {
-        console.error("[sidebar] platform menu controls refresh failed", err);
+      refreshAdminUiConfig({ invalidate: true }).catch((error) => {
+        console.error("[sidebar] platform menu controls refresh failed", error);
       });
     };
+
     window.addEventListener("platform-menu-controls-updated", loadMenuControls);
     return () => window.removeEventListener("platform-menu-controls-updated", loadMenuControls);
   }, [refreshAdminUiConfig]);
@@ -112,332 +115,133 @@ export const CustomSider: React.FC<RefineThemedLayoutSiderProps> = () => {
     [navItems, platformMenuControls],
   );
 
-  const username = getCurrentAdminUsername();
-  const displayName = username || t("layout.sider.unknownUser", { defaultValue: "Admin user" });
-  const initials = displayName?.charAt(0)?.toUpperCase() || "?";
-
-  const menuNavigate = useMenuNavigation();
-
-  const handleCloseClick = () => {
-    // Desktop: toggle collapsed; mobile never renders this sider.
-    setCollapsed((prev) => !prev);
-  };
-
   const translateMenuLabel = (menuItem: NavMenuItem) => {
     if (menuItem.labelOverride && String(menuItem.labelOverride).trim()) {
       return resolveMenuLabel({ ...menuItem, label: menuItem.labelOverride });
     }
+
     const translated = t(menuItem.labelKey, { defaultValue: menuItem.labelKey });
-    return resolveMenuLabel({
-      ...menuItem,
-      label: translated,
-      i18n_label_key: menuItem.labelKey,
-      resource_key: menuItem.resourceKey,
-    }) || translated;
+    return (
+      resolveMenuLabel({
+        ...menuItem,
+        label: translated,
+        i18n_label_key: menuItem.labelKey,
+        resource_key: menuItem.resourceKey,
+      }) || translated
+    );
   };
 
-  const CM = {
-    primary: "#6E7C3A",
-    primaryDark: "#55632C",
-    secondary: "#C57A35",
-    bg: "#F6F1E8",
-    text: "#3B3B3B",
-    textMuted: "#6B6B6B",
-  };
+  const menuModel = useMemo(() => {
+    const pathByKey = new Map<string, NavMenuItem>();
+    const parentByKey = new Map<string, string>();
 
-  const renderMenuItem = useCallback(
-    (item: NavMenuItem) => {
-      const isGroup = !!item.children?.length && !item.path;
-      const labelKey = item.key || item.labelKey || item.path;
-      if (!isGroup) {
-        const active = !!item.path && location.pathname.startsWith(item.path);
-        return (
-          <ListItem
-            key={labelKey}
-            disablePadding
-            sx={{ display: "block" }}
-          >
-            <ListItemButton
-              selected={active}
-              disabled={(item as any).disabled === true}
-              onClick={() => item.path && menuNavigate(item.path, item.resourceKey)}
-              sx={{
-                minHeight: 38,
-                py: 0.5,
-                justifyContent: collapsed ? "center" : "flex-start",
-                px: collapsed ? 1.25 : 2,
-                "&.Mui-selected": {
-                  backgroundColor: CM.bg,
-                  borderRadius: "10px",
-                  color: CM.primaryDark,
-                  "& .MuiListItemIcon-root": { color: CM.secondary },
-                  "& .MuiListItemText-primary": { color: CM.primaryDark },
-                },
-              }}
-            >
-              {item.icon && (
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: collapsed ? 0 : 1.25,
-                    justifyContent: "center",
-                    color: active ? CM.secondary : CM.textMuted,
-                    "& svg": { fontSize: 20 },
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-              )}
-              {!collapsed && (
-                <ListItemText
-                  primary={translateMenuLabel(item)}
-                  primaryTypographyProps={{
-                    fontWeight: active ? 600 : 500,
-                    variant: "body2",
-                    fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
-                  }}
-                />
-              )}
-            </ListItemButton>
-          </ListItem>
-        );
+    const build = (items: NavMenuItem[], parentKey?: string): AntMenuItem[] =>
+      items.map((item, index) => {
+        const key = itemKey(item, `${parentKey || "root"}-${index}`);
+        pathByKey.set(key, item);
+        if (parentKey) parentByKey.set(key, parentKey);
+
+        const children = item.children?.length ? build(item.children, key) : undefined;
+        return {
+          key,
+          icon: item.icon || undefined,
+          label: translateMenuLabel(item),
+          disabled: (item as any).disabled === true,
+          children,
+        } as AntMenuItem;
+      });
+
+    return {
+      items: build(visibleNavItems),
+      pathByKey,
+      parentByKey,
+    };
+  }, [visibleNavItems, t]);
+
+  const selectedKey = useMemo(() => {
+    let winner: { key: string; length: number } | null = null;
+
+    menuModel.pathByKey.forEach((item, key) => {
+      if (!item.path) return;
+      if (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) {
+        if (!winner || item.path.length > winner.length) {
+          winner = { key, length: item.path.length };
+        }
       }
+    });
 
-      const groupKey = labelKey || "category";
-      const isExpanded = !!expanded[groupKey];
-      return (
-        <Box key={labelKey} sx={{ mt: collapsed ? 0.5 : 1.5 }}>
-          {!collapsed && (
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => toggleGroup(groupKey)}
-                sx={{
-                  minHeight: 40,
-                  py: 0.5,
-                  px: 1.5,
-                  justifyContent: "flex-start",
-                }}
-              >
-                <ListItemText
-                  primary={translateMenuLabel(item)}
-                  primaryTypographyProps={{
-                    variant: "caption",
-                    sx: { color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.6 },
-                  }}
-                />
-                {isExpanded ? <ExpandLess sx={{ fontSize: 18 }} /> : <ExpandMore sx={{ fontSize: 18 }} />}
-              </ListItemButton>
-            </ListItem>
-          )}
-          {!collapsed && (
-            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {item.children!.map((child) => {
-                  const childKey = child.key || child.labelKey || child.path;
-                  const active = !!child.path && location.pathname.startsWith(child.path);
-                  return (
-                    <ListItem
-                      key={childKey}
-                      disablePadding
-                      sx={{ display: "block" }}
-                    >
-                    <ListItemButton
-                        selected={active}
-                        disabled={(child as any).disabled === true}
-                        onClick={() => child.path && menuNavigate(child.path, child.resourceKey)}
-                        sx={{
-                          minHeight: 38,
-                          py: 0.5,
-                          justifyContent: "flex-start",
-                          px: 2.5,
-                          "&.Mui-selected": {
-                            backgroundColor: CM.bg,
-                            borderRadius: "10px",
-                            color: CM.primaryDark,
-                            "& .MuiListItemIcon-root": { color: CM.secondary },
-                            "& .MuiListItemText-primary": { color: CM.primaryDark },
-                          },
-                        }}
-                      >
-                        {child.icon && (
-                          <ListItemIcon
-                            sx={{
-                              minWidth: 0,
-                              mr: 1.1,
-                              justifyContent: "center",
-                              color: active ? CM.secondary : CM.textMuted,
-                              "& svg": { fontSize: 20 },
-                            }}
-                          >
-                            {child.icon}
-                          </ListItemIcon>
-                        )}
-                        <ListItemText
-                          primary={translateMenuLabel(child)}
-                          primaryTypographyProps={{
-                            variant: "body2",
-                            fontWeight: active ? 600 : 500,
-                            fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.8rem" },
-                          }}
-                        />
-                      </ListItemButton>
-                    </ListItem>
-                  );
-                })}
-              </List>
-            </Collapse>
-          )}
-          <Divider sx={{ my: 1, opacity: 0.3 }} />
-        </Box>
-      );
-    },
-    [collapsed, expanded, location.pathname, menuNavigate, t, toggleGroup],
-  );
+    return winner?.key || "";
+  }, [location.pathname, menuModel.pathByKey]);
 
+  useEffect(() => {
+    if (!selectedKey || collapsed) return;
 
-  if (isSmall) {
-    return null;
-  }
+    const ancestors: string[] = [];
+    let parent = menuModel.parentByKey.get(selectedKey);
+    while (parent) {
+      ancestors.unshift(parent);
+      parent = menuModel.parentByKey.get(parent);
+    }
 
-  const siderWidth = collapsed ? 72 : 260;
+    if (ancestors.length) {
+      setOpenKeys((current) => Array.from(new Set([...current, ...ancestors])));
+    }
+  }, [collapsed, menuModel.parentByKey, selectedKey]);
+
+  const handleMenuClick: MenuProps["onClick"] = ({ key }) => {
+    const item = menuModel.pathByKey.get(String(key));
+    if (item?.path) {
+      menuNavigate(item.path, item.resourceKey);
+    }
+  };
+
+  const siderWidth = collapsed ? CM_SHELL.sidebarCollapsedWidth : CM_SHELL.sidebarWidth;
 
   return (
-    <Box
-      component="aside"
-      sx={{
-        width: siderWidth,
-        flexShrink: 0,
-        height: "calc(100vh - var(--cm-header-height))",
-        position: "sticky",
-        top: "var(--cm-header-height)",
-        borderRight: "1px solid var(--cm-border)",
-        bgcolor: "var(--cm-surface)",
-        display: "flex",
-        flexDirection: "column",
-        transition: "width 0.2s ease",
-      }}
+    <aside
+      className={`cm-ant-sider${collapsed ? " cm-ant-sider--collapsed" : ""}`}
+      style={{ width: siderWidth }}
+      aria-label="Primary navigation"
     >
-      {/* Top section – desktop only: label + close (always visible when rendered) */}
-      {!isSmall && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            px: collapsed ? 1 : 2,
-            py: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            minHeight: 44,
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: collapsed ? 80 : "100%",
-            }}
-          >
-            {t("layout.sider.adminMenu", { defaultValue: "Admin menu" })}
-          </Typography>
-          <IconButton
-            size="small"
-            onClick={handleCloseClick}
-            sx={{ p: "6px", color: "text.primary" }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      )}
+      <div className="cm-ant-sider-toolbar">
+        {!collapsed && <Text className="cm-ant-sider-caption">Navigation</Text>}
+        <Tooltip title={collapsed ? "Expand navigation" : "Collapse navigation"} placement="right">
+          <Button
+            type="text"
+            className="cm-ant-sider-collapse"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          />
+        </Tooltip>
+      </div>
 
-      {/* Menu list */}
-      <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
+      <div className="cm-ant-sider-scroll">
         {menuError && (
-          <Box sx={{ px: 2, pb: 1 }}>
-            <Typography variant="caption" color="error">
-              {menuError}
-            </Typography>
-          </Box>
+          <div className="cm-ant-sider-message cm-ant-sider-message--error">
+            {menuError}
+          </div>
         )}
-        <List
-          component="nav"
-          sx={{
-            mt: 1,
-            px: collapsed ? 0.5 : 1.5,
-            pb: 2,
-          }}
-        >
-          {loadingPermissions && visibleNavItems.length === 0 && (
-            <ListItem disablePadding>
-              <ListItemText
-                primary="Loading menu..."
-                primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
-                sx={{ px: 1.5, py: 0.5 }}
-              />
-            </ListItem>
-          )}
-          {menuError && visibleNavItems.length === 0 && !isSuperAdmin && !loadingPermissions && (
-            <ListItem disablePadding>
-              <ListItemText
-                primary={menuError}
-                primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
-                sx={{ px: 1.5, py: 0.5 }}
-              />
-            </ListItem>
-          )}
-          {visibleNavItems.length === 0 && !isSuperAdmin && !loadingPermissions && (
-            <ListItem disablePadding>
-              <ListItemText
-                primary="No menu access assigned"
-                primaryTypographyProps={{ variant: "body2", color: "text.secondary" }}
-                sx={{ px: 1.5, py: 0.5 }}
-              />
-            </ListItem>
-          )}
-          {visibleNavItems.map((item) => renderMenuItem(item))}
-        </List>
-      </Box>
 
-      {/* Profile section */}
-      <Box
-        sx={{
-          borderTop: `1px solid ${theme.palette.divider}`,
-          px: collapsed ? 1 : 2,
-          py: 1.5,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Avatar sx={{ width: 32, height: 32 }}>{initials}</Avatar>
-          {!collapsed && (
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {displayName}
-              </Typography>
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {t("layout.sider.signedIn", { defaultValue: "Signed in" })}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      </Box>
-
-      {/* Bottom small footer (optional) */}
-      <Divider />
-      <Box
-        sx={{
-          px: collapsed ? 1 : 2,
-          py: 1.5,
-          textAlign: collapsed ? "center" : "left",
-        }}
-      >
-        {!collapsed && (
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            © {new Date().getFullYear()} CiberMandi
-          </Typography>
+        {!menuError && loadingPermissions && visibleNavItems.length === 0 && (
+          <div className="cm-ant-sider-message">Loading menu…</div>
         )}
-      </Box>
-    </Box>
+
+        {!menuError && !loadingPermissions && visibleNavItems.length === 0 && !isSuperAdmin && (
+          <div className="cm-ant-sider-message">No menu access assigned</div>
+        )}
+
+        <Menu
+          className="cm-ant-navigation"
+          mode="inline"
+          inlineCollapsed={collapsed}
+          items={menuModel.items}
+          selectedKeys={selectedKey ? [selectedKey] : []}
+          openKeys={collapsed ? undefined : openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys.map(String))}
+          onClick={handleMenuClick}
+        />
+      </div>
+    </aside>
   );
 };

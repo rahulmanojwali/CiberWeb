@@ -1,194 +1,180 @@
 import React from "react";
-import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
-import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
-import ApartmentOutlinedIcon from "@mui/icons-material/ApartmentOutlined";
-import StoreMallDirectoryOutlinedIcon from "@mui/icons-material/StoreMallDirectoryOutlined";
-import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
-import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
-import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
-import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
-import QrCodeScannerOutlinedIcon from "@mui/icons-material/QrCodeScannerOutlined";
-import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import InventoryOutlinedIcon from "@mui/icons-material/InventoryOutlined";
-import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
-import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
-import PriceChangeOutlinedIcon from "@mui/icons-material/PriceChangeOutlined";
-import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
-import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
-import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
-import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
-import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import DevicesOutlinedIcon from "@mui/icons-material/DevicesOutlined";
-import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
-import SettingsInputComponentOutlinedIcon from "@mui/icons-material/SettingsInputComponentOutlined";
-import RuleOutlinedIcon from "@mui/icons-material/RuleOutlined";
-import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
-import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
-import GavelOutlinedIcon from "@mui/icons-material/GavelOutlined";
-import LoopOutlinedIcon from "@mui/icons-material/LoopOutlined";
-import PolicyOutlinedIcon from "@mui/icons-material/PolicyOutlined";
-import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
-import WarehouseOutlinedIcon from "@mui/icons-material/WarehouseOutlined";
-import DoorFrontOutlinedIcon from "@mui/icons-material/DoorFrontOutlined";
-import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
-import AgricultureOutlinedIcon from "@mui/icons-material/AgricultureOutlined";
-import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
-import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
-import DirectionsCarOutlinedIcon from "@mui/icons-material/DirectionsCarOutlined";
-import ScaleOutlinedIcon from "@mui/icons-material/ScaleOutlined";
-import ToggleOnOutlinedIcon from "@mui/icons-material/ToggleOnOutlined";
-import PlaylistAddCheckOutlinedIcon from "@mui/icons-material/PlaylistAddCheckOutlined";
-import LocalAtmOutlinedIcon from "@mui/icons-material/LocalAtmOutlined";
-import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
-import SettingsApplicationsOutlinedIcon from "@mui/icons-material/SettingsApplicationsOutlined";
-import SettingsSuggestOutlinedIcon from "@mui/icons-material/SettingsSuggestOutlined";
-import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
-import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
-import ReceiptOutlinedIcon from "@mui/icons-material/ReceiptOutlined";
-import AssignmentIndOutlinedIcon from "@mui/icons-material/AssignmentIndOutlined";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
-import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
-import SubscriptionsOutlinedIcon from "@mui/icons-material/SubscriptionsOutlined";
-import PriceCheckOutlinedIcon from "@mui/icons-material/PriceCheckOutlined";
-import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
-import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
-import SchemaOutlinedIcon from "@mui/icons-material/SchemaOutlined";
-import PhonelinkLockOutlinedIcon from "@mui/icons-material/PhonelinkLockOutlined";
-import SecurityUpdateOutlinedIcon from "@mui/icons-material/SecurityUpdateOutlined";
-import RuleFolderOutlinedIcon from "@mui/icons-material/RuleFolderOutlined";
-import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
-import DeveloperBoardOutlinedIcon from "@mui/icons-material/DeveloperBoardOutlined";
-import PhoneIphoneOutlinedIcon from "@mui/icons-material/PhoneIphoneOutlined";
-import SpeedOutlinedIcon from "@mui/icons-material/SpeedOutlined";
-import CreditCardOutlinedIcon from "@mui/icons-material/CreditCardOutlined";
-import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
-import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
-import AccountBoxOutlinedIcon from "@mui/icons-material/AccountBoxOutlined";
-import ViewListOutlinedIcon from "@mui/icons-material/ViewListOutlined";
-import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined";
+import {
+  ApiOutlined,
+  ApartmentOutlined,
+  AppstoreOutlined,
+  AuditOutlined,
+  BankOutlined,
+  BarChartOutlined,
+  BellOutlined,
+  CalendarOutlined,
+  CarOutlined,
+  CheckSquareOutlined,
+  ClockCircleOutlined,
+  ClusterOutlined,
+  ColumnHeightOutlined,
+  ControlOutlined,
+  CreditCardOutlined,
+  DashboardOutlined,
+  DeploymentUnitOutlined,
+  DollarOutlined,
+  EnvironmentOutlined,
+  FileDoneOutlined,
+  FileTextOutlined,
+  HomeOutlined,
+  IdcardOutlined,
+  InboxOutlined,
+  LineChartOutlined,
+  LinkOutlined,
+  MobileOutlined,
+  MoneyCollectOutlined,
+  NotificationOutlined,
+  ProfileOutlined,
+  QrcodeOutlined,
+  RiseOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  ShopOutlined,
+  SolutionOutlined,
+  SyncOutlined,
+  TagsOutlined,
+  TeamOutlined,
+  ToolOutlined,
+  UnorderedListOutlined,
+  UserOutlined,
+  WalletOutlined,
+} from "@ant-design/icons";
+
+const icon = (Icon: any) => React.createElement(Icon);
 
 const ICON_MAP: Record<string, React.ReactNode> = {
-  dashboard: React.createElement(DashboardOutlinedIcon),
-  Dashboard: React.createElement(SpaceDashboardOutlinedIcon),
-  org: React.createElement(ApartmentOutlinedIcon),
-  organisations: React.createElement(ApartmentOutlinedIcon),
-  org_mandi: React.createElement(HubOutlinedIcon),
-  Link: React.createElement(LinkOutlinedIcon),
-  mandi: React.createElement(StoreMallDirectoryOutlinedIcon),
-  commodities: React.createElement(CategoryOutlinedIcon),
-  products: React.createElement(LocalOfferOutlinedIcon),
-  mandi_products: React.createElement(Inventory2OutlinedIcon),
-  admin_users: React.createElement(AdminPanelSettingsOutlinedIcon),
-  farmers: React.createElement(AgricultureOutlinedIcon),
-  traders: React.createElement(GroupOutlinedIcon),
-  trader_approvals: React.createElement(HowToRegOutlinedIcon),
-  QrCode: React.createElement(QrCodeScannerOutlinedIcon),
-  device: React.createElement(DevicesOutlinedIcon),
-  gate_devices: React.createElement(SensorsOutlinedIcon),
-  gate_device_configs: React.createElement(SettingsInputComponentOutlinedIcon),
-  gate_entry_reasons: React.createElement(RuleOutlinedIcon),
-  gate_movements: React.createElement(TimelineOutlinedIcon),
-  gate_tokens: React.createElement(BadgeOutlinedIcon),
-  vehicle: React.createElement(DirectionsCarOutlinedIcon),
-  auction_methods: React.createElement(GavelOutlinedIcon),
-  auction_rounds: React.createElement(LoopOutlinedIcon),
-  auction_policies: React.createElement(PolicyOutlinedIcon),
-  auction_sessions: React.createElement(EventNoteOutlinedIcon),
-  auction_lots: React.createElement(InventoryOutlinedIcon),
-  auction_results: React.createElement(FactCheckOutlinedIcon),
-  fees: React.createElement(ReceiptLongOutlinedIcon),
-  prices: React.createElement(TrendingUpOutlinedIcon),
-  mandi_prices: React.createElement(PriceChangeOutlinedIcon),
-  market_prices: React.createElement(ShowChartOutlinedIcon),
-  transport: React.createElement(LocalShippingOutlinedIcon),
-  reports: React.createElement(AssessmentOutlinedIcon),
-  security: React.createElement(SecurityOutlinedIcon),
-  toggle: React.createElement(ToggleOnOutlinedIcon),
-  mandi_coverage: React.createElement(MapOutlinedIcon),
-  mandi_facilities: React.createElement(WarehouseOutlinedIcon),
-  mandi_gates: React.createElement(DoorFrontOutlinedIcon),
-  mandi_hours: React.createElement(AccessTimeOutlinedIcon),
-  pre_market: React.createElement(PlaylistAddCheckOutlinedIcon),
-  weighment_tickets: React.createElement(ScaleOutlinedIcon),
-  payment_gateway: React.createElement(SettingsOutlinedIcon),
+  dashboard: icon(DashboardOutlined),
+  operations: icon(AppstoreOutlined),
+  approval: icon(CheckSquareOutlined),
+  Dashboard: icon(AppstoreOutlined),
+  org: icon(ApartmentOutlined),
+  organisations: icon(ApartmentOutlined),
+  org_mandi: icon(DeploymentUnitOutlined),
+  Link: icon(LinkOutlined),
+  mandi: icon(ShopOutlined),
+  commodities: icon(TagsOutlined),
+  products: icon(InboxOutlined),
+  mandi_products: icon(InboxOutlined),
+  admin_users: icon(SafetyCertificateOutlined),
+  farmers: icon(UserOutlined),
+  traders: icon(TeamOutlined),
+  trader_approvals: icon(CheckSquareOutlined),
+  QrCode: icon(QrcodeOutlined),
+  device: icon(MobileOutlined),
+  gate_devices: icon(ApiOutlined),
+  gate_device_configs: icon(ToolOutlined),
+  gate_entry_reasons: icon(FileTextOutlined),
+  gate_movements: icon(LineChartOutlined),
+  gate_tokens: icon(IdcardOutlined),
+  vehicle: icon(CarOutlined),
+  auction_methods: icon(AuditOutlined),
+  auction_rounds: icon(SyncOutlined),
+  auction_policies: icon(SolutionOutlined),
+  auction_sessions: icon(CalendarOutlined),
+  auction_lots: icon(InboxOutlined),
+  auction_results: icon(FileDoneOutlined),
+  fees: icon(FileTextOutlined),
+  prices: icon(RiseOutlined),
+  mandi_prices: icon(DollarOutlined),
+  market_prices: icon(LineChartOutlined),
+  transport: icon(CarOutlined),
+  reports: icon(BarChartOutlined),
+  security: icon(SafetyCertificateOutlined),
+  toggle: icon(ControlOutlined),
+  mandi_coverage: icon(EnvironmentOutlined),
+  mandi_facilities: icon(HomeOutlined),
+  mandi_gates: icon(HomeOutlined),
+  mandi_hours: icon(ClockCircleOutlined),
+  pre_market: icon(UnorderedListOutlined),
+  weighment_tickets: icon(ColumnHeightOutlined),
+  payment_gateway: icon(SettingOutlined),
 };
 
 const RESOURCE_ICON_MAP: Record<string, React.ReactNode> = {
-  "dashboard.menu": React.createElement(DashboardOutlinedIcon),
-  "organisations.menu": React.createElement(ApartmentOutlinedIcon),
-  "admin_users.menu": React.createElement(AdminPanelSettingsOutlinedIcon),
-  "org_mandi_mappings.menu": React.createElement(HubOutlinedIcon),
-  "mandis.menu": React.createElement(StoreMallDirectoryOutlinedIcon),
-  "commodities_masters.menu": React.createElement(CategoryOutlinedIcon),
-  "commodity_products_masters.menu": React.createElement(LocalOfferOutlinedIcon),
-  "mandi_commodity_products_masters.menu": React.createElement(Inventory2OutlinedIcon),
-  "mandi_facilities.menu": React.createElement(WarehouseOutlinedIcon),
-  "mandi_hours.menu": React.createElement(AccessTimeOutlinedIcon),
-  "gate_entry_reasons_masters.menu": React.createElement(RuleOutlinedIcon),
-  "gate_vehicle_types_masters.menu": React.createElement(DirectionsCarOutlinedIcon),
-  "mandi_gates.menu": React.createElement(DoorFrontOutlinedIcon),
-  "gate_devices.menu": React.createElement(DevicesOutlinedIcon),
-  "cm_gate_devices.menu": React.createElement(SensorsOutlinedIcon),
-  "gate_device_configs.menu": React.createElement(SettingsInputComponentOutlinedIcon),
-  "gate_entry_tokens.menu": React.createElement(QrCodeScannerOutlinedIcon),
-  "pre_market_listings.menu": React.createElement(PlaylistAddCheckOutlinedIcon),
-  "stall_fees.menu": React.createElement(ReceiptLongOutlinedIcon),
-  "market_prices.menu": React.createElement(ShowChartOutlinedIcon),
-  "mandi_price_policies.menu": React.createElement(PriceCheckOutlinedIcon),
-  "mandi_settings.menu": React.createElement(ManageAccountsOutlinedIcon),
-  "transport_intents.menu": React.createElement(LocalShippingOutlinedIcon),
-  "mandi_associations.menu": React.createElement(LinkOutlinedIcon),
-  "gate_movements_log.view": React.createElement(TimelineOutlinedIcon),
-  "weighment_tickets.view": React.createElement(ScaleOutlinedIcon),
-  "auction_methods_masters.menu": React.createElement(GavelOutlinedIcon),
-  "auction_rounds_masters.menu": React.createElement(LoopOutlinedIcon),
-  "cm_mandi_auction_policies.menu": React.createElement(PolicyOutlinedIcon),
-  "auction_policy_settings.menu": React.createElement(TuneOutlinedIcon),
-  "auction_sessions.menu": React.createElement(EventNoteOutlinedIcon),
-  "lots.menu": React.createElement(ViewListOutlinedIcon),
-  "auction_lots.menu": React.createElement(InventoryOutlinedIcon),
-  "auction_results.menu": React.createElement(EmojiEventsOutlinedIcon),
-  "trader_approvals.menu": React.createElement(HowToRegOutlinedIcon),
-  "traders.menu": React.createElement(GroupOutlinedIcon),
-  "farmers.menu": React.createElement(AgricultureOutlinedIcon),
-  "commodity_fees.menu": React.createElement(LocalAtmOutlinedIcon),
-  "custom_fees.menu": React.createElement(SettingsSuggestOutlinedIcon),
-  "mandi_payment_settings.menu": React.createElement(SettingsApplicationsOutlinedIcon),
-  "org_payment_settings.menu": React.createElement(AccountBalanceOutlinedIcon),
-  "payment_models.menu": React.createElement(AccountTreeOutlinedIcon),
-  "payment_modes.menu": React.createElement(CreditCardOutlinedIcon),
-  "payment_gateway_configs.menu": React.createElement(AccountBalanceWalletOutlinedIcon),
-  "payment_gateway_settings.menu": React.createElement(PaymentsOutlinedIcon),
-  "payment_payout_settings.menu": React.createElement(AttachMoneyOutlinedIcon),
-  "settlement_charge_settings.menu": React.createElement(RequestQuoteOutlinedIcon),
-  "payment_vendor_accounts.menu": React.createElement(AccountBoxOutlinedIcon),
-  "payments_log.menu": React.createElement(ReceiptOutlinedIcon),
-  "role_custom_fees.menu": React.createElement(AssignmentIndOutlinedIcon),
-  "settlements.menu": React.createElement(AccountBalanceOutlinedIcon),
-  "subscription_invoices.menu": React.createElement(RequestQuoteOutlinedIcon),
-  "subscriptions.menu": React.createElement(SubscriptionsOutlinedIcon),
-  "reports.menu": React.createElement(AssessmentOutlinedIcon),
-  "mandi_coverage.menu": React.createElement(MapOutlinedIcon),
-  "mandi_prices.menu": React.createElement(PriceChangeOutlinedIcon),
-  "system_security.menu": React.createElement(SecurityOutlinedIcon),
-  "platform_control_center.menu": React.createElement(DeveloperBoardOutlinedIcon),
-  "notification_templates.menu": React.createElement(NotificationsActiveOutlinedIcon),
-  "user_roles.menu": React.createElement(SupervisorAccountOutlinedIcon),
-  "resource_registry.menu": React.createElement(SchemaOutlinedIcon),
-  "security_2fa.menu": React.createElement(PhonelinkLockOutlinedIcon),
-  "security_switches.menu": React.createElement(ToggleOnOutlinedIcon),
-  "stepup_policy.menu": React.createElement(SecurityUpdateOutlinedIcon),
-  "role_policies.menu": React.createElement(RuleFolderOutlinedIcon),
-  "workflow_policies.menu": React.createElement(PolicyOutlinedIcon),
-  "mobile_dashboard.menu": React.createElement(PhoneIphoneOutlinedIcon),
-  "capacity_control.menu": React.createElement(SpeedOutlinedIcon),
+  "dashboard.menu": icon(DashboardOutlined),
+  "mandi_operations.menu": icon(AppstoreOutlined),
+  "organisations.menu": icon(ApartmentOutlined),
+  "admin_users.menu": icon(SafetyCertificateOutlined),
+  "org_mandi_mappings.menu": icon(DeploymentUnitOutlined),
+  "mandis.menu": icon(ShopOutlined),
+  "commodities_masters.menu": icon(TagsOutlined),
+  "commodity_products_masters.menu": icon(InboxOutlined),
+  "mandi_commodity_products_masters.menu": icon(InboxOutlined),
+  "mandi_facilities.menu": icon(HomeOutlined),
+  "mandi_hours.menu": icon(ClockCircleOutlined),
+  "gate_entry_reasons_masters.menu": icon(FileTextOutlined),
+  "gate_vehicle_types_masters.menu": icon(CarOutlined),
+  "mandi_gates.menu": icon(HomeOutlined),
+  "gate_devices.menu": icon(MobileOutlined),
+  "cm_gate_devices.menu": icon(ApiOutlined),
+  "gate_device_configs.menu": icon(ToolOutlined),
+  "gate_entry_tokens.menu": icon(QrcodeOutlined),
+  "pre_market_listings.menu": icon(UnorderedListOutlined),
+  "stall_fees.menu": icon(FileTextOutlined),
+  "market_prices.menu": icon(LineChartOutlined),
+  "mandi_price_policies.menu": icon(DollarOutlined),
+  "mandi_settings.menu": icon(SettingOutlined),
+  "transport_intents.menu": icon(CarOutlined),
+  "mandi_associations.menu": icon(LinkOutlined),
+  "gate_movements_log.view": icon(LineChartOutlined),
+  "weighment_tickets.view": icon(ColumnHeightOutlined),
+  "auction_methods_masters.menu": icon(AuditOutlined),
+  "auction_rounds_masters.menu": icon(SyncOutlined),
+  "cm_mandi_auction_policies.menu": icon(SolutionOutlined),
+  "auction_policy_settings.menu": icon(ControlOutlined),
+  "auction_sessions.menu": icon(CalendarOutlined),
+  "lots.menu": icon(UnorderedListOutlined),
+  "auction_lots.menu": icon(InboxOutlined),
+  "auction_results.menu": icon(FileDoneOutlined),
+  "trader_approvals.menu": icon(CheckSquareOutlined),
+  "mandi_approvals.menu": icon(CheckSquareOutlined),
+  "mandi_staff.menu": icon(TeamOutlined),
+  "mandi_staff.list": icon(TeamOutlined),
+  "mandi_reports.menu": icon(BarChartOutlined),
+  "mandi_management.menu": icon(SettingOutlined),
+  "traders.menu": icon(TeamOutlined),
+  "farmers.menu": icon(UserOutlined),
+  "commodity_fees.menu": icon(MoneyCollectOutlined),
+  "custom_fees.menu": icon(ControlOutlined),
+  "mandi_payment_settings.menu": icon(SettingOutlined),
+  "org_payment_settings.menu": icon(BankOutlined),
+  "payment_models.menu": icon(ClusterOutlined),
+  "payment_modes.menu": icon(CreditCardOutlined),
+  "payment_gateway_configs.menu": icon(WalletOutlined),
+  "payment_gateway_settings.menu": icon(SettingOutlined),
+  "payment_payout_settings.menu": icon(DollarOutlined),
+  "settlement_charge_settings.menu": icon(MoneyCollectOutlined),
+  "payment_vendor_accounts.menu": icon(ProfileOutlined),
+  "payments_log.menu": icon(FileTextOutlined),
+  "role_custom_fees.menu": icon(IdcardOutlined),
+  "settlements.menu": icon(BankOutlined),
+  "subscription_invoices.menu": icon(FileDoneOutlined),
+  "subscriptions.menu": icon(ProfileOutlined),
+  "reports.menu": icon(BarChartOutlined),
+  "mandi_coverage.menu": icon(EnvironmentOutlined),
+  "mandi_prices.menu": icon(DollarOutlined),
+  "system_security.menu": icon(SafetyCertificateOutlined),
+  "platform_control_center.menu": icon(ClusterOutlined),
+  "notification_templates.menu": icon(NotificationOutlined),
+  "user_roles.menu": icon(TeamOutlined),
+  "resource_registry.menu": icon(AppstoreOutlined),
+  "security_2fa.menu": icon(MobileOutlined),
+  "security_switches.menu": icon(ControlOutlined),
+  "stepup_policy.menu": icon(SafetyCertificateOutlined),
+  "role_policies.menu": icon(SolutionOutlined),
+  "workflow_policies.menu": icon(SolutionOutlined),
+  "mobile_dashboard.menu": icon(MobileOutlined),
+  "capacity_control.menu": icon(BarChartOutlined),
+  "notifications.menu": icon(BellOutlined),
 };
 
 export function resolveMenuIcon(iconKey?: string | null, resourceKey?: string | null): React.ReactNode | undefined {
   if (resourceKey && RESOURCE_ICON_MAP[resourceKey]) return RESOURCE_ICON_MAP[resourceKey];
   if (iconKey && ICON_MAP[iconKey]) return ICON_MAP[iconKey];
-  return React.createElement(Inventory2OutlinedIcon);
+  return icon(AppstoreOutlined);
 }

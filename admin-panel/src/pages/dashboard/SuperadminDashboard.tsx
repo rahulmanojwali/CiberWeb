@@ -106,6 +106,15 @@ export const SuperadminDashboard: React.FC = () => {
 
   const loadMandis = useCallback(async (orgId?: string) => {
     if (!username) return;
+
+    // getOrgMandis is an organisation-scoped API and requires org_id.
+    // SUPER_ADMIN's initial "All Organisations" scope must not call it without one.
+    if (!orgId) {
+      setMandis([]);
+      setSelectedMandiId(undefined);
+      return;
+    }
+
     setScopeLoading(true);
     setScopeError(null);
     try {
@@ -166,7 +175,11 @@ export const SuperadminDashboard: React.FC = () => {
 
   useEffect(() => {
     setSelectedMandiId(undefined);
-    loadMandis(selectedOrgId);
+    if (selectedOrgId) {
+      loadMandis(selectedOrgId);
+    } else {
+      setMandis([]);
+    }
   }, [loadMandis, selectedOrgId]);
 
   const cards = summary?.cards || {};
@@ -214,7 +227,8 @@ export const SuperadminDashboard: React.FC = () => {
               showSearch
               optionFilterProp="label"
               value={selectedMandiId}
-              placeholder="All mandis"
+              placeholder={selectedOrgId ? "All mandis" : "Select organisation first"}
+              disabled={!selectedOrgId}
               loading={scopeLoading}
               onChange={(value) => setSelectedMandiId(value)}
               options={mandis.map((mandi) => ({ value: mandi.id, label: mandi.name }))}

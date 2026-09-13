@@ -2144,7 +2144,41 @@ main {
 .cm-login-lock-badge { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 18px; border-radius: var(--cm-radius-sm); color: var(--cm-primary); background: var(--cm-surface-muted); }
 .cm-login-form-title { color: var(--cm-text) !important; font-size: 28px !important; line-height: 1.1 !important; font-weight: 850 !important; letter-spacing: -0.025em !important; }
 .cm-login-form-subtitle { margin-top: 8px !important; color: var(--cm-text-muted) !important; font-size: 12px !important; line-height: 1.55 !important; }
-.cm-login-field .MuiOutlinedInput-root, .cm-login-select .MuiOutlinedInput-root { min-height: 52px; border-radius: var(--cm-radius-sm) !important; background: var(--cm-surface) !important; }
+/* Login controls use a compact 44px rhythm so username/password do not overpower the form. */
+.cm-login-field .MuiOutlinedInput-root,
+.cm-login-select .MuiOutlinedInput-root {
+  min-height: 44px !important;
+  height: 44px;
+  border-radius: var(--cm-radius-sm) !important;
+  background: var(--cm-surface) !important;
+}
+.cm-login-field .MuiInputBase-input {
+  padding-block: 10px !important;
+}
+
+/* MUI TextField owns the visible outline. Reset the global native-input skin inside
+   login fields so username/password render as one control, not a box inside a box. */
+.cm-login-field .MuiOutlinedInput-root > input.MuiInputBase-input {
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cm-login-field .MuiOutlinedInput-root > input.MuiInputBase-input:focus {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.cm-login-select .MuiSelect-select {
+  min-height: 0 !important;
+  display: flex;
+  align-items: center;
+  padding-block: 10px !important;
+}
 .cm-login-forgot-link { color: var(--cm-primary) !important; font-size: 11px !important; font-weight: 750 !important; text-decoration: none !important; }
 .cm-login-error { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--cm-error) 26%, var(--cm-border)); border-radius: var(--cm-radius-sm); background: color-mix(in srgb, var(--cm-error) 7%, var(--cm-surface)); }
 .cm-login-error .MuiTypography-root { color: var(--cm-error) !important; font-size: 11px !important; }
@@ -4669,6 +4703,35 @@ main,
 
 .cm-reset-password-page .cm-reset-password-input .ant-input-prefix,
 .cm-reset-password-page .cm-reset-password-input .ant-input-suffix {
+  display: inline-flex;
+  align-items: center;
+}
+
+
+/* Forgot Password: Ant Input owns the visible field shell.
+   Neutralise the global native-input rule on Ant's internal input so
+   the username field renders as one box instead of a nested box. */
+.cm-forgot-password-page .cm-forgot-password-input.ant-input-affix-wrapper {
+  min-height: 44px !important;
+  padding: 4px 11px !important;
+  background: #fff !important;
+}
+
+.cm-forgot-password-page .cm-forgot-password-input.ant-input-affix-wrapper > input.ant-input,
+.cm-forgot-password-page .cm-forgot-password-input.ant-input-affix-wrapper > input.ant-input:hover,
+.cm-forgot-password-page .cm-forgot-password-input.ant-input-affix-wrapper > input.ant-input:focus {
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  padding: 0 !important;
+}
+
+.cm-forgot-password-page .cm-forgot-password-input .ant-input-prefix,
+.cm-forgot-password-page .cm-forgot-password-input .ant-input-suffix {
   display: inline-flex;
   align-items: center;
 }

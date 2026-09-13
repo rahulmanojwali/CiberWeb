@@ -175,6 +175,7 @@ export const Login: React.FC = () => {
               <Stack spacing={2.1}>
                 <TextField
                   label="Username"
+                  size="small"
                   fullWidth
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -185,6 +186,7 @@ export const Login: React.FC = () => {
 
                 <TextField
                   label="Password"
+                  size="small"
                   fullWidth
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -208,7 +210,7 @@ export const Login: React.FC = () => {
                 />
 
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                  <FormControl fullWidth className="cm-login-select">
+                  <FormControl fullWidth size="small" className="cm-login-select">
                     <InputLabel id="cm-login-language-label">Language</InputLabel>
                     <Select
                       labelId="cm-login-language-label"
@@ -224,7 +226,7 @@ export const Login: React.FC = () => {
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth className="cm-login-select">
+                  <FormControl fullWidth size="small" className="cm-login-select">
                     <InputLabel id="cm-login-country-label">Country</InputLabel>
                     <Select
                       labelId="cm-login-country-label"

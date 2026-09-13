@@ -324,6 +324,7 @@ const AdminUsersList: React.FC = () => {
   const { can, authContext, isSuper } = usePermissions();
   const { isRecordLocked } = useRecordLock();
   const scopeOrgCode = uiConfig.scope?.org_code || authContext.org_code || "";
+  const isOrganisationScoped = !isSuper && Boolean(scopeOrgCode);
   const recordLockContext = useMemo(
     () => ({
       role: authContext.role || null,
@@ -414,6 +415,11 @@ const AdminUsersList: React.FC = () => {
     is_active: true,
   });
   const [fieldErrors, setFieldErrors] = useState<AdminUserFieldErrors>({});
+
+  useEffect(() => {
+    if (!isOrganisationScoped || !scopeOrgCode) return;
+    setFilters((prev) => (prev.org_code === scopeOrgCode ? prev : { ...prev, org_code: scopeOrgCode }));
+  }, [isOrganisationScoped, scopeOrgCode]);
 
   const handleToast = useCallback((message: string, severity: ToastState["severity"]) => {
     setToast({ open: true, message, severity });
@@ -670,10 +676,16 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   const canManageUser = useCallback(
     (user?: AdminUser | null) => {
       if (!canUpdateUserAction) return false;
+      if (!isSuper && user) {
+        const userOrgCode = String(user.org_code || "").trim().toUpperCase();
+        const actorOrgCode = String(scopeOrgCode || "").trim().toUpperCase();
+        if (!actorOrgCode || userOrgCode !== actorOrgCode) return false;
+        if (normalizeRoleSlug(user.role_slug || user.role_code) === "SUPER_ADMIN") return false;
+      }
       const lockInfo = user ? isRecordLocked(user as any, recordLockContext) : { locked: false };
       return !lockInfo.locked;
     },
-    [canUpdateUserAction, isRecordLocked, recordLockContext],
+    [canUpdateUserAction, isRecordLocked, isSuper, recordLockContext, scopeOrgCode],
   );
 
   const resetForm = (orgCode?: string) => {
@@ -719,15 +731,17 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       display_name: user.display_name || "",
       email: user.email || "",
       mobile: user.mobile || "",
-      org_code: user.org_code || scopeOrgCode || "",
-      org_id: user.org_id || "",
+      org_code: !isSuper ? scopeOrgCode || "" : user.org_code || scopeOrgCode || "",
+      org_id: !isSuper
+        ? orgOptions.find((org) => org.org_code === scopeOrgCode)?._id || authContext.org_id || ""
+        : user.org_id || "",
       role_slug: user.role_slug,
       mandi_codes: normalizeMandiCodes(user.mandi_codes || []),
       is_active: user.is_active === "Y",
     });
     if (user.org_code) void loadMandis(user.org_code);
     setDialogOpen(true);
-  }, [canManageUser, handleToast, loadMandis, scopeOrgCode]);
+  }, [authContext.org_id, canManageUser, handleToast, isSuper, loadMandis, orgOptions, scopeOrgCode]);
 
   const handleCloseDialog = () => {
     setFieldErrors({});
@@ -745,6 +759,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   };
 
   const handleOrgChange = async (value: string) => {
+    if (!isSuper) return;
     clearFieldError("org_code");
     const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === value);
     setForm((prev: FormState) => ({
@@ -834,7 +849,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       setLoading(true);
       setError(null);
       if (isEditMode && editingUser) {
-        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+        const effectiveOrgCode = !isSuper ? scopeOrgCode : form.org_code;
+        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
         const normalizedMandiIds = (form.mandi_codes || [])
           .map((v) => Number(v))
           .filter((v) => Number.isFinite(v) && v > 0);
@@ -845,8 +861,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           email: form.email,
           mobile: form.mobile,
           role_slug: form.role_slug,
-          org_code: form.org_code || null,
-          org_id: selectedOrg?._id || form.org_id || null,
+          org_code: effectiveOrgCode || null,
+          org_id: selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null,
           mandi_ids: normalizedMandiIds,
           mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
@@ -879,7 +895,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           setLoading(false);
           return;
         }
-        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === form.org_code);
+        const effectiveOrgCode = !isSuper ? scopeOrgCode : form.org_code;
+        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
         const normalizedMandiIds = (form.mandi_codes || [])
           .map((v) => Number(v))
           .filter((v) => Number.isFinite(v) && v > 0);
@@ -891,8 +908,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           email: form.email,
           mobile: form.mobile,
           role_slug: form.role_slug,
-          org_code: form.org_code || null,
-          org_id: selectedOrg?._id || form.org_id || null,
+          org_code: effectiveOrgCode || null,
+          org_id: selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null,
           mandi_ids: normalizedMandiIds,
           mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
@@ -1257,7 +1274,6 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     ],
   );
 
-  const orgFilterDisabled = !isSuper;
 
   return (
     <PageContainer>
@@ -1322,25 +1338,33 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             />
           </AntCol>
           <AntCol xs={24} sm={8} md={6}>
-            <Dropdown
-              disabled={orgFilterDisabled}
-              trigger={["click"]}
-              menu={{
-                items: [
-                  { key: "", label: t("adminUsers.filters.all") },
-                  ...orgOptions.map((org: OrgOption) => ({ key: org.org_code, label: getOrgDisplayName(org) })),
-                ],
-                onClick: ({ key }) => {
-                  setFilters((prev) => ({ ...prev, org_code: String(key) }));
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                },
-              }}
-            >
-              <AntButton block style={{ height: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>{filters.org_code ? getOrgDisplayName(orgOptions.find((org) => org.org_code === filters.org_code) || { org_code: filters.org_code }) : t("adminUsers.filters.organisation")}</span>
-                <DownOutlined />
-              </AntButton>
-            </Dropdown>
+            {isSuper ? (
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: [
+                    { key: "", label: t("adminUsers.filters.all") },
+                    ...orgOptions.map((org: OrgOption) => ({ key: org.org_code, label: getOrgDisplayName(org) })),
+                  ],
+                  onClick: ({ key }) => {
+                    setFilters((prev) => ({ ...prev, org_code: String(key) }));
+                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  },
+                }}
+              >
+                <AntButton block style={{ height: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{filters.org_code ? getOrgDisplayName(orgOptions.find((org) => org.org_code === filters.org_code) || { org_code: filters.org_code }) : t("adminUsers.filters.organisation")}</span>
+                  <DownOutlined />
+                </AntButton>
+              </Dropdown>
+            ) : (
+              <AntInput
+                readOnly
+                value={getOrgDisplayName(orgOptions.find((org) => org.org_code === scopeOrgCode) || { org_code: scopeOrgCode })}
+                aria-label="Organisation scope"
+                style={{ height: 40 }}
+              />
+            )}
           </AntCol>
           <AntCol xs={12} sm={8} md={5}>
             <Dropdown
@@ -1670,19 +1694,28 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           </AntCol>
           <AntCol xs={24} sm={12}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.organisation")}</div>
-            <Dropdown
-              disabled={!isSuper || form.role_slug === "SUPER_ADMIN"}
-              trigger={["click"]}
-              menu={{
-                items: orgOptions.map((org) => ({ key: org.org_code, label: getOrgDisplayName(org) })),
-                onClick: ({ key }) => void handleOrgChange(String(key)),
-              }}
-            >
-              <AntButton block style={{ height: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>{form.org_code ? getOrgDisplayName(orgOptions.find((org) => org.org_code === form.org_code) || { org_code: form.org_code }) : "Select organisation"}</span>
-                <DownOutlined />
-              </AntButton>
-            </Dropdown>
+            {isSuper ? (
+              <Dropdown
+                disabled={form.role_slug === "SUPER_ADMIN"}
+                trigger={["click"]}
+                menu={{
+                  items: orgOptions.map((org) => ({ key: org.org_code, label: getOrgDisplayName(org) })),
+                  onClick: ({ key }) => void handleOrgChange(String(key)),
+                }}
+              >
+                <AntButton block style={{ height: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{form.org_code ? getOrgDisplayName(orgOptions.find((org) => org.org_code === form.org_code) || { org_code: form.org_code }) : "Select organisation"}</span>
+                  <DownOutlined />
+                </AntButton>
+              </Dropdown>
+            ) : (
+              <AntInput
+                readOnly
+                value={getOrgDisplayName(orgOptions.find((org) => org.org_code === scopeOrgCode) || { org_code: scopeOrgCode })}
+                aria-label="Organisation"
+                style={{ height: 40 }}
+              />
+            )}
           </AntCol>
           <AntCol xs={24} sm={12}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.roles")} *</div>

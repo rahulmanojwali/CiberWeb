@@ -3,10 +3,10 @@ import {
   Alert,
   Button,
   Col,
+  Dropdown,
   Empty,
   List,
   Row,
-  Select,
   Skeleton,
   Space,
   Tag,
@@ -19,12 +19,13 @@ import {
   BankOutlined,
   ControlOutlined,
   DollarOutlined,
+  DownOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
   ShopOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { PageContainer } from "../../components/PageContainer";
 import { CmPageHeader } from "../../design-system/components/CmPageHeader";
 import { CmSectionCard } from "../../design-system/components/CmSectionCard";
@@ -63,10 +64,58 @@ const formatMoney = (value: unknown, currency = "INR") => {
   return `${n.toLocaleString("en-IN")} ${currency}`;
 };
 
+const getAlertSeverity = (item: any) =>
+  String(item?.severity || item?.priority || item?.level || "NOTICE").trim().toUpperCase();
+
+const isActionablePlatformAlert = (item: any) => {
+  const severity = getAlertSeverity(item);
+  const category = String(item?.category || item?.type || item?.domain || "").trim().toUpperCase();
+  const status = String(item?.status || "").trim().toUpperCase();
+  const explicitAction =
+    item?.requires_action === true ||
+    item?.action_required === true ||
+    item?.requiresAction === true ||
+    item?.escalated === true ||
+    item?.is_escalated === true;
+
+  const platformCategory = [
+    "SECURITY",
+    "PAYMENT",
+    "PAYMENTS",
+    "SETTLEMENT",
+    "SETTLEMENTS",
+    "MODERATION",
+    "APPROVAL",
+    "APPROVALS",
+    "COMPLIANCE",
+    "ORGANISATION",
+    "ORGANIZATION",
+    "OPERATIONAL_EXCEPTION",
+    "SYSTEM",
+    "PLATFORM",
+  ].includes(category);
+
+  return (
+    explicitAction ||
+    ["CRITICAL", "HIGH"].includes(severity) ||
+    ["ESCALATED", "BLOCKED", "FAILED", "OVERDUE", "STUCK"].includes(status) ||
+    platformCategory
+  );
+};
+
+const getSafeDashboardError = (error: any) => {
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("session") || message.includes("sign in")) {
+    return "Your SUPER_ADMIN session is unavailable. Please sign in again.";
+  }
+  return "Choose an organisation above to load mandi-level metrics, operational activity, and scoped dashboard data.";
+};
+
 export const SuperadminDashboard: React.FC = () => {
   const { i18n } = useTranslation();
   const language = i18n.language || "en";
   const username = useMemo(() => getCurrentAdminUsername(), []);
+  const navigate = useNavigate();
 
   const [organisations, setOrganisations] = useState<OrgOption[]>([]);
   const [mandis, setMandis] = useState<MandiOption[]>([]);
@@ -79,7 +128,11 @@ export const SuperadminDashboard: React.FC = () => {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const loadOrganisations = useCallback(async () => {
-    if (!username) return;
+    if (!username) {
+      setScopeError("No SUPER_ADMIN session was found. Please sign in again.");
+      setOrganisations([]);
+      return;
+    }
     setScopeLoading(true);
     setScopeError(null);
     try {
@@ -105,10 +158,12 @@ export const SuperadminDashboard: React.FC = () => {
   }, [language, username]);
 
   const loadMandis = useCallback(async (orgId?: string) => {
-    if (!username) return;
+    if (!username) {
+      setScopeError("No SUPER_ADMIN session was found. Please sign in again.");
+      setMandis([]);
+      return;
+    }
 
-    // getOrgMandis is an organisation-scoped API and requires org_id.
-    // SUPER_ADMIN's initial "All Organisations" scope must not call it without one.
     if (!orgId) {
       setMandis([]);
       setSelectedMandiId(undefined);
@@ -139,7 +194,13 @@ export const SuperadminDashboard: React.FC = () => {
   }, [language, username]);
 
   const loadDashboard = useCallback(async () => {
-    if (!username) return;
+    setDashboardError(null);
+
+    if (!username) {
+      setDashboardError("No SUPER_ADMIN session was found. Please sign in again.");
+      setSummary(null);
+      return;
+    }
     setDashboardLoading(true);
     setDashboardError(null);
     try {
@@ -156,9 +217,13 @@ export const SuperadminDashboard: React.FC = () => {
         };
       }
       const raw = await getDashboardSummary({ username, language, payload });
-      setSummary(raw?.data || raw?.response?.data || null);
+      const resp = unwrapResponse(raw);
+      if (String(resp?.responsecode ?? "0") !== "0") {
+        throw new Error(resp?.description || "Unable to load platform dashboard.");
+      }
+      setSummary(raw?.data || resp?.data || null);
     } catch (error: any) {
-      setDashboardError(error?.message || "Unable to load platform dashboard.");
+      setDashboardError(getSafeDashboardError(error));
       setSummary(null);
     } finally {
       setDashboardLoading(false);
@@ -175,15 +240,12 @@ export const SuperadminDashboard: React.FC = () => {
 
   useEffect(() => {
     setSelectedMandiId(undefined);
-    if (selectedOrgId) {
-      loadMandis(selectedOrgId);
-    } else {
-      setMandis([]);
-    }
+    loadMandis(selectedOrgId);
   }, [loadMandis, selectedOrgId]);
 
   const cards = summary?.cards || {};
   const alerts = Array.isArray(summary?.alerts) ? summary.alerts : [];
+  const actionableAlerts = alerts.filter(isActionablePlatformAlert);
   const quickLinks = Array.isArray(summary?.quickLinks) ? summary.quickLinks : [];
   const charts = summary?.charts || {};
 
@@ -191,6 +253,27 @@ export const SuperadminDashboard: React.FC = () => {
   const selectedOrg = organisations.find((org) => org.id === selectedOrgId);
   const selectedMandi = mandis.find((mandi) => mandi.id === selectedMandiId);
   const currentScopeLabel = selectedMandi?.name || selectedOrg?.name || "All Organisations";
+  const hasSelectedOrgWithNoMandis = Boolean(selectedOrgId) && !scopeLoading && !scopeError && mandis.length === 0;
+
+  const buildScopeQuery = useCallback((extra: Record<string, string> = {}) => {
+    const params = new URLSearchParams();
+    if (selectedOrgId) params.set("org_id", selectedOrgId);
+    if (selectedOrg?.code) params.set("org_code", selectedOrg.code);
+    if (selectedMandiId) params.set("mandi_id", selectedMandiId);
+    if (selectedMandi?.slug) params.set("mandi_slug", selectedMandi.slug);
+    Object.entries(extra).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }, [selectedMandi?.slug, selectedMandiId, selectedOrg?.code, selectedOrgId]);
+
+  const openAlert = useCallback((item: any) => {
+    const target = item?.target_route || item?.route || item?.path || item?.target;
+    if (typeof target === "string" && target.startsWith("/")) {
+      navigate(target);
+    }
+  }, [navigate]);
 
   return (
     <PageContainer className="cm-superadmin-dashboard">
@@ -212,50 +295,140 @@ export const SuperadminDashboard: React.FC = () => {
             <Title level={5} className="cm-superadmin-scope-title">{currentScopeLabel}</Title>
           </div>
           <div className="cm-superadmin-scope-controls">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              value={selectedOrgId}
-              placeholder="All organisations"
-              loading={scopeLoading}
-              onChange={(value) => setSelectedOrgId(value)}
-              options={organisations.map((org) => ({ value: org.id, label: org.name }))}
-            />
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              value={selectedMandiId}
-              placeholder={selectedOrgId ? "All mandis" : "Select organisation first"}
+            <Dropdown
+              trigger={["click"]}
+              menu={{
+                selectedKeys: [selectedOrgId || "__all_orgs__"],
+                items: [
+                  { key: "__all_orgs__", label: "All organisations" },
+                  ...organisations.map((org) => ({ key: org.id, label: org.name })),
+                ],
+                onClick: ({ key }) => {
+                  setSelectedOrgId(key === "__all_orgs__" ? undefined : String(key));
+                },
+              }}
+              overlayClassName="cm-superadmin-scope-menu"
+            >
+              <Button className="cm-superadmin-scope-trigger" loading={scopeLoading} block>
+                <span className="cm-superadmin-scope-trigger-label">
+                  {selectedOrg?.name || "All organisations"}
+                </span>
+                <DownOutlined className="cm-superadmin-scope-trigger-arrow" />
+              </Button>
+            </Dropdown>
+
+            <Dropdown
+              trigger={["click"]}
               disabled={!selectedOrgId}
-              loading={scopeLoading}
-              onChange={(value) => setSelectedMandiId(value)}
-              options={mandis.map((mandi) => ({ value: mandi.id, label: mandi.name }))}
-            />
+              menu={{
+                selectedKeys: [selectedMandiId || "__all_mandis__"],
+                items: [
+                  { key: "__all_mandis__", label: "All mandis" },
+                  ...mandis.map((mandi) => ({ key: mandi.id, label: mandi.name })),
+                ],
+                onClick: ({ key }) => {
+                  setSelectedMandiId(key === "__all_mandis__" ? undefined : String(key));
+                },
+              }}
+              overlayClassName="cm-superadmin-scope-menu"
+            >
+              <Button
+                className="cm-superadmin-scope-trigger"
+                loading={scopeLoading && Boolean(selectedOrgId)}
+                disabled={!selectedOrgId}
+                block
+              >
+                <span className="cm-superadmin-scope-trigger-label">
+                  {selectedOrgId
+                    ? (selectedMandi?.name || (hasSelectedOrgWithNoMandis ? "No mandis available" : "All mandis"))
+                    : "Select organisation first"}
+                </span>
+                <DownOutlined className="cm-superadmin-scope-trigger-arrow" />
+              </Button>
+            </Dropdown>
           </div>
         </div>
       </CmSectionCard>
 
       {scopeError && <Alert type="warning" showIcon message="Scope options could not be fully loaded" description={scopeError} />}
-      {dashboardError && <Alert type="error" showIcon message="Platform dashboard could not be loaded" description={dashboardError} action={<Button size="small" onClick={loadDashboard}>Retry</Button>} />}
+      {hasSelectedOrgWithNoMandis && (
+        <Alert
+          type="info"
+          showIcon
+          message="No mandis are mapped to this organisation"
+          description="The dashboard remains scoped to the selected organisation."
+        />
+      )}
+      {!selectedOrgId ? (
+        <Alert
+          type="info"
+          showIcon
+          message="Select an organisation to view live platform metrics"
+          description="Choose an organisation above to load mandi-level metrics, operational activity, and scoped dashboard data."
+          className="cm-superadmin-dashboard-guidance"
+        />
+      ) : selectedOrgId && dashboardError ? (
+        <Alert
+          type="error"
+          showIcon
+          message={`Live platform metrics could not be loaded for ${selectedOrg?.name || "the selected organisation"}`}
+          description="The live dashboard request failed for the selected scope. Scope controls and administration shortcuts remain available."
+          className="cm-superadmin-dashboard-guidance"
+        />
+      ) : null}
 
-      {dashboardLoading && !summary ? (
+      {dashboardLoading && selectedOrgId && !summary ? (
         <CmSectionCard><Skeleton active paragraph={{ rows: 12 }} /></CmSectionCard>
+      ) : selectedOrgId && !summary && !dashboardError ? (
+        <CmSectionCard>
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="No dashboard data was returned for the current scope"
+          >
+            <Button onClick={loadDashboard}>Refresh dashboard</Button>
+          </Empty>
+        </CmSectionCard>
       ) : (
         <div className="cm-superadmin-stack">
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={12} xl={6}>
-              <CmStatCard label="Active Organisations" value={formatNumber(activeOrgCount)} helper={`Total loaded: ${formatNumber(organisations.length)}`} icon={<ApartmentOutlined />} tone="olive" />
+              <CmStatCard
+                label="Active Organisations"
+                value={formatNumber(activeOrgCount)}
+                helper={`Total loaded: ${formatNumber(organisations.length)}`}
+                icon={<ApartmentOutlined />}
+                tone="olive"
+                onClick={() => navigate(`/orgs?status=ACTIVE${selectedOrgId ? `&org_id=${encodeURIComponent(selectedOrgId)}` : ""}`)}
+              />
             </Col>
             <Col xs={24} sm={12} xl={6}>
-              <CmStatCard label="Mandis in Scope" value={formatNumber(mandis.length)} helper={selectedOrg ? selectedOrg.name : "Across current platform scope"} icon={<ShopOutlined />} tone="neutral" />
+              <CmStatCard
+                label="Mandis in Scope"
+                value={formatNumber(mandis.length)}
+                helper={selectedOrg ? selectedOrg.name : "Across current platform scope"}
+                icon={<ShopOutlined />}
+                tone="neutral"
+                onClick={() => navigate(`/mandis${buildScopeQuery()}`)}
+              />
             </Col>
             <Col xs={24} sm={12} xl={6}>
-              <CmStatCard label="Live Auctions" value={formatNumber(cards?.liveAuctions?.count)} helper={`Mandis: ${formatNumber(cards?.liveAuctions?.mandis_count, "0")}`} icon={<BankOutlined />} tone="amber" />
+              <CmStatCard
+                label="Live Auctions"
+                value={formatNumber(cards?.liveAuctions?.count)}
+                helper={`Mandis: ${formatNumber(cards?.liveAuctions?.mandis_count, "0")}`}
+                icon={<BankOutlined />}
+                tone="amber"
+                onClick={() => navigate(`/auction-sessions${buildScopeQuery({ status: "LIVE" })}`)}
+              />
             </Col>
             <Col xs={24} sm={12} xl={6}>
-              <CmStatCard label="Trade Value Today" value={formatMoney(cards?.todayTradeValue?.total_amount, cards?.todayTradeValue?.currency || "INR")} helper={`Lots: ${formatNumber(cards?.todayTradeValue?.lots_count, "0")}`} icon={<DollarOutlined />} tone="olive" />
+              <CmStatCard
+                label="Trade Value Today"
+                value={formatMoney(cards?.todayTradeValue?.total_amount, cards?.todayTradeValue?.currency || "INR")}
+                helper={`Lots: ${formatNumber(cards?.todayTradeValue?.lots_count, "0")}`}
+                icon={<DollarOutlined />}
+                tone="olive"
+              />
             </Col>
           </Row>
 
@@ -266,26 +439,51 @@ export const SuperadminDashboard: React.FC = () => {
                   <div className="cm-superadmin-card-icon cm-superadmin-card-icon-warning"><AlertOutlined /></div>
                   <div>
                     <Title level={4}>Attention Required</Title>
-                    <Text type="secondary">Platform and operational exceptions returned by the live dashboard API.</Text>
+                    <Text type="secondary">Only platform-level exceptions, escalations, overdue items, and high-severity issues that need SUPER_ADMIN attention.</Text>
                   </div>
                 </div>
-                {alerts.length ? (
+                {actionableAlerts.length ? (
                   <List
-                    dataSource={alerts.slice(0, 6)}
-                    renderItem={(item: any) => (
-                      <List.Item>
-                        <div className="cm-superadmin-alert-row">
-                          <div>
-                            <Text strong>{item?.title || item?.message || "Platform alert"}</Text>
-                            {item?.title && item?.message ? <Text type="secondary">{item.message}</Text> : null}
+                    dataSource={actionableAlerts.slice(0, 6)}
+                    renderItem={(item: any) => {
+                      const severity = getAlertSeverity(item);
+                      const organisation = item?.organisation_name || item?.org_name || item?.organisation || item?.org_code;
+                      const mandi = item?.mandi_name || item?.mandi || item?.mandi_slug;
+                      const owner = item?.owner || item?.assigned_to || item?.current_owner;
+                      const stage = item?.stage || item?.current_stage || item?.status;
+                      const metadata = [organisation, mandi, owner, stage].filter(Boolean);
+                      const tagColor = ["CRITICAL", "HIGH"].includes(severity) ? "error" : severity === "MEDIUM" ? "warning" : "processing";
+
+                      return (
+                        <List.Item>
+                          <div className="cm-superadmin-alert-row">
+                            <div className="cm-superadmin-alert-content">
+                              <Text strong>{item?.title || item?.message || "Platform exception"}</Text>
+                              {item?.title && item?.message ? <Text type="secondary">{item.message}</Text> : null}
+                              {metadata.length ? (
+                                <div className="cm-superadmin-alert-meta">
+                                  {metadata.map((value, index) => (
+                                    <Text type="secondary" key={`${String(value)}-${index}`}>{String(value)}</Text>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                            <Space size={8}>
+                              <Tag color={tagColor}>{severity}</Tag>
+                              {(item?.target_route || item?.route || item?.path || item?.target) ? (
+                                <Button size="small" type="link" onClick={() => openAlert(item)}>Open</Button>
+                              ) : null}
+                            </Space>
                           </div>
-                          <Tag color={String(item?.severity || "").toUpperCase() === "HIGH" ? "error" : "warning"}>{item?.severity || "NOTICE"}</Tag>
-                        </div>
-                      </List.Item>
-                    )}
+                        </List.Item>
+                      );
+                    }}
                   />
                 ) : (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No urgent items returned for the current scope" />
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No critical platform issues require attention"
+                  />
                 )}
               </CmSectionCard>
             </Col>

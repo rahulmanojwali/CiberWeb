@@ -77,6 +77,44 @@ export const updateMandi = async ({
     ...payload,
   });
 
+export const correctProtectedMandi = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  payload,
+}: {
+  username: string;
+  language?: string;
+  payload: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.correctProtectedMandi, {
+    api: API_TAGS.MANDIS.correctProtected,
+    username,
+    language,
+    ...payload,
+  });
+
+export const fetchProtectedMandiCorrectionHistory = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  mandi_id,
+  page = 1,
+  page_size = 10,
+}: {
+  username: string;
+  language?: string;
+  mandi_id: number;
+  page?: number;
+  page_size?: number;
+}) =>
+  postEncrypted(API_ROUTES.admin.getProtectedMandiCorrectionHistory, {
+    api: API_TAGS.MANDIS.correctionHistory,
+    username,
+    language,
+    mandi_id,
+    page,
+    page_size,
+  });
+
 export const deactivateMandi = async ({
   username,
   language = DEFAULT_LANGUAGE,

@@ -64,9 +64,10 @@ export function buildPermissionMap(rawPermissions: any[]): Record<string, string
       }
     });
 
-    if (actions.length === 0) {
-      console.warn("Permission actions missing for", key, permission);
-    }
+    // Do not log per-permission warnings from this hot path. This function is
+    // invoked by many mounted components; emitting warnings here can generate
+    // tens of thousands of DevTools messages and stall rendering. Validator /
+    // policy diagnostics belong in the dedicated RBAC administration screens.
   });
 
   return map;

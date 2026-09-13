@@ -1,6 +1,7 @@
 // src/pages/mandis/index.tsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -26,7 +27,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { type GridColDef } from "@mui/x-data-grid";
-import { Button as AntButton, Dropdown, Input as AntInput } from "antd";
+import { Alert as AntAlert, Button as AntButton, Col as AntCol, Dropdown, Input as AntInput, Modal as AntModal, Row as AntRow, Typography as AntTypography } from "antd";
 import {
   CheckCircleOutlined,
   DownOutlined,
@@ -56,15 +57,25 @@ import {
   importSystemMandisToOrg,
   updateOrgMandiStatus,
   createMandi,
+  correctProtectedMandi,
+  fetchProtectedMandiCorrectionHistory,
 } from "../../services/mandiApi";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
 import { useSnackbar } from "notistack";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
+import { fetchOrganisations } from "../../services/adminUsersApi";
 import { useTheme } from "@mui/material/styles";
+import { useStepUp } from "../../security/stepup/useStepUp";
 
 
 
 type MandisDropdownOption = { value: string | number; label: React.ReactNode };
+
+type OrganisationOption = {
+  value: string;
+  label: string;
+  orgCode: string;
+};
 
 const MandisBoxedDropdown = ({
   id,
@@ -130,6 +141,15 @@ type MandiLite = {
   org_mandi_is_active?: "Y" | "N" | string;
 
   [key: string]: any;
+};
+
+const toPositiveMandiId = (value: any): number | null => {
+  let raw = value;
+  if (raw && typeof raw === "object") {
+    raw = raw.$numberInt ?? raw.$numberLong ?? raw.value ?? null;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
 type CreateMandiForm = {
@@ -198,8 +218,10 @@ const INITIAL_PINCODE_LOOKUP: PincodeLookupResult = {
 };
 
 export const Mandis: React.FC = () => {
-  const { authContext, can } = usePermissions();
+  const { authContext, can, isSuper } = usePermissions();
+  const [searchParams] = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
+  const { ensureStepUp } = useStepUp();
   const theme = useTheme();
 
   const username =
@@ -213,7 +235,18 @@ export const Mandis: React.FC = () => {
       }
     })() || "";
 
-  const orgId = authContext.org_id || "";
+  const requestedOrgId = (searchParams.get("org_id") || "").trim();
+  const requestedOrgCode = (searchParams.get("org_code") || "").trim();
+
+  // SUPER_ADMIN explicitly selects the organisation whose Mandis are being managed.
+  // Organisation-scoped users are always locked to their authenticated organisation.
+  const [selectedSuperOrgId, setSelectedSuperOrgId] = useState<string>(isSuper ? requestedOrgId : "");
+  const [organisationOptions, setOrganisationOptions] = useState<OrganisationOption[]>([]);
+  const [organisationsLoading, setOrganisationsLoading] = useState(false);
+  const orgId = isSuper ? selectedSuperOrgId : authContext.org_id || "";
+  const selectedOrgCode = isSuper
+    ? organisationOptions.find((option) => option.value === selectedSuperOrgId)?.orgCode || requestedOrgCode
+    : "";
 
   const canImport = can("mandis.create", "CREATE");
   const canRemove = can("mandis.deactivate", "DEACTIVATE");
@@ -226,6 +259,19 @@ export const Mandis: React.FC = () => {
   // Action menu (row-level)
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionMenuRow, setActionMenuRow] = useState<MandiLite | null>(null);
+
+  const [correctionRow, setCorrectionRow] = useState<MandiLite | null>(null);
+  const [correctionName, setCorrectionName] = useState("");
+  const [correctionState, setCorrectionState] = useState("");
+  const [correctionDistrict, setCorrectionDistrict] = useState("");
+  const [correctionPincode, setCorrectionPincode] = useState("");
+  const [correctionAddress, setCorrectionAddress] = useState("");
+  const [correctionContact, setCorrectionContact] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionSubmitting, setCorrectionSubmitting] = useState(false);
+  const [historyRow, setHistoryRow] = useState<MandiLite | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
 
   // My Mandis state
   const [myState, setMyState] = useState<string>("");
@@ -438,10 +484,97 @@ export const Mandis: React.FC = () => {
     setActionMenuRow(row);
   }, []);
 
+  const openCorrection = useCallback((row: MandiLite) => {
+    if (!isSuper || !row?.imported_from_system) return;
+    setCorrectionRow(row);
+    setCorrectionName(String(row?.name_i18n?.en || row?.display_name || ""));
+    setCorrectionState(String(row?.state_code || ""));
+    setCorrectionDistrict(String(row?.district_name || row?.district_name_en || row?.district_display || ""));
+    setCorrectionPincode(String(row?.pincode || ""));
+    setCorrectionAddress(String(row?.address_line || ""));
+    setCorrectionContact(String(row?.contact_number || ""));
+    setCorrectionReason("");
+  }, [isSuper]);
+
   const handleActionMenuEdit = useCallback(() => {
-    enqueueSnackbar("Edit functionality is not available yet.", { variant: "info" });
+    if (actionMenuRow && isSuper && actionMenuRow.imported_from_system) openCorrection(actionMenuRow);
     closeActionMenu();
-  }, [enqueueSnackbar, closeActionMenu]);
+  }, [actionMenuRow, closeActionMenu, isSuper, openCorrection]);
+
+  const submitCorrection = useCallback(async () => {
+    if (!correctionRow || !username || !isSuper) return;
+    const reason = correctionReason.trim();
+    if (reason.length < 10) {
+      enqueueSnackbar("Please enter a correction reason of at least 10 characters.", { variant: "error" });
+      return;
+    }
+    const masterMandiId = toPositiveMandiId(correctionRow.source_system_mandi_id ?? correctionRow.mandi_id);
+    if (!masterMandiId) {
+      enqueueSnackbar("Unable to resolve the protected master Mandi ID. Refresh the list and try again.", { variant: "error" });
+      return;
+    }
+    const stepupOk = await ensureStepUp("mandis.master_correction", "UPDATE", { source: "OTHER", force: true });
+    if (!stepupOk) return;
+    setCorrectionSubmitting(true);
+    try {
+      const response = await correctProtectedMandi({
+        username,
+        language: DEFAULT_LANGUAGE,
+        payload: {
+          mandi_id: masterMandiId,
+          name_i18n: { ...(correctionRow.name_i18n || {}), en: correctionName.trim() },
+          state_code: correctionState.trim().toUpperCase(),
+          district_name: correctionDistrict.trim(),
+          pincode: correctionPincode.trim(),
+          address_line: correctionAddress.trim(),
+          contact_number: correctionContact.trim(),
+          correction_reason: reason,
+        },
+      });
+      if (String(response?.response?.responsecode ?? "1") !== "0") {
+        throw new Error(response?.response?.description || "Master-data correction failed.");
+      }
+      enqueueSnackbar("Protected Mandi master data corrected and imported copies synchronized.", { variant: "success" });
+      setCorrectionRow(null);
+      setMyRefreshKey((value) => value + 1);
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Master-data correction failed.", { variant: "error" });
+    } finally {
+      setCorrectionSubmitting(false);
+    }
+  }, [correctionAddress, correctionContact, correctionDistrict, correctionName, correctionPincode, correctionReason, correctionRow, correctionState, enqueueSnackbar, ensureStepUp, isSuper, username]);
+
+  const openCorrectionHistory = useCallback(async (row: MandiLite) => {
+    if (!isSuper || !row?.imported_from_system || !username) return;
+    setHistoryRow(row);
+    setHistoryItems([]);
+    setHistoryLoading(true);
+    try {
+      const response = await fetchProtectedMandiCorrectionHistory({
+        username,
+        language: DEFAULT_LANGUAGE,
+        mandi_id: toPositiveMandiId(row.source_system_mandi_id ?? row.mandi_id) || 0,
+        page: 1,
+        page_size: 25,
+      });
+      const responseMeta = response?.response ?? response;
+      if (String(responseMeta?.responsecode ?? "0") !== "0") {
+        throw new Error(responseMeta?.description || "Unable to load correction history.");
+      }
+      const payload = response?.response?.data ?? response?.data ?? response;
+      setHistoryItems(Array.isArray(payload?.history) ? payload.history : []);
+    } catch (err: any) {
+      enqueueSnackbar(err?.message || "Unable to load correction history.", { variant: "error" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [enqueueSnackbar, isSuper, username]);
+
+  const handleActionMenuHistory = useCallback(() => {
+    const row = actionMenuRow;
+    closeActionMenu();
+    if (row) void openCorrectionHistory(row);
+  }, [actionMenuRow, closeActionMenu, openCorrectionHistory]);
 
   const handleActionMenuToggle = useCallback(() => {
     if (!actionMenuRow) {
@@ -510,13 +643,15 @@ export const Mandis: React.FC = () => {
           // ✅ Desktop: icons only
           return (
             <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Edit">
-                <span>
-                  <IconButton size="small" onClick={handleActionMenuEdit} disabled={!canCreate}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
+              {isSuper && row.imported_from_system ? (
+                <Tooltip title="Correct protected master data">
+                  <span>
+                    <IconButton size="small" onClick={() => openCorrection(row)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : null}
 
               <Tooltip title={label}>
                 <span>
@@ -535,7 +670,7 @@ export const Mandis: React.FC = () => {
         },
       },
     ],
-    [canCreate, canRemove, handleActionMenuEdit, handleRowToggleStatus, isMdDown, isSmDown, openActionMenu, rowIsActive],
+    [canCreate, canRemove, handleRowToggleStatus, isMdDown, isSmDown, isSuper, openActionMenu, openCorrection, rowIsActive],
   );
 
   const impColumns: GridColDef[] = [
@@ -547,6 +682,58 @@ export const Mandis: React.FC = () => {
     { field: "address_line", headerName: "Address", flex: 2, minWidth: 220 },
     { field: "contact_number", headerName: "Contact", width: 150 },
   ];
+
+  useEffect(() => {
+    if (!isSuper) return;
+    setSelectedSuperOrgId(requestedOrgId || "");
+  }, [isSuper, requestedOrgId]);
+
+  useEffect(() => {
+    if (!isSuper || !username) return;
+
+    let cancelled = false;
+    const loadOrganisations = async () => {
+      setOrganisationsLoading(true);
+      try {
+        const raw = await fetchOrganisations({ username, language: DEFAULT_LANGUAGE });
+        if (cancelled) return;
+        const response = raw?.response ?? raw?.data?.response ?? raw;
+        const code = String(response?.responsecode ?? "");
+        if (code && code !== "0") {
+          throw new Error(response?.description || "Failed to load organisations");
+        }
+        const organisations = response?.data?.organisations ?? raw?.data?.organisations ?? [];
+        const options: OrganisationOption[] = (Array.isArray(organisations) ? organisations : [])
+          .filter((org: any) => org?._id && org?.org_code)
+          .map((org: any) => ({
+            value: String(org._id),
+            label: String(org.org_name || org.org_code),
+            orgCode: String(org.org_code),
+          }));
+        setOrganisationOptions(options);
+      } catch (err: any) {
+        if (!cancelled) {
+          setOrganisationOptions([]);
+          enqueueSnackbar(err?.message || "Failed to load organisations", { variant: "error" });
+        }
+      } finally {
+        if (!cancelled) setOrganisationsLoading(false);
+      }
+    };
+
+    void loadOrganisations();
+    return () => {
+      cancelled = true;
+    };
+  }, [enqueueSnackbar, isSuper, username]);
+
+  useEffect(() => {
+    if (!isSuper) return;
+    setMyPage(1);
+    setImpPage(1);
+    setMySelectionModel([]);
+    setImpSelectionModel([]);
+  }, [isSuper, selectedSuperOrgId]);
 
   // ======== Debounce search ========
   useEffect(() => {
@@ -1092,6 +1279,32 @@ export const Mandis: React.FC = () => {
                 }}
                 sx={{
                   minWidth: isSmDown ? 600 : 840,
+                  // Keep DataGrid selection controls readable. The global theme styles
+                  // native inputs, so explicitly size/reset the MUI checkbox internals
+                  // for both header and row selectors on this screen.
+                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root": {
+                    width: 36,
+                    height: 36,
+                    minWidth: 36,
+                    minHeight: 36,
+                    padding: "6px !important",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root .MuiSvgIcon-root": {
+                    width: 22,
+                    height: 22,
+                    fontSize: "22px !important",
+                  },
+                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root input[type='checkbox'], & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root input[type='checkbox']": {
+                    minHeight: "0 !important",
+                    border: "0 !important",
+                    borderRadius: "0 !important",
+                    background: "transparent !important",
+                    boxShadow: "none !important",
+                    padding: "0 !important",
+                  },
                 }}
               />
             </Box>
@@ -1105,9 +1318,12 @@ export const Mandis: React.FC = () => {
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
         >
-          <MenuItem onClick={handleActionMenuEdit} disabled={!canCreate}>
-            Edit
-          </MenuItem>
+          {isSuper && actionMenuRow?.imported_from_system ? (
+            <>
+              <MenuItem onClick={handleActionMenuEdit}>Correct Master Data</MenuItem>
+              <MenuItem onClick={handleActionMenuHistory}>Correction History</MenuItem>
+            </>
+          ) : null}
           <MenuItem onClick={handleActionMenuToggle} disabled={!canRemove}>
             {actionMenuRow && rowIsActive(actionMenuRow) ? "Deactivate" : "Activate"}
           </MenuItem>
@@ -1268,6 +1484,29 @@ export const Mandis: React.FC = () => {
               }}
               sx={{
                 height: "100%",
+                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root": {
+                  width: 36,
+                  height: 36,
+                  minWidth: 36,
+                  minHeight: 36,
+                  padding: "6px !important",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root .MuiSvgIcon-root": {
+                  width: 22,
+                  height: 22,
+                  fontSize: "22px !important",
+                },
+                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root input[type='checkbox'], & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root input[type='checkbox']": {
+                  minHeight: "0 !important",
+                  border: "0 !important",
+                  borderRadius: "0 !important",
+                  background: "transparent !important",
+                  boxShadow: "none !important",
+                  padding: "0 !important",
+                },
                 "& .MuiDataGrid-columnHeaders": {
                   position: "sticky",
                   top: 0,
@@ -1373,9 +1612,39 @@ export const Mandis: React.FC = () => {
   return (
     <>
       <PageContainer>
+      {isSuper && selectedSuperOrgId && selectedOrgCode ? (
+        <Box sx={{ mb: 1.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            Organisation scope: <strong>{selectedOrgCode}</strong>
+          </Typography>
+        </Box>
+      ) : null}
+
         <Box className="cm-mandis-page">
           <Stack spacing={2}>
           <Typography variant="h5">Mandis</Typography>
+
+          {isSuper ? (
+            <Box sx={{ width: { xs: "100%", sm: 360 }, maxWidth: "100%" }}>
+              <Typography variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+                Organisation
+              </Typography>
+              <MandisBoxedDropdown
+                id="mandis-organisation-filter"
+                value={selectedSuperOrgId}
+                disabled={organisationsLoading}
+                options={[
+                  { value: "", label: organisationsLoading ? "Loading organisations..." : "Select Organisation" },
+                  ...organisationOptions.map((option) => ({ value: option.value, label: option.label })),
+                ]}
+                onChange={(value) => {
+                  setSelectedSuperOrgId(String(value));
+                  setMyState("");
+                  setImpState("");
+                }}
+              />
+            </Box>
+          ) : null}
 
           <Tabs
             value={activeTab}
@@ -1395,6 +1664,212 @@ export const Mandis: React.FC = () => {
           {activeTab === "MY" ? renderMyMandis() : renderImportMandis()}
           </Stack>
         </Box>
+
+      <AntModal
+        open={Boolean(correctionRow)}
+        title="Correct Protected Mandi Master Data"
+        width={720}
+        style={{ top: 84, paddingBottom: 24 }}
+        destroyOnClose
+        maskClosable={!correctionSubmitting}
+        closable={!correctionSubmitting}
+        onCancel={() => !correctionSubmitting && setCorrectionRow(null)}
+        footer={[
+          <AntButton
+            key="cancel"
+            onClick={() => setCorrectionRow(null)}
+            disabled={correctionSubmitting}
+          >
+            Cancel
+          </AntButton>,
+          <AntButton
+            key="save"
+            type="primary"
+            onClick={submitCorrection}
+            loading={correctionSubmitting}
+            disabled={correctionSubmitting || correctionReason.trim().length < 10}
+          >
+            Save Correction
+          </AntButton>,
+        ]}
+      >
+        <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto", paddingRight: 4 }}>
+        <AntAlert
+          type="warning"
+          showIcon
+          message="Protected platform master data"
+          description="Only SUPER_ADMIN can make verified corrections. Changes require step-up verification, are synchronized to imported organisation copies, and are permanently audited."
+          style={{ marginBottom: 20 }}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <AntTypography.Text strong>Mandi name</AntTypography.Text>
+            <AntInput
+              value={correctionName}
+              onChange={(e) => setCorrectionName(e.target.value)}
+              style={{ marginTop: 6, height: 40 }}
+            />
+          </div>
+
+          <AntRow gutter={[16, 16]}>
+            <AntCol xs={24} sm={12}>
+              <AntTypography.Text strong>State code</AntTypography.Text>
+              <AntInput
+                value={correctionState}
+                maxLength={3}
+                onChange={(e) => setCorrectionState(e.target.value.toUpperCase())}
+                style={{ marginTop: 6, height: 40 }}
+              />
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntTypography.Text strong>District</AntTypography.Text>
+              <AntInput
+                value={correctionDistrict}
+                onChange={(e) => setCorrectionDistrict(e.target.value)}
+                style={{ marginTop: 6, height: 40 }}
+              />
+            </AntCol>
+          </AntRow>
+
+          <AntRow gutter={[16, 16]}>
+            <AntCol xs={24} sm={12}>
+              <AntTypography.Text strong>Pincode</AntTypography.Text>
+              <AntInput
+                value={correctionPincode}
+                maxLength={6}
+                inputMode="numeric"
+                onChange={(e) => setCorrectionPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                style={{ marginTop: 6, height: 40 }}
+              />
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntTypography.Text strong>Contact</AntTypography.Text>
+              <AntInput
+                value={correctionContact}
+                maxLength={15}
+                inputMode="tel"
+                onChange={(e) => setCorrectionContact(e.target.value.replace(/\D/g, "").slice(0, 15))}
+                style={{ marginTop: 6, height: 40 }}
+              />
+            </AntCol>
+          </AntRow>
+
+          <div>
+            <AntTypography.Text strong>Address</AntTypography.Text>
+            <AntInput.TextArea
+              value={correctionAddress}
+              onChange={(e) => setCorrectionAddress(e.target.value)}
+              autoSize={{ minRows: 2, maxRows: 4 }}
+              style={{ marginTop: 6 }}
+            />
+          </div>
+
+          <div>
+            <AntTypography.Text strong>Correction reason <span style={{ color: "#cf1322" }}>*</span></AntTypography.Text>
+            <AntInput.TextArea
+              value={correctionReason}
+              maxLength={500}
+              showCount
+              onChange={(e) => setCorrectionReason(e.target.value.slice(0, 500))}
+              autoSize={{ minRows: 3, maxRows: 6 }}
+              status={correctionReason.length > 0 && correctionReason.trim().length < 10 ? "error" : undefined}
+              style={{ marginTop: 6 }}
+            />
+            <AntTypography.Text type={correctionReason.length > 0 && correctionReason.trim().length < 10 ? "danger" : "secondary"}>
+              Mandatory. Minimum 10 characters. This reason is stored in the audit history.
+            </AntTypography.Text>
+          </div>
+        </div>
+        </div>
+      </AntModal>
+
+      <AntModal
+        open={Boolean(historyRow)}
+        title="Protected Mandi Correction History"
+        width={860}
+        style={{ top: 84, paddingBottom: 24 }}
+        destroyOnClose
+        footer={[
+          <AntButton key="close" onClick={() => setHistoryRow(null)}>Close</AntButton>,
+        ]}
+        onCancel={() => setHistoryRow(null)}
+      >
+        <div style={{ maxHeight: "calc(100vh - 190px)", overflowY: "auto", paddingRight: 4 }}>
+          <AntAlert
+            type="info"
+            showIcon
+            message={historyRow ? String(historyRow?.name_i18n?.en || historyRow?.display_name || "Protected Mandi") : "Protected Mandi"}
+            description="Every protected master-data correction is retained here. The reason belongs to that specific correction and is not reused for future edits."
+            style={{ marginBottom: 16 }}
+          />
+
+          {historyLoading ? (
+            <div style={{ padding: "28px 0", textAlign: "center" }}>Loading correction history…</div>
+          ) : historyItems.length === 0 ? (
+            <AntTypography.Text type="secondary">No correction history is available for this Mandi yet.</AntTypography.Text>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {historyItems.map((item, index) => {
+                const before = item?.before && typeof item.before === "object" ? item.before : {};
+                const after = item?.after && typeof item.after === "object" ? item.after : {};
+                const fields = Array.isArray(item?.changed_fields) ? item.changed_fields : [];
+                return (
+                  <div key={String(item?._id || index)} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14 }}>
+                    <AntRow gutter={[12, 8]}>
+                      <AntCol xs={24} md={8}>
+                        <AntTypography.Text type="secondary">Changed on</AntTypography.Text><br />
+                        <AntTypography.Text>{item?.changed_on ? new Date(item.changed_on).toLocaleString() : "—"}</AntTypography.Text>
+                      </AntCol>
+                      <AntCol xs={24} md={8}>
+                        <AntTypography.Text type="secondary">Changed by</AntTypography.Text><br />
+                        <AntTypography.Text>{item?.changed_by || "—"}</AntTypography.Text>
+                      </AntCol>
+                      <AntCol xs={24} md={8}>
+                        <AntTypography.Text type="secondary">Status</AntTypography.Text><br />
+                        <AntTypography.Text strong>{item?.status || "—"}</AntTypography.Text>
+                      </AntCol>
+                    </AntRow>
+
+                    <div style={{ marginTop: 12 }}>
+                      <AntTypography.Text type="secondary">Reason</AntTypography.Text><br />
+                      <AntTypography.Text>{item?.reason || "—"}</AntTypography.Text>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <AntTypography.Text type="secondary">Fields changed</AntTypography.Text><br />
+                      <AntTypography.Text>{fields.length ? fields.join(", ") : "—"}</AntTypography.Text>
+                    </div>
+
+                    {fields.length > 0 ? (
+                      <div style={{ marginTop: 12, overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>Field</th>
+                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>Previous</th>
+                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>New</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fields.map((field: string) => (
+                              <tr key={field}>
+                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0" }}>{field}</td>
+                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0", wordBreak: "break-word" }}>{typeof before[field] === "object" ? JSON.stringify(before[field]) : String(before[field] ?? "—")}</td>
+                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0", wordBreak: "break-word" }}>{typeof after[field] === "object" ? JSON.stringify(after[field]) : String(after[field] ?? "—")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </AntModal>
       </PageContainer>
 
       {renderCreateDialog()}

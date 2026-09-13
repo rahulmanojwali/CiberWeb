@@ -86,6 +86,8 @@ export const API_TAGS = {
     list: "getMandis",
     create: "createMandi",
     update: "updateMandi",
+    correctProtected: "correctProtectedMandi",
+    correctionHistory: "getProtectedMandiCorrectionHistory",
     deactivate: "deactivateMandi",
   },
   MASTERS: {
@@ -505,6 +507,8 @@ export const API_ROUTES = {
     getMandis: "/admin/getMandis",
     createMandi: "/admin/createMandi",
     updateMandi: "/admin/updateMandi",
+    correctProtectedMandi: "/admin/correctProtectedMandi",
+    getProtectedMandiCorrectionHistory: "/admin/getProtectedMandiCorrectionHistory",
     deactivateMandi: "/admin/deactivateMandi",
     getCommodities: "/admin/getCommodities",
     createCommodity: "/admin/createCommodity",

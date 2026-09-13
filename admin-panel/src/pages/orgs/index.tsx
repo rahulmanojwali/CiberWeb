@@ -1,22 +1,16 @@
 // src/pages/orgs/index.tsx
 
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
-  MenuItem,
   Stack,
-  TextField,
+  TablePagination,
   Typography,
   useMediaQuery,
   useTheme,
@@ -26,6 +20,18 @@ import {
   type GridRenderCellParams,
 } from "@mui/x-data-grid";
 import Snackbar from "@mui/material/Snackbar";
+import {
+  Button as AntButton,
+  Card as AntCard,
+  Col as AntCol,
+  Form as AntForm,
+  Input as AntInput,
+  Modal as AntModal,
+  Row as AntRow,
+  Dropdown as AntDropdown,
+  Statistic as AntStatistic,
+} from "antd";
+import { DownOutlined, PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { encryptGenericPayload } from "../../utils/aesUtilBrowser";
 import { API_BASE_URL, API_TAGS, API_ROUTES } from "../../config/appConfig";
@@ -89,6 +95,7 @@ function formatDateTime(value?: string | Date | null): string {
 }
 
 export const Orgs: React.FC = () => {
+  const navigate = useNavigate();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const uiConfig = useAdminUiConfig();
@@ -98,14 +105,23 @@ export const Orgs: React.FC = () => {
   const scopeOrgCode = uiConfig.scope?.org_code ?? scope.orgCode;
   const canCreateOrg = can("organisations.create", "CREATE");
   const canUpdateOrgAction = can("organisations.edit", "UPDATE");
-  const isReadOnly = React.useMemo(() => !canUpdateOrgAction, [canUpdateOrgAction]);
-  const showCreateButton = canCreateOrg;
+  // Organisation governance is platform-owned. Org-scoped users can view only.
+  const canManageOrganisations = isSuper;
+  const isReadOnly = React.useMemo(
+    () => !canManageOrganisations || !canUpdateOrgAction,
+    [canManageOrganisations, canUpdateOrgAction]
+  );
+  const showCreateButton = canManageOrganisations && canCreateOrg;
 
   const [rows, setRows] = React.useState<OrgRow[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"ALL" | OrgStatus>("ALL");
+  const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: 25 });
+  const [totalCount, setTotalCount] = React.useState(0);
+  const [summary, setSummary] = React.useState<{ total: number | null; active: number | null; inactive: number | null }>({ total: null, active: null, inactive: null });
   const [toast, setToast] = React.useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
     open: false,
     message: "",
@@ -142,7 +158,15 @@ export const Orgs: React.FC = () => {
     return { encryptedData };
   }, []);
 
-  const loadOrgs = React.useCallback(async () => {
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const loadOrgs = React.useCallback(async (showRefreshToast = false) => {
     const username = currentUsername();
     if (!username) {
       setError("No admin session found.");
@@ -155,20 +179,26 @@ export const Orgs: React.FC = () => {
         api: API_TAGS.ORGS.list,
         username,
         language: "en",
+        page: paginationModel.page + 1,
+        page_size: paginationModel.pageSize,
+        include_summary: true,
       };
-      if (scopeOrgCode) {
-        items.org_code = scopeOrgCode;
-      }
+      if (scopeOrgCode) items.org_code = scopeOrgCode;
+      if (debouncedSearch) items.search = debouncedSearch;
+      if (statusFilter !== "ALL") items.is_active = statusFilter === "ACTIVE" ? "Y" : "N";
+
       const data = await postEncrypted(API_ROUTES.admin.getOrganisations, items);
       const resp = data?.response || {};
       const code = String(resp.responsecode ?? "");
       if (code !== "0") {
-        setError(resp.description || "Failed to load organisations.");
-        setToast({ open: true, message: resp.description || "Failed to load organisations.", severity: "error" });
+        const message = resp.description || "Failed to load organisations.";
+        setError(message);
+        setToast({ open: true, message, severity: "error" });
         return;
       }
+
       const list: any[] = resp?.data?.organisations || [];
-      let mapped: OrgRow[] = list.map((o) => ({
+      const mapped: OrgRow[] = list.map((o) => ({
         id: o._id || o.org_code,
         org_code: o.org_code,
         org_name: o.org_name,
@@ -180,22 +210,63 @@ export const Orgs: React.FC = () => {
         updated_by: o.updated_by,
         created_on_display: formatDateTime(o.created_on),
         updated_on_display: formatDateTime(o.updated_on),
+        org_scope: o.org_scope,
+        org_id: o.org_id,
+        owner_type: o.owner_type,
+        owner_org_id: o.owner_org_id,
+        is_protected: o.is_protected,
       }));
-      if (scopeOrgCode) {
-        mapped = mapped.filter((o) => o.org_code === scopeOrgCode);
-      }
+
       setRows(mapped);
-      setToast({ open: true, message: "Organisations refreshed.", severity: "success" });
+      const meta = resp?.data?.meta || {};
+      const nextTotalCount = Number(meta?.totalCount ?? mapped.length);
+      setTotalCount(Number.isFinite(nextTotalCount) ? nextTotalCount : mapped.length);
+
+      const apiSummary = resp?.data?.summary;
+      const hasApiSummary =
+        apiSummary &&
+        Number.isFinite(Number(apiSummary.total)) &&
+        Number.isFinite(Number(apiSummary.active)) &&
+        Number.isFinite(Number(apiSummary.inactive));
+
+      if (hasApiSummary) {
+        setSummary({
+          total: Number(apiSummary.total),
+          active: Number(apiSummary.active),
+          inactive: Number(apiSummary.inactive),
+        });
+      } else {
+        // Compatibility with the older non-paginated API during rolling deploys.
+        // Only derive status totals when the response contains the complete list.
+        const responseIsComplete = meta?.paginated !== true && mapped.length === nextTotalCount;
+        if (responseIsComplete) {
+          setSummary({
+            total: mapped.length,
+            active: mapped.filter((row) => row.status === "ACTIVE").length,
+            inactive: mapped.filter((row) => row.status === "INACTIVE").length,
+          });
+        } else {
+          setSummary((prev) => ({
+            total: Number.isFinite(nextTotalCount) ? nextTotalCount : prev.total,
+            active: prev.active,
+            inactive: prev.inactive,
+          }));
+        }
+      }
+      if (showRefreshToast) {
+        setToast({ open: true, message: "Organisations refreshed.", severity: "success" });
+      }
     } catch (e: any) {
-      setError(e?.message || "Network error while loading organisations.");
-      setToast({ open: true, message: e?.message || "Network error while loading organisations.", severity: "error" });
+      const message = e?.message || "Network error while loading organisations.";
+      setError(message);
+      setToast({ open: true, message, severity: "error" });
     } finally {
       setLoading(false);
     }
-  }, [buildBody, headers, scopeOrgCode]);
+  }, [debouncedSearch, paginationModel.page, paginationModel.pageSize, scopeOrgCode, statusFilter]);
 
   React.useEffect(() => {
-    loadOrgs();
+    loadOrgs(false);
   }, [loadOrgs]);
 
   const handleOpenCreate = () => {
@@ -252,6 +323,23 @@ export const Orgs: React.FC = () => {
   };
 
   const handleCloseDialog = () => setDialogOpen(false);
+
+  const openOrganisationMandis = React.useCallback(() => {
+    if (!editingId) return;
+    const params = new URLSearchParams({
+      org_id: editingId,
+      org_code: form.org_code || "",
+    });
+    setDialogOpen(false);
+    navigate(`/mandis?${params.toString()}`);
+  }, [editingId, form.org_code, navigate]);
+
+  const openOrganisationUsers = React.useCallback(() => {
+    if (!form.org_code) return;
+    const params = new URLSearchParams({ org_code: form.org_code });
+    setDialogOpen(false);
+    navigate(`/admin-users?${params.toString()}`);
+  }, [form.org_code, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -382,35 +470,28 @@ export const Orgs: React.FC = () => {
           const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
           return (
             <Stack direction="row" spacing={1}>
-              <Button size="small" variant="outlined" onClick={() => handleOpenView(row)}>
+              <AntButton size="small" onClick={() => handleOpenView(row)}>
                 View
-              </Button>
-              <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
-                {!lockInfo.locked && (
-                  <Button size="small" variant="outlined" onClick={() => handleOpenEdit(row)}>
-                    Edit
-                  </Button>
-                )}
-              </ActionGate>
+              </AntButton>
+              {canManageOrganisations && (
+                <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
+                  {!lockInfo.locked && (
+                    <AntButton size="small" onClick={() => handleOpenEdit(row)}>
+                      Edit
+                    </AntButton>
+                  )}
+                </ActionGate>
+              )}
             </Stack>
           );
         },
       },
     ],
-    [authContext, isSuper]
+    [authContext, canManageOrganisations, isSuper]
   );
 
-  const filteredRows = rows.filter((r) => {
-    const q = search.trim().toLowerCase();
-    const match =
-      !q ||
-      r.org_code.toLowerCase().includes(q) ||
-      r.org_name.toLowerCase().includes(q);
-    const statusOk =
-      statusFilter === "ALL" ||
-      (statusFilter === "ACTIVE" ? r.status === "ACTIVE" : r.status === "INACTIVE");
-    return match && statusOk;
-  });
+  const filteredRows = rows;
+
 
   return (
     <StepUpGuard username={currentUsername()} resourceKey="organisations.list" action="VIEW">
@@ -429,56 +510,84 @@ export const Orgs: React.FC = () => {
           </Typography>
         </Stack>
         {showCreateButton && (
-          <Button
-            variant="contained"
-            size="medium"
+          <AntButton
+            type="primary"
+            icon={<PlusOutlined />}
             onClick={handleOpenCreate}
+            style={{ height: 40, display: "inline-flex", alignItems: "center" }}
           >
             Add Organisation
-          </Button>
+          </AntButton>
         )}
       </Stack>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Search code/name"
-                size="small"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                size="small"
-                label="Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                fullWidth
-              >
-                <MenuItem value="ALL">All</MenuItem>
-                <MenuItem value="ACTIVE">Active</MenuItem>
-                <MenuItem value="INACTIVE">Inactive</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Button
-                variant="outlined"
-                size="medium"
-                onClick={loadOrgs}
-                disabled={loading}
-                fullWidth
-              >
-                Refresh
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+      <AntRow gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <AntCol xs={24} sm={8}>
+          <AntCard size="small" style={{ height: "100%" }}>
+            <AntStatistic title="Total Organisations" value={summary.total ?? "—"} loading={loading && summary.total === null} />
+          </AntCard>
+        </AntCol>
+        <AntCol xs={24} sm={8}>
+          <AntCard size="small" style={{ height: "100%" }}>
+            <AntStatistic title="Active Organisations" value={summary.active ?? "—"} loading={loading && summary.active === null} />
+          </AntCard>
+        </AntCol>
+        <AntCol xs={24} sm={8}>
+          <AntCard size="small" style={{ height: "100%" }}>
+            <AntStatistic title="Inactive Organisations" value={summary.inactive ?? "—"} loading={loading && summary.inactive === null} />
+          </AntCard>
+        </AntCol>
+      </AntRow>
+
+      <AntCard size="small" style={{ marginBottom: 16 }}>
+        <AntRow gutter={[12, 12]} align="middle">
+          <AntCol xs={24} md={12}>
+            <AntInput
+              aria-label="Search organisation code or name"
+              placeholder="Search code or organisation name"
+              prefix={<SearchOutlined />}
+              allowClear
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="cm-orgs-search"
+              style={{ height: 40 }}
+            />
+          </AntCol>
+          <AntCol xs={24} md={6}>
+            <AntDropdown
+              trigger={["click"]}
+              menu={{
+                selectedKeys: [statusFilter],
+                items: [
+                  { key: "ALL", label: "All statuses" },
+                  { key: "ACTIVE", label: "Active" },
+                  { key: "INACTIVE", label: "Inactive" },
+                ],
+                onClick: ({ key }) => {
+                  setStatusFilter(key as "ALL" | OrgStatus);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                },
+              }}
+            >
+              <AntButton className="cm-orgs-dropdown-button" block>
+                <span>{statusFilter === "ALL" ? "All statuses" : statusFilter === "ACTIVE" ? "Active" : "Inactive"}</span>
+                <DownOutlined />
+              </AntButton>
+            </AntDropdown>
+          </AntCol>
+          <AntCol xs={24} md={6}>
+            <AntButton
+              icon={<ReloadOutlined />}
+              onClick={() => loadOrgs(true)}
+              loading={loading}
+              block
+              style={{ height: 40 }}
+            >
+              Refresh
+            </AntButton>
+          </AntCol>
+        </AntRow>
+      </AntCard>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -548,39 +657,12 @@ export const Orgs: React.FC = () => {
                 </Box>
 
                 <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-                  <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleOpenEdit(row)}
-                      sx={{
-                        textTransform: "none",
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
-                        borderRadius: 1,
-                        px: 1.5,
-                        py: 0.3,
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  </ActionGate>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => handleOpenView(row)}
-                    sx={{
-                      textTransform: "none",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      borderRadius: 1,
-                      px: 1.5,
-                      py: 0.3,
-                      ml: 1,
-                    }}
-                  >
-                    View
-                  </Button>
+                  {canManageOrganisations && (
+                    <ActionGate resourceKey="organisations.edit" action="UPDATE" record={row}>
+                      <AntButton size="small" onClick={() => handleOpenEdit(row)}>Edit</AntButton>
+                    </ActionGate>
+                  )}
+                  <AntButton size="small" onClick={() => handleOpenView(row)} style={{ marginLeft: 8 }}>View</AntButton>
                 </Box>
               </Stack>
             </Card>
@@ -590,6 +672,15 @@ export const Orgs: React.FC = () => {
               No organisations found.
             </Typography>
           )}
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={paginationModel.page}
+            onPageChange={(_, page) => setPaginationModel((prev) => ({ ...prev, page }))}
+            rowsPerPage={paginationModel.pageSize}
+            onRowsPerPageChange={(event) => setPaginationModel({ page: 0, pageSize: Number(event.target.value) })}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
         </Stack>
       ) : (
         <Card>
@@ -599,6 +690,10 @@ export const Orgs: React.FC = () => {
                 rows={filteredRows}
                 columns={columns}
                 pageSizeOptions={[10, 25, 50]}
+                paginationMode="server"
+                rowCount={totalCount}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
                 disableRowSelectionOnClick
                 loading={loading}
                 minWidth={760}
@@ -608,125 +703,144 @@ export const Orgs: React.FC = () => {
         </Card>
       )}
 
-      <Dialog
+      <AntModal
         open={dialogOpen}
-        onClose={handleCloseDialog}
-        fullWidth
-        maxWidth="md"
-        fullScreen={isSmallScreen}
+        rootClassName="cm-orgs-modal"
+        onCancel={handleCloseDialog}
+        title={dialogMode === "CREATE" ? "Add Organisation" : dialogMode === "EDIT" ? "Edit Organisation" : "View Organisation"}
+        width={760}
+        centered
+        maskClosable={!loading}
+        footer={[
+          ...(dialogMode !== "CREATE"
+            ? [
+                <AntButton key="users" onClick={openOrganisationUsers}>
+                  Administrators / Users
+                </AntButton>,
+                <AntButton key="mandis" onClick={openOrganisationMandis}>
+                  View Mandis
+                </AntButton>,
+              ]
+            : []),
+          <AntButton key="close" onClick={handleCloseDialog}>
+            Close
+          </AntButton>,
+          ...(!isViewOnlyMode
+            ? [
+                <AntButton key="save" type="primary" loading={loading} onClick={handleSubmit}>
+                  Save
+                </AntButton>,
+              ]
+            : []),
+        ]}
       >
-        <DialogTitle>{dialogMode === "CREATE" ? "Add Organisation" : dialogMode === "EDIT" ? "Edit Organisation" : "View Organisation"}</DialogTitle>
-        <DialogContent dividers>
-          {isViewOnlyMode && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              View only – insufficient permission.
-            </Alert>
-          )}
-          <Grid container spacing={2} mt={1}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Org Code"
-                name="org_code"
-                value={form.org_code}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-                disabled
-                helperText="Auto-generated from Organisation Name"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Organisation Name"
-                name="org_name"
-                value={form.org_name}
-                onChange={handleChange}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-                disabled={isViewOnlyMode}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Country"
-                name="country"
-                value={form.country}
-                onChange={handleChange}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                disabled={isViewOnlyMode}
-              >
-                <MenuItem value="IN">India (IN)</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                label="Status"
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                disabled={isViewOnlyMode}
-              >
-                <MenuItem value="ACTIVE">Active</MenuItem>
-                <MenuItem value="INACTIVE">Inactive</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Created On"
-                name="created_on"
-                value={formatDateTime(form.created_on)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Updated On"
-                name="updated_on"
-                value={formatDateTime(form.updated_on)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Created By"
-                name="created_by"
-                value={form.created_by || ""}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                disabled
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Updated By"
-                name="updated_by"
-                value={form.updated_by || ""}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                disabled
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Close</Button>
-          {!isViewOnlyMode && (
-            <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-              {loading ? <CircularProgress size={18} /> : "Save"}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+        {isViewOnlyMode && (
+          <Alert
+            severity="info"
+            sx={{
+              mb: 2,
+              bgcolor: "#F5F7EE",
+              color: "#1F241A",
+              border: "1px solid #D8DEC8",
+              "& .MuiAlert-icon": { color: "#55632C" },
+            }}
+          >
+            View only – organisation details cannot be modified.
+          </Alert>
+        )}
+
+        <AntForm layout="vertical" requiredMark={!isViewOnlyMode}>
+          <AntRow gutter={[16, 0]}>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Organisation Code" required>
+                <AntInput
+                  value={form.org_code}
+                  readOnly
+                  placeholder="Generated from organisation name"
+                  style={{ height: 40 }}
+                />
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Organisation Name" required>
+                <AntInput
+                  value={form.org_name}
+                  onChange={(e) => handleChange(e)}
+                  readOnly={isViewOnlyMode}
+                  style={{ height: 40 }}
+                />
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Country">
+                <AntDropdown
+                  trigger={["click"]}
+                  disabled={isViewOnlyMode}
+                  menu={{
+                    selectedKeys: [form.country || "IN"],
+                    items: [{ key: "IN", label: "India (IN)" }],
+                    onClick: ({ key }) => setForm((prev) => ({ ...prev, country: key })),
+                  }}
+                >
+                  <AntButton
+                    className={`cm-orgs-dropdown-button${isViewOnlyMode ? " cm-orgs-dropdown-button-readonly" : ""}`}
+                    block
+                    disabled={isViewOnlyMode}
+                  >
+                    <span>{form.country === "IN" || !form.country ? "India (IN)" : form.country}</span>
+                    {!isViewOnlyMode ? <DownOutlined /> : null}
+                  </AntButton>
+                </AntDropdown>
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Status">
+                <AntDropdown
+                  trigger={["click"]}
+                  disabled={isViewOnlyMode}
+                  menu={{
+                    selectedKeys: [form.status],
+                    items: [
+                      { key: "ACTIVE", label: "Active" },
+                      { key: "INACTIVE", label: "Inactive" },
+                    ],
+                    onClick: ({ key }) => setForm((prev) => ({ ...prev, status: key as OrgStatus })),
+                  }}
+                >
+                  <AntButton
+                    className={`cm-orgs-dropdown-button${isViewOnlyMode ? " cm-orgs-dropdown-button-readonly" : ""}`}
+                    block
+                    disabled={isViewOnlyMode}
+                  >
+                    <span>{form.status === "ACTIVE" ? "Active" : "Inactive"}</span>
+                    {!isViewOnlyMode ? <DownOutlined /> : null}
+                  </AntButton>
+                </AntDropdown>
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Created On">
+                <AntInput value={formatDateTime(form.created_on)} readOnly style={{ height: 40 }} />
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Updated On">
+                <AntInput value={formatDateTime(form.updated_on)} readOnly style={{ height: 40 }} />
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Created By">
+                <AntInput value={form.created_by || "—"} readOnly style={{ height: 40 }} />
+              </AntForm.Item>
+            </AntCol>
+            <AntCol xs={24} sm={12}>
+              <AntForm.Item label="Updated By">
+                <AntInput value={form.updated_by || "—"} readOnly style={{ height: 40 }} />
+              </AntForm.Item>
+            </AntCol>
+          </AntRow>
+        </AntForm>
+      </AntModal>
 
       <Snackbar
         open={toast.open}
@@ -737,7 +851,33 @@ export const Orgs: React.FC = () => {
         <Alert
           severity={toast.severity}
           onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            color: "#1F241A",
+            bgcolor:
+              toast.severity === "success"
+                ? "#F3F8E9"
+                : toast.severity === "error"
+                  ? "#FFF2F0"
+                  : "#F5F7EE",
+            border: `1px solid ${
+              toast.severity === "success"
+                ? "#B8C98A"
+                : toast.severity === "error"
+                  ? "#E6A39A"
+                  : "#D8DEC8"
+            }`,
+            "& .MuiAlert-icon": {
+              color:
+                toast.severity === "error"
+                  ? "#B42318"
+                  : "#55632C",
+            },
+            "& .MuiAlert-message": {
+              color: "#1F241A",
+              fontWeight: 600,
+            },
+          }}
         >
           {toast.message}
         </Alert>

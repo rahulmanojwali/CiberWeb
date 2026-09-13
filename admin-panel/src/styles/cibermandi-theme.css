@@ -4560,3 +4560,86 @@ main,
 .cm-superadmin-dashboard-guidance {
   margin-bottom: 16px;
 }
+
+/* SUPER_ADMIN Organisations — Ant controls own their visible borders.
+   The project-wide native input rules must not create a second inner box. */
+.cm-orgs-search.ant-input-affix-wrapper {
+  min-height: 40px !important;
+  border: 1px solid var(--cm-border-strong) !important;
+  border-radius: var(--cm-radius-md) !important;
+  background: var(--cm-surface, #fff) !important;
+  box-shadow: none !important;
+}
+
+.cm-orgs-search.ant-input-affix-wrapper:hover {
+  border-color: var(--cm-primary-soft, #6e7c3a) !important;
+}
+
+.cm-orgs-search.ant-input-affix-wrapper-focused,
+.cm-orgs-search.ant-input-affix-wrapper:focus-within {
+  border-color: var(--cm-primary, #55632c) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-orgs-search.ant-input-affix-wrapper > input.ant-input,
+.cm-orgs-search.ant-input-affix-wrapper > input.ant-input:focus {
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+/* SUPER_ADMIN Organisations — use Ant Dropdown + Button instead of Select.
+   This avoids nested selector/input boxes from the legacy global form theme. */
+.cm-orgs-dropdown-button.ant-btn {
+  width: 100% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  border: 1px solid var(--cm-border-strong) !important;
+  border-radius: var(--cm-radius-md) !important;
+  background: var(--cm-surface, #fff) !important;
+  color: var(--cm-text, #1f241a) !important;
+  box-shadow: none !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+}
+
+.cm-orgs-dropdown-button.ant-btn:hover,
+.cm-orgs-dropdown-button.ant-btn:focus {
+  border-color: var(--cm-primary, #55632c) !important;
+  color: var(--cm-text, #1f241a) !important;
+  background: var(--cm-surface, #fff) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-orgs-dropdown-button-readonly.ant-btn[disabled],
+.cm-orgs-dropdown-button-readonly.ant-btn[disabled]:hover {
+  background: #f7f8f4 !important;
+  border-color: var(--cm-border, #dfe4d8) !important;
+  color: #1f241a !important;
+  -webkit-text-fill-color: #1f241a !important;
+  opacity: 1 !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+
+.cm-orgs-modal .ant-input[readonly] {
+  background: #f7f8f4 !important;
+  color: #1f241a !important;
+  -webkit-text-fill-color: #1f241a !important;
+  opacity: 1 !important;
+}
+
+.cm-orgs-modal .ant-form-item-label > label {
+  color: #343a2d !important;
+  font-weight: 600 !important;
+}

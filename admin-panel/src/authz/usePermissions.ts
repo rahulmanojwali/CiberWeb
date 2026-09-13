@@ -24,9 +24,6 @@ export function usePermissions() {
     const permSource = uiConfig.permissions || [];
     const fallback = (uiConfig as any).resources || [];
     const merged = [...fallback, ...permSource];
-    merged.forEach((permission) => {
-      console.log("RAW_PERMISSION", JSON.stringify(permission, null, 2));
-    });
     const actionMap = buildCanonicalPermissionMap(merged);
     const map: Record<string, Set<string>> = {};
     Object.entries(actionMap).forEach(([key, actions]) => {
@@ -108,7 +105,6 @@ export function usePermissions() {
       ensure("lots.map_to_auction", ["UPDATE"]);
       ensure("lots.update_status", ["UPDATE"]);
     }
-    console.log("PERMISSION_MAP", map);
     return map;
   }, [uiConfig.permissions, (uiConfig as any).resources, roleSlug]);
 

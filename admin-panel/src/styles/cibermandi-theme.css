@@ -4735,3 +4735,22 @@ main,
   display: inline-flex;
   align-items: center;
 }
+
+
+/* Admin Users: Ant Input.Password already renders the visible field shell.
+   Reset the inner native input so the global form theme cannot create a nested box. */
+.cm-admin-users-password.ant-input-affix-wrapper {
+  min-height: 40px;
+}
+
+.cm-admin-users-password.ant-input-affix-wrapper > input.ant-input,
+.cm-admin-users-password.ant-input-affix-wrapper > input.ant-input:hover,
+.cm-admin-users-password.ant-input-affix-wrapper > input.ant-input:focus {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+}

@@ -1641,6 +1641,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             <AntCol xs={24} sm={12}>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.password")} *</div>
               <AntInput.Password
+                className="cm-admin-users-password"
                 value={form.password}
                 onChange={(event) => {
                   clearFieldError("password");
@@ -1871,6 +1872,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                 {t("adminUsers.resetDialog.newPassword", { defaultValue: "New Password" })}
               </div>
               <AntInput.Password
+                className="cm-admin-users-password"
                 value={manualPassword}
                 onChange={(event) => setManualPassword(event.target.value)}
                 disabled={resetLoading}
@@ -1882,6 +1884,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                 {t("adminUsers.resetDialog.confirmPassword", { defaultValue: "Confirm Password" })}
               </div>
               <AntInput.Password
+                className="cm-admin-users-password"
                 value={manualConfirmPassword}
                 onChange={(event) => setManualConfirmPassword(event.target.value)}
                 disabled={resetLoading}

@@ -110,6 +110,7 @@ export const ResetPasswordPage: React.FC = () => {
 
   return (
     <div
+      className="cm-reset-password-page"
       style={{
         minHeight: "100vh",
         background: `linear-gradient(180deg, ${themeToken.colorBgLayout} 0%, #F7F5EF 100%)`,
@@ -202,6 +203,7 @@ export const ResetPasswordPage: React.FC = () => {
                     {t("resetPasswordPage.fields.newPassword")}
                   </Typography.Text>
                   <Input.Password
+                    className="cm-reset-password-input"
                     prefix={<LockOutlined />}
                     size="large"
                     autoComplete="new-password"
@@ -226,6 +228,7 @@ export const ResetPasswordPage: React.FC = () => {
                     {t("resetPasswordPage.fields.confirmPassword")}
                   </Typography.Text>
                   <Input.Password
+                    className="cm-reset-password-input"
                     prefix={<LockOutlined />}
                     size="large"
                     autoComplete="new-password"

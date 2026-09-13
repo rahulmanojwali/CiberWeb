@@ -4643,3 +4643,32 @@ main,
   color: #343a2d !important;
   font-weight: 600 !important;
 }
+
+
+/* Reset Password: Ant Input.Password owns the visible field shell.
+   Neutralise the global native-input rule on Ant's internal input so
+   the control renders as one box instead of a box inside a box. */
+.cm-reset-password-page .cm-reset-password-input.ant-input-affix-wrapper {
+  min-height: 44px !important;
+  padding: 4px 11px !important;
+  background: #fff !important;
+}
+
+.cm-reset-password-page .cm-reset-password-input.ant-input-affix-wrapper > input.ant-input,
+.cm-reset-password-page .cm-reset-password-input.ant-input-affix-wrapper > input.ant-input:hover,
+.cm-reset-password-page .cm-reset-password-input.ant-input-affix-wrapper > input.ant-input:focus {
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  padding: 0 !important;
+}
+
+.cm-reset-password-page .cm-reset-password-input .ant-input-prefix,
+.cm-reset-password-page .cm-reset-password-input .ant-input-suffix {
+  display: inline-flex;
+  align-items: center;
+}

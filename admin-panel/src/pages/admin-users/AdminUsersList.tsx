@@ -123,6 +123,11 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set<RoleSlug>([
   "VIEWER",
 ]);
 
+const ORG_ADMIN_NON_DELEGABLE_ROLES = new Set<RoleSlug>([
+  "SUPER_ADMIN",
+  "ORG_ADMIN",
+]);
+
 // These are active operational roles in cm_roles_masters.
 // The Admin Users role API may return role_code/name_i18n instead of role_slug,
 // and in some builds may omit newly-added roles until backend cache is refreshed.
@@ -550,7 +555,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       availableRoles = Array.from(new Set([...availableRoles, ...ADMIN_USER_CREATE_ROLE_FALLBACKS]));
       if (!isSuper) {
         availableRoles = availableRoles.filter(
-          (role) => role !== "SUPER_ADMIN" && ORG_ADMIN_ALLOWED_ROLES.has(role),
+          (role) => !ORG_ADMIN_NON_DELEGABLE_ROLES.has(role) && ORG_ADMIN_ALLOWED_ROLES.has(role),
         );
       }
       const sortedRoles = sortRoleOptions(availableRoles);
@@ -680,7 +685,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
         const userOrgCode = String(user.org_code || "").trim().toUpperCase();
         const actorOrgCode = String(scopeOrgCode || "").trim().toUpperCase();
         if (!actorOrgCode || userOrgCode !== actorOrgCode) return false;
-        if (normalizeRoleSlug(user.role_slug || user.role_code) === "SUPER_ADMIN") return false;
+        const targetRole = normalizeRoleSlug(user.role_slug || user.role_code);
+        if (targetRole && ORG_ADMIN_NON_DELEGABLE_ROLES.has(targetRole)) return false;
       }
       const lockInfo = user ? isRecordLocked(user as any, recordLockContext) : { locked: false };
       return !lockInfo.locked;
@@ -835,6 +841,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     }
     if (!form.role_slug) {
       handleToast(t("adminUsers.messages.rolesRequired"), "error");
+      return;
+    }
+    const normalizedTargetRole = normalizeRoleSlug(form.role_slug);
+    if (!isSuper && normalizedTargetRole && ORG_ADMIN_NON_DELEGABLE_ROLES.has(normalizedTargetRole)) {
+      handleToast("Only SUPER_ADMIN can assign or manage Organisation Admin roles.", "error");
       return;
     }
     if (requiresMandiScope(form.role_slug) && form.mandi_codes.length === 0) {

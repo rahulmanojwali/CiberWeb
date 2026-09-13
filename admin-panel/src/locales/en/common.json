@@ -153,10 +153,12 @@
   },
   "resetPasswordPage": {
     "title": "Reset Password",
-    "subtitle": "Set a new password and regain access to your account.",
+    "subtitle": "Create a new password for your CiberMandi administrator account.",
     "fields": {
       "newPassword": "New Password",
-      "confirmPassword": "Confirm Password"
+      "confirmPassword": "Confirm Password",
+      "newPasswordPlaceholder": "Enter a new password",
+      "confirmPasswordPlaceholder": "Re-enter the new password"
     },
     "actions": {
       "submit": "Update Password",
@@ -167,8 +169,15 @@
       "passwordTooShort": "Password must be at least {{min}} characters.",
       "passwordMismatch": "Passwords do not match.",
       "success": "Password updated successfully.",
-      "unexpectedError": "Something went wrong. Please try again."
-    }
+      "unexpectedError": "Something went wrong. Please try again.",
+      "requestNewLink": "Request a new reset link from the sign-in page or contact your administrator.",
+      "successDetail": "Your new password is active. You can now return to sign in."
+    },
+    "requirements": {
+      "minimumLength": "At least {{min}} characters",
+      "passwordsMatch": "Both password entries match"
+    },
+    "securityNote": "For your security, reset links expire and can be used only once."
   },
   "adminUsers": {
     "title": "Admin Users",

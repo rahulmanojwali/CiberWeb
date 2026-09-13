@@ -15,6 +15,7 @@ import type { MenuProps } from "antd";
 import {
   BellOutlined,
   CheckOutlined,
+  CloseOutlined,
   DownOutlined,
   GlobalOutlined,
   LogoutOutlined,
@@ -35,6 +36,7 @@ import {
 } from "../../config/languages";
 import {
   filterMenuByResources,
+  filterMenuByRole,
   type MenuItem as NavMenuItem,
 } from "../../config/menuConfig";
 import { getUserRoleFromStorage } from "../../utils/roles";
@@ -85,8 +87,9 @@ export const Header: React.FC<HeaderProps> = ({ sticky = true }) => {
     ui_resources,
     role: configRole,
     resources: compatResources,
+    loading: loadingUiConfig,
   } = useAdminUiConfig();
-  const { permissionsMap, loadingPermissions } = usePermissions();
+  const { permissionsMap, loadingPermissions, isSuper } = usePermissions();
 
   const role = getUserRoleFromStorage("Header");
   const effectiveRole = (configRole as any) || role;
@@ -98,16 +101,40 @@ export const Header: React.FC<HeaderProps> = ({ sticky = true }) => {
   const { controls: platformMenuControls } = usePlatformMenuControls(menuResources);
 
   const navItems: NavMenuItem[] = useMemo(() => {
+    const resourcesCount = menuResources?.length || 0;
+
+    // Keep mobile navigation aligned with the desktop sidebar. During a fresh
+    // mobile login the UI-resource payload can arrive after the Header mounts.
+    // SUPER_ADMIN must still receive the stable role menu instead of an empty
+    // drawer while that resource payload is unavailable or yields no rows.
+    if (resourcesCount === 0) {
+      if (!loadingUiConfig && isSuper) {
+        return filterMenuTreeByPlatformControl(
+          filterMenuByRole("SUPER_ADMIN"),
+          platformMenuControls,
+        );
+      }
+      return [];
+    }
+
     if (loadingPermissions) return [];
-    const items = filterMenuByResources(
+
+    const built = filterMenuByResources(
       menuResources,
       effectiveRole,
       permissionsMap,
     );
-    return filterMenuTreeByPlatformControl(items, platformMenuControls);
+
+    const resolved = built.length === 0 && isSuper
+      ? filterMenuByRole("SUPER_ADMIN")
+      : built;
+
+    return filterMenuTreeByPlatformControl(resolved, platformMenuControls);
   }, [
     effectiveRole,
+    isSuper,
     loadingPermissions,
+    loadingUiConfig,
     menuResources,
     permissionsMap,
     platformMenuControls,
@@ -331,7 +358,23 @@ export const Header: React.FC<HeaderProps> = ({ sticky = true }) => {
       <Drawer
         className="cm-ant-mobile-drawer"
         rootClassName="cm-ant-mobile-drawer-root"
-        title={
+        placement="left"
+        width={320}
+        closable={false}
+        open={mobileMenuOpen && isSmall}
+        onClose={() => setMobileMenuOpen(false)}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "4px 4px 14px",
+            marginBottom: 8,
+            borderBottom: "1px solid #E2E7DC",
+          }}
+        >
           <Space size={10}>
             <img
               src={BRAND_ASSETS.logo}
@@ -339,22 +382,41 @@ export const Header: React.FC<HeaderProps> = ({ sticky = true }) => {
               className="cm-mobile-drawer-logo"
             />
             <div className="cm-mobile-drawer-heading">
-              <Text strong className="cm-mobile-drawer-brand">CiberMandi</Text>
-              <Text className="cm-mobile-drawer-role">{roleLabel}</Text>
+              <Text strong style={{ color: "#24301D", fontSize: 14 }}>CiberMandi</Text>
+              <Text style={{ color: "#66715E", fontSize: 10, textTransform: "capitalize" }}>
+                {roleLabel}
+              </Text>
             </div>
           </Space>
-        }
-        placement="left"
-        width={320}
-        open={mobileMenuOpen && isSmall}
-        onClose={() => setMobileMenuOpen(false)}
-      >
+          <Button
+            type="text"
+            aria-label="Close navigation"
+            icon={<CloseOutlined />}
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ color: "#24301D" }}
+          />
+        </div>
+
+        {!loadingUiConfig && !loadingPermissions && antMenuItems?.length === 0 && (
+          <div style={{ padding: "14px 12px", color: "#66715E", fontSize: 13 }}>
+            No menu access assigned
+          </div>
+        )}
+
+        {(loadingUiConfig || loadingPermissions) && antMenuItems?.length === 0 && (
+          <div style={{ padding: "14px 12px", color: "#66715E", fontSize: 13 }}>
+            Loading navigation…
+          </div>
+        )}
+
         <Menu
+          theme="light"
           mode="inline"
           items={antMenuItems}
           selectedKeys={selectedMobileKey}
           onClick={handleMobileMenuClick}
           className="cm-ant-mobile-menu"
+          style={{ background: "transparent", color: "#24301D", borderInlineEnd: 0 }}
         />
       </Drawer>
     </>

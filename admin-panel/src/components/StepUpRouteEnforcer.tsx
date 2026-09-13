@@ -181,8 +181,52 @@ export const StepUpRouteEnforcer: React.FC<{ children: React.ReactNode }> = ({ c
 
   if (gate === "CHECKING") {
     return (
-      <Box display="flex" justifyContent="center" py={6}>
-        <CircularProgress />
+      <Box
+        sx={{
+          minHeight: { xs: 320, sm: 380 },
+          px: 2,
+          py: { xs: 4, sm: 6 },
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
+      >
+        <Paper
+          role="status"
+          aria-live="polite"
+          variant="outlined"
+          sx={{
+            mt: { xs: 1, sm: 2 },
+            p: { xs: 3, sm: 4 },
+            maxWidth: 520,
+            width: "100%",
+            borderRadius: 3,
+            textAlign: "center",
+            boxShadow: "0 12px 32px rgba(34, 45, 20, 0.08)",
+          }}
+        >
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              mx: "auto",
+              mb: 2,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "rgba(85, 99, 44, 0.10)",
+            }}
+          >
+            <CircularProgress size={24} thickness={4.5} color="primary" />
+          </Box>
+
+          <Typography sx={{ fontWeight: 900, fontSize: { xs: 18, sm: 20 }, mb: 0.75 }}>
+            Verifying access…
+          </Typography>
+          <Typography sx={{ color: "text.secondary", fontSize: 14, lineHeight: 1.6 }}>
+            Please wait while we confirm your secure session.
+          </Typography>
+        </Paper>
       </Box>
     );
   }

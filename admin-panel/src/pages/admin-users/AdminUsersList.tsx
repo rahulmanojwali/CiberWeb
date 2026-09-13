@@ -289,6 +289,11 @@ type FormState = {
   is_active: boolean;
 };
 
+type AdminUserFieldErrors = Partial<Record<
+  "username" | "password" | "display_name" | "email" | "mobile" | "org_code" | "role_slug" | "mandi_codes",
+  string
+>>;
+
 type FiltersState = {
   org_code: string;
   role_slug: string;
@@ -408,6 +413,7 @@ const AdminUsersList: React.FC = () => {
     mandi_codes: [] as string[],
     is_active: true,
   });
+  const [fieldErrors, setFieldErrors] = useState<AdminUserFieldErrors>({});
 
   const handleToast = useCallback((message: string, severity: ToastState["severity"]) => {
     setToast({ open: true, message, severity });
@@ -672,6 +678,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
 
   const resetForm = (orgCode?: string) => {
     const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === orgCode);
+    setFieldErrors({});
     setForm({
       username: "",
       password: "",
@@ -705,6 +712,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     }
     setIsEditMode(true);
     setEditingUser(user);
+    setFieldErrors({});
     setForm({
       username: user.username,
       password: "",
@@ -721,7 +729,10 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     setDialogOpen(true);
   }, [canManageUser, handleToast, loadMandis, scopeOrgCode]);
 
-  const handleCloseDialog = () => setDialogOpen(false);
+  const handleCloseDialog = () => {
+    setFieldErrors({});
+    setDialogOpen(false);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -734,6 +745,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
   };
 
   const handleOrgChange = async (value: string) => {
+    clearFieldError("org_code");
     const targetOrg = orgOptions.find((o: OrgOption) => o.org_code === value);
     setForm((prev: FormState) => ({
       ...prev,
@@ -751,10 +763,38 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
     const nextMandis = isSingleMandiRole(form.role_slug)
       ? normalized.slice(-1)
       : normalized;
+    setFieldErrors((prev) => ({ ...prev, mandi_codes: undefined }));
     setForm((prev: FormState) => ({ ...prev, mandi_codes: nextMandis }));
   };
 
+  const clearFieldError = useCallback((field: keyof AdminUserFieldErrors) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const applyAdminUserApiError = useCallback((description?: string | null) => {
+    const message = String(description || "Unable to save admin user.").trim();
+    const normalized = message.toLowerCase();
+    let field: keyof AdminUserFieldErrors | null = null;
+
+    if (normalized.includes("email") && normalized.includes("already")) field = "email";
+    else if (normalized.includes("mobile") && normalized.includes("already")) field = "mobile";
+    else if (normalized.includes("username") && normalized.includes("already")) field = "username";
+
+    if (field) {
+      setFieldErrors((prev) => ({ ...prev, [field as string]: message }));
+    }
+    setError(message);
+    handleToast(message, "error");
+  }, [handleToast]);
+
   const handleSubmit = async () => {
+    setFieldErrors({});
+    setError(null);
     if (isReadOnly) {
       setDialogOpen(false);
       handleToast("You are not authorized to modify users.", "error");
@@ -815,7 +855,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
         const resp = res?.response || {};
         const code = String(resp.responsecode ?? "");
         if (code !== "0") {
-          handleToast(resp.description || t("adminUsers.messages.updateFailed"), "error");
+          applyAdminUserApiError(resp.description || t("adminUsers.messages.updateFailed"));
         } else {
           handleToast(t("adminUsers.messages.updateSuccess"), "success");
           await loadUsers({ force: true });
@@ -861,7 +901,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
         const resp = res?.response || {};
         const code = String(resp.responsecode ?? "");
         if (code !== "0") {
-          handleToast(resp.description || t("adminUsers.messages.createFailed"), "error");
+          applyAdminUserApiError(resp.description || t("adminUsers.messages.createFailed"));
         } else {
           handleToast(t("adminUsers.messages.createSuccess"), "success");
           await loadUsers({ force: true });
@@ -869,7 +909,9 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
         }
       }
     } catch (e: any) {
-      handleToast(e?.message || t("adminUsers.messages.networkError"), "error");
+      const message = e?.message || t("adminUsers.messages.networkError");
+      setError(message);
+      handleToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -1561,45 +1603,70 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.username")} *</div>
             <AntInput
               value={form.username}
-              onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
+              onChange={(event) => {
+                clearFieldError("username");
+                setForm((prev) => ({ ...prev, username: event.target.value }));
+              }}
               disabled={isEditMode}
+              status={fieldErrors.username ? "error" : undefined}
               style={{ height: 40 }}
             />
+            {fieldErrors.username && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.username}</div>}
           </AntCol>
           {!isEditMode && (
             <AntCol xs={24} sm={12}>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.password")} *</div>
               <AntInput.Password
                 value={form.password}
-                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                onChange={(event) => {
+                  clearFieldError("password");
+                  setForm((prev) => ({ ...prev, password: event.target.value }));
+                }}
+                status={fieldErrors.password ? "error" : undefined}
                 style={{ height: 40 }}
               />
+              {fieldErrors.password && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.password}</div>}
             </AntCol>
           )}
           <AntCol xs={24} sm={8}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.fullName")} *</div>
             <AntInput
               value={form.display_name}
-              onChange={(event) => setForm((prev) => ({ ...prev, display_name: event.target.value }))}
+              onChange={(event) => {
+                clearFieldError("display_name");
+                setForm((prev) => ({ ...prev, display_name: event.target.value }));
+              }}
+              status={fieldErrors.display_name ? "error" : undefined}
               style={{ height: 40 }}
             />
+            {fieldErrors.display_name && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.display_name}</div>}
           </AntCol>
           <AntCol xs={24} sm={8}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.email")}</div>
             <AntInput
               type="email"
               value={form.email}
-              onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+              onChange={(event) => {
+                clearFieldError("email");
+                setForm((prev) => ({ ...prev, email: event.target.value }));
+              }}
+              status={fieldErrors.email ? "error" : undefined}
               style={{ height: 40 }}
             />
+            {fieldErrors.email && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.email}</div>}
           </AntCol>
           <AntCol xs={24} sm={8}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.mobile")} *</div>
             <AntInput
               value={form.mobile}
-              onChange={(event) => setForm((prev) => ({ ...prev, mobile: event.target.value }))}
+              onChange={(event) => {
+                clearFieldError("mobile");
+                setForm((prev) => ({ ...prev, mobile: event.target.value }));
+              }}
+              status={fieldErrors.mobile ? "error" : undefined}
               style={{ height: 40 }}
             />
+            {fieldErrors.mobile && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.mobile}</div>}
           </AntCol>
           <AntCol xs={24} sm={12}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.organisation")}</div>

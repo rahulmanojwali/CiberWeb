@@ -1,0 +1,255 @@
+.cm-dt-orders-page {
+  --cm-dt-border: #d8ded1;
+  --cm-dt-border-hover: #879460;
+  --cm-dt-primary: #55632c;
+  --cm-dt-soft: #f7f8f3;
+  --cm-dt-text: #2b3126;
+  --cm-dt-muted: #6f7768;
+}
+
+.cm-dt-orders-page .cm-dt-orders-filter-card,
+.cm-dt-orders-page .cm-dt-orders-table-card {
+  border: 1px solid #e2e6dd !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-filter-card .ant-card-body {
+  padding: 12px !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-filter-row {
+  align-items: center;
+}
+
+/* Single-shell status selector, matching the frozen Participant Management controls. */
+.cm-dt-orders-page .cm-dt-orders-status-button.ant-btn {
+  width: 100%;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px;
+  border: 1px solid var(--cm-dt-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: var(--cm-dt-text) !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-status-button.ant-btn:hover,
+.cm-dt-orders-page .cm-dt-orders-status-button.ant-btn:focus-visible {
+  border-color: var(--cm-dt-border-hover) !important;
+  background: #fff !important;
+  color: var(--cm-dt-text) !important;
+  box-shadow: none !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-status-button.ant-btn:focus-visible {
+  outline: 3px solid rgba(85, 99, 44, 0.12) !important;
+  outline-offset: 0 !important;
+}
+
+/* Search is one visual group: field + action, not two disconnected controls. */
+.cm-dt-orders-page .cm-dt-orders-search-group {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.cm-dt-orders-page .cm-dt-orders-search.ant-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--cm-dt-border) !important;
+  border-right: 0 !important;
+  border-radius: 10px 0 0 10px !important;
+  background: #fff !important;
+  color: var(--cm-dt-text) !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-search.ant-input:hover,
+.cm-dt-orders-page .cm-dt-orders-search.ant-input:focus,
+.cm-dt-orders-page .cm-dt-orders-search.ant-input:focus-visible {
+  border-color: var(--cm-dt-border-hover) !important;
+  box-shadow: none !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-search.ant-input::placeholder {
+  color: #7b8274 !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-search-button.ant-btn {
+  flex: 0 0 auto;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding-inline: 18px !important;
+  border-radius: 0 10px 10px 0 !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.cm-dt-orders-page .cm-dt-orders-table-card .ant-card-body {
+  padding: 0;
+}
+
+.cm-dt-orders-page .cm-dt-orders-table-card .ant-table-wrapper {
+  width: 100%;
+}
+
+.cm-dt-orders-page .cm-dt-orders-table-card .ant-table-thead > tr > th {
+  background: #f6f7f3 !important;
+  color: #40473a !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+}
+
+.cm-dt-orders-page .cm-dt-orders-table-card .ant-table-tbody > tr > td {
+  vertical-align: middle;
+}
+
+.cm-dt-orders-page .cm-dt-orders-table-card .ant-table-placeholder td {
+  padding: 44px 16px !important;
+}
+
+.cm-dt-orders-page .cm-dt-order-id {
+  display: block;
+  color: #344019;
+  font-weight: 650;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.cm-dt-orders-page .cm-dt-order-secondary {
+  display: block;
+  margin-top: 3px;
+  color: var(--cm-dt-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cm-dt-orders-page .ant-tag,
+.cm-dt-order-modal .ant-tag {
+  margin-inline-end: 0;
+  border-radius: 999px;
+  padding-inline: 9px;
+  font-weight: 600;
+  line-height: 23px;
+}
+
+.cm-dt-orders-page .ant-table-cell .ant-btn-link {
+  height: 32px;
+  padding-inline: 6px;
+  color: #4c5a26;
+  font-weight: 600;
+}
+
+/* Detail modal: wider, sectioned and easier to scan. */
+.cm-dt-order-modal .ant-modal-content {
+  overflow: hidden;
+  border-radius: 16px !important;
+}
+
+.cm-dt-order-modal .ant-modal-header {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf0e8;
+}
+
+.cm-dt-order-modal .ant-modal-body {
+  max-height: min(72vh, 760px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cm-dt-order-modal .cm-dt-detail-panel {
+  padding: 14px;
+  border: 1px solid #e1e6da;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cm-dt-order-modal .cm-dt-detail-section {
+  margin-top: 12px;
+}
+
+.cm-dt-order-modal .cm-dt-detail-title {
+  margin-bottom: 10px;
+  color: #30372b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cm-dt-order-modal .ant-descriptions-bordered .ant-descriptions-item-label {
+  background: var(--cm-dt-soft) !important;
+  color: #596153 !important;
+  font-weight: 600 !important;
+}
+
+.cm-dt-order-modal .cm-dt-audit-item {
+  position: relative;
+  padding: 10px 0 10px 14px;
+  border-bottom: 1px solid #eef1e9;
+}
+
+.cm-dt-order-modal .cm-dt-audit-item::before {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7f8d54;
+  content: '';
+}
+
+.cm-dt-order-modal .cm-dt-audit-item:last-child {
+  border-bottom: 0;
+}
+
+.cm-dt-order-modal .cm-dt-modal-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+@media (max-width: 991px) {
+  .cm-dt-orders-page .cm-dt-orders-search-group {
+    display: flex;
+  }
+}
+
+@media (max-width: 575px) {
+  .cm-dt-orders-page .cm-dt-orders-search-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cm-dt-orders-page .cm-dt-orders-search.ant-input {
+    border: 1px solid var(--cm-dt-border) !important;
+    border-radius: 10px !important;
+  }
+
+  .cm-dt-orders-page .cm-dt-orders-search-button.ant-btn {
+    width: 100%;
+    border-radius: 10px !important;
+  }
+
+  .cm-dt-order-modal .ant-modal-body {
+    max-height: 72vh;
+    padding-top: 8px;
+  }
+
+  .cm-dt-order-modal .cm-dt-detail-panel {
+    padding: 10px;
+  }
+}

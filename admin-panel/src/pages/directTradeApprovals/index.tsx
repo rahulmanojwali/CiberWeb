@@ -1,158 +1,149 @@
 /**
  * Author: CiberMandi Development Team
- * Date: 2026-07-14
- * Description: Direct Trade approval workspace with controlled review-message selection and reviewer attribution.
- * Major methods: list/load approval data, load controlled messages, submit approval decision.
+ * Date: 2026-09-14
+ * Description: Platform Operations Direct Trade approval workspace.
+ * XML/Android rules are not applicable here; this is Web Admin.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React from 'react';
 import {
   Alert,
-  Box,
   Button,
   Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  Grid,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
+  Col,
+  Descriptions,
+  Dropdown,
+  Empty,
+  Image,
+  Input,
+  Modal,
+  Pagination,
+  Row,
+  Space,
+  Spin,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Tooltip,
+  Tag,
   Typography,
-} from "@mui/material";
-import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
-import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
-import PublishedWithChangesOutlinedIcon from "@mui/icons-material/PublishedWithChangesOutlined";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
-import BrokenImageOutlinedIcon from "@mui/icons-material/BrokenImageOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
-import ChangeCircleOutlinedIcon from "@mui/icons-material/ChangeCircleOutlined";
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
-import ArrowBackIosNewOutlinedIcon from "@mui/icons-material/ArrowBackIosNewOutlined";
-import ArrowForwardIosOutlinedIcon from "@mui/icons-material/ArrowForwardIosOutlined";
-import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-import { useSnackbar } from "notistack";
-import { PageContainer } from "../../components/PageContainer";
+} from 'antd';
+import type { MenuProps, TableColumnsType } from 'antd';
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DownOutlined,
+  EyeOutlined,
+  LeftOutlined,
+  ReloadOutlined,
+  RightOutlined,
+  SearchOutlined,
+  SyncOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { useSnackbar } from 'notistack';
+import { PageContainer } from '../../components/PageContainer';
 import {
   imagePreviewUrl,
   mediaTypeOf,
   thumbnailCandidates,
-  videoEmbedUrl,
   videoPlaybackUrl,
-} from "../../utils/mediaUrl";
+} from '../../utils/mediaUrl';
 import {
   getDirectTradeApprovalDetails,
   listDirectTradeApprovalQueue,
   listDirectTradeApprovalRemarkTemplates,
   updateDirectTradeApprovalStatus,
   type DirectTradeApprovalRemarkTemplate,
-} from "../../services/directTradeApprovalsApi";
+} from '../../services/directTradeApprovalsApi';
+import './directTradeApprovals.css';
+
+const { Text, Title } = Typography;
+type AnyRecord = Record<string, any>;
+
+type ApprovalAction = 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES';
 
 const STATUS_OPTIONS = [
-  { value: "PENDING_APPROVAL", label: "Pending Approval" },
-  { value: "RESUBMITTED", label: "Resubmitted" },
-  { value: "NEEDS_ATTENTION", label: "Needs Attention" },
-  { value: "APPROVED", label: "Approved / Published" },
-  { value: "ALL", label: "All" },
+  { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
+  { value: 'RESUBMITTED', label: 'Resubmitted' },
+  { value: 'NEEDS_ATTENTION', label: 'Needs Attention' },
+  { value: 'APPROVED', label: 'Approved / Published' },
+  { value: 'ALL', label: 'All' },
 ];
 
 const MEDIA_FILTERS = [
-  { value: "ALL", label: "All Media" },
-  { value: "MISSING_PHOTO", label: "Missing Images" },
-  { value: "MISSING_VIDEO", label: "Missing Video" },
+  { value: 'ALL', label: 'All Media' },
+  { value: 'MISSING_PHOTO', label: 'Missing Images' },
+  { value: 'MISSING_VIDEO', label: 'Missing Video' },
+];
+
+const MEDIA_DECISIONS = [
+  { value: 'PENDING', label: 'Pending Review' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'REQUEST_REPLACEMENT', label: 'Request Replacement' },
+  { value: 'REJECTED', label: 'Reject' },
+  { value: 'REMOVED', label: 'Removed' },
 ];
 
 const LOCAL_REASONS = [
-  "Wrong product image",
-  "Poor image quality",
-  "Image does not match product",
-  "Video does not match product",
-  "Video not clear",
-  "Duplicate media",
-  "Inappropriate media",
-  "Location mismatch",
-  "Product details mismatch",
-  "Media deleted / removed",
-  "Media corrupted",
-  "Upload failed",
-  "Under moderation",
-  "Other",
+  'Wrong product image',
+  'Poor image quality',
+  'Image does not match product',
+  'Video does not match product',
+  'Video not clear',
+  'Duplicate media',
+  'Inappropriate media',
+  'Location mismatch',
+  'Product details mismatch',
+  'Media deleted / removed',
+  'Media corrupted',
+  'Upload failed',
+  'Under moderation',
+  'Other',
 ];
-
 
 const FALLBACK_REMARK_TEMPLATES: DirectTradeApprovalRemarkTemplate[] = [
-  { code: "APPROVE_DETAILS_VERIFIED", action: "APPROVE", label: "Details verified", message: "Product, quantity, price, pickup and media details have been verified.", sort_order: 10 },
-  { code: "APPROVE_MEDIA_VERIFIED", action: "APPROVE", label: "Media verified", message: "All submitted photos and videos are clear, relevant and approved.", sort_order: 20 },
-  { code: "APPROVE_FINAL", action: "APPROVE", label: "Approved for publication", message: "Listing meets Direct Trade requirements and is approved for publication.", sort_order: 30 },
-  { code: "CHANGE_PRODUCT_DETAILS", action: "REQUEST_CHANGES", label: "Correct product details", message: "Please correct the product, grade, quantity, price or remarks and resubmit the listing.", sort_order: 10 },
-  { code: "CHANGE_MEDIA", action: "REQUEST_CHANGES", label: "Replace or improve media", message: "Please replace unclear, incorrect or incomplete product photos/videos and resubmit.", sort_order: 20 },
-  { code: "CHANGE_PICKUP", action: "REQUEST_CHANGES", label: "Correct pickup details", message: "Please correct the pickup address or GPS verification details and resubmit.", sort_order: 30 },
-  { code: "REJECT_INVALID_PRODUCT", action: "REJECT", label: "Invalid or prohibited product", message: "The listing cannot be approved because the product is invalid, prohibited or outside Direct Trade policy.", sort_order: 10 },
-  { code: "REJECT_MISLEADING", action: "REJECT", label: "Misleading listing", message: "The listing has been rejected because the submitted information or media is misleading or unverifiable.", sort_order: 20 },
-  { code: "REJECT_POLICY", action: "REJECT", label: "Policy violation", message: "The listing has been rejected because it does not comply with CiberMandi Direct Trade policy.", sort_order: 30 },
+  { code: 'APPROVE_DETAILS_VERIFIED', action: 'APPROVE', label: 'Details verified', message: 'Product, quantity, price, pickup and media details have been verified.', sort_order: 10 },
+  { code: 'APPROVE_MEDIA_VERIFIED', action: 'APPROVE', label: 'Media verified', message: 'All submitted photos and videos are clear, relevant and approved.', sort_order: 20 },
+  { code: 'APPROVE_FINAL', action: 'APPROVE', label: 'Approved for publication', message: 'Listing meets Direct Trade requirements and is approved for publication.', sort_order: 30 },
+  { code: 'CHANGE_PRODUCT_DETAILS', action: 'REQUEST_CHANGES', label: 'Correct product details', message: 'Please correct the product, grade, quantity, price or remarks and resubmit the listing.', sort_order: 10 },
+  { code: 'CHANGE_MEDIA', action: 'REQUEST_CHANGES', label: 'Replace or improve media', message: 'Please replace unclear, incorrect or incomplete product photos/videos and resubmit.', sort_order: 20 },
+  { code: 'CHANGE_PICKUP', action: 'REQUEST_CHANGES', label: 'Correct pickup details', message: 'Please correct the pickup address or GPS verification details and resubmit.', sort_order: 30 },
+  { code: 'REJECT_INVALID_PRODUCT', action: 'REJECT', label: 'Invalid or prohibited product', message: 'The listing cannot be approved because the product is invalid, prohibited or outside Direct Trade policy.', sort_order: 10 },
+  { code: 'REJECT_MISLEADING', action: 'REJECT', label: 'Misleading listing', message: 'The listing has been rejected because the submitted information or media is misleading or unverifiable.', sort_order: 20 },
+  { code: 'REJECT_POLICY', action: 'REJECT', label: 'Policy violation', message: 'The listing has been rejected because it does not comply with CiberMandi Direct Trade policy.', sort_order: 30 },
 ];
 
-function getStoredUser() {
+function currentUser() {
   try {
-    const raw = localStorage.getItem("cd_user");
-    return raw ? JSON.parse(raw) : {};
+    return JSON.parse(localStorage.getItem('cd_user') || '{}');
   } catch {
     return {};
   }
 }
 
-function normalizeRole(role?: string | null) {
-  return String(role || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_");
+function normalizeRole(value?: unknown) {
+  return String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
 
-function fmtDate(value: any) {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString();
+function humanize(value?: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return '—';
+  return text.toLowerCase().split('_').filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
 
-function money(price: any) {
-  if (!price) return "-";
-  const amount = price.amount ?? price.expected_rate_qtl ?? price.value;
-  const unit = price.per_unit || price.unit || "unit";
-  return amount !== undefined && amount !== null ? `₹${amount} / ${unit}` : "-";
+function formatDateTime(value?: unknown) {
+  if (!value) return '—';
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+  });
 }
 
 function compactAddress(parts: any[] = []) {
-  return parts
-    .map((part) => String(part || "").trim())
-    .filter(Boolean)
+  return parts.map((part) => String(part || '').trim()).filter(Boolean)
     .filter((part, index, arr) => arr.findIndex((v) => v.toLowerCase() === part.toLowerCase()) === index)
-    .join(", ");
+    .join(', ');
 }
 
-function farmerEnteredPickupAddress(pickup: any = {}) {
+function farmerEnteredPickupAddress(pickup: AnyRecord = {}) {
   return compactAddress([
     pickup.address_line_1 || pickup.address_line || pickup.manual_address,
     pickup.address_line_2,
@@ -163,7 +154,7 @@ function farmerEnteredPickupAddress(pickup: any = {}) {
   ]);
 }
 
-function gpsVerifiedPickupAddress(pickup: any = {}) {
+function gpsVerifiedPickupAddress(pickup: AnyRecord = {}) {
   const gps = pickup.gps || {};
   return compactAddress([
     gps.address || pickup.gps_address,
@@ -173,575 +164,299 @@ function gpsVerifiedPickupAddress(pickup: any = {}) {
   ]);
 }
 
-function gpsCoords(pickup: any = {}) {
+function gpsCoords(pickup: AnyRecord = {}) {
   const gps = pickup.gps || {};
   const lat = gps.lat ?? pickup.lat ?? pickup.gps_lat;
   const lng = gps.lng ?? pickup.lng ?? pickup.gps_lng;
-  if (lat === undefined || lat === null || lng === undefined || lng === null) return "";
-  return `${lat}, ${lng}`;
+  return lat === undefined || lat === null || lng === undefined || lng === null ? '—' : `${lat}, ${lng}`;
 }
 
-function qty(quantity: any) {
-  if (!quantity) return "-";
+function quantityLabel(quantity?: AnyRecord) {
+  if (!quantity) return '—';
   const value = quantity.value ?? quantity.quantity ?? quantity.weight_kg;
-  const unit = quantity.unit || quantity.unit_name || "";
-  return value !== undefined && value !== null
-    ? `${value} ${unit}`.trim()
-    : "-";
+  const unit = quantity.unit || quantity.unit_name || '';
+  return value === undefined || value === null ? '—' : `${value}${unit ? ` ${unit}` : ''}`;
 }
 
-function joinUnique(parts: any[] = []) {
-  return parts
-    .map((part) => String(part || "").trim())
-    .filter(Boolean)
-    .filter((part, index, arr) => arr.findIndex((v) => v.toLowerCase() === part.toLowerCase()) === index)
-    .join(" • ");
+function moneyLabel(price?: AnyRecord) {
+  if (!price) return '—';
+  const amount = price.amount ?? price.expected_rate_qtl ?? price.value;
+  if (amount === undefined || amount === null) return '—';
+  const unit = price.per_unit || price.unit || 'unit';
+  return `₹${Number(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })} / ${unit}`;
 }
 
-function statusLabel(status: any) {
-  return String(status || "-").trim().toUpperCase().replace(/\s+/g, "_");
+function statusColor(value?: unknown) {
+  switch (String(value || '').toUpperCase()) {
+    case 'PUBLISHED':
+    case 'APPROVED': return 'green';
+    case 'PENDING_APPROVAL':
+    case 'PENDING_REVIEW': return 'gold';
+    case 'RESUBMITTED': return 'blue';
+    case 'CHANGE_REQUEST':
+    case 'CHANGE_REQUESTED': return 'orange';
+    case 'REJECTED': return 'red';
+    default: return 'default';
+  }
+}
+
+function decisionColor(value?: unknown) {
+  switch (String(value || '').toUpperCase()) {
+    case 'APPROVED': return 'green';
+    case 'REQUEST_REPLACEMENT': return 'orange';
+    case 'REJECTED': return 'red';
+    case 'REMOVED': return 'default';
+    default: return 'gold';
+  }
 }
 
 function responseOk(resp: any) {
-  const code = String(
-    resp?.response?.responsecode ?? resp?.responsecode ?? "1",
-  );
-  return code === "0" || code === "00";
+  const code = String(resp?.response?.responsecode ?? resp?.responsecode ?? '1');
+  return code === '0' || code === '00';
 }
 
 function responseMessage(resp: any, fallback: string) {
   return resp?.response?.description || resp?.description || fallback;
 }
 
-
 function normalizeDecision(value: any) {
-  const v = String(value || "PENDING").trim().toUpperCase().replace(/\s+/g, "_");
-  if (["PENDING", "APPROVED", "REJECTED", "REQUEST_REPLACEMENT", "REMOVED"].includes(v)) return v;
-  if (v === "NEEDS_CHANGE" || v === "REQUEST_CHANGE" || v === "CHANGE_REQUESTED") return "REQUEST_REPLACEMENT";
-  return "PENDING";
+  const v = String(value || 'PENDING').trim().toUpperCase().replace(/\s+/g, '_');
+  if (['PENDING', 'APPROVED', 'REJECTED', 'REQUEST_REPLACEMENT', 'REMOVED'].includes(v)) return v;
+  if (['NEEDS_CHANGE', 'REQUEST_CHANGE', 'CHANGE_REQUESTED'].includes(v)) return 'REQUEST_REPLACEMENT';
+  return 'PENDING';
 }
 
-function decisionFromMedia(m: any) {
-  return normalizeDecision(
-    m?.review_status ||
-      m?.decision ||
-      m?.moderation?.decision ||
-      m?.moderation?.status ||
-      m?.moderation_status ||
-      "PENDING",
-  );
+function decisionFromMedia(media: AnyRecord) {
+  return normalizeDecision(media?.review_decision || media?.decision || media?.moderation_status || 'PENDING');
 }
 
-function mediaLocked(m: any, decisions?: Record<string, string>) {
-  const current = normalizeDecision(decisions?.[m?.media_id] || decisionFromMedia(m));
-  return Boolean(m?.is_locked || m?.locked) || current === "APPROVED";
+function mediaLocked(media: AnyRecord, decisions: Record<string, string>) {
+  return normalizeDecision(decisions[media?.media_id] || decisionFromMedia(media)) === 'APPROVED' && Boolean(media?.review_locked || media?.locked || media?.moderation_status === 'APPROVED');
 }
 
 function needsReason(decision: string) {
-  const d = normalizeDecision(decision);
-  return d === "REJECTED" || d === "REQUEST_REPLACEMENT" || d === "REMOVED";
+  return ['REQUEST_REPLACEMENT', 'REJECTED', 'REMOVED'].includes(normalizeDecision(decision));
 }
 
-function buildReviewPayload(
-  media: any[],
-  decisions: Record<string, string>,
-  reasons: Record<string, string>,
-) {
-  const mediaReviews = (media || []).map((m: any) => ({
-    media_id: m.media_id,
-    media_type: m.media_type || m.type,
-    decision: normalizeDecision(decisions[m.media_id]),
-    reason_code: reasons[m.media_id] || m.review_reason || m.review_reason_code || m.reason_code || "",
-    remarks: m.review_remarks || "",
+function buildReviewPayload(media: AnyRecord[], decisions: Record<string, string>, reasons: Record<string, string>) {
+  const mediaReviews = (media || []).map((item) => ({
+    media_id: item.media_id,
+    media_type: item.media_type || item.type,
+    decision: normalizeDecision(decisions[item.media_id] || decisionFromMedia(item)),
+    reason_code: reasons[item.media_id] || item.review_reason || item.review_reason_code || item.reason_code || '',
   }));
   return {
-    checklist: {
-      product: true,
-      quantity: true,
-      price: true,
-      pickup: true,
-      gps: true,
-      media: mediaReviews.length > 0 && mediaReviews.every((m) => m.decision === "APPROVED"),
-    },
     media_reviews: mediaReviews,
-    all_items_approved: mediaReviews.length > 0 && mediaReviews.every((m) => m.decision === "APPROVED"),
+    all_items_approved: mediaReviews.length > 0 && mediaReviews.every((item) => item.decision === 'APPROVED'),
   };
 }
 
-const MediaThumb: React.FC<{
-  media: any;
-  onClick: () => void;
-  width?: number;
-  height?: number;
-  overlayCount?: number;
-}> = ({
-  media,
-  onClick,
-  width = 86,
-  height = 70,
-  overlayCount = 0,
-}) => {
-  const isVideo = mediaTypeOf(media) === "VIDEO";
+function SingleShellDropdown({
+  value,
+  options,
+  onChange,
+  className = '',
+  disabled = false,
+}: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const selected = options.find((item) => item.value === value);
+  const items: MenuProps['items'] = options.map((item) => ({ key: item.value, label: item.label }));
+  return (
+    <Dropdown
+      disabled={disabled}
+      trigger={['click']}
+      menu={{ items, selectedKeys: [value], onClick: ({ key }) => onChange(String(key)) }}
+    >
+      <Button className={`cm-dta-dropdown-button ${className}`} disabled={disabled}>
+        <span>{selected?.label || 'Select'}</span>
+        <DownOutlined />
+      </Button>
+    </Dropdown>
+  );
+}
+
+function MediaThumb({ media, onOpen }: { media: AnyRecord; onOpen: () => void }) {
+  const isVideo = mediaTypeOf(media) === 'VIDEO';
   const [thumbIndex, setThumbIndex] = React.useState(0);
   const thumbs = thumbnailCandidates(media);
-  const thumb = thumbs[thumbIndex] || "";
+  const src = thumbs[thumbIndex] || imagePreviewUrl(media) || '';
   return (
-    <Box
-      onClick={onClick}
-      sx={{
-        width,
-        height,
-        flex: "0 0 auto",
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 1.5,
-        overflow: "hidden",
-        position: "relative",
-        cursor: "pointer",
-        bgcolor: "background.default",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {thumb ? (
-        <Box
-          component="img"
-          src={thumb}
-          alt={media?.media_id || "media"}
-          onError={() =>
-            setThumbIndex((i) => Math.min(i + 1, thumbs.length - 1))
-          }
-          sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+    <button type="button" className="cm-dta-media-thumb" onClick={onOpen} aria-label="Open media preview">
+      {src ? (
+        <img
+          src={src}
+          alt={media?.media_id || 'Direct Trade media'}
+          onError={() => setThumbIndex((index) => (index + 1 < thumbs.length ? index + 1 : index))}
         />
       ) : (
-        <BrokenImageOutlinedIcon color="disabled" />
+        <div className="cm-dta-media-placeholder">{isVideo ? 'Video' : 'Image'}</div>
       )}
-      {isVideo && (
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "rgba(0,0,0,.18)",
-          }}
-        >
-          <PlayCircleOutlineIcon sx={{ color: "white", fontSize: Math.min(34, height - 8) }} />
-        </Box>
-      )}
-      {overlayCount > 0 && (
-        <Box
-          sx={{
-            position: "absolute",
-            right: 2,
-            bottom: 2,
-            minWidth: 20,
-            height: 18,
-            px: 0.4,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "rgba(15, 23, 42, .68)",
-            borderRadius: 1,
-            color: "white",
-            fontWeight: 800,
-            fontSize: 11,
-            lineHeight: 1,
-          }}
-        >
-          +{overlayCount}
-        </Box>
-      )}
-    </Box>
+      {isVideo ? <span className="cm-dta-video-badge">▶</span> : null}
+    </button>
   );
-};
-
-const MediaStackPreview: React.FC<{
-  media: any[];
-  summary?: any;
-  onOpen: (index: number) => void;
-}> = ({ media = [], summary = {}, onOpen }) => {
-  const visible = (Array.isArray(media) ? media : []).slice(0, 4);
-  const extra = Math.max(0, (media?.length || 0) - visible.length);
-  const photoCount = Number(summary?.actual_photo_count ?? media.filter((m) => mediaTypeOf(m) !== "VIDEO").length ?? 0);
-  const videoCount = Number(summary?.actual_video_count ?? media.filter((m) => mediaTypeOf(m) === "VIDEO").length ?? 0);
-  const missingPhoto = Number(summary?.missing_photo_count || 0);
-  const missingVideo = Number(summary?.missing_video_count || 0);
-
-  return (
-    <Box sx={{ width: 136, maxWidth: 136 }}>
-      <Stack direction="row" spacing={0.5} sx={{ width: 136, overflow: "hidden" }}>
-        {visible.map((m: any, idx: number) => (
-          <MediaThumb
-            key={m.media_id || idx}
-            media={m}
-            width={30}
-            height={30}
-            overlayCount={idx === visible.length - 1 ? extra : 0}
-            onClick={() => onOpen(idx)}
-          />
-        ))}
-        {visible.length === 0 && (
-          <Box
-            sx={{
-              width: 64,
-              height: 30,
-              border: "1px dashed",
-              borderColor: "divider",
-              borderRadius: 1.5,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: "background.default",
-            }}
-          >
-            <ImageOutlinedIcon color="disabled" fontSize="small" />
-          </Box>
-        )}
-      </Stack>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        title={`${photoCount} photos • ${videoCount} video${videoCount === 1 ? "" : "s"}`}
-        sx={{ display: "block", mt: 0.75, whiteSpace: "nowrap" }}
-      >
-        {photoCount} photos • {videoCount} video{videoCount === 1 ? "" : "s"}
-      </Typography>
-      {(missingPhoto > 0 || missingVideo > 0) && (
-        <Typography
-          variant="caption"
-          color="warning.main"
-          sx={{ display: "block", whiteSpace: "nowrap", fontWeight: 700 }}
-        >
-          {[missingPhoto > 0 ? `${missingPhoto} image missing` : "", missingVideo > 0 ? `${missingVideo} video missing` : ""].filter(Boolean).join(" • ")}
-        </Typography>
-      )}
-    </Box>
-  );
-};
-
-const StatusBadge: React.FC<{ status: any }> = ({ status }) => {
-  const value = statusLabel(status);
-  const palette: Record<string, { bg: string; color: string; border: string }> = {
-    PUBLISHED: { bg: "#e8f5ec", color: "#1f6f3a", border: "#b9dfc3" },
-    APPROVED: { bg: "#e8f5ec", color: "#1f6f3a", border: "#b9dfc3" },
-    PENDING_APPROVAL: { bg: "#fff4df", color: "#925400", border: "#f1cf91" },
-    PENDING_REVIEW: { bg: "#fff4df", color: "#925400", border: "#f1cf91" },
-    CHANGE_REQUEST: { bg: "#fff0e8", color: "#a34512", border: "#efc0a8" },
-    CHANGE_REQUESTED: { bg: "#fff0e8", color: "#a34512", border: "#efc0a8" },
-    REJECTED: { bg: "#fdecec", color: "#b42318", border: "#f3b8b3" },
-    DRAFT: { bg: "#eef3f8", color: "#41566f", border: "#c8d5e2" },
-    CLOSED: { bg: "#f1f3f5", color: "#4b5563", border: "#d7dde3" },
-  };
-  const tone = palette[value] || { bg: "#f1f3f5", color: "#4b5563", border: "#d7dde3" };
-
-  return (
-    <Chip
-      size="small"
-      label={value}
-      sx={{
-        maxWidth: "100%",
-        height: 24,
-        bgcolor: tone.bg,
-        color: tone.color,
-        border: "1px solid",
-        borderColor: tone.border,
-        fontWeight: 800,
-        fontSize: 11,
-        "& .MuiChip-label": {
-          px: 1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        },
-      }}
-    />
-  );
-};
-
-const GpsVerifiedBadge: React.FC<{ verified: boolean }> = ({ verified }) => (
-  <Chip
-    size="small"
-    icon={verified ? <VerifiedOutlinedIcon /> : undefined}
-    label={verified ? "GPS verified" : "GPS pending"}
-    sx={{
-      height: 22,
-      bgcolor: verified ? "#e8f5ec" : "#f1f3f5",
-      color: verified ? "#1f6f3a" : "#667085",
-      border: "1px solid",
-      borderColor: verified ? "#b9dfc3" : "#d7dde3",
-      fontWeight: 700,
-      fontSize: 11,
-      "& .MuiChip-icon": { color: "inherit", fontSize: 15 },
-      "& .MuiChip-label": { px: 0.75 },
-    }}
-  />
-);
-
-const MediaPreviewBody: React.FC<{ media: any }> = ({ media }) => {
-  const type = mediaTypeOf(media);
-  const [imageFailed, setImageFailed] = React.useState(false);
-
-  React.useEffect(() => {
-    setImageFailed(false);
-  }, [media?.media_id, media?.playback_url, media?.preview_url, media?.url]);
-
-  if (type === "VIDEO") {
-    const playbackUrl = videoPlaybackUrl(media);
-
-    if (!playbackUrl) {
-      return (
-        <Alert severity="warning">
-          No secure playable video stream found for this item.
-        </Alert>
-      );
-    }
-
-    return (
-      <Box>
-        <Box
-          component="video"
-          src={playbackUrl}
-          controls
-          autoPlay
-          playsInline
-          preload="metadata"
-          controlsList="nodownload noplaybackrate noremoteplayback"
-          disablePictureInPicture
-          onContextMenu={(event: React.MouseEvent) => event.preventDefault()}
-          sx={{ width: "100%", maxHeight: "70vh", bgcolor: "black" }}
-        />
-        <Typography variant="caption" color="text.secondary">
-          Secure CiberMandi video stream. Download and Google Drive access are disabled.
-        </Typography>
-      </Box>
-    );
-  }
-
-  const imgUrl = imagePreviewUrl(media);
-
-  if (!imgUrl) {
-    return (
-      <Alert severity="warning">
-        No image preview URL found for this item.
-      </Alert>
-    );
-  }
-
-  if (imageFailed) {
-    return (
-      <Alert severity="warning">
-        Image preview is not available for this item.
-      </Alert>
-    );
-  }
-
-  return (
-    <Box>
-      <Box
-        component="img"
-        src={imgUrl}
-        alt="media preview"
-        onError={() => setImageFailed(true)}
-        sx={{ width: "100%", maxHeight: "70vh", objectFit: "contain" }}
-      />
-      <Typography variant="caption" color="text.secondary">
-        Image preview
-      </Typography>
-    </Box>
-  );
-};
-
-type MediaGalleryState = {
-  items: any[];
-  index: number;
-};
-
-function makeMediaGallery(
-  items: any[] = [],
-  index = 0,
-): MediaGalleryState | null {
-  const cleanItems = Array.isArray(items) ? items.filter(Boolean) : [];
-  if (!cleanItems.length) return null;
-  const safeIndex = Math.max(0, Math.min(index, cleanItems.length - 1));
-  return { items: cleanItems, index: safeIndex };
 }
 
-const DirectTradeApprovalsPage: React.FC = () => {
+function MediaStack({ media = [], summary = {}, onOpen }: { media?: AnyRecord[]; summary?: AnyRecord; onOpen: (index: number) => void }) {
+  const visible = media.slice(0, 3);
+  const extra = Math.max(0, media.length - visible.length);
+  const photoCount = Number(summary?.actual_photo_count ?? summary?.photo_count ?? media.filter((m) => mediaTypeOf(m) !== 'VIDEO').length ?? 0);
+  const videoCount = Number(summary?.actual_video_count ?? summary?.video_count ?? media.filter((m) => mediaTypeOf(m) === 'VIDEO').length ?? 0);
+  return (
+    <div className="cm-dta-media-stack-wrap">
+      <div className="cm-dta-media-stack">
+        {visible.map((item, index) => <MediaThumb key={item.media_id || index} media={item} onOpen={() => onOpen(index)} />)}
+        {extra > 0 ? <button type="button" className="cm-dta-media-extra" onClick={() => onOpen(visible.length)}>+{extra}</button> : null}
+      </div>
+      <span className="cm-dta-media-count">{photoCount} photo{photoCount === 1 ? '' : 's'} · {videoCount} video{videoCount === 1 ? '' : 's'}</span>
+    </div>
+  );
+}
+
+export default function DirectTradeApprovalsPage() {
   const { enqueueSnackbar } = useSnackbar();
-  const user = getStoredUser();
-  const username = user?.username || "";
-  const role = normalizeRole(
-    user?.default_role_code || user?.role_slug || user?.role_code || user?.role,
-  );
-  const language = String(
-    user?.language || localStorage.getItem("i18nextLng") || "en",
-  ).split("-")[0];
-  const [rows, setRows] = useState<any[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [limit, setLimit] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState("PENDING_APPROVAL");
-  const [mediaType, setMediaType] = useState("ALL");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<any | null>(null);
-  const [details, setDetails] = useState<any | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [mediaPreview, setMediaPreview] = useState<MediaGalleryState | null>(
-    null,
-  );
-  const [actionOpen, setActionOpen] = useState<
-    null | "APPROVE" | "REJECT" | "REQUEST_CHANGES"
-  >(null);
-  const [remarks, setRemarks] = useState("");
-  const [remarkCode, setRemarkCode] = useState("");
-  const [remarkTemplates, setRemarkTemplates] = useState<DirectTradeApprovalRemarkTemplate[]>([]);
-  const [remarkTemplatesLoading, setRemarkTemplatesLoading] = useState(false);
-  const [usingRemarkFallback, setUsingRemarkFallback] = useState(false);
-  const [actionBusy, setActionBusy] = useState(false);
-  const [missingPhotoReason, setMissingPhotoReason] = useState("MEDIA_DELETED");
-  const [missingVideoReason, setMissingVideoReason] = useState("MEDIA_DELETED");
-  const [mediaDecisions, setMediaDecisions] = useState<Record<string, string>>({});
-  const [mediaReasons, setMediaReasons] = useState<Record<string, string>>({});
+  const user = React.useMemo(() => currentUser(), []);
+  const username = String(user?.username || user?.user_name || '');
+  const role = normalizeRole(user?.role_slug || user?.role_code || user?.role);
+  const language = String(user?.language || localStorage.getItem('language') || 'en');
 
-  const roleCopy = useMemo(() => {
-    if (role === "PLATFORM_APPROVER") {
-      return {
-        title: "Final Approval Queue",
-        description:
-          "Review Level-1 verified Direct Trade listings and publish or reject them after final validation.",
-        stage: "Level 2 Approval",
-      };
-    }
-    if (
-      role === "PLATFORM_SUPERVISOR" ||
-      role === "PLATFORM_OPERATIONS_MANAGER"
-    ) {
-      return {
-        title: "Operations Approval Queue",
-        description:
-          "Monitor Direct Trade approvals, escalations, pending reviews, final approvals and rejected listings.",
-        stage: "Operations Control",
-      };
-    }
-    return {
-      title: "Pending Review Queue",
-      description:
-        "Review newly submitted Direct Trade listings, check product/media/location details and mark them ready for final approval.",
-      stage: "Level 1 Review",
-    };
-  }, [role]);
+  const [rows, setRows] = React.useState<AnyRecord[]>([]);
+  const [counts, setCounts] = React.useState<Record<string, number>>({});
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(20);
+  const [total, setTotal] = React.useState(0);
+  const [status, setStatus] = React.useState('PENDING_APPROVAL');
+  const [mediaType, setMediaType] = React.useState('ALL');
+  const [search, setSearch] = React.useState('');
+  const [appliedSearch, setAppliedSearch] = React.useState('');
 
-  async function loadQueue(nextPage = page, nextLimit = limit) {
-    if (!username) return;
+  const [selected, setSelected] = React.useState<AnyRecord | null>(null);
+  const [details, setDetails] = React.useState<AnyRecord | null>(null);
+  const [detailsLoading, setDetailsLoading] = React.useState(false);
+  const [detailsError, setDetailsError] = React.useState<string | null>(null);
+  const [mediaPreview, setMediaPreview] = React.useState<{ items: AnyRecord[]; index: number } | null>(null);
+
+  const [actionOpen, setActionOpen] = React.useState<ApprovalAction | null>(null);
+  const [remarkCode, setRemarkCode] = React.useState('');
+  const [remarks, setRemarks] = React.useState('');
+  const [remarkTemplates, setRemarkTemplates] = React.useState<DirectTradeApprovalRemarkTemplate[]>([]);
+  const [remarkTemplatesLoading, setRemarkTemplatesLoading] = React.useState(false);
+  const [usingRemarkFallback, setUsingRemarkFallback] = React.useState(false);
+  const [actionBusy, setActionBusy] = React.useState(false);
+  const [mediaDecisions, setMediaDecisions] = React.useState<Record<string, string>>({});
+  const [mediaReasons, setMediaReasons] = React.useState<Record<string, string>>({});
+
+  const loadQueue = React.useCallback(async () => {
+    if (!username) {
+      setError('Signed-in administrator could not be identified.');
+      return;
+    }
     setLoading(true);
+    setError(null);
     try {
       const data = await listDirectTradeApprovalQueue({
         username,
+        language,
         filters: {
-          page: nextPage + 1,
-          limit: nextLimit,
+          page,
+          limit: pageSize,
           status,
-          search,
-          media_type: mediaType === "ALL" ? "" : mediaType,
+          search: appliedSearch,
+          media_type: mediaType === 'ALL' ? '' : mediaType,
         },
       });
       setRows(Array.isArray(data?.items) ? data.items : []);
       setCounts(data?.counts || {});
       setTotal(Number(data?.total || 0));
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Failed to load Direct Trade approvals", {
-        variant: "error",
-      });
+      setRows([]);
+      setTotal(0);
+      setError(err?.message || 'Unable to load Direct Trade approvals.');
     } finally {
       setLoading(false);
     }
-  }
+  }, [username, language, page, pageSize, status, appliedSearch, mediaType]);
 
-  async function openDetails(row: any) {
+  React.useEffect(() => { loadQueue(); }, [loadQueue]);
+
+  const openDetails = React.useCallback(async (row: AnyRecord) => {
     setSelected(row);
     setDetails(null);
+    setDetailsError(null);
     setDetailsLoading(true);
     try {
-      const data = await getDirectTradeApprovalDetails({
-        username,
-        language,
-        listing_id: row.listing_id,
+      const data = await getDirectTradeApprovalDetails({ username, language, listing_id: row.listing_id });
+      setDetails(data || null);
+      const media = data?.media || data?.listing?.media || [];
+      const nextDecisions: Record<string, string> = {};
+      const nextReasons: Record<string, string> = {};
+      media.forEach((item: AnyRecord) => {
+        if (!item?.media_id) return;
+        nextDecisions[item.media_id] = decisionFromMedia(item);
+        nextReasons[item.media_id] = item.review_reason || item.review_reason_code || item.reason_code || '';
       });
-      setDetails(data);
+      setMediaDecisions(nextDecisions);
+      setMediaReasons(nextReasons);
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Failed to load listing details", {
-        variant: "error",
-      });
+      setDetailsError(err?.message || 'Unable to load approval details.');
     } finally {
       setDetailsLoading(false);
     }
-  }
+  }, [username, language]);
 
-  useEffect(() => {
-    const media = details?.media || details?.listing?.media || [];
-    const initial: Record<string, string> = {};
-    const initialReasons: Record<string, string> = {};
-    (media || []).forEach((m: any) => {
-      if (m?.media_id) {
-        initial[m.media_id] = decisionFromMedia(m);
-        initialReasons[m.media_id] =
-          m.review_reason || m.review_reason_code || m.reason_code || "OTHER";
-      }
-    });
-    setMediaDecisions(initial);
-    setMediaReasons(initialReasons);
-  }, [details?.listing?.listing_id]);
+  const closeDetails = React.useCallback(() => {
+    setSelected(null);
+    setDetails(null);
+    setDetailsError(null);
+    setMediaDecisions({});
+    setMediaReasons({});
+  }, []);
 
-  const currentWorkflow = details?.workflow || {};
-  const currentMediaForReview = details?.media || details?.listing?.media || [];
-  const reviewPayload = useMemo(
-    () => buildReviewPayload(currentMediaForReview, mediaDecisions, mediaReasons),
-    [currentMediaForReview, mediaDecisions, mediaReasons],
-  );
-  const allMediaApproved = Boolean(reviewPayload.all_items_approved);
-  const canSubmitApprove = !currentWorkflow.read_only && allMediaApproved;
+  const currentMedia = details?.media || details?.listing?.media || [];
+  const reviewPayload = React.useMemo(() => buildReviewPayload(currentMedia, mediaDecisions, mediaReasons), [currentMedia, mediaDecisions, mediaReasons]);
+  const workflow = details?.workflow || {};
+  const canSubmitApprove = !workflow.read_only && reviewPayload.all_items_approved;
+  const detailListing = details?.listing || selected || {};
+  const issueReasons = (details?.issue_reasons || []).map((item: AnyRecord) => item.label || item.code).filter(Boolean);
+  const mediaReasonOptions = issueReasons.length ? issueReasons : LOCAL_REASONS;
 
-  async function loadRemarkTemplates(action: "APPROVE" | "REJECT" | "REQUEST_CHANGES") {
+  const loadRemarkTemplates = React.useCallback(async (action: ApprovalAction) => {
     setRemarkTemplatesLoading(true);
-    setRemarkCode("");
-    setRemarks("");
+    setUsingRemarkFallback(false);
+    setRemarkTemplates([]);
+    setRemarkCode('');
+    setRemarks('');
     try {
-      const items = await listDirectTradeApprovalRemarkTemplates({
-        username,
-        language,
-        action,
-      });
+      const items = await listDirectTradeApprovalRemarkTemplates({ username, language, action });
       if (items.length) {
         setRemarkTemplates(items);
-        setUsingRemarkFallback(false);
       } else {
-        setRemarkTemplates([]);
         setUsingRemarkFallback(true);
+        setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
       }
     } catch {
-      setRemarkTemplates([]);
       setUsingRemarkFallback(true);
+      setRemarkTemplates(FALLBACK_REMARK_TEMPLATES.filter((item) => item.action === action));
     } finally {
       setRemarkTemplatesLoading(false);
     }
-  }
+  }, [username, language]);
 
-  useEffect(() => {
-    if (actionOpen) loadRemarkTemplates(actionOpen);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionOpen, language]);
+  const openAction = React.useCallback((action: ApprovalAction) => {
+    setActionOpen(action);
+    void loadRemarkTemplates(action);
+  }, [loadRemarkTemplates]);
 
-  async function submitAction() {
-    const listingId = details?.listing?.listing_id || selected?.listing_id;
-    if (!listingId || !actionOpen) return;
-    if (!remarkCode || !remarks.trim()) {
-      enqueueSnackbar("Select an approved review message before submitting.", {
-        variant: "warning",
-      });
+  const submitAction = React.useCallback(async () => {
+    if (!actionOpen || !detailListing?.listing_id || !remarkCode) return;
+    if (usingRemarkFallback) {
+      enqueueSnackbar('Approval templates are unavailable. Please retry when the template service is available.', { variant: 'warning' });
       return;
     }
     setActionBusy(true);
@@ -749,1071 +464,357 @@ const DirectTradeApprovalsPage: React.FC = () => {
       const resp = await updateDirectTradeApprovalStatus({
         username,
         language,
-        listing_id: listingId,
+        listing_id: detailListing.listing_id,
         approval_action: actionOpen,
         remarks,
         remark_code: remarkCode,
         review_payload: reviewPayload,
         media_reviews: reviewPayload.media_reviews,
       });
-      if (responseOk(resp)) {
-        enqueueSnackbar(responseMessage(resp, "Approval updated"), {
-          variant: "success",
-        });
-        setActionOpen(null);
-        setRemarks("");
-        setRemarkCode("");
-        setSelected(null);
-        setDetails(null);
-        await loadQueue();
-      } else {
-        enqueueSnackbar(responseMessage(resp, "Unable to update approval"), {
-          variant: "error",
-        });
+      if (!responseOk(resp)) {
+        enqueueSnackbar(responseMessage(resp, 'Unable to update approval.'), { variant: 'error' });
+        return;
       }
+      enqueueSnackbar(responseMessage(resp, 'Approval updated successfully.'), { variant: 'success' });
+      setActionOpen(null);
+      setRemarkCode('');
+      setRemarks('');
+      closeDetails();
+      await loadQueue();
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Unable to update approval", {
-        variant: "error",
-      });
+      enqueueSnackbar(err?.message || 'Unable to update approval.', { variant: 'error' });
     } finally {
       setActionBusy(false);
     }
-  }
+  }, [actionOpen, detailListing?.listing_id, remarkCode, usingRemarkFallback, username, language, remarks, reviewPayload, enqueueSnackbar, closeDetails, loadQueue]);
 
-  useEffect(() => {
-    loadQueue(0, limit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username, status, mediaType]);
+  const columns: TableColumnsType<AnyRecord> = React.useMemo(() => [
+    {
+      title: 'Media', key: 'media', width: 150,
+      render: (_, row) => <MediaStack media={row.media || []} summary={row.media_summary || {}} onOpen={(index) => setMediaPreview({ items: row.media || [], index })} />,
+    },
+    {
+      title: 'Listing / Product', key: 'listing', width: 250,
+      render: (_, row) => (
+        <div>
+          <Text strong className="cm-dta-primary-text">{row.product_name || row.commodity_name || 'Direct Trade Listing'}</Text>
+          <span className="cm-dta-secondary-text">{[row.commodity_name, row.variety_name, row.grade_name].filter(Boolean).join(' · ') || '—'}</span>
+          <span className="cm-dta-secondary-text">{row.listing_no || row.listing_id || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Farmer', key: 'farmer', width: 170,
+      render: (_, row) => (
+        <div>
+          <Text strong className="cm-dta-primary-text">{row.farmer_name || '—'}</Text>
+          <span className="cm-dta-secondary-text">{row.farmer_mobile || row.farmer_username || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Qty / Price', key: 'commercial', width: 145,
+      render: (_, row) => (
+        <div>
+          <Text strong>{quantityLabel(row.quantity)}</Text>
+          <span className="cm-dta-secondary-text">{moneyLabel(row.price)}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Pickup', key: 'pickup', width: 180,
+      render: (_, row) => (
+        <div>
+          <Text>{compactAddress([row.pickup?.district, row.pickup?.state || row.pickup?.state_code]) || '—'}</Text>
+          <span className="cm-dta-secondary-text">{row.gps_verified ? 'GPS verified' : 'GPS pending'}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'Status', dataIndex: 'status', key: 'status', width: 145,
+      render: (value) => <Tag color={statusColor(value)}>{humanize(value)}</Tag>,
+    },
+    {
+      title: 'Submitted', key: 'submitted', width: 145,
+      render: (_, row) => formatDateTime(row.submitted_on || row.updated_on || row.created_on),
+    },
+    {
+      title: 'Actions', key: 'actions', width: 80, fixed: 'right',
+      render: (_, row) => <Button type="link" icon={<EyeOutlined />} onClick={() => openDetails(row)}>View</Button>,
+    },
+  ], [openDetails]);
 
+  const pendingCount = Number(counts.PENDING_APPROVAL || 0) + Number(counts.PENDING_REVIEW || 0);
+  const approvedCount = Number(counts.PUBLISHED || 0) + Number(counts.APPROVED || 0);
+  const attentionCount = Number(counts.REJECTED || 0) + Number(counts.CHANGE_REQUEST || 0) + Number(counts.CHANGE_REQUESTED || 0);
   const previewItems = mediaPreview?.items || [];
   const previewIndex = mediaPreview?.index || 0;
-  const previewMedia = previewItems[previewIndex] || null;
-  const canPreviewPrevious = previewIndex > 0;
-  const canPreviewNext = previewIndex < previewItems.length - 1;
-
-  function openMediaGallery(items: any[] = [], index = 0) {
-    const next = makeMediaGallery(items, index);
-    if (next) setMediaPreview(next);
-  }
-
-  function moveMediaPreview(direction: "previous" | "next") {
-    setMediaPreview((current) => {
-      if (!current) return current;
-      const nextIndex =
-        direction === "previous" ? current.index - 1 : current.index + 1;
-      if (nextIndex < 0 || nextIndex >= current.items.length) return current;
-      return { ...current, index: nextIndex };
-    });
-  }
-
-  useEffect(() => {
-    if (!mediaPreview) return undefined;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        moveMediaPreview("previous");
-      }
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        moveMediaPreview("next");
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setMediaPreview(null);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mediaPreview]);
-
-  const currentMedia = details?.media || details?.listing?.media || [];
-  const issueReasons = (details?.issue_reasons || [])
-    .map((r: any) => r.label || r.code)
-    .filter(Boolean);
-  const reasons = issueReasons.length ? issueReasons : LOCAL_REASONS;
-  const detailListing = details?.listing || selected;
+  const previewMedia = previewItems[previewIndex];
 
   return (
-    <PageContainer
-      title="Direct Trade Approvals"
-      subtitle="CiberMandi internal review and approval workspace for Direct Trade listings."
-    >
-      <Stack spacing={2}>
+    <PageContainer title="Direct Trade Approvals" subtitle="Review and approve Direct Trade listings, verified media and pickup details.">
+      <div className="cm-dta-page">
         <Alert
-          icon={<InfoOutlinedIcon />}
-          sx={{
-            bgcolor: "#eef7ec",
-            color: "#1f3f2b",
-            border: "1px solid #cfe4c9",
-            borderRadius: 2,
-            "& .MuiAlert-icon": { color: "#3f6f3c" },
-          }}
-        >
-          You are signed in as <strong>{username || "platform user"}</strong>.
-          Role: <strong>{role || "PLATFORM"}</strong>. Pending listings, images
-          and videos are loaded from the Direct Trade approval APIs.
-        </Alert>
+          className="cm-dta-role-alert"
+          showIcon
+          type="info"
+          message={<span>Signed in as <strong>{username || 'platform user'}</strong>{role ? <> · <strong>{humanize(role)}</strong></> : null}</span>}
+          description="Platform Operations approval workspace. Review listing information, media and GPS verification before taking an approval decision."
+        />
 
-        <Card>
-          <CardContent>
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={2}
-              alignItems={{ md: "center" }}
-              justifyContent="space-between"
-            >
-              <Box>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mb: 1 }}
-                >
-                  <AssignmentTurnedInOutlinedIcon color="primary" />
-                  <Typography variant="h5" fontWeight={700}>
-                    {roleCopy.title}
-                  </Typography>
-                </Stack>
-                <Typography color="text.secondary">
-                  {roleCopy.description}
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={1}>
-                <Chip color="primary" label={roleCopy.stage} />
-                <Button
-                  startIcon={<RefreshOutlinedIcon />}
-                  onClick={() => loadQueue()}
-                  disabled={loading}
-                >
-                  Refresh
-                </Button>
-              </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
+        <Row gutter={[12, 12]} className="cm-dta-kpi-row">
+          <Col xs={24} md={8}>
+            <Card className="cm-dta-kpi-card cm-dta-kpi-pending"><Text type="secondary">Pending Review</Text><Title level={3}>{pendingCount}</Title><Text>Listings waiting for review.</Text></Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card className="cm-dta-kpi-card cm-dta-kpi-approved"><Text type="secondary">Approved / Published</Text><Title level={3}>{approvedCount}</Title><Text>Listings already cleared.</Text></Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card className="cm-dta-kpi-card cm-dta-kpi-attention"><Text type="secondary">Needs Attention</Text><Title level={3}>{attentionCount}</Title><Text>Rejected or change-requested listings.</Text></Card>
+          </Col>
+        </Row>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FactCheckOutlinedIcon color="warning" />
-                  <Typography variant="h6">Pending</Typography>
-                </Stack>
-                <Typography variant="h4" sx={{ mt: 2 }}>
-                  {(counts.PENDING_APPROVAL || 0) + (counts.PENDING_REVIEW || 0)}
-                </Typography>
-                <Typography color="text.secondary">
-                  Listings waiting for review.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <PublishedWithChangesOutlinedIcon color="success" />
-                  <Typography variant="h6">Published / Approved</Typography>
-                </Stack>
-                <Typography variant="h4" sx={{ mt: 2 }}>
-                  {(counts.PUBLISHED || 0) + (counts.APPROVED || 0)}
-                </Typography>
-                <Typography color="text.secondary">
-                  Listings already cleared.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <AssignmentTurnedInOutlinedIcon color="error" />
-                  <Typography variant="h6">Needs Attention</Typography>
-                </Stack>
-                <Typography variant="h4" sx={{ mt: 2 }}>
-                  {(counts.REJECTED || 0) +
-                    (counts.CHANGE_REQUEST || 0) +
-                    (counts.CHANGE_REQUESTED || 0)}
-                </Typography>
-                <Typography color="text.secondary">
-                  Rejected or change-requested listings.
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Card>
-          <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
-            <Grid container spacing={1.5} alignItems="center">
-              <Grid item xs={12} md={5} lg={4.6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Search listing / farmer / product / location"
+        <Card className="cm-dta-filter-card">
+          <Row gutter={[10, 10]} align="middle">
+            <Col xs={24} lg={10}>
+              <div className="cm-dta-search-group">
+                <Input
+                  className="cm-dta-search-input"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setPage(0);
-                      loadQueue(0, limit);
-                    }
-                  }}
+                  maxLength={80}
+                  placeholder="Search listing ID, farmer, product or location"
+                  onChange={(event) => setSearch(event.target.value)}
+                  onPressEnter={() => { setPage(1); setAppliedSearch(search.trim()); }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.5}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    label="Status"
-                    value={status}
-                    onChange={(e) => {
-                      setStatus(e.target.value);
-                      setPage(0);
-                    }}
-                  >
-                    {STATUS_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>
-                        {o.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.5}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Media</InputLabel>
-                  <Select
-                    label="Media"
-                    value={mediaType}
-                    onChange={(e) => {
-                      setMediaType(e.target.value);
-                      setPage(0);
-                    }}
-                  >
-                    {MEDIA_FILTERS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>
-                        {o.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={2} lg={1.9}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={() => {
-                    setPage(0);
-                    loadQueue(0, limit);
-                  }}
-                  disabled={loading}
-                  sx={{ minHeight: "40px !important" }}
-                >
-                  Apply
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
+                <Button type="primary" className="cm-dta-search-button" icon={<SearchOutlined />} onClick={() => { setPage(1); setAppliedSearch(search.trim()); }}>Search</Button>
+              </div>
+            </Col>
+            <Col xs={24} sm={12} lg={5}>
+              <SingleShellDropdown value={status} options={STATUS_OPTIONS} onChange={(value) => { setStatus(value); setPage(1); }} />
+            </Col>
+            <Col xs={24} sm={12} lg={5}>
+              <SingleShellDropdown value={mediaType} options={MEDIA_FILTERS} onChange={(value) => { setMediaType(value); setPage(1); }} />
+            </Col>
+            <Col xs={24} lg={4}>
+              <Button block icon={<ReloadOutlined />} loading={loading} onClick={() => loadQueue()}>Refresh</Button>
+            </Col>
+          </Row>
         </Card>
 
-        <Card>
-          {loading && (
-            <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
-              <CircularProgress size={26} />
-            </Box>
-          )}
-          <TableContainer sx={{ display: { xs: "none", lg: "block" }, overflowX: "hidden" }}>
-            <Table
-              size="small"
-              sx={{
-                width: "100%",
-                tableLayout: "fixed",
-                "& th": {
-                  color: "text.secondary",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  whiteSpace: "nowrap",
-                  bgcolor: "#faf8f2",
-                },
-                "& td": {
-                  py: 1.25,
-                  verticalAlign: "middle",
-                  overflow: "hidden",
-                },
-              }}
-            >
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 150 }}>Media</TableCell>
-                  <TableCell>Listing / Product</TableCell>
-                  <TableCell sx={{ width: 150 }}>Farmer</TableCell>
-                  <TableCell sx={{ width: 126 }}>Qty / Price</TableCell>
-                  <TableCell sx={{ width: 154 }}>Pickup</TableCell>
-                  <TableCell sx={{ width: 146 }}>Status</TableCell>
-                  <TableCell sx={{ width: 134 }}>Submitted</TableCell>
-                  <TableCell sx={{ width: 70 }} align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {!loading && rows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      No Direct Trade listings found for this filter.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {rows.map((row) => {
-                  const productTitle = row.product_name || row.commodity_name || "Direct Trade Listing";
-                  const productMeta = joinUnique([row.commodity_name, row.product_name || row.variety_name, row.grade_name]);
-                  const pickupText = compactAddress([row.pickup?.district, row.pickup?.state || row.pickup?.state_code]) || "-";
-                  return (
-                    <TableRow key={row.listing_id} hover sx={{ "&:last-child td": { borderBottom: 0 } }}>
-                      <TableCell>
-                        <MediaStackPreview
-                          media={row.media || []}
-                          summary={row.media_summary}
-                          onOpen={(idx) => openMediaGallery(row.media || [], idx)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={800} noWrap title={productTitle}>
-                          {productTitle}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" noWrap title={productMeta}>
-                          {productMeta || "-"}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap title={String(row.listing_no || row.listing_id || "")} sx={{ display: "block" }}>
-                          {row.listing_no || row.listing_id}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={700} noWrap title={row.farmer_name || "-"}>
-                          {row.farmer_name || "-"}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap title={row.farmer_mobile || row.farmer_username || ""} sx={{ display: "block" }}>
-                          {row.farmer_mobile || row.farmer_username}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={800} noWrap title={qty(row.quantity)}>
-                          {qty(row.quantity)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap title={money(row.price)} sx={{ display: "block" }}>
-                          {money(row.price)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={700} noWrap title={pickupText}>
-                          {pickupText}
-                        </Typography>
-                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, minWidth: 0 }}>
-                          <GpsVerifiedBadge verified={Boolean(row.gps_verified)} />
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={row.status} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" noWrap title={fmtDate(row.submitted_on)}>
-                          {fmtDate(row.submitted_on)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Open review workspace">
-                          <IconButton size="small" onClick={() => openDetails(row)}>
-                            <VisibilityOutlinedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Stack spacing={1.25} sx={{ display: { xs: "flex", lg: "none" }, p: 1.5 }}>
-            {!loading && rows.length === 0 && (
-              <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>
-                No Direct Trade listings found for this filter.
-              </Box>
-            )}
-            {rows.map((row) => {
-              const productTitle = row.product_name || row.commodity_name || "Direct Trade Listing";
-              const productMeta = joinUnique([row.commodity_name, row.product_name || row.variety_name, row.grade_name]);
-              const pickupText = compactAddress([row.pickup?.district, row.pickup?.state || row.pickup?.state_code]) || "-";
-              return (
-                <Box
-                  key={row.listing_id}
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    borderRadius: 2,
-                    p: 1.5,
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                    <MediaStackPreview
-                      media={row.media || []}
-                      summary={row.media_summary}
-                      onOpen={(idx) => openMediaGallery(row.media || [], idx)}
-                    />
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography fontWeight={800} noWrap title={productTitle}>
-                            {productTitle}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" noWrap title={productMeta}>
-                            {productMeta || "-"}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap title={String(row.listing_no || row.listing_id || "")} sx={{ display: "block" }}>
-                            {row.listing_no || row.listing_id}
-                          </Typography>
-                        </Box>
-                        <Tooltip title="Open review workspace">
-                          <IconButton size="small" onClick={() => openDetails(row)}>
-                            <VisibilityOutlinedIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                      <Grid container spacing={1} sx={{ mt: 1 }}>
-                        <Grid item xs={6} sm={3}>
-                          <Typography variant="caption" color="text.secondary">Farmer</Typography>
-                          <Typography variant="body2" fontWeight={700} noWrap title={row.farmer_name || "-"}>
-                            {row.farmer_name || "-"}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap title={row.farmer_mobile || row.farmer_username || ""} sx={{ display: "block" }}>
-                            {row.farmer_mobile || row.farmer_username}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <Typography variant="caption" color="text.secondary">Qty / Price</Typography>
-                          <Typography variant="body2" fontWeight={800} noWrap title={qty(row.quantity)}>
-                            {qty(row.quantity)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap title={money(row.price)} sx={{ display: "block" }}>
-                            {money(row.price)}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <Typography variant="caption" color="text.secondary">Pickup</Typography>
-                          <Typography variant="body2" fontWeight={700} noWrap title={pickupText}>
-                            {pickupText}
-                          </Typography>
-                          <Box sx={{ mt: 0.35 }}>
-                            <GpsVerifiedBadge verified={Boolean(row.gps_verified)} />
-                          </Box>
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <Typography variant="caption" color="text.secondary">Status</Typography>
-                          <Stack spacing={0.5} alignItems="flex-start">
-                            <StatusBadge status={row.status} />
-                            <Typography variant="caption" color="text.secondary" noWrap title={fmtDate(row.submitted_on)} sx={{ display: "block", maxWidth: "100%" }}>
-                              {fmtDate(row.submitted_on)}
-                            </Typography>
-                          </Stack>
-                        </Grid>
-                      </Grid>
-                    </Box>
-                  </Stack>
-                </Box>
-              );
-            })}
-          </Stack>
-          <TablePagination
-            component="div"
-            count={total}
-            page={page}
-            onPageChange={(_, p) => {
-              setPage(p);
-              loadQueue(p, limit);
-            }}
-            rowsPerPage={limit}
-            onRowsPerPageChange={(e) => {
-              const next = parseInt(e.target.value, 10);
-              setLimit(next);
-              setPage(0);
-              loadQueue(0, next);
-            }}
-            rowsPerPageOptions={[10, 20, 50, 100]}
+        {error ? <Alert showIcon type="error" message="Unable to load Direct Trade approvals" description={error} /> : null}
+
+        <Card className="cm-dta-table-card">
+          <Table
+            rowKey={(row) => row.listing_id}
+            columns={columns}
+            dataSource={rows}
+            loading={loading}
+            pagination={false}
+            scroll={{ x: 1260 }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No Direct Trade listings found for this filter." /> }}
           />
+          <div className="cm-dta-pagination-wrap">
+            <Pagination
+              current={page}
+              pageSize={pageSize}
+              total={total}
+              showSizeChanger
+              pageSizeOptions={[10, 20, 50, 100]}
+              showTotal={(value) => `${value} listing${value === 1 ? '' : 's'}`}
+              onChange={(nextPage, nextSize) => {
+                setPage(nextSize !== pageSize ? 1 : nextPage);
+                setPageSize(nextSize);
+              }}
+            />
+          </div>
         </Card>
-      </Stack>
+      </div>
 
-      <Dialog
+      <Modal
+        className="cm-dta-review-modal"
         open={Boolean(selected)}
-        onClose={() => setSelected(null)}
-        maxWidth="lg"
-        fullWidth
+        onCancel={closeDetails}
+        width={1180}
+        title={
+          <div>
+            <div>Direct Trade Review Workspace</div>
+            <Text type="secondary" className="cm-dta-modal-subtitle">{detailListing.listing_no || detailListing.listing_id || ''}</Text>
+          </div>
+        }
+        footer={<Button onClick={closeDetails}>Close</Button>}
+        destroyOnHidden
       >
-        <DialogTitle>Direct Trade Review Workspace</DialogTitle>
-        <DialogContent dividers>
-          {detailsLoading && (
-            <Box sx={{ p: 4, textAlign: "center" }}>
-              <CircularProgress />
-            </Box>
-          )}
-          {!detailsLoading && detailListing && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={8}>
-                <Stack spacing={2}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Product Information
-                      </Typography>
-                      <Grid container spacing={1}>
-                        <Grid item xs={6}>
-                          <Typography color="text.secondary">
-                            Commodity
-                          </Typography>
-                          <Typography fontWeight={700}>
-                            {detailListing.commodity_name || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography color="text.secondary">
-                            Product
-                          </Typography>
-                          <Typography fontWeight={700}>
-                            {detailListing.product_name || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography color="text.secondary">
-                            Variety / Grade
-                          </Typography>
-                          <Typography>
-                            {detailListing.variety_name || "-"}{" "}
-                            {detailListing.grade_name
-                              ? `• ${detailListing.grade_name}`
-                              : ""}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography color="text.secondary">
-                            Quantity / Price
-                          </Typography>
-                          <Typography>
-                            {qty(detailListing.quantity)} •{" "}
-                            {money(detailListing.price)}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Typography color="text.secondary">
-                            Description / Remarks
-                          </Typography>
-                          <Typography>
-                            {detailListing.remarks || "-"}
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Pickup & GPS Verification
-                      </Typography>
-                      <Grid container spacing={1}>
-                        <Grid item xs={12} md={6}>
-                          <Typography color="text.secondary">
-                            Farmer Entered Address
-                          </Typography>
-                          <Typography>
-                            {farmerEnteredPickupAddress(detailListing.pickup) || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography color="text.secondary">
-                            GPS Verified Address
-                          </Typography>
-                          <Typography>
-                            {gpsVerifiedPickupAddress(detailListing.pickup) || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography color="text.secondary">
-                            District / State / Pincode
-                          </Typography>
-                          <Typography>
-                            {detailListing.pickup?.district || "-"},{" "}
-                            {detailListing.pickup?.state ||
-                              detailListing.pickup?.state_code ||
-                              "-"}{" "}
-                            - {detailListing.pickup?.pincode || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Typography color="text.secondary">
-                            GPS Coordinates
-                          </Typography>
-                          <Typography>
-                            {gpsCoords(detailListing.pickup) || "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Chip
-                            color={
-                              detailListing.gps_verified ? "success" : "warning"
-                            }
-                            label={
-                              detailListing.gps_verified
-                                ? "GPS captured / verified"
-                                : "GPS needs verification"
-                            }
-                          />
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="center"
-                      >
-                        <Typography variant="h6">Media Review</Typography>
-                        <Stack direction="row" spacing={1}>
-                          <Chip
-                            size="small"
-                            label={`${currentMedia.filter((m: any) => m.type === "PHOTO").length} photos`}
-                          />
-                          <Chip
-                            size="small"
-                            label={`${currentMedia.filter((m: any) => m.type === "VIDEO").length} videos`}
-                          />
-                        </Stack>
-                      </Stack>
-                      <Divider sx={{ my: 2 }} />
-                      <Grid container spacing={2}>
-                        {currentMedia.map((m: any) => (
-                          <Grid item xs={12} sm={6} md={4} key={m.media_id}>
-                            <Card variant="outlined">
-                              <Box sx={{ p: 1 }}>
-                                <MediaThumb
-                                  media={m}
-                                  onClick={() =>
-                                    openMediaGallery(
-                                      currentMedia,
-                                      currentMedia.findIndex(
-                                        (item: any) =>
-                                          item?.media_id === m?.media_id,
-                                      ),
-                                    )
-                                  }
+        {detailsLoading ? <div className="cm-dta-modal-loading"><Spin /></div> : null}
+        {!detailsLoading && detailsError ? <Alert showIcon type="error" message="Unable to load listing details" description={detailsError} /> : null}
+        {!detailsLoading && !detailsError && selected ? (
+          <div className="cm-dta-review-content">
+            <Card size="small" className="cm-dta-detail-panel" title="Product Information">
+              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+                <Descriptions.Item label="Commodity">{detailListing.commodity_name || '—'}</Descriptions.Item>
+                <Descriptions.Item label="Product">{detailListing.product_name || '—'}</Descriptions.Item>
+                <Descriptions.Item label="Variety / Grade">{[detailListing.variety_name, detailListing.grade_name].filter(Boolean).join(' · ') || '—'}</Descriptions.Item>
+                <Descriptions.Item label="Quantity / Price">{quantityLabel(detailListing.quantity)} · {moneyLabel(detailListing.price)}</Descriptions.Item>
+                <Descriptions.Item label="Farmer">{detailListing.farmer_name || detailListing.farmer_username || '—'}</Descriptions.Item>
+                <Descriptions.Item label="Status"><Tag color={statusColor(detailListing.status)}>{humanize(detailListing.status)}</Tag></Descriptions.Item>
+                <Descriptions.Item label="Remarks" span={2}>{detailListing.remarks || '—'}</Descriptions.Item>
+              </Descriptions>
+            </Card>
+
+            <Card size="small" className="cm-dta-detail-panel" title="Pickup & GPS Verification">
+              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+                <Descriptions.Item label="Farmer Entered Address">{farmerEnteredPickupAddress(detailListing.pickup) || '—'}</Descriptions.Item>
+                <Descriptions.Item label="GPS Verified Address">{gpsVerifiedPickupAddress(detailListing.pickup) || '—'}</Descriptions.Item>
+                <Descriptions.Item label="District / State / Pincode">{compactAddress([detailListing.pickup?.district, detailListing.pickup?.state || detailListing.pickup?.state_code, detailListing.pickup?.pincode]) || '—'}</Descriptions.Item>
+                <Descriptions.Item label="GPS Coordinates">{gpsCoords(detailListing.pickup)}</Descriptions.Item>
+                <Descriptions.Item label="Verification" span={2}><Tag color={detailListing.gps_verified ? 'green' : 'gold'}>{detailListing.gps_verified ? 'GPS Verified' : 'GPS Pending'}</Tag></Descriptions.Item>
+              </Descriptions>
+            </Card>
+
+            <Card
+              size="small"
+              className="cm-dta-detail-panel"
+              title="Media Review"
+              extra={<Space><Tag>{currentMedia.filter((m: AnyRecord) => mediaTypeOf(m) !== 'VIDEO').length} Photos</Tag><Tag>{currentMedia.filter((m: AnyRecord) => mediaTypeOf(m) === 'VIDEO').length} Videos</Tag></Space>}
+            >
+              {currentMedia.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No media available for review." /> : (
+                <Row gutter={[12, 12]}>
+                  {currentMedia.map((item: AnyRecord, index: number) => {
+                    const currentDecision = mediaDecisions[item.media_id] || decisionFromMedia(item);
+                    const locked = mediaLocked(item, mediaDecisions);
+                    return (
+                      <Col xs={24} md={12} xl={8} key={item.media_id || index}>
+                        <div className="cm-dta-media-review-card">
+                          <MediaThumb media={item} onOpen={() => setMediaPreview({ items: currentMedia, index })} />
+                          <div className="cm-dta-media-review-body">
+                            <Space size={6} wrap>
+                              <Text strong>{humanize(mediaTypeOf(item))}</Text>
+                              <Tag color={decisionColor(currentDecision)}>{humanize(currentDecision)}</Tag>
+                              {locked ? <Tag color="green">Locked</Tag> : null}
+                            </Space>
+                            <div className="cm-dta-field-label">Media decision</div>
+                            <SingleShellDropdown
+                              value={currentDecision}
+                              options={MEDIA_DECISIONS}
+                              disabled={Boolean(workflow.read_only) || locked}
+                              onChange={(value) => setMediaDecisions((prev) => ({ ...prev, [item.media_id]: value }))}
+                            />
+                            {needsReason(currentDecision) ? (
+                              <>
+                                <div className="cm-dta-field-label">Reason</div>
+                                <SingleShellDropdown
+                                  value={mediaReasons[item.media_id] || mediaReasonOptions[0] || 'Other'}
+                                  options={mediaReasonOptions.map((value: string) => ({ value, label: value }))}
+                                  disabled={Boolean(workflow.read_only) || locked}
+                                  onChange={(value) => setMediaReasons((prev) => ({ ...prev, [item.media_id]: value }))}
                                 />
-                              </Box>
-                              <CardContent sx={{ pt: 0 }}>
-                                <Stack spacing={1}>
-                                  <Stack direction="row" spacing={1} alignItems="center">
-                                    <Typography variant="body2" fontWeight={700}>
-                                      {m.type} • {mediaDecisions[m.media_id] || decisionFromMedia(m)}
-                                    </Typography>
-                                    {mediaLocked(m, mediaDecisions) && (
-                                      <Chip
-                                        size="small"
-                                        color="success"
-                                        icon={<LockOutlinedIcon />}
-                                        label="Approved / Locked"
-                                      />
-                                    )}
-                                  </Stack>
-                                  <FormControl size="small" fullWidth>
-                                    <InputLabel>Media decision</InputLabel>
-                                    <Select
-                                      label="Media decision"
-                                      value={mediaDecisions[m.media_id] || decisionFromMedia(m)}
-                                      onChange={(e) =>
-                                        setMediaDecisions((prev) => ({
-                                          ...prev,
-                                          [m.media_id]: e.target.value,
-                                        }))
-                                      }
-                                      disabled={Boolean(currentWorkflow.read_only) || mediaLocked(m, mediaDecisions)}
-                                    >
-                                      <MenuItem value="PENDING">Pending Review</MenuItem>
-                                      <MenuItem value="APPROVED">Approved</MenuItem>
-                                      <MenuItem value="REQUEST_REPLACEMENT">Request Replacement</MenuItem>
-                                      <MenuItem value="REJECTED">Reject</MenuItem>
-                                      <MenuItem value="REMOVED">Removed</MenuItem>
-                                    </Select>
-                                  </FormControl>
-                                  {needsReason(mediaDecisions[m.media_id] || decisionFromMedia(m)) && (
-                                    <FormControl size="small" fullWidth>
-                                      <InputLabel>Reason</InputLabel>
-                                      <Select
-                                        label="Reason"
-                                        value={mediaReasons[m.media_id] || "OTHER"}
-                                        onChange={(e) =>
-                                          setMediaReasons((prev) => ({
-                                            ...prev,
-                                            [m.media_id]: e.target.value,
-                                          }))
-                                        }
-                                        disabled={mediaLocked(m, mediaDecisions)}
-                                      >
-                                        {reasons.map((r: string) => (
-                                          <MenuItem key={r} value={r}>
-                                            {r}
-                                          </MenuItem>
-                                        ))}
-                                      </Select>
-                                    </FormControl>
-                                  )}
-                                </Stack>
-                              </CardContent>
-                            </Card>
-                          </Grid>
-                        ))}
-                        {currentMedia.length === 0 && (
-                          <Grid item xs={12}>
-                            <Alert severity="warning">
-                              No media found for this listing. Select a missing
-                              media reason below before requesting changes.
-                            </Alert>
-                          </Grid>
-                        )}
-                      </Grid>
-                      <Grid container spacing={2} sx={{ mt: 1 }}>
-                        {Number(
-                          detailListing.media_summary?.missing_photo_count || 0,
-                        ) > 0 && (
-                          <Grid item xs={12} md={6}>
-                            <FormControl fullWidth size="small">
-                              <InputLabel>Missing image reason</InputLabel>
-                              <Select
-                                label="Missing image reason"
-                                value={missingPhotoReason}
-                                onChange={(e) =>
-                                  setMissingPhotoReason(e.target.value)
-                                }
-                              >
-                                {reasons.map((r: string) => (
-                                  <MenuItem key={r} value={r}>
-                                    {r}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        )}
-                        {Number(
-                          detailListing.media_summary?.missing_video_count || 0,
-                        ) > 0 && (
-                          <Grid item xs={12} md={6}>
-                            <FormControl fullWidth size="small">
-                              <InputLabel>Missing video reason</InputLabel>
-                              <Select
-                                label="Missing video reason"
-                                value={missingVideoReason}
-                                onChange={(e) =>
-                                  setMissingVideoReason(e.target.value)
-                                }
-                              >
-                                {reasons.map((r: string) => (
-                                  <MenuItem key={r} value={r}>
-                                    {r}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        )}
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Stack spacing={2}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Listing Decision
-                      </Typography>
-                      <Stack spacing={1}>
-                        {currentWorkflow.read_only ? (
-                          <Alert severity={currentWorkflow.is_published ? "success" : "info"}>
-                            {currentWorkflow.is_published
-                              ? "This listing has already been final approved/published."
-                              : currentWorkflow.user_has_approved
-                                ? "You have already reviewed this listing. It is now read-only for your level."
-                                : currentWorkflow.approve_blocked_reason || "No action is available for your role at this stage."}
-                          </Alert>
-                        ) : !allMediaApproved ? (
-                          <Alert severity="warning">
-                            Complete all media review items before approval. Mark every image/video as Approved or request changes/reject the listing.
-                          </Alert>
-                        ) : null}
-                        {!currentWorkflow.read_only && allMediaApproved && (
-                          <Button
-                            variant="contained"
-                            color="success"
-                            startIcon={<CheckCircleOutlineIcon />}
-                            onClick={() => setActionOpen("APPROVE")}
-                            disabled={!canSubmitApprove}
-                          >
-                            {currentWorkflow.is_final_level ? "Final Approve / Publish" : "Approve / Move Next Level"}
-                          </Button>
-                        )}
-                        {currentWorkflow.can_request_changes !== false && !currentWorkflow.read_only && (
-                          <Button
-                            variant="outlined"
-                            color="warning"
-                            startIcon={<ChangeCircleOutlinedIcon />}
-                            onClick={() => setActionOpen("REQUEST_CHANGES")}
-                          >
-                            Request Changes
-                          </Button>
-                        )}
-                        {currentWorkflow.can_reject !== false && !currentWorkflow.read_only && (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<CancelOutlinedIcon />}
-                            onClick={() => setActionOpen("REJECT")}
-                          >
-                            Reject
-                          </Button>
-                        )}
-                        {currentWorkflow.stage_label && (
-                          <Chip size="small" label={currentWorkflow.stage_label} />
-                        )}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Audit Timeline
-                      </Typography>
-                      <Stack spacing={1}>
-                        {(details?.history || []).length === 0 && (
-                          <Typography color="text.secondary">
-                            No history found.
-                          </Typography>
-                        )}
-                        {(details?.history || []).map((h: any) => (
-                          <Box
-                            key={h.history_id}
-                            sx={{
-                              borderLeft: "3px solid",
-                              borderColor: "primary.main",
-                              pl: 1.5,
-                            }}
-                          >
-                            <Typography fontWeight={700}>{h.action}</Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {fmtDate(h.action_on)} • {h.actor_username}
-                            </Typography>
-                            <Typography variant="body2">
-                              {h.remarks || "-"}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Stack>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSelected(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      </Col>
+                    );
+                  })}
+                </Row>
+              )}
+            </Card>
 
-      <Dialog
+            <Card size="small" className="cm-dta-detail-panel" title="Approval Actions">
+              <Space wrap>
+                {workflow.can_approve !== false && !workflow.read_only ? (
+                  <Button type="primary" icon={<CheckCircleOutlined />} disabled={!canSubmitApprove} onClick={() => openAction('APPROVE')}>Approve</Button>
+                ) : null}
+                {workflow.can_request_changes !== false && !workflow.read_only ? (
+                  <Button icon={<SyncOutlined />} onClick={() => openAction('REQUEST_CHANGES')}>Request Changes</Button>
+                ) : null}
+                {workflow.can_reject !== false && !workflow.read_only ? (
+                  <Button danger icon={<CloseCircleOutlined />} onClick={() => openAction('REJECT')}>Reject</Button>
+                ) : null}
+                {workflow.stage_label ? <Tag color="blue">{workflow.stage_label}</Tag> : null}
+                {!canSubmitApprove && !workflow.read_only ? <Text type="secondary">Approve becomes available after all media is approved.</Text> : null}
+              </Space>
+            </Card>
+
+            <Card size="small" className="cm-dta-detail-panel" title="Audit Timeline">
+              {(details?.history || []).length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No approval history found." /> : (
+                <div className="cm-dta-timeline">
+                  {(details?.history || []).map((item: AnyRecord) => (
+                    <div className="cm-dta-timeline-item" key={item.history_id || `${item.action_on}-${item.action}`}>
+                      <div className="cm-dta-timeline-dot" />
+                      <div>
+                        <Text strong>{humanize(item.action)}</Text>
+                        <span className="cm-dta-secondary-text">{formatDateTime(item.action_on)} · {item.actor_username || '—'}</span>
+                        <div>{item.remarks || '—'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        className="cm-dta-media-modal"
         open={Boolean(mediaPreview)}
-        onClose={() => setMediaPreview(null)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            spacing={2}
-          >
-            <Box>
-              <Typography variant="h6">
-                {mediaTypeOf(previewMedia) === "VIDEO"
-                  ? "Video Preview"
-                  : "Image Preview"}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {previewItems.length
-                  ? `${previewIndex + 1} of ${previewItems.length}`
-                  : "0 of 0"}
-              </Typography>
-            </Box>
-            <IconButton
-              aria-label="Close media preview"
-              onClick={() => setMediaPreview(null)}
-            >
-              <CloseOutlinedIcon />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ position: "relative" }}>
-            {previewMedia ? <MediaPreviewBody media={previewMedia} /> : null}
-            {previewItems.length > 1 && (
-              <>
-                <IconButton
-                  aria-label="Previous media"
-                  onClick={() => moveMediaPreview("previous")}
-                  disabled={!canPreviewPrevious}
-                  sx={{
-                    position: "absolute",
-                    top: "50%",
-                    left: 8,
-                    transform: "translateY(-50%)",
-                    bgcolor: "background.paper",
-                    boxShadow: 2,
-                    opacity: canPreviewPrevious ? 0.95 : 0.4,
-                    "&:hover": { bgcolor: "background.paper" },
-                  }}
-                >
-                  <ArrowBackIosNewOutlinedIcon />
-                </IconButton>
-                <IconButton
-                  aria-label="Next media"
-                  onClick={() => moveMediaPreview("next")}
-                  disabled={!canPreviewNext}
-                  sx={{
-                    position: "absolute",
-                    top: "50%",
-                    right: 8,
-                    transform: "translateY(-50%)",
-                    bgcolor: "background.paper",
-                    boxShadow: 2,
-                    opacity: canPreviewNext ? 0.95 : 0.4,
-                    "&:hover": { bgcolor: "background.paper" },
-                  }}
-                >
-                  <ArrowForwardIosOutlinedIcon />
-                </IconButton>
-              </>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: "space-between" }}>
-          <Button
-            startIcon={<ArrowBackIosNewOutlinedIcon />}
-            onClick={() => moveMediaPreview("previous")}
-            disabled={!canPreviewPrevious}
-          >
-            Previous
-          </Button>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color="text.secondary">
-              {previewItems.length
-                ? `${previewIndex + 1} / ${previewItems.length}`
-                : "0 / 0"}
-            </Typography>
+        onCancel={() => setMediaPreview(null)}
+        width={920}
+        title={previewMedia ? `${humanize(mediaTypeOf(previewMedia))} Preview · ${previewIndex + 1} of ${previewItems.length}` : 'Media Preview'}
+        footer={
+          <div className="cm-dta-media-footer">
+            <Button icon={<LeftOutlined />} disabled={previewIndex <= 0} onClick={() => setMediaPreview((prev) => prev ? { ...prev, index: prev.index - 1 } : prev)}>Previous</Button>
             <Button onClick={() => setMediaPreview(null)}>Close</Button>
-          </Stack>
-          <Button
-            endIcon={<ArrowForwardIosOutlinedIcon />}
-            onClick={() => moveMediaPreview("next")}
-            disabled={!canPreviewNext}
-          >
-            Next
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(actionOpen)}
-        onClose={() => { setActionOpen(null); setRemarkCode(""); setRemarks(""); }}
-        maxWidth="sm"
-        fullWidth
+            <Button icon={<RightOutlined />} disabled={previewIndex >= previewItems.length - 1} onClick={() => setMediaPreview((prev) => prev ? { ...prev, index: prev.index + 1 } : prev)}>Next</Button>
+          </div>
+        }
       >
-        <DialogTitle>
-          {actionOpen === "APPROVE"
-            ? "Approve Listing"
-            : actionOpen === "REJECT"
-              ? "Reject Listing"
-              : "Request Changes"}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            <Alert
-              severity={
-                actionOpen === "APPROVE"
-                  ? "success"
-                  : actionOpen === "REJECT"
-                    ? "error"
-                    : "warning"
-              }
-            >
-              {actionOpen === "APPROVE"
-                ? "This will move the listing to the next approval level or publish it if this is the final level."
-                : "Remarks will be visible in the approval history and should clearly explain what the farmer must fix."}
-            </Alert>
-            <Alert severity="info" icon={<VerifiedOutlinedIcon />}>
-              This decision will be recorded against <strong>{username || "Current user"}</strong>        
-         {role ? ` (${role.replace(/_/g, " ")})` : ""}. The selected message cannot be edited.
-            </Alert>
-            <FormControl fullWidth required disabled={remarkTemplatesLoading}>
-              <InputLabel id="direct-trade-review-message-label">Approved review message</InputLabel>
-              <Select
-                labelId="direct-trade-review-message-label"
-                label="Approved review message"
+        {previewMedia ? (
+          mediaTypeOf(previewMedia) === 'VIDEO' ? (
+            <video className="cm-dta-video-preview" controls preload="metadata" src={videoPlaybackUrl(previewMedia) || undefined} />
+          ) : (
+            <div className="cm-dta-image-preview"><Image preview={false} src={imagePreviewUrl(previewMedia) || undefined} alt="Direct Trade media preview" /></div>
+          )
+        ) : null}
+      </Modal>
+
+      <Modal
+        className="cm-dta-action-modal"
+        open={Boolean(actionOpen)}
+        onCancel={() => { if (!actionBusy) { setActionOpen(null); setRemarkCode(''); setRemarks(''); } }}
+        title={actionOpen === 'APPROVE' ? 'Approve Listing' : actionOpen === 'REJECT' ? 'Reject Listing' : 'Request Changes'}
+        footer={[
+          <Button key="cancel" disabled={actionBusy} onClick={() => { setActionOpen(null); setRemarkCode(''); setRemarks(''); }}>Cancel</Button>,
+          <Button key="submit" type="primary" danger={actionOpen === 'REJECT'} loading={actionBusy} disabled={remarkTemplatesLoading || !remarkCode || usingRemarkFallback || (actionOpen === 'APPROVE' && !canSubmitApprove)} onClick={() => void submitAction()}>Submit</Button>,
+        ]}
+      >
+        <Space direction="vertical" size={14} style={{ width: '100%' }}>
+          <Alert
+            showIcon
+            type={actionOpen === 'APPROVE' ? 'success' : actionOpen === 'REJECT' ? 'error' : 'warning'}
+            icon={actionOpen === 'REJECT' ? <WarningOutlined /> : undefined}
+            message={actionOpen === 'APPROVE'
+              ? 'This moves the listing to the next approval level or publishes it at the final level.'
+              : 'The selected controlled message will be recorded in approval history and shown to the farmer.'}
+          />
+          <div>
+            <div className="cm-dta-field-label">Controlled review message</div>
+            {remarkTemplatesLoading ? <Spin size="small" /> : (
+              <SingleShellDropdown
                 value={remarkCode}
-                onChange={(event) => {
-                  const code = String(event.target.value);
+                options={remarkTemplates.map((item) => ({ value: item.code, label: item.label }))}
+                onChange={(code) => {
                   const template = remarkTemplates.find((item) => item.code === code);
                   setRemarkCode(code);
-                  setRemarks(template?.message || "");
+                  setRemarks(template?.message || '');
                 }}
-              >
-                {remarkTemplates.map((template) => (
-                  <MenuItem key={template.code} value={template.code}>
-                    {template.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {remarks ? (
-              <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1.5, bgcolor: "background.default" }}>
-                <Typography variant="caption" color="text.secondary">Message to farmer</Typography>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>{remarks}</Typography>
-              </Box>
-            ) : null}
-            {usingRemarkFallback ? (
-              <Alert severity="warning">Template service is unavailable. Approval submission is disabled until localized templates are available.</Alert>
-            ) : null}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setActionOpen(null); setRemarkCode(""); setRemarks(""); }} disabled={actionBusy}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={submitAction}
-            disabled={actionBusy || remarkTemplatesLoading || !remarkCode || (actionOpen === "APPROVE" && !canSubmitApprove)}
-          >
-            {actionBusy ? "Saving..." : "Submit"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              />
+            )}
+          </div>
+          {remarks ? <div className="cm-dta-message-preview"><Text type="secondary">Message to farmer</Text><div>{remarks}</div></div> : null}
+          {usingRemarkFallback ? <Alert showIcon type="warning" message="Template service is unavailable. Submission is disabled until controlled localized templates are available." /> : null}
+          <Text type="secondary">Decision recorded against {username || 'current user'}{role ? ` (${humanize(role)})` : ''}.</Text>
+        </Space>
+      </Modal>
     </PageContainer>
   );
-};
-
-export default DirectTradeApprovalsPage;
+}

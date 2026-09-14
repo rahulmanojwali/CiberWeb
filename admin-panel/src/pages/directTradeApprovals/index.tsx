@@ -393,6 +393,7 @@ export default function DirectTradeApprovalsPage() {
   const [remarkTemplatesLoading, setRemarkTemplatesLoading] = React.useState(false);
   const [usingRemarkFallback, setUsingRemarkFallback] = React.useState(false);
   const [actionBusy, setActionBusy] = React.useState(false);
+  const actionSubmitLockRef = React.useRef(false);
   const [mediaDecisions, setMediaDecisions] = React.useState<Record<string, string>>({});
   const [mediaReasons, setMediaReasons] = React.useState<Record<string, string>>({});
 
@@ -493,16 +494,19 @@ export default function DirectTradeApprovalsPage() {
   }, [username, language]);
 
   const openAction = React.useCallback((action: ApprovalAction) => {
+    if (actionBusy || actionSubmitLockRef.current) return;
     setActionOpen(action);
     void loadRemarkTemplates(action);
-  }, [loadRemarkTemplates]);
+  }, [actionBusy, loadRemarkTemplates]);
 
   const submitAction = React.useCallback(async () => {
+    if (actionSubmitLockRef.current) return;
     if (!actionOpen || !detailListing?.listing_id || !remarkCode) return;
     if (usingRemarkFallback) {
       enqueueSnackbar('Approval templates are unavailable. Please retry when the template service is available.', { variant: 'warning' });
       return;
     }
+    actionSubmitLockRef.current = true;
     setActionBusy(true);
     try {
       const resp = await updateDirectTradeApprovalStatus({
@@ -528,6 +532,7 @@ export default function DirectTradeApprovalsPage() {
     } catch (err: any) {
       enqueueSnackbar(err?.message || 'Unable to update approval.', { variant: 'error' });
     } finally {
+      actionSubmitLockRef.current = false;
       setActionBusy(false);
     }
   }, [actionOpen, detailListing?.listing_id, remarkCode, usingRemarkFallback, username, language, remarks, reviewPayload, enqueueSnackbar, closeDetails, loadQueue]);

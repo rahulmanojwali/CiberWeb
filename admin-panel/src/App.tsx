@@ -43,7 +43,6 @@ import { FarmerApprovals } from "./pages/farmerApprovals";
 import { MandiCoverage } from "./pages/mandiCoverage";
 import { MandiPrices } from "./pages/mandiPrices";
 import { Reports } from "./pages/reports";
-import { OrgMandiMapping } from "./pages/orgMandiMapping";
 import TwoFactorSettings from "./pages/systemSecurity/twoFactor";
 import StepUpPoliciesPage from "./pages/systemSecurity/stepupPolicies";
 import SecuritySwitchesPage from "./pages/systemSecurity/securitySwitches";
@@ -308,8 +307,8 @@ function App() {
                   <Route path="/subscription-invoices" element={<SubscriptionInvoices />} />
                   <Route path="/settlements" element={<SettlementsPage />} />
                   <Route path="/payments-log" element={<PaymentsLog />} />
-                  <Route path="/org-mandi-mapping" element={<OrgMandiMapping />} />
-                    <Route path="/org-mandi" element={<OrgMandiMapping />} />
+                  <Route path="/org-mandi-mapping" element={<Navigate to="/mandis" replace />} />
+                    <Route path="/org-mandi" element={<Navigate to="/mandis" replace />} />
                     <Route path="/mobile-dashboard" element={<MobileDashboardAdminPage />} />
                     <Route path="/system/mobile-dashboard" element={<MobileDashboardAdminPage />} />
                     <Route path="/system/security" element={<SystemSecurityPage />} />

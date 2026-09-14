@@ -718,7 +718,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "org_mandi",
     "order": 40,
     "metadata_group": "main_sidebar",
-    "is_active": true
+    "is_active": false
   },
   {
     "category": "Registry",

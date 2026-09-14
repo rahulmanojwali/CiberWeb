@@ -315,64 +315,6 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     metadata: { injected: true, group: "System" },
   } as UiResource);
 
-  const mandiView = ["VIEW"];
-  const mandiCrud = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
-  ensure({
-    resource_key: "org_mandi_mappings.menu",
-    screen: "Org-Mandi Mapping",
-    element: "Org-Mandi menu",
-    ui_type: "menu",
-    route: "/org-mandi",
-    parent_resource_key: null,
-    allowed_actions: mandiView,
-    is_active: true,
-    metadata: { injected: true },
-  } as UiResource);
-  ensure({
-    resource_key: "org_mandi_mappings.list",
-    screen: "Org-Mandi Mapping",
-    element: "Org-Mandi list",
-    ui_type: "table",
-    route: "/org-mandi",
-    parent_resource_key: "org_mandi_mappings.menu",
-    allowed_actions: mandiView,
-    is_active: true,
-    metadata: { injected: true },
-  } as UiResource);
-  ensure({
-    resource_key: "org_mandi_mappings.create",
-    screen: "Org-Mandi Mapping",
-    element: "Create org-mandi mapping",
-    ui_type: "button",
-    route: "/org-mandi",
-    parent_resource_key: "org_mandi_mappings.menu",
-    allowed_actions: mandiCrud,
-    is_active: true,
-    metadata: { injected: true },
-  } as UiResource);
-  ensure({
-    resource_key: "org_mandi_mappings.edit",
-    screen: "Org-Mandi Mapping",
-    element: "Edit org-mandi mapping",
-    ui_type: "button",
-    route: "/org-mandi",
-    parent_resource_key: "org_mandi_mappings.menu",
-    allowed_actions: mandiCrud,
-    is_active: true,
-    metadata: { injected: true },
-  } as UiResource);
-  ensure({
-    resource_key: "org_mandi_mappings.deactivate",
-    screen: "Org-Mandi Mapping",
-    element: "Deactivate org-mandi mapping",
-    ui_type: "button",
-    route: "/org-mandi",
-    parent_resource_key: "org_mandi_mappings.menu",
-    allowed_actions: mandiCrud,
-    is_active: true,
-    metadata: { injected: true },
-  } as UiResource);
-
   const lotView = ["VIEW"];
   const lotUpdate = ["UPDATE"];
   ensure({

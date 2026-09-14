@@ -192,7 +192,7 @@ export const updateOrgMandiStatus = async ({
   mapping_id: string;
   is_active: "Y" | "N";
 }) =>
-  postEncrypted(API_ROUTES.admin.removeOrgMandi, {
+  postEncrypted(API_ROUTES.admin.updateOrgMandiStatus, {
     api: API_TAGS.ORG_MANDI.removeMapping,
     username,
     language,

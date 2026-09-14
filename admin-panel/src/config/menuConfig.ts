@@ -216,15 +216,6 @@ export const APP_MENU: AppMenuItem[] = [
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
     },
     {
-      key: "orgMandiMapping",
-      labelKey: "menu.orgMandi",
-      path: "/org-mandi",
-      icon: React.createElement(HubOutlinedIcon),
-      resourceKey: "org_mandi_mappings.menu",
-      requiredAction: "VIEW",
-      roles: ["SUPER_ADMIN", "ORG_ADMIN", "ORG_VIEWER", "AUDITOR"],
-    },
-    {
       key: "adminUsers",
       labelKey: "menu.adminUsers",
       path: "/admin-users",

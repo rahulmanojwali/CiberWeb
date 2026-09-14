@@ -10,9 +10,9 @@ export const API_BASE_URL =
 export const API_TAGS = {
   ORGS: {
     list: "get_Organisations21",
-    summary: "get_Organisation_Summary29",
     create: "create_Organisation22",
     update: "update_Organisation23",
+    summary: "get_Organisation_Summary29",
   },
 
   ADMIN_USERS: {
@@ -459,9 +459,9 @@ export const API_ROUTES = {
   },
   admin: {
     getOrganisations: "/admin/getOrganisations",
-    getOrganisationSummary: "/admin/getOrganisationSummary",
     createOrganisation: "/admin/createOrganisation",
     updateOrganisation: "/admin/updateOrganisation",
+    getOrganisationSummary: "/admin/getOrganisationSummary",
     getAdminUsers: "/admin/getAdminUsers",
     createAdminUser: "/admin/createAdminUser",
     updateAdminUser: "/admin/updateAdminUser",
@@ -500,6 +500,7 @@ export const API_ROUTES = {
     updateOrgMandiMapping: "/admin/updateOrgMandiMapping",
     addOrgMandi: "/admin/addOrgMandi",
     removeOrgMandi: "/admin/removeOrgMandi",
+    updateOrgMandiStatus: "/admin/updateOrgMandiStatus",
     requireStepUp: "/admin/2fa/requireStepUp",
     get2faSetup: "/admin/2fa/getSetup",
     enable: "/admin/2fa/enable",

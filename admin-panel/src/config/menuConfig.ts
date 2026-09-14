@@ -901,16 +901,25 @@ export const APP_MENU: AppMenuItem[] = [
 
 {
   key: "parties",
-  labelKey: "menu.traderApprovals",
+  labelKey: "menu.participantManagement",
   icon: React.createElement(TaskAltOutlinedIcon),
   roles: ALL_ROLES,
   children: [
     {
       key: "traderApprovals",
-      labelKey: "menu.traderApprovalQueue",  // 👈 changed
+      labelKey: "menu.traderMembershipApprovals",
       path: "/trader-approvals",
       icon: React.createElement(TaskAltOutlinedIcon),
       resourceKey: "trader_approvals.menu",
+      requiredAction: "VIEW",
+      roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
+    },
+    {
+      key: "farmerApprovals",
+      labelKey: "menu.farmerMembershipApprovals",
+      path: "/farmer-approvals",
+      icon: React.createElement(TaskAltOutlinedIcon),
+      resourceKey: "farmer_approvals.menu",
       requiredAction: "VIEW",
       roles: ["SUPER_ADMIN", "ORG_ADMIN", "MANDI_ADMIN"],
     },
@@ -1184,8 +1193,9 @@ const GROUP_LABELS: Record<string, string> = {
   "Gate & Yard": "Gate & Yard",
   "Operations": "Gate & Yard",
   "Auction": "Auction",
-  "Registry": "Trader Approvals",
-  "Trader Approvals": "Trader Approvals",
+  "Registry": "Participant Management",
+  "Trader Approvals": "Participant Management",
+  "Participant Management": "Participant Management",
   "Finance": "Payments & Settlements",
   "Payments & Settlements": "Payments & Settlements",
   "Reports": "Reports",
@@ -1198,7 +1208,7 @@ const GROUP_ORDER: Record<string, number> = {
   "Mandis": 40,
   "Gate & Yard": 50,
   "Auction": 60,
-  "Trader Approvals": 70,
+  "Participant Management": 70,
   "Payments & Settlements": 80,
   "Reports": 90,
 };
@@ -2011,7 +2021,7 @@ export function filterMenuByResources(
 //   children: [
 //     {
 //       key: "traderApprovals",
-//       labelKey: "menu.traderApprovalQueue",  // 👈 changed
+//       labelKey: "menu.traderMembershipApprovals",
 //       path: "/trader-approvals",
 //       icon: React.createElement(TaskAltOutlinedIcon),
 //       resourceKey: "trader_approvals.menu",

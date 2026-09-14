@@ -733,11 +733,11 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "is_active": false
   },
   {
-    "category": "Registry",
+    "category": "Participant Management",
     "resource_key": "trader_approvals.menu",
-    "menu_name": "Trader Approvals",
+    "menu_name": "Trader Membership Approvals",
     "name_source": "screen",
-    "i18n_key": "menu.trader_approvals",
+    "i18n_key": "menu.traderMembershipApprovals",
     "route": "/trader-approvals",
     "icon_key": "trader_approvals",
     "order": 60,
@@ -745,14 +745,38 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "is_active": true
   },
   {
-    "category": "Registry",
-    "resource_key": "farmers.menu",
-    "menu_name": "Farmer Approvals",
+    "category": "Participant Management",
+    "resource_key": "farmer_approvals.menu",
+    "menu_name": "Farmer Membership Approvals",
     "name_source": "screen",
-    "i18n_key": "menu.farmerApprovals",
+    "i18n_key": "menu.farmerMembershipApprovals",
     "route": "/farmer-approvals",
+    "icon_key": "farmer_approvals",
+    "order": 61,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Participant Management",
+    "resource_key": "traders.menu",
+    "menu_name": "Trader Directory",
+    "name_source": "screen",
+    "i18n_key": "menu.traders",
+    "route": "/traders",
+    "icon_key": "traders",
+    "order": 62,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
+    "category": "Participant Management",
+    "resource_key": "farmers.menu",
+    "menu_name": "Farmer Directory",
+    "name_source": "screen",
+    "i18n_key": "menu.farmersDirectory",
+    "route": "/farmers",
     "icon_key": "farmers",
-    "order": 122,
+    "order": 63,
     "metadata_group": "main_sidebar",
     "is_active": true
   },

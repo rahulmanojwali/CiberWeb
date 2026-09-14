@@ -47,8 +47,8 @@
     "adminUsers": "Admin Users",
     "traderApprovals": "Trader Approvals",
     "farmerApprovals": "Farmer Approvals",
-    "traders": "Traders Directory",
-    "farmersDirectory": "Farmers Directory",
+    "traders": "Trader Directory",
+    "farmersDirectory": "Farmer Directory",
     "reports": "Reports",
     "mandiCoverage": "Mandi Coverage",
     "mandiPrices": "Mandi Price Entry",
@@ -122,7 +122,10 @@
       "contract": "Contract Workflow",
       "haat": "Haat Workflow"
     },
-    "publicNews": "Public News & Updates"
+    "publicNews": "Public News & Updates",
+    "participantManagement": "Participant Management",
+    "traderMembershipApprovals": "Trader Membership Approvals",
+    "farmerMembershipApprovals": "Farmer Membership Approvals"
   },
   "header": {
     "sign_out": "Sign Out",

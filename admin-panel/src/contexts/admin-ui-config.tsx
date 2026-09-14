@@ -193,6 +193,27 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     deduped.set(key, { ...payload, resource_key: key, parent_resource_key: canonicalizeResourceKey(payload.parent_resource_key) || null });
   };
 
+  // Participant Management resources. These keep the four related screens
+  // grouped and routable even while a stale UI-resource cache is refreshing.
+  [
+    ["trader_approvals.menu", "Trader Membership Approvals", "/trader-approvals", "menu.traderMembershipApprovals", 60],
+    ["farmer_approvals.menu", "Farmer Membership Approvals", "/farmer-approvals", "menu.farmerMembershipApprovals", 61],
+    ["traders.menu", "Trader Directory", "/traders", "menu.traders", 62],
+    ["farmers.menu", "Farmer Directory", "/farmers", "menu.farmersDirectory", 63],
+  ].forEach(([resourceKey, screen, route, i18nKey, order]) => ensure({
+    resource_key: String(resourceKey),
+    screen: String(screen),
+    element: `${String(screen)} menu`,
+    ui_type: "MENU",
+    route: String(route),
+    parent_resource_key: null,
+    allowed_actions: ["VIEW"],
+    is_active: true,
+    order: Number(order),
+    i18n_label_key: String(i18nKey),
+    metadata: { injected: true, group: "Participant Management" },
+  } as UiResource));
+
   // CiberMandi platform/internal operations resources.
   // These are injected as a safety net so PLATFORM users can render their task menu
   // even when the DB menu cache is stale. Permission checks still decide visibility.

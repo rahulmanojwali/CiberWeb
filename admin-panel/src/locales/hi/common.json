@@ -44,8 +44,8 @@
     "adminUsers": "प्रशासन उपयोगकर्ता",
     "traderApprovals": "ट्रेडर स्वीकृति",
     "farmerApprovals": "किसान स्वीकृति",
-    "traders": "व्यापारी डायरेक्टरी",
-    "farmersDirectory": "किसान डायरेक्टरी",
+    "traders": "व्यापारी निर्देशिका",
+    "farmersDirectory": "किसान निर्देशिका",
     "reports": "रिपोर्ट्स",
     "mandiCoverage": "मंडी कवरेज",
     "mandiPrices": "मंडी मूल्य प्रविष्टि",
@@ -88,7 +88,10 @@
     "systemCapacityControl": "Capacity Control",
     "transportIntents": "ट्रांसपोर्ट इंटेंट्स",
     "stallFees": "स्टॉल फीस",
-    "marketPrices": "मार्केट प्राइसेस"
+    "marketPrices": "मार्केट प्राइसेस",
+    "participantManagement": "प्रतिभागी प्रबंधन",
+    "traderMembershipApprovals": "व्यापारी सदस्यता अनुमोदन",
+    "farmerMembershipApprovals": "किसान सदस्यता अनुमोदन"
   },
   "adminUsers": {
     "title": "एडमिन उपयोगकर्ता",

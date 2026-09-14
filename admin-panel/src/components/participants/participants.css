@@ -1,0 +1,156 @@
+/* Participant Management controls deliberately avoid Ant Select / affix Input.
+   The application has legacy global native input styling, so filters use a
+   single-shell Dropdown trigger and a standalone Input. There is therefore no
+   inner native input capable of drawing a second box. */
+.cm-participant-page {
+  --cm-participant-border: #d8ded1;
+  --cm-participant-border-hover: #879460;
+  --cm-participant-primary: #55632c;
+  --cm-participant-surface: #ffffff;
+}
+
+.cm-participant-filter-card,
+.cm-participant-table-card {
+  border-radius: 12px !important;
+  border-color: #e2e6dd !important;
+  box-shadow: none !important;
+}
+
+.cm-participant-filter-card .ant-card-body {
+  padding: 12px !important;
+}
+
+/* One physical element owns the dropdown border. */
+.cm-participant-dropdown-trigger.ant-btn {
+  width: 100%;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px;
+  border: 1px solid var(--cm-participant-border) !important;
+  border-radius: 10px !important;
+  background: var(--cm-participant-surface) !important;
+  color: #2b3126 !important;
+  box-shadow: none !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+}
+
+.cm-participant-dropdown-trigger.ant-btn:hover,
+.cm-participant-dropdown-trigger.ant-btn:focus-visible {
+  border-color: var(--cm-participant-border-hover) !important;
+  background: #fff !important;
+  color: #2b3126 !important;
+  box-shadow: none !important;
+}
+
+.cm-participant-dropdown-trigger.ant-btn:focus-visible {
+  outline: 3px solid rgba(85, 99, 44, 0.12) !important;
+  outline-offset: 0 !important;
+}
+
+.cm-participant-dropdown-trigger.ant-btn[disabled] {
+  background: #f6f7f3 !important;
+  color: #62695d !important;
+  cursor: default;
+}
+
+.cm-participant-dropdown-value,
+.cm-participant-dropdown-placeholder {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-participant-dropdown-placeholder {
+  color: #7b8274;
+}
+
+.cm-participant-dropdown-arrow {
+  flex: 0 0 auto;
+  color: #667056;
+  font-size: 11px;
+}
+
+/* Standalone Input only: no prefix/suffix/clear wrapper, hence no nested box. */
+.cm-participant-search-input.ant-input {
+  width: 100%;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--cm-participant-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #2b3126 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+.cm-participant-search-input.ant-input:hover {
+  border-color: var(--cm-participant-border-hover) !important;
+}
+
+.cm-participant-search-input.ant-input:focus,
+.cm-participant-search-input.ant-input:focus-visible {
+  border-color: var(--cm-participant-primary) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-participant-search-input.ant-input::placeholder {
+  color: #7b8274 !important;
+}
+
+.cm-participant-search-button.ant-btn {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.cm-participant-modal .cm-participant-textarea.ant-input {
+  border: 1px solid var(--cm-participant-border) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.cm-participant-modal .cm-participant-textarea.ant-input:hover {
+  border-color: var(--cm-participant-border-hover) !important;
+}
+
+.cm-participant-modal .cm-participant-textarea.ant-input:focus {
+  border-color: var(--cm-participant-primary) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+/* Dropdown menus are rendered by Ant, but the trigger itself remains one box. */
+.ant-dropdown .ant-dropdown-menu {
+  border-radius: 10px !important;
+  padding: 6px !important;
+}
+
+.ant-dropdown .ant-dropdown-menu-item,
+.ant-dropdown .ant-dropdown-menu-submenu-title {
+  min-height: 36px;
+  border-radius: 7px !important;
+  display: flex;
+  align-items: center;
+}
+
+.ant-dropdown .ant-dropdown-menu-item-selected {
+  background: #eef2e5 !important;
+  color: #344019 !important;
+  font-weight: 600 !important;
+}
+
+@media (max-width: 991px) {
+  .cm-participant-search-button.ant-btn {
+    width: 100%;
+  }
+}

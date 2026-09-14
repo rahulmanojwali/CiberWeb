@@ -4754,3 +4754,45 @@ main,
   height: auto !important;
   padding: 0 !important;
 }
+
+/* ========================================================================== 
+   Ant Design internal-input compatibility
+   --------------------------------------------------------------------------
+   CiberMandi's legacy/native control skin applies to raw input/select/textarea
+   elements. Ant controls such as Select, affix Input, DatePicker and
+   InputNumber render an internal native <input> inside a bordered Ant shell.
+   Reset only those internal inputs so the page shows one outline, not a box
+   inside a box. Standalone .ant-input controls keep their normal Ant border.
+   ========================================================================== */
+.ant-input-affix-wrapper > input.ant-input,
+.ant-input-affix-wrapper > input.ant-input:hover,
+.ant-input-affix-wrapper > input.ant-input:focus,
+.ant-select-selector input.ant-select-selection-search-input,
+.ant-select-selector input.ant-select-selection-search-input:hover,
+.ant-select-selector input.ant-select-selection-search-input:focus,
+.ant-picker input,
+.ant-picker input:hover,
+.ant-picker input:focus,
+.ant-input-number input.ant-input-number-input,
+.ant-input-number input.ant-input-number-input:hover,
+.ant-input-number input.ant-input-number-input:focus {
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.ant-select-selector .ant-select-selection-search,
+.ant-select-selector .ant-select-selection-wrap {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}

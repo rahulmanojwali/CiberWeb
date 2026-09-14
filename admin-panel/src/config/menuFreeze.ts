@@ -85,6 +85,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "is_active": true
   },
   {
+    "category": "Platform Operations",
+    "resource_key": "direct_trade_orders.menu",
+    "menu_name": "Direct Trade Orders",
+    "name_source": "screen",
+    "i18n_key": "menu.directTradeOrders",
+    "route": "/direct-trade/orders",
+    "icon_key": "orders",
+    "order": 16,
+    "metadata_group": "main_sidebar",
+    "is_active": true
+  },
+  {
     "category": "System",
     "resource_key": "platform_users.menu",
     "menu_name": "CiberMandi Users",

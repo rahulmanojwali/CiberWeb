@@ -48,9 +48,16 @@ export function usePermissions() {
           : ["VIEW", "REVIEW", "APPROVE", "REJECT", "CHANGE_REQUEST"];
       ensure("dashboard.menu", ["VIEW"]);
       ensure("direct_trade_approvals.menu", ["VIEW"]);
-      ensure("direct_trade_approvals.list", reviewActions);
-      ensure("direct_trade_approvals.detail", reviewActions);
-      ensure("direct_trade_approvals.review", reviewActions);
+      ensure("direct_trade_approvals.list", ["VIEW"]);
+      // The current approval detail API authorizes against the compatibility key
+      // direct_trade_approvals.view. Keep that key explicit until the API contract
+      // is migrated in a dedicated backward-compatible change.
+      ensure("direct_trade_approvals.view", ["VIEW"]);
+      ensure("direct_trade_approvals.review", ["REVIEW"]);
+      if (reviewActions.includes("APPROVE")) ensure("direct_trade_approvals.approve", ["APPROVE"]);
+      ensure("direct_trade_approvals.reject", ["REJECT"]);
+      ensure("direct_trade_approvals.change_request", ["REQUEST_MORE_INFO"]);
+      ensure("direct_trade_orders.menu", ["VIEW"]);
     }
 
     if (roleSlug === "MANDI_MANAGER") {

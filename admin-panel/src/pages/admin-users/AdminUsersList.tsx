@@ -88,6 +88,8 @@ import { getScreenHelp } from "../../services/screenHelpApi";
 import type { RoleSlug } from "../../config/menuConfig";
 import { getOrgDisplayName } from "../../utils/orgDisplay";
 
+const MemoResponsiveDataGrid = React.memo(ResponsiveDataGrid);
+
 const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
   if (!value) return null;
   const upper = value.replace(/[\s-]/g, "_").toUpperCase();
@@ -106,6 +108,10 @@ const normalizeRoleSlug = (value?: string | null): RoleSlug | null => {
     WEIGHBRIDGE_OPERATOR: "WEIGHBRIDGE_OPERATOR",
     AUDITOR: "AUDITOR",
     VIEWER: "VIEWER",
+    PLATFORM_REVIEWER: "PLATFORM_REVIEWER",
+    PLATFORM_APPROVER: "PLATFORM_APPROVER",
+    PLATFORM_SUPERVISOR: "PLATFORM_SUPERVISOR",
+    PLATFORM_OPERATIONS_MANAGER: "PLATFORM_OPERATIONS_MANAGER",
   };
   return map[upper] || null;
 };
@@ -126,6 +132,10 @@ const ORG_ADMIN_ALLOWED_ROLES = new Set<RoleSlug>([
 const ORG_ADMIN_NON_DELEGABLE_ROLES = new Set<RoleSlug>([
   "SUPER_ADMIN",
   "ORG_ADMIN",
+  "PLATFORM_REVIEWER",
+  "PLATFORM_APPROVER",
+  "PLATFORM_SUPERVISOR",
+  "PLATFORM_OPERATIONS_MANAGER",
 ]);
 
 // These are active operational roles in cm_roles_masters.
@@ -145,6 +155,10 @@ const ADMIN_ROLE_ORDER: RoleSlug[] = [
   "WEIGHBRIDGE_OPERATOR",
   "AUDITOR",
   "VIEWER",
+  "PLATFORM_REVIEWER",
+  "PLATFORM_APPROVER",
+  "PLATFORM_SUPERVISOR",
+  "PLATFORM_OPERATIONS_MANAGER",
   "SUPER_ADMIN",
 ];
 
@@ -188,6 +202,17 @@ type AdminRoleApiItem = {
 };
 
 
+const GLOBAL_ADMIN_ROLE_SLUGS = new Set([
+  "SUPER_ADMIN",
+  "PLATFORM_REVIEWER",
+  "PLATFORM_APPROVER",
+  "PLATFORM_SUPERVISOR",
+  "PLATFORM_OPERATIONS_MANAGER",
+]);
+
+const isGlobalAdminRole = (roleSlug?: string | null) =>
+  !!roleSlug && GLOBAL_ADMIN_ROLE_SLUGS.has(String(roleSlug).trim().toUpperCase());
+
 const SINGLE_MANDI_ROLE_SLUGS = new Set(["GATE_OPERATOR", "YARD_SUPERVISOR", "LOADING_SUPERVISOR", "WEIGHBRIDGE_OPERATOR"]);
 const MANDI_REQUIRED_ROLE_SLUGS = new Set([
   "MANDI_ADMIN",
@@ -216,6 +241,53 @@ const ROLE_LABELS: Record<string, string> = {
   WEIGHBRIDGE_OPERATOR: "Weighbridge Operator",
   AUDITOR: "Auditor",
   VIEWER: "Viewer",
+  PLATFORM_REVIEWER: "Platform Reviewer",
+  PLATFORM_APPROVER: "Platform Approver",
+  PLATFORM_SUPERVISOR: "Platform Supervisor",
+  PLATFORM_OPERATIONS_MANAGER: "Platform Operations Manager",
+};
+
+const ROLE_GROUPS: Array<{ label: string; roles: RoleSlug[] }> = [
+  {
+    label: "Organisation Roles",
+    roles: ["ORG_ADMIN", "ORG_VIEWER"],
+  },
+  {
+    label: "Mandi Operations",
+    roles: [
+      "MANDI_MANAGER",
+      "MANDI_ADMIN",
+      "AUCTIONEER",
+      "GATE_OPERATOR",
+      "YARD_SUPERVISOR",
+      "LOADING_SUPERVISOR",
+      "WEIGHBRIDGE_OPERATOR",
+    ],
+  },
+  {
+    label: "Platform Operations",
+    roles: [
+      "PLATFORM_REVIEWER",
+      "PLATFORM_APPROVER",
+      "PLATFORM_SUPERVISOR",
+      "PLATFORM_OPERATIONS_MANAGER",
+    ],
+  },
+  {
+    label: "System / Oversight",
+    roles: ["AUDITOR", "VIEWER", "SUPER_ADMIN"],
+  },
+];
+
+const buildGroupedRoleItems = (roles: string[]) => {
+  const available = new Set(roles.map((role) => String(role).toUpperCase()));
+  return ROLE_GROUPS.map((group) => ({
+    type: "group" as const,
+    label: group.label,
+    children: group.roles
+      .filter((role) => available.has(role))
+      .map((role) => ({ key: role, label: ROLE_LABELS[role] || role })),
+  })).filter((group) => group.children.length > 0);
 };
 
 const formatRoleLabel = (role?: string | null): string => {
@@ -254,6 +326,9 @@ export type AdminUser = {
   owner_org_id?: string | null;
   is_protected?: string | null;
 };
+
+const ADMIN_USER_PAGE_SIZE_OPTIONS = [10, 25, 50];
+const getAdminUserRowId = (row: AdminUser) => row.username;
 
 const getDisplayRole = (row: any): string => {
   const raw =
@@ -402,6 +477,7 @@ const AdminUsersList: React.FC = () => {
 
   const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const groupedRoleItems = useMemo(() => buildGroupedRoleItems(roleOptions), [roleOptions]);
   const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -844,6 +920,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       return;
     }
     const normalizedTargetRole = normalizeRoleSlug(form.role_slug);
+    const targetIsGlobal = isGlobalAdminRole(normalizedTargetRole || form.role_slug);
     if (!isSuper && normalizedTargetRole && ORG_ADMIN_NON_DELEGABLE_ROLES.has(normalizedTargetRole)) {
       handleToast("Only SUPER_ADMIN can assign or manage Organisation Admin roles.", "error");
       return;
@@ -860,11 +937,13 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
       setLoading(true);
       setError(null);
       if (isEditMode && editingUser) {
-        const effectiveOrgCode = !isSuper ? scopeOrgCode : form.org_code;
-        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
-        const normalizedMandiIds = (form.mandi_codes || [])
-          .map((v) => Number(v))
-          .filter((v) => Number.isFinite(v) && v > 0);
+        const effectiveOrgCode = targetIsGlobal ? "" : (!isSuper ? scopeOrgCode : form.org_code);
+        const selectedOrg = targetIsGlobal ? undefined : orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
+        const normalizedMandiIds = targetIsGlobal
+          ? []
+          : (form.mandi_codes || [])
+              .map((v) => Number(v))
+              .filter((v) => Number.isFinite(v) && v > 0);
 
         const payload = {
           target_username: editingUser.username,
@@ -873,7 +952,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           mobile: form.mobile,
           role_slug: form.role_slug,
           org_code: effectiveOrgCode || null,
-          org_id: selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null,
+          org_id: targetIsGlobal ? null : (selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null),
           mandi_ids: normalizedMandiIds,
           mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
@@ -906,11 +985,13 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           setLoading(false);
           return;
         }
-        const effectiveOrgCode = !isSuper ? scopeOrgCode : form.org_code;
-        const selectedOrg = orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
-        const normalizedMandiIds = (form.mandi_codes || [])
-          .map((v) => Number(v))
-          .filter((v) => Number.isFinite(v) && v > 0);
+        const effectiveOrgCode = targetIsGlobal ? "" : (!isSuper ? scopeOrgCode : form.org_code);
+        const selectedOrg = targetIsGlobal ? undefined : orgOptions.find((o: OrgOption) => o.org_code === effectiveOrgCode);
+        const normalizedMandiIds = targetIsGlobal
+          ? []
+          : (form.mandi_codes || [])
+              .map((v) => Number(v))
+              .filter((v) => Number.isFinite(v) && v > 0);
 
         const payload = {
           new_username: sanitizedUsername,
@@ -920,7 +1001,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
           mobile: form.mobile,
           role_slug: form.role_slug,
           org_code: effectiveOrgCode || null,
-          org_id: selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null,
+          org_id: targetIsGlobal ? null : (selectedOrg?._id || (!isSuper ? authContext.org_id : form.org_id) || null),
           mandi_ids: normalizedMandiIds,
           mandi_codes: normalizedMandiIds.map(String),
           is_active: (form.is_active ? "Y" : "N") as "Y" | "N",
@@ -1383,7 +1464,8 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
               menu={{
                 items: [
                   { key: "", label: t("adminUsers.filters.all") },
-                  ...roleOptions.map((role: string) => ({ key: role, label: formatRoleLabel(role) })),
+                  { type: "divider" as const },
+                  ...groupedRoleItems,
                 ],
                 onClick: ({ key }) => {
                   setFilters((prev) => ({ ...prev, role_slug: String(key) }));
@@ -1600,11 +1682,11 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             </Stack>
           ) : (
             <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
+              <MemoResponsiveDataGrid
                 rows={rows}
                 columns={columns}
-                getRowId={(row: AdminUser) => row.username}
-                pageSizeOptions={[10, 25, 50]}
+                getRowId={getAdminUserRowId}
+                pageSizeOptions={ADMIN_USER_PAGE_SIZE_OPTIONS}
                 paginationMode="server"
                 rowCount={totalCount}
                 paginationModel={paginationModel}
@@ -1704,6 +1786,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
             />
             {fieldErrors.mobile && <div style={{ marginTop: 4, fontSize: 12, color: "#d4380d" }}>{fieldErrors.mobile}</div>}
           </AntCol>
+          {!isGlobalAdminRole(form.role_slug) && (
           <AntCol xs={24} sm={12}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.organisation")}</div>
             {isSuper ? (
@@ -1729,20 +1812,21 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
               />
             )}
           </AntCol>
+          )}
           <AntCol xs={24} sm={12}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.roles")} *</div>
             <Dropdown
               trigger={["click"]}
               menu={{
-                items: roleOptions.map((role) => ({ key: role, label: formatRoleLabel(role) })),
+                items: groupedRoleItems,
                 onClick: ({ key }) => {
                   const nextRole = String(key);
                   setForm((prev) => ({
                     ...prev,
                     role_slug: nextRole,
-                    org_code: nextRole === "SUPER_ADMIN" ? "" : prev.org_code,
-                    org_id: nextRole === "SUPER_ADMIN" ? "" : prev.org_id,
-                    mandi_codes: nextRole === "SUPER_ADMIN" ? [] : prev.mandi_codes,
+                    org_code: isGlobalAdminRole(nextRole) ? "" : prev.org_code,
+                    org_id: isGlobalAdminRole(nextRole) ? "" : prev.org_id,
+                    mandi_codes: isGlobalAdminRole(nextRole) ? [] : prev.mandi_codes,
                   }));
                 },
               }}
@@ -1753,6 +1837,7 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
               </AntButton>
             </Dropdown>
           </AntCol>
+          {!isGlobalAdminRole(form.role_slug) ? (
           <AntCol xs={24}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t("adminUsers.dialog.mandis")}</div>
             <AntCard size="small" styles={{ body: { maxHeight: 180, overflowY: "auto" } }}>
@@ -1795,6 +1880,16 @@ const mandis: MandiOption[] = ((res?.data?.items || resp?.data?.items || []) as 
                     : "Optional mandi scope."}
             </div>
           </AntCol>
+          ) : (
+            <AntCol xs={24}>
+              <AntCard size="small">
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Global platform role</div>
+                <div style={{ color: "#6b7280", fontSize: 12 }}>
+                  This role operates above organisation and mandi scope. No organisation code or mandi assignment is required.
+                </div>
+              </AntCard>
+            </AntCol>
+          )}
           <AntCol xs={24}>
             <AntSpace>
               <span style={{ fontWeight: 600 }}>{t("adminUsers.dialog.status")}</span>

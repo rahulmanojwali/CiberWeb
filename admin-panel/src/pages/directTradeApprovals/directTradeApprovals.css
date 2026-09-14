@@ -102,7 +102,7 @@
   background: #f5f7f2;
   cursor: pointer;
 }
-.cm-dta-media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cm-dta-media-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; background: #f6f7f4; }
 .cm-dta-media-placeholder { display: grid; place-items: center; width: 100%; height: 100%; color: #7a8272; font-size: 10px; }
 .cm-dta-video-badge { position: absolute; right: 3px; bottom: 3px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,.68); color: #fff; font-size: 8px; }
 .cm-dta-media-extra { display: grid; place-items: center; color: #55632c; font-weight: 700; }
@@ -118,7 +118,33 @@
 .cm-dta-detail-panel .ant-card-head { min-height: 42px; background: #fafbf8; }
 .cm-dta-detail-panel .ant-card-head-title { font-size: 14px; font-weight: 700; }
 .cm-dta-detail-panel .ant-card-body { padding: 12px !important; }
-.cm-dta-detail-panel .ant-descriptions-bordered .ant-descriptions-item-label { background: var(--cm-dta-soft) !important; color: #596153 !important; font-weight: 600 !important; }
+/* Keep detail sections flat: the Card is the only visual container. */
+.cm-dta-flat-descriptions .ant-descriptions-view {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.cm-dta-flat-descriptions .ant-descriptions-row > th,
+.cm-dta-flat-descriptions .ant-descriptions-row > td {
+  padding: 8px 10px !important;
+  border-bottom: 1px solid #edf0e9 !important;
+}
+.cm-dta-flat-descriptions .ant-descriptions-row:last-child > th,
+.cm-dta-flat-descriptions .ant-descriptions-row:last-child > td {
+  border-bottom: 0 !important;
+}
+.cm-dta-flat-descriptions .ant-descriptions-item-label {
+  color: #596153 !important;
+  font-weight: 650 !important;
+  background: transparent !important;
+}
+.cm-dta-flat-descriptions .ant-descriptions-item-content {
+  color: #2f352c !important;
+  background: transparent !important;
+}
+
+/* Dropdown menus must remain above nested review/action modals. */
+.cm-dta-dropdown-overlay { z-index: 2200 !important; }
 
 .cm-dta-media-review-card { height: 100%; border: 1px solid #e0e5db; border-radius: 12px; overflow: hidden; background: #fff; }
 .cm-dta-media-review-card > .cm-dta-media-thumb { width: 100%; height: 170px; border: 0; border-radius: 0; background: #f3f5f0; }
@@ -133,7 +159,9 @@
 
 .cm-dta-image-preview { display: grid; place-items: center; min-height: 420px; background: #f6f7f4; border-radius: 12px; overflow: hidden; }
 .cm-dta-image-preview img { max-width: 100%; max-height: 68vh; object-fit: contain; }
-.cm-dta-video-preview { width: 100%; max-height: 68vh; border-radius: 12px; background: #000; }
+.cm-dta-video-preview { width: 100%; min-height: 360px; max-height: 68vh; border-radius: 12px; background: #000; }
+.cm-dta-video-embed-wrap { width: 100%; min-height: 520px; background: #000; border-radius: 12px; overflow: hidden; }
+.cm-dta-video-embed { width: 100%; height: min(68vh, 620px); min-height: 520px; border: 0; display: block; background: #000; }
 .cm-dta-media-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .cm-dta-message-preview { padding: 12px; border: 1px solid #e0e5db; border-radius: 10px; background: #f8f9f6; }
 .cm-dta-message-preview > div { margin-top: 5px; }
@@ -145,3 +173,9 @@
   .cm-dta-review-modal .ant-modal-body { max-height: 72vh; }
   .cm-dta-image-preview { min-height: 280px; }
 }
+
+
+/* Explicit modal stack: review < action < media preview. */
+.cm-dta-review-modal { z-index: 1200; }
+.cm-dta-action-modal { z-index: 1800; }
+.cm-dta-media-modal { z-index: 2000; }

@@ -13,7 +13,6 @@ import {
   Descriptions,
   Dropdown,
   Empty,
-  Image,
   Input,
   Modal,
   Pagination,
@@ -43,6 +42,7 @@ import {
   imagePreviewUrl,
   mediaTypeOf,
   thumbnailCandidates,
+  videoEmbedUrl,
   videoPlaybackUrl,
 } from '../../utils/mediaUrl';
 import {
@@ -270,6 +270,7 @@ function SingleShellDropdown({
     <Dropdown
       disabled={disabled}
       trigger={['click']}
+      overlayClassName="cm-dta-dropdown-overlay"
       menu={{ items, selectedKeys: [value], onClick: ({ key }) => onChange(String(key)) }}
     >
       <Button className={`cm-dta-dropdown-button ${className}`} disabled={disabled}>
@@ -282,22 +283,65 @@ function SingleShellDropdown({
 
 function MediaThumb({ media, onOpen }: { media: AnyRecord; onOpen: () => void }) {
   const isVideo = mediaTypeOf(media) === 'VIDEO';
-  const [thumbIndex, setThumbIndex] = React.useState(0);
-  const thumbs = thumbnailCandidates(media);
-  const src = thumbs[thumbIndex] || imagePreviewUrl(media) || '';
+  const [failed, setFailed] = React.useState(false);
+  const src = thumbnailCandidates(media)[0] || imagePreviewUrl(media) || '';
+
+  React.useEffect(() => { setFailed(false); }, [media?.media_id, src]);
+
   return (
     <button type="button" className="cm-dta-media-thumb" onClick={onOpen} aria-label="Open media preview">
-      {src ? (
+      {src && !failed ? (
         <img
           src={src}
           alt={media?.media_id || 'Direct Trade media'}
-          onError={() => setThumbIndex((index) => (index + 1 < thumbs.length ? index + 1 : index))}
+          onError={() => setFailed(true)}
         />
       ) : (
-        <div className="cm-dta-media-placeholder">{isVideo ? 'Video' : 'Image'}</div>
+        <div className="cm-dta-media-placeholder">{isVideo ? 'Video preview' : 'Image preview'}</div>
       )}
       {isVideo ? <span className="cm-dta-video-badge">▶</span> : null}
     </button>
+  );
+}
+
+
+function MediaPreview({ media }: { media: AnyRecord }) {
+  const type = mediaTypeOf(media);
+  const [imageFailed, setImageFailed] = React.useState(false);
+  const embedUrl = videoEmbedUrl(media);
+  const playbackUrl = videoPlaybackUrl(media);
+  const imageUrl = imagePreviewUrl(media);
+
+  React.useEffect(() => { setImageFailed(false); }, [media?.media_id, imageUrl]);
+
+  if (type === 'VIDEO') {
+    if (embedUrl) {
+      return (
+        <div className="cm-dta-video-embed-wrap">
+          <iframe
+            className="cm-dta-video-embed"
+            src={embedUrl}
+            title={`Direct Trade video ${media?.media_id || ''}`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    if (playbackUrl) {
+      return <video className="cm-dta-video-preview" controls playsInline preload="metadata" src={playbackUrl} />;
+    }
+    return <Alert type="warning" showIcon message="Video preview is not available for this item." />;
+  }
+
+  if (!imageUrl || imageFailed) {
+    return <Alert type="warning" showIcon message="Image preview is not available for this item." />;
+  }
+
+  return (
+    <div className="cm-dta-image-preview">
+      <img src={imageUrl} alt="Direct Trade media preview" onError={() => setImageFailed(true)} />
+    </div>
   );
 }
 
@@ -643,13 +687,14 @@ export default function DirectTradeApprovalsPage() {
         }
         footer={<Button onClick={closeDetails}>Close</Button>}
         destroyOnHidden
+        zIndex={1200}
       >
         {detailsLoading ? <div className="cm-dta-modal-loading"><Spin /></div> : null}
         {!detailsLoading && detailsError ? <Alert showIcon type="error" message="Unable to load listing details" description={detailsError} /> : null}
         {!detailsLoading && !detailsError && selected ? (
           <div className="cm-dta-review-content">
             <Card size="small" className="cm-dta-detail-panel" title="Product Information">
-              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+              <Descriptions className="cm-dta-flat-descriptions" size="small" column={{ xs: 1, sm: 2 }}>
                 <Descriptions.Item label="Commodity">{detailListing.commodity_name || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Product">{detailListing.product_name || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Variety / Grade">{[detailListing.variety_name, detailListing.grade_name].filter(Boolean).join(' · ') || '—'}</Descriptions.Item>
@@ -661,7 +706,7 @@ export default function DirectTradeApprovalsPage() {
             </Card>
 
             <Card size="small" className="cm-dta-detail-panel" title="Pickup & GPS Verification">
-              <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+              <Descriptions className="cm-dta-flat-descriptions" size="small" column={{ xs: 1, sm: 2 }}>
                 <Descriptions.Item label="Farmer Entered Address">{farmerEnteredPickupAddress(detailListing.pickup) || '—'}</Descriptions.Item>
                 <Descriptions.Item label="GPS Verified Address">{gpsVerifiedPickupAddress(detailListing.pickup) || '—'}</Descriptions.Item>
                 <Descriptions.Item label="District / State / Pincode">{compactAddress([detailListing.pickup?.district, detailListing.pickup?.state || detailListing.pickup?.state_code, detailListing.pickup?.pincode]) || '—'}</Descriptions.Item>
@@ -760,6 +805,7 @@ export default function DirectTradeApprovalsPage() {
         onCancel={() => setMediaPreview(null)}
         width={920}
         title={previewMedia ? `${humanize(mediaTypeOf(previewMedia))} Preview · ${previewIndex + 1} of ${previewItems.length}` : 'Media Preview'}
+        zIndex={2000}
         footer={
           <div className="cm-dta-media-footer">
             <Button icon={<LeftOutlined />} disabled={previewIndex <= 0} onClick={() => setMediaPreview((prev) => prev ? { ...prev, index: prev.index - 1 } : prev)}>Previous</Button>
@@ -768,13 +814,7 @@ export default function DirectTradeApprovalsPage() {
           </div>
         }
       >
-        {previewMedia ? (
-          mediaTypeOf(previewMedia) === 'VIDEO' ? (
-            <video className="cm-dta-video-preview" controls preload="metadata" src={videoPlaybackUrl(previewMedia) || undefined} />
-          ) : (
-            <div className="cm-dta-image-preview"><Image preview={false} src={imagePreviewUrl(previewMedia) || undefined} alt="Direct Trade media preview" /></div>
-          )
-        ) : null}
+        {previewMedia ? <MediaPreview media={previewMedia} /> : null}
       </Modal>
 
       <Modal
@@ -782,6 +822,7 @@ export default function DirectTradeApprovalsPage() {
         open={Boolean(actionOpen)}
         onCancel={() => { if (!actionBusy) { setActionOpen(null); setRemarkCode(''); setRemarks(''); } }}
         title={actionOpen === 'APPROVE' ? 'Approve Listing' : actionOpen === 'REJECT' ? 'Reject Listing' : 'Request Changes'}
+        zIndex={1800}
         footer={[
           <Button key="cancel" disabled={actionBusy} onClick={() => { setActionOpen(null); setRemarkCode(''); setRemarks(''); }}>Cancel</Button>,
           <Button key="submit" type="primary" danger={actionOpen === 'REJECT'} loading={actionBusy} disabled={remarkTemplatesLoading || !remarkCode || usingRemarkFallback || (actionOpen === 'APPROVE' && !canSubmitApprove)} onClick={() => void submitAction()}>Submit</Button>,

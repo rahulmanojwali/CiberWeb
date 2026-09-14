@@ -70,6 +70,26 @@ interface OrgRow {
 
 type FormState = Omit<OrgRow, "id">;
 
+interface OrganisationDetailSummary {
+  organisation: {
+    org_id: string;
+    org_code: string;
+    org_name: string;
+    country?: string | null;
+    is_active: "Y" | "N";
+  };
+  mandis: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+  users: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+}
+
 function currentUsername(): string | null {
   try {
     const raw = localStorage.getItem("cd_user");
@@ -122,6 +142,9 @@ export const Orgs: React.FC = () => {
   const [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: 25 });
   const [totalCount, setTotalCount] = React.useState(0);
   const [summary, setSummary] = React.useState<{ total: number | null; active: number | null; inactive: number | null }>({ total: null, active: null, inactive: null });
+  const [detailSummary, setDetailSummary] = React.useState<OrganisationDetailSummary | null>(null);
+  const [detailSummaryLoading, setDetailSummaryLoading] = React.useState(false);
+  const [detailSummaryError, setDetailSummaryError] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
     open: false,
     message: "",
@@ -156,6 +179,59 @@ export const Orgs: React.FC = () => {
   const buildBody = React.useCallback(async (items: any) => {
     const encryptedData = await encryptGenericPayload(JSON.stringify({ items }));
     return { encryptedData };
+  }, []);
+
+  const loadOrganisationSummary = React.useCallback(async (orgId: string, orgCode: string) => {
+    const username = currentUsername();
+    if (!username) {
+      setDetailSummary(null);
+      setDetailSummaryError("No admin session found.");
+      return;
+    }
+
+    setDetailSummaryLoading(true);
+    setDetailSummary(null);
+    setDetailSummaryError(null);
+
+    try {
+      const data = await postEncrypted(API_ROUTES.admin.getOrganisationSummary, {
+        api: API_TAGS.ORGS.summary,
+        username,
+        language: "en",
+        org_id: orgId,
+        org_code: orgCode,
+      });
+
+      const resp = data?.response || {};
+      if (String(resp.responsecode ?? "") !== "0") {
+        setDetailSummaryError(resp.description || "Organisation summary is unavailable.");
+        return;
+      }
+
+      const payload = resp?.data;
+      if (!payload?.organisation || !payload?.mandis || !payload?.users) {
+        setDetailSummaryError("Organisation summary is unavailable.");
+        return;
+      }
+
+      setDetailSummary({
+        organisation: payload.organisation,
+        mandis: {
+          total: Number(payload.mandis.total || 0),
+          active: Number(payload.mandis.active || 0),
+          inactive: Number(payload.mandis.inactive || 0),
+        },
+        users: {
+          total: Number(payload.users.total || 0),
+          active: Number(payload.users.active || 0),
+          inactive: Number(payload.users.inactive || 0),
+        },
+      });
+    } catch (e: any) {
+      setDetailSummaryError(e?.message || "Unable to load organisation summary.");
+    } finally {
+      setDetailSummaryLoading(false);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -272,6 +348,9 @@ export const Orgs: React.FC = () => {
   const handleOpenCreate = () => {
     setDialogMode("CREATE");
     setEditingId(null);
+    setDetailSummary(null);
+    setDetailSummaryError(null);
+    setDetailSummaryLoading(false);
     setForm({
       org_code: "",
       org_name: "",
@@ -304,6 +383,7 @@ export const Orgs: React.FC = () => {
       updated_by: row.updated_by || "",
     });
     setDialogOpen(true);
+    void loadOrganisationSummary(row.id, row.org_code);
   };
 
   const handleOpenView = (row: OrgRow) => {
@@ -320,9 +400,15 @@ export const Orgs: React.FC = () => {
       updated_by: row.updated_by || "",
     });
     setDialogOpen(true);
+    void loadOrganisationSummary(row.id, row.org_code);
   };
 
-  const handleCloseDialog = () => setDialogOpen(false);
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setDetailSummary(null);
+    setDetailSummaryError(null);
+    setDetailSummaryLoading(false);
+  };
 
   const openOrganisationMandis = React.useCallback(() => {
     if (!editingId) return;
@@ -734,6 +820,112 @@ export const Orgs: React.FC = () => {
             : []),
         ]}
       >
+        {dialogMode !== "CREATE" && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              Organisation Summary
+            </Typography>
+
+            {detailSummaryError && !detailSummaryLoading && (
+              <Alert
+                severity="error"
+                sx={{ mb: 1.5 }}
+              >
+                {detailSummaryError}
+              </Alert>
+            )}
+
+            <AntRow gutter={[10, 10]}>
+              <AntCol xs={12} sm={8}>
+                <AntCard
+                  size="small"
+                  hoverable={!detailSummaryLoading && !!detailSummary}
+                  onClick={!detailSummaryLoading && detailSummary ? openOrganisationMandis : undefined}
+                  style={{
+                    height: "100%",
+                    cursor: !detailSummaryLoading && detailSummary ? "pointer" : "default",
+                    background: "#F4F7EA",
+                    borderColor: "#DCE3C8",
+                  }}
+                >
+                  <AntStatistic
+                    title="Mandis"
+                    value={detailSummary?.mandis.total ?? "—"}
+                    loading={detailSummaryLoading}
+                  />
+                </AntCard>
+              </AntCol>
+              <AntCol xs={12} sm={8}>
+                <AntCard
+                  size="small"
+                  style={{
+                    height: "100%",
+                    background: "#EEF7EE",
+                    borderColor: "#CFE5D0",
+                  }}
+                >
+                  <AntStatistic
+                    title="Active Mandis"
+                    value={detailSummary?.mandis.active ?? "—"}
+                    loading={detailSummaryLoading}
+                  />
+                </AntCard>
+              </AntCol>
+              <AntCol xs={12} sm={8}>
+                <AntCard
+                  size="small"
+                  hoverable={!detailSummaryLoading && !!detailSummary}
+                  onClick={!detailSummaryLoading && detailSummary ? openOrganisationUsers : undefined}
+                  style={{
+                    height: "100%",
+                    cursor: !detailSummaryLoading && detailSummary ? "pointer" : "default",
+                    background: "#FFF6E8",
+                    borderColor: "#EED8B8",
+                  }}
+                >
+                  <AntStatistic
+                    title="Administrators / Users"
+                    value={detailSummary?.users.total ?? "—"}
+                    loading={detailSummaryLoading}
+                  />
+                </AntCard>
+              </AntCol>
+              <AntCol xs={12} sm={12}>
+                <AntCard
+                  size="small"
+                  style={{
+                    height: "100%",
+                    background: "#F1F6EA",
+                    borderColor: "#D6E2C4",
+                  }}
+                >
+                  <AntStatistic
+                    title="Active Users"
+                    value={detailSummary?.users.active ?? "—"}
+                    loading={detailSummaryLoading}
+                  />
+                </AntCard>
+              </AntCol>
+              <AntCol xs={12} sm={12}>
+                <AntCard
+                  size="small"
+                  style={{
+                    height: "100%",
+                    background: "#F8F3EE",
+                    borderColor: "#E7D8CC",
+                  }}
+                >
+                  <AntStatistic
+                    title="Inactive Users"
+                    value={detailSummary?.users.inactive ?? "—"}
+                    loading={detailSummaryLoading}
+                  />
+                </AntCard>
+              </AntCol>
+            </AntRow>
+          </Box>
+        )}
+
         {isViewOnlyMode && (
           <Alert
             severity="info"
@@ -745,7 +937,9 @@ export const Orgs: React.FC = () => {
               "& .MuiAlert-icon": { color: "#55632C" },
             }}
           >
-            View only – organisation details cannot be modified.
+            {canManageOrganisations
+              ? "View mode – use Edit from the Organisation list to modify organisation details."
+              : "View only – organisation details cannot be modified."}
           </Alert>
         )}
 

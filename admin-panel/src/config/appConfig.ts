@@ -10,6 +10,7 @@ export const API_BASE_URL =
 export const API_TAGS = {
   ORGS: {
     list: "get_Organisations21",
+    summary: "get_Organisation_Summary29",
     create: "create_Organisation22",
     update: "update_Organisation23",
   },
@@ -458,6 +459,7 @@ export const API_ROUTES = {
   },
   admin: {
     getOrganisations: "/admin/getOrganisations",
+    getOrganisationSummary: "/admin/getOrganisationSummary",
     createOrganisation: "/admin/createOrganisation",
     updateOrganisation: "/admin/updateOrganisation",
     getAdminUsers: "/admin/getAdminUsers",

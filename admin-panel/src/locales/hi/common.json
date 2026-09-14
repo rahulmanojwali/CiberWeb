@@ -38,6 +38,7 @@
   },
   "menu": {
     "dashboard": "डैशबोर्ड",
+    "platformOperationsOverview": "अवलोकन",
     "organisations": "संगठन",
     "orgMandi": "संस्था–मंडी मैपिंग",
     "mandis": "मंडी सूची",

@@ -60,3 +60,5 @@ export async function getDirectTradeOrderDetails({
   });
   return response?.data || response;
 }
+
+export async function getPlatformOperationsOverview({username,language=DEFAULT_LANGUAGE}:{username:string;language?:string}){const r=await postEncrypted('/admin/direct-trade/orders/overview',{api:'getPlatformOperationsOverview',username,language});return r?.data||r;}

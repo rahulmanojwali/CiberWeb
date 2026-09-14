@@ -74,6 +74,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "Platform Operations",
+    "resource_key": "platform_operations_overview.menu",
+    "menu_name": "Overview",
+    "name_source": "screen",
+    "i18n_key": "menu.platformOperationsOverview",
+    "route": "/platform-operations",
+    "icon_key": "dashboard",
+    "order": 14,
+    "metadata_group": "main_sidebar",
+    "is_active": false
+  },
+  {
+    "category": "Platform Operations",
     "resource_key": "direct_trade_approvals.menu",
     "menu_name": "Direct Trade Approvals",
     "name_source": "screen",

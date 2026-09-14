@@ -368,6 +368,11 @@ export default function DirectTradeApprovalsPage() {
   const role = normalizeRole(user?.role_slug || user?.role_code || user?.role);
   const language = String(user?.language || localStorage.getItem('language') || 'en');
 
+  const initialStatus = React.useMemo(() => {
+    const requested = String(new URLSearchParams(window.location.search).get('status') || '').toUpperCase();
+    return STATUS_OPTIONS.some((option) => option.value === requested) ? requested : 'PENDING_APPROVAL';
+  }, []);
+
   const [rows, setRows] = React.useState<AnyRecord[]>([]);
   const [counts, setCounts] = React.useState<Record<string, number>>({});
   const [loading, setLoading] = React.useState(false);
@@ -375,7 +380,7 @@ export default function DirectTradeApprovalsPage() {
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(20);
   const [total, setTotal] = React.useState(0);
-  const [status, setStatus] = React.useState('PENDING_APPROVAL');
+  const [status, setStatus] = React.useState(initialStatus);
   const [mediaType, setMediaType] = React.useState('ALL');
   const [search, setSearch] = React.useState('');
   const [appliedSearch, setAppliedSearch] = React.useState('');
@@ -603,13 +608,15 @@ export default function DirectTradeApprovalsPage() {
   return (
     <PageContainer title="Direct Trade Approvals" subtitle="Review and approve Direct Trade listings, verified media and pickup details.">
       <div className="cm-dta-page">
-        <Alert
-          className="cm-dta-role-alert"
-          showIcon
-          type="info"
-          message={<span>Signed in as <strong>{username || 'platform user'}</strong>{role ? <> · <strong>{humanize(role)}</strong></> : null}</span>}
-          description="Platform Operations approval workspace. Review listing information, media and GPS verification before taking an approval decision."
-        />
+        {role !== 'SUPER_ADMIN' ? (
+          <Alert
+            className="cm-dta-role-alert"
+            showIcon
+            type="info"
+            message={<span>Signed in as <strong>{username || 'platform user'}</strong>{role ? <> · <strong>{humanize(role)}</strong></> : null}</span>}
+            description="Platform Operations approval workspace. Review listing information, media and GPS verification before taking an approval decision."
+          />
+        ) : null}
 
         <Row gutter={[12, 12]} className="cm-dta-kpi-row">
           <Col xs={24} md={8}>

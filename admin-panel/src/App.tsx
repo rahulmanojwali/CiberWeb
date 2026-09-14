@@ -237,6 +237,7 @@ function App() {
                   <Route path="/manager-reports" element={<MandiManagerReports />} />
                   <Route path="/mandi-management" element={<MandiManagerManagement />} />
                   <Route path="/direct-trade-approvals" element={<DirectTradeApprovalsPage />} />
+                  <Route path="/platform-operations" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/direct-trade/approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/orders" element={<DirectTradeOrdersPage />} />
                   <Route path="/bulk-trade" element={<BulkTradePage />} />

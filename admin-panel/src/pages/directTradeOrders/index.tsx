@@ -162,13 +162,18 @@ export default function DirectTradeOrdersPage() {
   const user = React.useMemo(() => currentUser(), []);
   const username = String(user?.username || user?.user_name || '');
 
+  const initialStatus = React.useMemo(() => {
+    const requested = String(new URLSearchParams(window.location.search).get('status') || '').toUpperCase();
+    return STATUS_OPTIONS.includes(requested as (typeof STATUS_OPTIONS)[number]) ? requested : 'ALL';
+  }, []);
+
   const [rows, setRows] = React.useState<OrderRow[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(25);
   const [total, setTotal] = React.useState(0);
-  const [status, setStatus] = React.useState<string>('ALL');
+  const [status, setStatus] = React.useState<string>(initialStatus);
   const [search, setSearch] = React.useState('');
   const [appliedSearch, setAppliedSearch] = React.useState('');
 

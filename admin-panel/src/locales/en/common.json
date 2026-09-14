@@ -99,6 +99,7 @@
     "system": "System",
     "systemAdministration": "System Administration",
     "platformOperations": "Platform Operations",
+    "platformOperationsOverview": "Overview",
     "systemSecurity": "System Security",
     "rolePermissions": "Role Permission Manager",
     "userRoleManager": "User Role Assignment",

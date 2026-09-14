@@ -1,0 +1,132 @@
+.cm-platform-operations-overview {
+  --cm-po-primary: #55632c;
+  --cm-po-border: #e0e5d9;
+  --cm-po-muted: #6f7768;
+}
+
+.cm-platform-operations-overview .cm-po-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.cm-platform-operations-overview .cm-po-title.ant-typography {
+  margin: 0 0 4px !important;
+}
+
+.cm-platform-operations-overview .cm-po-updated {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.cm-platform-operations-overview .cm-po-section {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--cm-po-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.cm-platform-operations-overview .cm-po-section:first-of-type {
+  margin-top: 16px;
+}
+
+.cm-platform-operations-overview .cm-po-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cm-platform-operations-overview .cm-po-section-heading .ant-typography {
+  margin-top: 0 !important;
+  margin-bottom: 2px !important;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card.ant-card {
+  height: 100%;
+  min-height: 148px;
+  cursor: pointer;
+  border: 1px solid var(--cm-po-border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  transition: border-color .15s ease, transform .15s ease;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card.ant-card:hover,
+.cm-platform-operations-overview .cm-po-summary-card.ant-card:focus-visible {
+  border-color: #9aa77a !important;
+  transform: translateY(-1px);
+}
+
+.cm-platform-operations-overview .cm-po-summary-card.ant-card:focus-visible {
+  outline: 3px solid rgba(85, 99, 44, .12);
+  outline-offset: 1px;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card .ant-card-body {
+  padding: 16px !important;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-title {
+  color: #596153;
+  font-weight: 600;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--cm-po-primary);
+  background: rgba(85, 99, 44, .08);
+  font-size: 16px;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-value.ant-typography {
+  margin: 8px 0 4px !important;
+  color: #22281e;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-description {
+  color: var(--cm-po-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cm-platform-operations-overview .cm-po-summary-card-pending { background: #fbf7e9; }
+.cm-platform-operations-overview .cm-po-summary-card-attention { background: #fcf0ec; }
+.cm-platform-operations-overview .cm-po-summary-card-success { background: #eef6ec; }
+.cm-platform-operations-overview .cm-po-summary-card-info { background: #edf4f6; }
+.cm-platform-operations-overview .cm-po-summary-card-neutral { background: #f6f6f1; }
+.cm-platform-operations-overview .cm-po-summary-card-danger { background: #f8efed; }
+
+@media (max-width: 767px) {
+  .cm-platform-operations-overview .cm-po-header,
+  .cm-platform-operations-overview .cm-po-section-heading {
+    flex-direction: column;
+  }
+
+  .cm-platform-operations-overview .cm-po-header > .ant-space {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cm-platform-operations-overview .cm-po-section {
+    padding: 12px;
+  }
+}

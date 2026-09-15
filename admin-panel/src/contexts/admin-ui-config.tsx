@@ -335,18 +335,6 @@ const normalizeUiResources = (resources: UiResource[]): UiResource[] => {
     metadata: { injected: true, group: "Operations" },
   } as UiResource);
 
-  ensure({
-    resource_key: "platform_users.menu",
-    screen: "CiberMandi Users",
-    element: "CiberMandi users menu",
-    ui_type: "MENU",
-    route: "/system/platform-users",
-    parent_resource_key: null,
-    allowed_actions: ["VIEW"],
-    is_active: true,
-    metadata: { injected: true, group: "System" },
-  } as UiResource);
-
   const lotView = ["VIEW"];
   const lotUpdate = ["UPDATE"];
   ensure({

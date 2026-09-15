@@ -8,6 +8,17 @@ type BaseInput = {
   role?: string | null;
 };
 
+export type PlatformControlSection =
+  | "MODULES"
+  | "MENUS"
+  | "MOBILE"
+  | "WORKFLOW"
+  | "API";
+
+type PlatformControlCenterInput = BaseInput & {
+  section?: PlatformControlSection | string | null;
+};
+
 export type PlatformControlOperation = {
   type:
     | "MENU_VISIBILITY"
@@ -35,9 +46,10 @@ const withBase = (input: BaseInput, api: string) => ({
   role_slug: input.role || "",
 });
 
-export function getPlatformControlCenter(input: BaseInput) {
+export function getPlatformControlCenter(input: PlatformControlCenterInput) {
   return postEncrypted(API_ROUTES.admin.getPlatformControlCenter, {
     ...withBase(input, API_TAGS.PLATFORM_CONTROL_CENTER.get),
+    section: String(input.section || "MODULES").trim().toUpperCase(),
   });
 }
 

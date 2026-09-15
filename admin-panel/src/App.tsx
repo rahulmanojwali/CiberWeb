@@ -73,9 +73,7 @@ import { WeighmentTickets } from "./pages/weighmentTickets";
 import { GateMovements } from "./pages/gateMovements";
 import GateTokenDetail from "./pages/gateTokens/detail";
 import { MandiAssociations } from "./pages/mandiAssociations";
-import RolesPermissionsPage from "./pages/rolesPermissions";
 import { PermissionsManager } from "./pages/permissionsManager";
-import UserRoleManagerPage from "./pages/userRoleManager";
 import { AuctionSessions } from "./pages/auctionSessions";
 import { AuctionLots } from "./pages/auctionLots";
 import { AuctionResults } from "./pages/auctionResults";
@@ -122,7 +120,6 @@ import NotificationTemplates from "./pages/notificationTemplates";
 import DirectTradeApprovalsPage from "./pages/directTradeApprovals";
 import DirectTradeOrdersPage from "./pages/directTradeOrders";
 import BulkTradePage from "./pages/bulkTrade";
-import PlatformUsers from "./pages/platformUsers/PlatformUsers";
 
 import { Layout } from "./components/layout";
 import { CmAdminShell } from "./components/layout/CmAdminShell";
@@ -241,8 +238,8 @@ function App() {
                   <Route path="/direct-trade/approvals" element={<DirectTradeApprovalsPage />} />
                   <Route path="/direct-trade/orders" element={<DirectTradeOrdersPage />} />
                   <Route path="/bulk-trade" element={<BulkTradePage />} />
-                  <Route path="/system/platform-users" element={<PlatformUsers />} />
-                  <Route path="/platform-users" element={<PlatformUsers />} />
+                  <Route path="/system/platform-users" element={<Navigate to="/admin-users" replace />} />
+                  <Route path="/platform-users" element={<Navigate to="/admin-users" replace />} />
                   <Route path="/orgs" element={<Orgs />} />
                   <Route path="/mandis" element={<Mandis />} />
                   <Route path="/admin-users" element={<AdminUsers />} />
@@ -339,14 +336,14 @@ function App() {
                   <Route path="/gate-movements" element={<GateMovements />} />
                   <Route path="/mandi-associations" element={<MandiAssociations />} />
                   <Route path="/admin/mandi-associations" element={<MandiAssociations />} />
-                  <Route path="/system/roles-permissions" element={<RolesPermissionsPage />} />
+                  <Route path="/system/roles-permissions" element={<Navigate to="/system/role-policy-manager" replace />} />
                   <Route path="/system/role-policy-manager" element={<PermissionsManager />} />
-                  <Route path="/system/permissions-manager" element={<PermissionsManager />} />
+                  <Route path="/system/permissions-manager" element={<Navigate to="/system/role-policy-manager" replace />} />
                   <Route path="/system/resource-registry" element={<ResourceRegistryPage />} />
                   <Route path="/system/resource-health" element={<ResourceHealthPage />} />
                   <Route path="/system/platform-control-center" element={<PlatformControlCenterPage />} />
                   <Route path="/system/notifications/templates" element={<NotificationTemplates />} />
-                  <Route path="/system/user-role-manager" element={<UserRoleManagerPage />} />
+                  <Route path="/system/user-role-manager" element={<Navigate to="/admin-users" replace />} />
                   <Route path="/system/security/stepup-policies" element={<StepUpPoliciesPage />} />
                   <Route path="/system/security/switches" element={<SecuritySwitchesPage />} />
                   <Route path="/system/capacity-control" element={<SystemCapacityControlPage />} />

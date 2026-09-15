@@ -118,7 +118,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "users",
     "order": 887,
     "metadata_group": "main_sidebar",
-    "is_active": true
+    "is_active": false
   },
   {
     "category": "Auction",
@@ -807,7 +807,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   {
     "category": "System",
     "resource_key": "system_security.menu",
-    "menu_name": "System Security",
+    "menu_name": "Security & Access",
     "name_source": "label_i18n.en",
     "i18n_key": "",
     "route": "/system/security",
@@ -826,24 +826,24 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "toggle",
     "order": 110,
     "metadata_group": "main_sidebar",
-    "is_active": "Y"
+    "is_active": "N"
   },
   {
     "category": "System",
     "resource_key": "user_roles.menu",
-    "menu_name": "User Role Manager",
+    "menu_name": "User Role Assignment",
     "name_source": "label_i18n.en",
     "i18n_key": "",
     "route": "/system/user-role-manager",
     "icon_key": "",
     "order": 880,
     "metadata_group": "System",
-    "is_active": true
+    "is_active": false
   },
   {
     "category": "System",
     "resource_key": "platform_control_center.menu",
-    "menu_name": "Platform Control Center",
+    "menu_name": "Platform Controls",
     "name_source": "label_i18n.en",
     "i18n_key": "",
     "route": "/system/platform-control-center",
@@ -866,6 +866,18 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
   },
   {
     "category": "System",
+    "resource_key": "resource_health.menu",
+    "menu_name": "Resource Health",
+    "name_source": "label_i18n.en",
+    "i18n_key": "",
+    "route": "/system/resource-health",
+    "icon_key": "security",
+    "order": 892,
+    "metadata_group": "System",
+    "is_active": "Y"
+  },
+  {
+    "category": "System",
     "resource_key": "security_2fa.menu",
     "menu_name": "2FA Security",
     "name_source": "label_i18n.en",
@@ -874,7 +886,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "",
     "order": 895,
     "metadata_group": "System",
-    "is_active": true
+    "is_active": false
   },
   {
     "category": "System",
@@ -886,7 +898,7 @@ export const MENU_FREEZE: FrozenMenuItem[] = [
     "icon_key": "",
     "order": 897,
     "metadata_group": "System",
-    "is_active": true
+    "is_active": false
   },
   {
     "category": "System",

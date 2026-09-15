@@ -48,22 +48,12 @@ type CatalogEntry = UiResource & {
   actions: string[];
 };
 
-const ROLE_SLUGS = [
-  "SUPER_ADMIN",
-  "ORG_ADMIN",
-  "ORG_VIEWER",
-  "MANDI_ADMIN",
-  "MANDI_MANAGER",
-  "AUCTIONEER",
-  "GATE_OPERATOR",
-  "WEIGHBRIDGE_OPERATOR",
-  "AUDITOR",
-  "VIEWER",
-  "PLATFORM_REVIEWER",
-  "PLATFORM_APPROVER",
-  "PLATFORM_SUPERVISOR",
-  "PLATFORM_OPERATIONS_MANAGER",
-];
+type RoleOption = {
+  role_slug: string;
+  role_name?: string | null;
+  role_scope?: string | null;
+  is_protected?: string | null;
+};
 
 const ACTION_ORDER = [
   "VIEW",
@@ -207,6 +197,7 @@ export const PermissionsManager: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
 
   const [catalog, setCatalog] = useState<UiResource[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [roleSlug, setRoleSlug] = useState<string>("SUPER_ADMIN");
   const [search, setSearch] = useState<string>("");
   const [filterMode, setFilterMode] = useState<"granted" | "all" | "missing">("all");
@@ -473,13 +464,29 @@ export const PermissionsManager: React.FC = () => {
       if (payload?.data?.data?.resources) return payload.data.data;
       if (payload?.data?.items?.resources) return payload.data.items;
       if (payload?.resources) return payload;
-      return { resources: [], permissions: [] };
+      return { resources: [], roles: [] };
     };
     const payload = unwrapCatalog(resp);
     // eslint-disable-next-line no-console
     console.log("[ResourcePolicyManager] payload keys:", Object.keys(payload || {}), payload);
     const resources = payload.resources || [];
+    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    const normalizedRoles: RoleOption[] = roles
+      .map((role: any) => ({
+        role_slug: String(role?.role_slug || role?.role_code || "").trim().toUpperCase(),
+        role_name: role?.role_name || role?.display_name || role?.name || null,
+        role_scope: role?.role_scope || null,
+        is_protected: role?.is_protected || null,
+      }))
+      .filter((role: RoleOption) => Boolean(role.role_slug));
+
     setCatalog(Array.isArray(resources) ? resources : []);
+    setRoleOptions(normalizedRoles);
+
+    if (normalizedRoles.length && !normalizedRoles.some((role) => role.role_slug === roleSlug)) {
+      const preferred = normalizedRoles.find((role) => role.role_slug === "SUPER_ADMIN") || normalizedRoles[0];
+      if (preferred?.role_slug) setRoleSlug(preferred.role_slug);
+    }
   };
 
   const loadRolePolicy = async (slug: string) => {
@@ -750,9 +757,10 @@ export const PermissionsManager: React.FC = () => {
                   value={roleSlug}
                   onChange={(event) => setRoleSlug(String(event.target.value))}
                 >
-                  {ROLE_SLUGS.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {role}
+                  {roleOptions.map((role) => (
+                    <MenuItem key={role.role_slug} value={role.role_slug}>
+                      {role.role_name || role.role_slug}
+                      {role.role_scope ? ` · ${role.role_scope}` : ""}
                     </MenuItem>
                   ))}
                 </Select>

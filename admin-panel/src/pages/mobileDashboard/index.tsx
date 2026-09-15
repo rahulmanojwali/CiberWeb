@@ -118,6 +118,20 @@ function metadataToText(value: unknown) {
   }
 }
 
+function blendHex(foreground: string, background: string, foregroundRatio: number) {
+  const parse = (raw: string) => {
+    const value = String(raw || "").trim().replace(/^#/, "");
+    if (!/^[0-9A-Fa-f]{6}$/.test(value)) return null;
+    return [Number.parseInt(value.slice(0, 2), 16), Number.parseInt(value.slice(2, 4), 16), Number.parseInt(value.slice(4, 6), 16)];
+  };
+  const fg = parse(foreground);
+  const bg = parse(background);
+  if (!fg || !bg) return background;
+  const ratio = Math.max(0, Math.min(1, foregroundRatio));
+  const channel = (index: number) => Math.round(fg[index] * ratio + bg[index] * (1 - ratio)).toString(16).padStart(2, "0").toUpperCase();
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
 function friendlyRoleLabel(role: MobileDashboardRoleOption) {
   const name = String(role.role_name || "").trim();
   if (name && name !== role.role_code) return `${name} (${role.role_code})`;
@@ -414,7 +428,77 @@ const MobileDashboardAdminPage = () => {
   };
 
   const updateTheme = (key: keyof MobileAppControl["theme"], value: string) => {
-    setAppControl((prev) => prev ? { ...prev, theme: { ...prev.theme, [key]: value } } : prev);
+    setAppControl((prev) => {
+      if (!prev) return prev;
+      const oldTheme = prev.theme;
+      const nextTheme = { ...oldTheme, [key]: value };
+
+      // Keep semantic aliases linked while they still match their base token. Once an
+      // administrator customises an alias independently, later base-colour edits no longer
+      // overwrite that explicit choice.
+      if (key === "primary_hex") {
+        const oldSurface = oldTheme.surface_hex;
+        const oldVariant = blendHex(oldTheme.primary_hex, oldSurface, 0.08);
+        const oldSection = blendHex(oldTheme.primary_hex, oldSurface, 0.04);
+        const oldIconContainer = blendHex(oldTheme.primary_hex, oldSurface, 0.10);
+        const oldBorder = blendHex(oldTheme.primary_hex, oldSurface, 0.18);
+        const newVariant = blendHex(value, oldSurface, 0.08);
+        const newSection = blendHex(value, oldSurface, 0.04);
+        const newIconContainer = blendHex(value, oldSurface, 0.10);
+        const newBorder = blendHex(value, oldSurface, 0.18);
+
+        if (oldTheme.chip_selected_background_hex === oldTheme.primary_hex) nextTheme.chip_selected_background_hex = value;
+        if (oldTheme.step_active_hex === oldTheme.primary_hex) nextTheme.step_active_hex = value;
+        if (oldTheme.icon_tint_hex === oldTheme.primary_hex) nextTheme.icon_tint_hex = value;
+        if (oldTheme.input_focus_border_hex === oldTheme.primary_hex) nextTheme.input_focus_border_hex = value;
+        if (oldTheme.bottom_nav_selected_hex === oldTheme.primary_hex) nextTheme.bottom_nav_selected_hex = value;
+        if (oldTheme.surface_variant_hex === oldVariant) nextTheme.surface_variant_hex = newVariant;
+        if (oldTheme.section_background_hex === oldSection) nextTheme.section_background_hex = newSection;
+        if (oldTheme.icon_container_hex === oldIconContainer) nextTheme.icon_container_hex = newIconContainer;
+        if (oldTheme.border_hex === oldBorder) nextTheme.border_hex = newBorder;
+        if (oldTheme.card_border_hex === oldTheme.border_hex) nextTheme.card_border_hex = newBorder;
+        if (oldTheme.input_border_hex === oldTheme.border_hex) nextTheme.input_border_hex = newBorder;
+        if (oldTheme.step_inactive_hex === oldTheme.border_hex) nextTheme.step_inactive_hex = newBorder;
+        if (oldTheme.chip_unselected_background_hex === oldTheme.surface_variant_hex) nextTheme.chip_unselected_background_hex = newVariant;
+      }
+      if (key === "surface_hex") {
+        const oldVariant = blendHex(oldTheme.primary_hex, oldTheme.surface_hex, 0.08);
+        const oldSection = blendHex(oldTheme.primary_hex, oldTheme.surface_hex, 0.04);
+        const oldIconContainer = blendHex(oldTheme.primary_hex, oldTheme.surface_hex, 0.10);
+        const oldBorder = blendHex(oldTheme.primary_hex, oldTheme.surface_hex, 0.18);
+        const newVariant = blendHex(oldTheme.primary_hex, value, 0.08);
+        const newSection = blendHex(oldTheme.primary_hex, value, 0.04);
+        const newIconContainer = blendHex(oldTheme.primary_hex, value, 0.10);
+        const newBorder = blendHex(oldTheme.primary_hex, value, 0.18);
+        if (oldTheme.card_background_hex === oldTheme.surface_hex) nextTheme.card_background_hex = value;
+        if (oldTheme.input_background_hex === oldTheme.surface_hex) nextTheme.input_background_hex = value;
+        if (oldTheme.toolbar_background_hex === oldTheme.surface_hex) nextTheme.toolbar_background_hex = value;
+        if (oldTheme.bottom_nav_background_hex === oldTheme.surface_hex) nextTheme.bottom_nav_background_hex = value;
+        if (oldTheme.surface_elevated_hex === oldTheme.surface_hex) nextTheme.surface_elevated_hex = value;
+        if (oldTheme.surface_variant_hex === oldVariant) nextTheme.surface_variant_hex = newVariant;
+        if (oldTheme.section_background_hex === oldSection) nextTheme.section_background_hex = newSection;
+        if (oldTheme.icon_container_hex === oldIconContainer) nextTheme.icon_container_hex = newIconContainer;
+        if (oldTheme.border_hex === oldBorder) nextTheme.border_hex = newBorder;
+      }
+      if (key === "success_hex") {
+        if (oldTheme.step_completed_hex === oldTheme.success_hex) nextTheme.step_completed_hex = value;
+        const oldSuccessBg = blendHex(oldTheme.success_hex, oldTheme.surface_hex, 0.10);
+        if (oldTheme.success_background_hex === oldSuccessBg) nextTheme.success_background_hex = blendHex(value, oldTheme.surface_hex, 0.10);
+      }
+      if (key === "warning_hex") {
+        const oldWarningBg = blendHex(oldTheme.warning_hex, oldTheme.surface_hex, 0.11);
+        if (oldTheme.warning_background_hex === oldWarningBg) nextTheme.warning_background_hex = blendHex(value, oldTheme.surface_hex, 0.11);
+      }
+      if (key === "error_hex") {
+        const oldErrorBg = blendHex(oldTheme.error_hex, oldTheme.surface_hex, 0.09);
+        if (oldTheme.error_background_hex === oldErrorBg) nextTheme.error_background_hex = blendHex(value, oldTheme.surface_hex, 0.09);
+      }
+      if (key === "info_hex") {
+        const oldInfoBg = blendHex(oldTheme.info_hex, oldTheme.surface_hex, 0.09);
+        if (oldTheme.info_background_hex === oldInfoBg) nextTheme.info_background_hex = blendHex(value, oldTheme.surface_hex, 0.09);
+      }
+      return { ...prev, theme: nextTheme };
+    });
   };
 
   const updateLayoutToken = (key: keyof MobileAppControl["layout_density"], value: number | null) => {
@@ -724,6 +808,10 @@ const MobileDashboardAdminPage = () => {
                       ["input_background_hex", "Input background"], ["input_border_hex", "Input border"], ["input_focus_border_hex", "Input focus border"],
                       ["toolbar_background_hex", "Toolbar background"], ["toolbar_title_hex", "Toolbar title"], ["toolbar_icon_hex", "Toolbar icon"],
                       ["bottom_nav_background_hex", "Bottom nav background"], ["bottom_nav_selected_hex", "Bottom nav selected"], ["bottom_nav_unselected_hex", "Bottom nav unselected"],
+                      ["surface_variant_hex", "Surface variant"], ["surface_elevated_hex", "Elevated surface"], ["section_background_hex", "Section background"],
+                      ["success_background_hex", "Success background"], ["warning_background_hex", "Warning background"], ["error_background_hex", "Error background"], ["info_background_hex", "Info background"],
+                      ["chip_selected_background_hex", "Selected chip background"], ["chip_selected_text_hex", "Selected chip text"], ["chip_unselected_background_hex", "Unselected chip background"], ["chip_unselected_text_hex", "Unselected chip text"],
+                      ["step_active_hex", "Active step"], ["step_completed_hex", "Completed step"], ["step_inactive_hex", "Inactive step"],
                     ].map(([key, label]) => (
                       <Col xs={24} sm={12} lg={8} key={key}>
                         <label>
@@ -770,6 +858,10 @@ const MobileDashboardAdminPage = () => {
                     <div style={{ marginTop:Number(appControl.layout_density?.section_gap_dp || 12), padding:Number(appControl.layout_density?.card_inner_padding_dp || 16), background:String(appControl.theme?.card_background_hex || "#FFFFFF"), border:`1px solid ${String(appControl.theme?.card_border_hex || "#DDE2D5")}`, borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>
                       <div style={{ color:String(appControl.theme?.text_primary_hex || "#1F2933"), fontSize:Number(appControl.typography?.section_sp || 16), fontWeight:700 }}>Marketplace card</div>
                       <div style={{ color:String(appControl.theme?.text_secondary_hex || "#6B7280"), fontSize:Number(appControl.typography?.body_sp || 14), marginTop:Number(appControl.layout_density?.control_gap_dp || 8) }}>This preview uses the same semantic tokens saved for Android.</div>
+                      <Space wrap style={{ marginTop:Number(appControl.layout_density?.control_gap_dp || 8) }}>
+                        <Tag style={{ margin:0, background:String(appControl.theme?.success_background_hex || "#EAF5EB"), color:String(appControl.theme?.success_hex || "#2E7D32"), borderColor:"transparent" }}>Verified</Tag>
+                        <Tag style={{ margin:0, background:String(appControl.theme?.warning_background_hex || "#FAF1E7"), color:String(appControl.theme?.warning_hex || "#C57A35"), borderColor:"transparent" }}>Pending</Tag>
+                      </Space>
                       <Space style={{ marginTop:Number(appControl.layout_density?.section_gap_dp || 12) }}>
                         <Button style={{ background:String(appControl.theme?.primary_hex || "#55632C"), borderColor:String(appControl.theme?.primary_hex || "#55632C"), color:"#fff", borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>Primary</Button>
                         <Button style={{ color:String(appControl.theme?.primary_hex || "#55632C"), borderColor:String(appControl.theme?.primary_hex || "#55632C"), borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>Secondary</Button>
@@ -1069,9 +1161,9 @@ const MobileDashboardAdminPage = () => {
 
         <Typography.Title level={5}>Remote theme colours</Typography.Title>
         <Typography.Paragraph>
-          Primary, secondary, accent, background and surface colours are cached by Android. Remote-aware screens and
+          Primary, secondary, accent, surface hierarchy, state backgrounds, chips, steps, icons, cards, inputs, toolbars and bottom-navigation colours are cached by Android. Remote-aware screens and
           the global app shell use them, while the existing CiberMandi resource colours remain the offline fallback.
-          Use valid six-digit HEX values such as <strong>#55632C</strong>.
+          Derived tokens such as surface variant, icon container, selected chip and active step remain linked to their base colour until you customise that token independently. This means a Primary colour test can also expose legacy light-green/blue surfaces instead of leaving stale module shades behind. Use valid six-digit HEX values such as <strong>#55632C</strong>.
         </Typography.Paragraph>
 
         <Typography.Title level={5}>Layout, density and typography</Typography.Title>

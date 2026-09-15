@@ -52,6 +52,10 @@ export type MobileAppControl = {
     input_background_hex: string; input_border_hex: string; input_focus_border_hex: string;
     toolbar_background_hex: string; toolbar_title_hex: string; toolbar_icon_hex: string;
     bottom_nav_background_hex: string; bottom_nav_selected_hex: string; bottom_nav_unselected_hex: string;
+    surface_variant_hex: string; surface_elevated_hex: string; section_background_hex: string;
+    success_background_hex: string; warning_background_hex: string; error_background_hex: string; info_background_hex: string;
+    chip_selected_background_hex: string; chip_selected_text_hex: string; chip_unselected_background_hex: string; chip_unselected_text_hex: string;
+    step_active_hex: string; step_completed_hex: string; step_inactive_hex: string;
   };
   layout_density: {
     screen_horizontal_dp:number; screen_vertical_dp:number; section_gap_dp:number; card_gap_dp:number; card_inner_padding_dp:number; grid_gutter_dp:number;

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Input, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
+import { Alert, Button, Card, Input, Space, Switch, Table, Tabs, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { ReloadOutlined, SafetyCertificateOutlined, SaveOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SaveOutlined } from "@ant-design/icons";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../../config/appConfig";
 import {
@@ -9,7 +9,6 @@ import {
   type PlatformControlOperation,
   updatePlatformControlCenter,
 } from "../../services/platformControlCenterApi";
-import { repairSuperAdminPermissions } from "../../services/permissionRepairApi";
 import { useStepUp } from "../../security/stepup/useStepUp";
 import { isDbActive } from "../../utils/adminUiConfig";
 import "./platformControlCenter.css";
@@ -21,7 +20,6 @@ const TABS = [
   { key: "MOBILE", label: "Mobile Dashboard Control" },
   { key: "WORKFLOW", label: "Workflow Control" },
   { key: "API", label: "API Feature Control" },
-  { key: "REPAIR", label: "Fix Permissions" },
 ];
 
 function storedUser() {
@@ -53,7 +51,7 @@ export default function PlatformControlCenterPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const load = useCallback(async (section = tab) => {
-    if (!username || !isSuperAdmin || section === "REPAIR") return;
+    if (!username || !isSuperAdmin) return;
     setLoading(true);
     setMessage(null);
     try {
@@ -85,22 +83,6 @@ export default function PlatformControlCenterPage() {
       await load(tab);
     } catch (err: any) {
       setMessage({ type: "error", text: err?.message || "Unable to save change." });
-    } finally {
-      setSavingKey("");
-    }
-  };
-
-  const runRepair = async () => {
-    setSavingKey("repair");
-    setMessage(null);
-    try {
-      const verified = await ensureStepUp("platform_control_center.update", "UPDATE", { source: "GUARD", force: true });
-      if (!verified) throw new Error("Step-up verification is required before repair.");
-      const resp = await repairSuperAdminPermissions({ username, country, role });
-      if (!ok(resp)) throw new Error(resp?.response?.description || "Unable to repair permissions.");
-      setMessage({ type: "success", text: "Super Admin permissions repaired." });
-    } catch (err: any) {
-      setMessage({ type: "error", text: err?.message || "Unable to repair permissions." });
     } finally {
       setSavingKey("");
     }
@@ -190,11 +172,11 @@ export default function PlatformControlCenterPage() {
         { title: "Actions", dataIndex: "allowed_actions", key: "allowed_actions", render: (v: string[]) => <Space size={[4,4]} wrap>{(v || []).map((a) => <Tag key={a}>{a}</Tag>)}</Space> },
       ], (r) => r.resource_key)}</Card>
     </Space>;
-    return <Card bordered={false} className="cm-system-table-card"><Space direction="vertical" size={12}><Typography.Title level={4} style={{ margin: 0 }}>Repair Super Admin Permissions</Typography.Title><Typography.Text type="secondary">Use only when Resource Health or authorization diagnostics show that the Super Admin policy is incomplete. This action requires step-up verification.</Typography.Text><Button type="primary" icon={<SafetyCertificateOutlined />} loading={savingKey === "repair"} onClick={runRepair}>Run Permission Repair</Button></Space></Card>;
+    return null;
   };
 
   return <div className="cm-page cm-platform-controls-page">
-    <div className="cm-page-header cm-system-page-header"><div><h1 className="cm-page-title">Platform Controls</h1><div className="cm-page-subtitle">Sensitive platform switches grouped by function. Only the selected tab is loaded to keep the screen fast.</div></div><Button icon={<ReloadOutlined />} onClick={() => load(tab)} disabled={tab === "REPAIR" || loading}>Refresh</Button></div>
+    <div className="cm-page-header cm-system-page-header"><div><h1 className="cm-page-title">Platform Controls</h1><div className="cm-page-subtitle">Sensitive platform switches grouped by function. Only the selected tab is loaded to keep the screen fast.</div></div><Button icon={<ReloadOutlined />} onClick={() => load(tab)} disabled={loading}>Refresh</Button></div>
     {message ? <Alert className="cm-system-inline-alert" type={message.type} showIcon message={message.text} closable onClose={() => setMessage(null)} /> : null}
     <Card bordered={false} className="cm-platform-controls-tabs"><Tabs type="card" activeKey={tab} onChange={setTab} items={TABS.map((t) => ({ key: t.key, label: t.label }))} /></Card>
     <div className="cm-platform-controls-content">{tabContent()}</div>

@@ -318,6 +318,8 @@ export const API_TAGS = {
     catalog: "getUiResourcesCatalog",
     get: "getRolePolicy",
     updateOne: "updateRolePolicy",
+    history: "getRolePolicyHistory",
+    restore: "restoreRolePolicyVersion",
   },
   RESOURCE_REGISTRY: {
     list: "getResourceRegistry",
@@ -614,6 +616,8 @@ export const API_ROUTES = {
     getUiResourcesCatalog: "/admin/getUiResourcesCatalog",
     getRolePolicy: "/admin/getRolePolicy",
     updateRolePolicy: "/admin/updateRolePolicy",
+    getRolePolicyHistory: "/admin/getRolePolicyHistory",
+    restoreRolePolicyVersion: "/admin/restoreRolePolicyVersion",
     getResourceRegistry: "/admin/getResourceRegistry",
     updateResourceRegistry: "/admin/updateResourceRegistry",
     getAdminUsersWithRoles: "/admin/getAdminUsersWithRoles",

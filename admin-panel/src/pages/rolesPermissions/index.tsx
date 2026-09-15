@@ -1,914 +1,653 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Box,
   Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
+  Card,
+  Checkbox,
+  Col,
+  Drawer,
+  Input,
+  Modal,
+  Pagination,
+  Row,
   Select,
-  Stack,
+  Space,
+  Statistic,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
+  Tag,
   Typography,
-} from "@mui/material";
-import { useSnackbar } from "notistack";
-import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
+  message,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
+import {
+  HistoryOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+  SearchOutlined,
+  UndoOutlined,
+} from "@ant-design/icons";
+import {
+  fetchRolePoliciesDashboardData,
+  fetchRolePolicyHistory,
+  restoreRolePolicyVersion,
+  updateRolePolicies,
+} from "../../services/rolePoliciesApi";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { canonicalizeResourceKey } from "../../utils/adminUiConfig";
 import { StepUpGuard } from "../../components/StepUpGuard";
+import { useStepUpContext } from "../../security/stepup/StepUpContext";
 
-function currentUsername(): string | null {
+const { Text } = Typography;
+
+function currentUsername(): string {
   try {
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed?.username || null;
+    return String(parsed?.username || "").trim();
   } catch {
-    return null;
+    return "";
   }
 }
 
 type PolicyEntry = { resource_key: string; actions: string[] };
-type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
+type RoleEntry = {
+  role_slug: string;
+  role_name?: string;
+  source?: "SYSTEM" | "RUNTIME" | string;
+  is_protected?: "Y" | "N" | string;
+  scope?: any;
+  version?: number;
+};
 type RegistryEntry = {
   resource_key: string;
   module?: string;
   allowed_actions: string[];
   description?: string;
   aliases?: string[];
-  ui_only?: boolean;
+  is_active?: string | boolean;
+};
+type UiOnlyResource = {
+  key: string;
+  resource_key: string;
+  action_code?: string;
+  screen?: string;
+  route?: string;
+};
+type HistoryEntry = {
+  _id: string;
+  role_slug: string;
+  policy_collection: string;
+  snapshot_version: number;
+  permissions?: PolicyEntry[];
+  snapshot_reason?: string;
+  changed_by?: string;
+  changed_on?: string;
 };
 
-const normalizeKey = (key: string): string => {
-  const k = canonicalizeResourceKey(key);
-  if (!k) return '';
-  if (k.endsWith('.delete') || k.endsWith('.disable') || k.endsWith('.toggle')) {
-    return k.replace(/\.(delete|disable|toggle)$/, '.deactivate');
-  }
-  return k;
+const normalizeKey = (value: string) => {
+  const canonical = canonicalizeResourceKey(String(value || "").trim());
+  return String(canonical || value || "").trim().toLowerCase();
 };
+const normalizeAction = (value: string) => String(value || "").trim().toUpperCase();
+const isActive = (value: string | boolean | undefined) =>
+  value === undefined || value === true || String(value).trim().toUpperCase() === "Y";
 
-const resolveModuleName = (key: string): string => {
-  if (!key) return 'Misc';
-  const k = normalizeKey(key);
-  const starts = (p: string) => k.startsWith(p);
+function normalizePolicyEntries(entries: PolicyEntry[], registryMap: Map<string, RegistryEntry>) {
+  const merged = new Map<string, Set<string>>();
+  (entries || []).forEach((entry) => {
+    const key = normalizeKey(entry?.resource_key);
+    if (!key) return;
+    const registry = registryMap.get(key);
+    const allowed = new Set((registry?.allowed_actions || []).map(normalizeAction));
+    const actions = (entry?.actions || [])
+      .map(normalizeAction)
+      .filter(Boolean)
+      .filter((action) => !allowed.size || allowed.has(action));
+    if (!actions.length) return;
+    const set = merged.get(key) || new Set<string>();
+    actions.forEach((action) => set.add(action));
+    merged.set(key, set);
+  });
+  return Array.from(merged.entries())
+    .map(([resource_key, actions]) => ({ resource_key, actions: Array.from(actions).sort() }))
+    .sort((a, b) => a.resource_key.localeCompare(b.resource_key));
+}
 
-  if (starts('role_policies.menu') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
-    return 'System Administration';
-  }
-  if (starts('organisations.') || starts('org_mandi_mappings.')) {
-    return 'Organisation Management';
-  }
-  if (starts('commodities_masters.') || starts('commodity_products_masters.')) {
-    return 'Masters – Commodities';
-  }
-  if (
-    starts('auction_methods_masters.') ||
-    starts('auction_rounds_masters.') ||
-    starts('cm_mandi_auction_policies.') ||
-    starts('auction_sessions.') ||
-    starts('auction_lots.') ||
-    starts('auction_results.')
-  ) {
-    return 'Auctions';
-  }
-  if (
-    starts('mandis.') ||
-    starts('mandi_facilities.') ||
-    starts('mandi_hours.') ||
-    starts('mandi_coverage.') ||
-    starts('mandi_prices.')
-  ) {
-    return 'Mandi Setup & Configuration';
-  }
-  if (
-    starts('mandi_gates.') ||
-    starts('gate_entry_reasons_masters.') ||
-    starts('gate_vehicle_types_masters.') ||
-    starts('gate_devices.') ||
-    starts('gate_entry_tokens.') ||
-    starts('gate_pass_tokens.') ||
-    starts('weighment_tickets.') ||
-    starts('gate_movements_log.') ||
-    starts('gate_device_configs.')
-  ) {
-    return 'Gate & Yard';
-  }
-  if (starts('traders.') || starts('farmers.') || starts('trader_approvals.')) {
-    return 'Participants';
-  }
-  if (
-    starts('payment_models.') ||
-    starts('payment_modes.') ||
-    starts('org_payment_settings.') ||
-    starts('mandi_payment_settings.') ||
-    starts('commodity_fees.') ||
-    starts('custom_fees.') ||
-    starts('role_custom_fees.') ||
-    starts('settlements.') ||
-    starts('payments_log.') ||
-    starts('subscriptions.') ||
-    starts('subscription_invoices.')
-  ) {
-    return 'Payments & Finance';
-  }
-  if (starts('reports.')) {
-    return 'Reports';
-  }
-  return 'Misc';
-};
+function policyFingerprint(entries: PolicyEntry[]) {
+  return JSON.stringify(
+    (entries || [])
+      .map((entry) => ({
+        resource_key: normalizeKey(entry.resource_key),
+        actions: Array.from(new Set((entry.actions || []).map(normalizeAction))).sort(),
+      }))
+      .filter((entry) => entry.resource_key && entry.actions.length)
+      .sort((a, b) => a.resource_key.localeCompare(b.resource_key)),
+  );
+}
 
-const moduleOrder = [
-  'System Administration',
-  'Organisation Management',
-  'Masters – Commodities',
-  'Auctions',
-  'Mandi Setup & Configuration',
-  'Gate & Yard',
-  'Participants',
-  'Payments & Finance',
-  'Reports',
-  'Misc',
-];
+function unwrapDashboardPayload(resp: any) {
+  if (resp?.data?.roles || resp?.data?.registry || resp?.data?.policiesByRole) return resp.data;
+  if (resp?.data?.data?.roles || resp?.data?.data?.registry || resp?.data?.data?.policiesByRole) return resp.data.data;
+  if (resp?.data?.items?.roles || resp?.data?.items?.registry || resp?.data?.items?.policiesByRole) return resp.data.items;
+  if (resp?.roles || resp?.registry || resp?.policiesByRole) return resp;
+  return {};
+}
+
+function unwrapHistoryPayload(resp: any) {
+  if (resp?.data?.history || resp?.data?.pagination) return resp.data;
+  if (resp?.data?.data?.history || resp?.data?.data?.pagination) return resp.data.data;
+  if (resp?.history || resp?.pagination) return resp;
+  return {};
+}
 
 const RolesPermissionsPage: React.FC = () => {
-  const rawUser = typeof window !== "undefined" ? localStorage.getItem("cd_user") : null;
-  const parsedUser = rawUser ? JSON.parse(rawUser) : null;
-  const username: string = parsedUser?.username || "";
-  const { enqueueSnackbar } = useSnackbar();
+  const username = currentUsername();
   const { refresh, ui_resources } = useAdminUiConfig();
+  const { ensureStepUp } = useStepUpContext();
 
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<RoleEntry[]>([]);
   const [registry, setRegistry] = useState<RegistryEntry[]>([]);
   const [policiesByRole, setPoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
-  const [selectedRole, setSelectedRole] = useState<string>("");
-  const [selectedModule, setSelectedModule] = useState<string>("ALL");
-  const [activeTab, setActiveTab] = useState<"registered" | "unregistered">("registered");
   const [diagnostics, setDiagnostics] = useState<any>({});
-  const [showDebug, setShowDebug] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const saved = localStorage.getItem("rp_show_debug");
-    return saved === "true";
-  });
-  const [debugExpanded, setDebugExpanded] = useState<boolean>(false);
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedModule, setSelectedModule] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"registered" | "unregistered">("registered");
 
-  const unwrapDashboardPayload = (resp: any) => {
-    if (resp?.data?.roles || resp?.data?.registry || resp?.data?.policiesByRole) return resp.data;
-    if (resp?.data?.data?.roles || resp?.data?.data?.registry || resp?.data?.data?.policiesByRole) return resp.data.data;
-    if (resp?.data?.items?.roles || resp?.data?.items?.registry || resp?.data?.items?.policiesByRole) return resp.data.items;
-    if (resp?.roles || resp?.registry || resp?.policiesByRole) return resp;
-    return {};
-  };
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState<HistoryEntry[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const historyLimit = 10;
+
+  const registryMap = useMemo(() => {
+    const map = new Map<string, RegistryEntry>();
+    registry.forEach((entry) => map.set(normalizeKey(entry.resource_key), entry));
+    return map;
+  }, [registry]);
+
+  const applyDashboardPayload = useCallback((payload: any, preserveSelectedRole = true) => {
+    const nextRegistry: RegistryEntry[] = (payload?.registry || [])
+      .filter((entry: RegistryEntry) => isActive(entry?.is_active))
+      .map((entry: RegistryEntry) => ({
+        ...entry,
+        resource_key: normalizeKey(entry.resource_key),
+        allowed_actions: Array.from(new Set((entry.allowed_actions || []).map(normalizeAction))).filter(Boolean),
+      }));
+    const nextRegistryMap = new Map(nextRegistry.map((entry) => [entry.resource_key, entry]));
+    const nextPolicies: Record<string, PolicyEntry[]> = {};
+    Object.entries(payload?.policiesByRole || {}).forEach(([role, entries]) => {
+      nextPolicies[role] = normalizePolicyEntries((entries as PolicyEntry[]) || [], nextRegistryMap);
+    });
+
+    const nextRoles: RoleEntry[] = payload?.roles || [];
+    setRegistry(nextRegistry);
+    setRoles(nextRoles);
+    setPoliciesByRole(nextPolicies);
+    setEditablePoliciesByRole(JSON.parse(JSON.stringify(nextPolicies)));
+    setDiagnostics(payload?.diagnostics || {});
+    setSelectedRole((current) => {
+      if (preserveSelectedRole && current && nextRoles.some((role) => role.role_slug === current)) return current;
+      return nextRoles[0]?.role_slug || "";
+    });
+  }, []);
+
+  const loadDashboard = useCallback(async (preserveSelectedRole = true) => {
+    if (!username) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const resp = await fetchRolePoliciesDashboardData({ username, country: "IN" });
+      if (resp?.response?.responsecode !== "0") {
+        throw new Error(resp?.response?.description || "Failed to load role policies");
+      }
+      const payload = unwrapDashboardPayload(resp);
+      applyDashboardPayload(payload, preserveSelectedRole);
+      if (!(payload?.roles || []).length) setError("No role policies are configured.");
+    } catch (err: any) {
+      setError(err?.message || "Failed to load role policies");
+    } finally {
+      setLoading(false);
+    }
+  }, [applyDashboardPayload, username]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const resp = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-        const payload = unwrapDashboardPayload(resp);
-        const rolesList: RoleEntry[] = payload.roles || [];
-        const registryList: RegistryEntry[] = (payload.registry || []).map((r: any) => ({
-          ...r,
-          resource_key: normalizeKey(r.resource_key),
-        }));
-        const regMap: Record<string, RegistryEntry> = {};
-        registryList.forEach((r) => {
-          if (r.resource_key) regMap[r.resource_key] = r;
-        });
+    loadDashboard(false);
+  }, [loadDashboard]);
 
-        const pMapRaw: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
-        const pMap: Record<string, PolicyEntry[]> = {};
-        Object.keys(pMapRaw || {}).forEach((roleKey) => {
-          pMap[roleKey] = (pMapRaw[roleKey] || [])
-            .map((p: any) => {
-              const key = normalizeKey(p.resource_key);
-              const allowed = (regMap[key]?.allowed_actions || []).map((a: string | number | boolean) =>
-                String(a ?? "").toUpperCase(),
-              );
-              const allowedSet = new Set(allowed);
-              let actions = (p.actions || []).map((a: any) =>
-                String(a === undefined || a === null ? "" : a).toUpperCase(),
-              );
-              if (allowedSet.size) {
-                const original = actions.slice();
-                actions = actions.filter((a: string) => allowedSet.has(a));
-                if (actions.length === 0 && allowed.length > 0) actions = [allowed[0]];
-                if (original.join(",") !== actions.join(",") && typeof console !== "undefined") {
-                  console.log("[RolePolicies] clamped", key, "actions from", original, "->", actions);
-                }
-              }
-              return { resource_key: key, actions };
-            })
-            .filter((p: any) => p.actions && p.actions.length > 0);
-        });
+  const selectedRoleEntry = useMemo(
+    () => roles.find((role) => role.role_slug === selectedRole) || null,
+    [roles, selectedRole],
+  );
+  const isProtectedRole = selectedRoleEntry?.is_protected === "Y";
+  const currentPolicy = editablePoliciesByRole[selectedRole] || [];
+  const originalPolicy = policiesByRole[selectedRole] || [];
+  const hasChanges = policyFingerprint(currentPolicy) !== policyFingerprint(originalPolicy);
+  const unknownForRole: string[] = diagnostics?.unknownByRole?.[selectedRole] || [];
+  const duplicatesForRole: string[] = diagnostics?.duplicateByRole?.[selectedRole] || [];
 
-        setRoles(rolesList);
-        setRegistry(registryList);
-        setPoliciesByRole(pMap);
-        setEditablePoliciesByRole(JSON.parse(JSON.stringify(pMap)));
-        setDiagnostics(payload.diagnostics || {});
-        if (!rolesList.length) {
-          setError("No roles returned by API. Check response shape / endpoint mapping.");
-        }
-        if (rolesList.length > 0) {
-          setSelectedRole(rolesList[0].role_slug);
-        }
-        if (resp?.response?.responsecode !== "0") {
-          setError(resp?.response?.description || "Failed to load role policies");
-        }
-      } catch (err: any) {
-        setError(err?.message || "Failed to load role policies");
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (username) load();
-  }, [username]);
-
-  const rolePermsLookup = useMemo(() => {
-    const selectedPerms = editablePoliciesByRole[selectedRole] || [];
-    const map: Record<string, Set<string>> = {};
-    selectedPerms.forEach((p) => {
-      const key = normalizeKey(p.resource_key);
-      map[key] = new Set((p.actions || []).map((a) => a.toUpperCase()));
+  const rolePermissionLookup = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    currentPolicy.forEach((entry) => {
+      map.set(normalizeKey(entry.resource_key), new Set((entry.actions || []).map(normalizeAction)));
     });
     return map;
-  }, [editablePoliciesByRole, selectedRole]);
-
-  const mergedRegistry = useMemo(() => {
-    const baseKeys = new Set(registry.map((r) => r.resource_key));
-    const normalizedRegistry = registry.map((r) => ({
-      ...r,
-      resource_key: normalizeKey(r.resource_key),
-      module: resolveModuleName(r.resource_key) || r.module,
-    }));
-    return normalizedRegistry;
-  }, [registry, ui_resources]);
-
-  const registeredResources = useMemo(() => mergedRegistry, [mergedRegistry]);
-
-  const unregisteredResources = useMemo(() => {
-    const registryKeys = new Set(registeredResources.map((r) => r.resource_key));
-    const uiOnly =
-      ui_resources
-        ?.filter(
-          (u: any) =>
-            u?.is_active &&
-            u.resource_key &&
-            !registryKeys.has(normalizeKey(u.resource_key)),
-        )
-        .map((u: any) => ({
-          resource_key: normalizeKey(u.resource_key),
-          module: resolveModuleName(u.resource_key) || u.module || "UI resource",
-          allowed_actions: u.allowed_actions || [],
-          description: "UI resource not registered in resource registry",
-          aliases: u.aliases || [],
-          is_active: u.is_active,
-          ui_only: true,
-        })) || [];
-    return uiOnly;
-  }, [ui_resources, registeredResources]);
+  }, [currentPolicy]);
 
   const moduleOptions = useMemo(() => {
-    const set = new Set<string>();
-    registeredResources.forEach((r) => {
-      if (r.module) set.add(r.module);
-    });
-    return ["ALL", ...Array.from(set).sort()];
-  }, [registeredResources]);
+    const modules = Array.from(new Set(registry.map((entry) => String(entry.module || "Other").trim() || "Other"))).sort();
+    return [{ value: "ALL", label: "All modules" }, ...modules.map((module) => ({ value: module, label: module }))];
+  }, [registry]);
 
-  const filteredResources = useMemo(() => {
-    if (selectedModule === "ALL") return registeredResources;
-    return registeredResources.filter((r) => (r.module || "") === selectedModule);
-  }, [registeredResources, selectedModule]);
-
-  const resolveKeyForAction = (resourceKey: string, action: string): string | null => {
-    const normalizedKey = normalizeKey(resourceKey);
-    const legacyPrefix = ["gate", "vehicle", "types"].join("_");
-    let mappedKey = normalizedKey;
-    if (normalizedKey.startsWith(`${legacyPrefix}.`)) {
-      const suffix = normalizedKey.slice(legacyPrefix.length + 1);
-      mappedKey = `gate_vehicle_types_masters.${suffix}`;
-    }
-    if (resourcesByKey[mappedKey]) {
-      return mappedKey;
-    }
-    const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
-    // Only try edit/update mapping when suffix matches edit/update
-    if (normalizedAction === "UPDATE" && /\.(edit|update)$/.test(mappedKey)) {
-      const base = mappedKey.replace(/\.(edit|update)$/, "");
-      const updateKey = `${base}.update`;
-      const editKey = `${base}.edit`;
-      if (resourcesByKey[updateKey]) return updateKey;
-      if (resourcesByKey[editKey]) return editKey;
-    }
-    return null;
-  };
-
-  const normalizeActionForAllowed = (action: string, allowedSet: Set<string>) => {
-    const upper = action.toUpperCase();
-    if (upper === "EDIT") return "UPDATE";
-    // Special cases that should map to UPDATE when registry allows UPDATE
-    const specialUpdate = [
-      "APPROVE",
-      "REJECT",
-      "REQUEST_MORE_INFO",
-      "UPDATE_STATUS",
-      "RESET_PASSWORD",
-    ];
-    if (specialUpdate.includes(upper) && allowedSet.has("UPDATE")) {
-      return "UPDATE";
-    }
-    return upper;
-  };
-
-  const augmentAllowedByKey = (resourceKey: string, allowedSet: Set<string>): Set<string> => {
-    const augmented = new Set(Array.from(allowedSet));
-    const key = normalizeKey(resourceKey);
-    if (/\.create$/.test(key)) augmented.add("CREATE");
-    if (/\.(edit|update)$/.test(key)) augmented.add("UPDATE");
-    if (/\.(deactivate)$/.test(key)) augmented.add("DEACTIVATE");
-    if (/\.(menu|list|detail|view)$/.test(key)) augmented.add("VIEW");
-    if (key.endsWith(".approve") || key.endsWith(".reject") || key.endsWith(".request_more_info") || key.endsWith(".update_status") || key.endsWith(".reset_password")) {
-      augmented.add("UPDATE");
-    }
-    return augmented;
-  };
-
-  const finalizePayloadKeys = (entries: { resource_key: string; actions: string[] }[]) => {
-    const errors: string[] = [];
-    const mapped: { resource_key: string; actions: string[] }[] = [];
-    entries.forEach((p) => {
-      const normKey = normalizeKey(p.resource_key);
-      const normalizeActionsForSubmit = (key: string, actions: string[]) => {
-        const lowerKey = String(key || "").toLowerCase();
-        const shouldNormalize =
-          lowerKey.endsWith(".update_status") ||
-          lowerKey.endsWith(".arrive") ||
-          lowerKey.endsWith(".cancel") ||
-          lowerKey.endsWith(".complete");
-        if (!shouldNormalize) {
-          return Array.from(new Set(actions.map((a) => String(a || "").toUpperCase()).filter(Boolean)));
-        }
-        return Array.from(
-          new Set(
-            actions
-              .map((a) => String(a || "").toUpperCase())
-              .map((a) => (a === "UPDATE_STATUS" ? "UPDATE" : a))
-              .filter(Boolean),
-          ),
-        );
-      };
-      let key = normKey;
-      if (!resourcesByKey[key]) {
-        if (key.endsWith(".edit")) {
-          const base = key.replace(/\.edit$/, "");
-          const candidate = `${base}.update`;
-          if (resourcesByKey[candidate]) key = candidate;
-        } else if (key.endsWith(".update")) {
-          const base = key.replace(/\.update$/, "");
-          const candidate = `${base}.edit`;
-          if (resourcesByKey[candidate]) key = candidate;
-        }
-      }
-      if (!resourcesByKey[key]) {
-        errors.push(key);
-        return;
-      }
-      const allowedSet = augmentAllowedByKey(
-        key,
-        new Set<string>((resourcesByKey[key]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase())),
+  const filteredRegistry = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return registry.filter((entry) => {
+      if (selectedModule !== "ALL" && String(entry.module || "Other") !== selectedModule) return false;
+      if (!q) return true;
+      return (
+        entry.resource_key.toLowerCase().includes(q) ||
+        String(entry.module || "").toLowerCase().includes(q) ||
+        String(entry.description || "").toLowerCase().includes(q)
       );
-      const normActions = Array.from(
-        new Set(
-          normalizeActionsForSubmit(key, p.actions || []).map((a) => {
-            const upper = String(a || "").toUpperCase();
-            if (upper === "EDIT") return "UPDATE";
-            const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];
-            if (specials.includes(upper)) return allowedSet.has("UPDATE") ? "UPDATE" : upper;
-            return upper;
-          }),
-        ),
-      ).filter((a) => !allowedSet.size || allowedSet.has(a));
-      mapped.push({ resource_key: key, actions: normActions });
     });
-    return { mapped, errors };
-  };
+  }, [registry, search, selectedModule]);
+
+  const unregisteredResources = useMemo<UiOnlyResource[]>(() => {
+    const registered = new Set(registry.map((entry) => normalizeKey(entry.resource_key)));
+    const seen = new Set<string>();
+    return (ui_resources || [])
+      .filter((entry: any) => isActive(entry?.is_active) && entry?.resource_key)
+      .map((entry: any) => ({
+        key: `${normalizeKey(entry.resource_key)}:${normalizeAction(entry.action_code || "VIEW")}`,
+        resource_key: normalizeKey(entry.resource_key),
+        action_code: normalizeAction(entry.action_code || ""),
+        screen: entry.screen || entry.ui_type || "",
+        route: entry.route || "",
+      }))
+      .filter((entry: UiOnlyResource) => {
+        if (registered.has(entry.resource_key) || seen.has(entry.key)) return false;
+        seen.add(entry.key);
+        return true;
+      });
+  }, [registry, ui_resources]);
 
   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
+    if (isProtectedRole) return;
+    const key = normalizeKey(resourceKey);
+    const normalizedAction = normalizeAction(action);
+    const registryEntry = registryMap.get(key);
+    if (!registryEntry) {
+      setError(`Resource ${key} is not present in the active Resource Registry.`);
+      return;
+    }
+    const allowed = new Set((registryEntry.allowed_actions || []).map(normalizeAction));
+    if (!allowed.has(normalizedAction)) {
+      setError(`Action ${normalizedAction} is not allowed for ${key}.`);
+      return;
+    }
+
     setEditablePoliciesByRole((prev) => {
-      const current = prev[selectedRole] || [];
-      const next = [...current];
-      const regEntry = resourcesByKey[resourceKey];
-      if (regEntry?.ui_only) {
-        return prev; // do not allow toggling unregistered resources
-      }
-
-      const targetKey = resolveKeyForAction(resourceKey, action);
-      if (!targetKey) {
-        setError(`Registry is missing an entry for ${resourceKey} (action ${action}).`);
-        return prev;
-      }
-      const allowedSet = augmentAllowedByKey(
-        targetKey,
-        new Set<string>(
-          (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
-        ),
-      );
-      const allowedArray = Array.from(allowedSet);
-      let normalizedAction = normalizeActionForAllowed(action, allowedSet);
-      if (allowedSet.size && !allowedSet.has(normalizedAction)) {
-        normalizedAction = allowedArray[0] || normalizedAction;
-      }
-      if (!normalizedAction) return prev;
-
-      const idx = next.findIndex((p) => p.resource_key === targetKey);
+      const next = [...(prev[selectedRole] || [])].map((entry) => ({ ...entry, actions: [...entry.actions] }));
+      const index = next.findIndex((entry) => normalizeKey(entry.resource_key) === key);
       if (checked) {
-        if (idx === -1) {
-          next.push({ resource_key: targetKey, actions: [normalizedAction] });
-        } else {
-          const actions = new Set(next[idx].actions || []);
-          actions.add(normalizedAction);
-          next[idx] = { ...next[idx], actions: Array.from(actions) };
-        }
-      } else if (idx !== -1) {
-        const actions = new Set(next[idx].actions || []);
-        actions.delete(normalizedAction);
-        if (actions.size === 0) {
-          next.splice(idx, 1);
-        } else {
-          next[idx] = { ...next[idx], actions: Array.from(actions) };
-        }
+        if (index === -1) next.push({ resource_key: key, actions: [normalizedAction] });
+        else next[index].actions = Array.from(new Set([...next[index].actions.map(normalizeAction), normalizedAction])).sort();
+      } else if (index !== -1) {
+        next[index].actions = next[index].actions.map(normalizeAction).filter((value) => value !== normalizedAction);
+        if (!next[index].actions.length) next.splice(index, 1);
       }
       return { ...prev, [selectedRole]: next };
     });
   };
 
-  const resourcesByKey = useMemo(() => {
-    const map: Record<string, any> = {};
-    mergedRegistry.forEach((r: any) => {
-      if (r?.resource_key) map[r.resource_key] = r;
-    });
-    return map;
-  }, [mergedRegistry]);
-
-  const setsEqual = (a?: Set<string>, b?: Set<string>) => {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    if (a.size !== b.size) return false;
-    for (const v of a) if (!b.has(v)) return false;
-    return true;
+  const buildFullPolicyPayload = () => {
+    const normalized = normalizePolicyEntries(currentPolicy, registryMap);
+    const invalid = normalized.filter((entry) => !registryMap.has(entry.resource_key));
+    if (invalid.length) throw new Error(`Invalid Registry keys: ${invalid.map((entry) => entry.resource_key).join(", ")}`);
+    return normalized;
   };
 
   const handleSave = async () => {
+    if (!selectedRole || !hasChanges || isProtectedRole) return;
+    if (unknownForRole.length) {
+      setError("This role contains policy keys that are no longer in the Registry. Resolve them in Resource Health before saving to avoid an unintended policy cleanup.");
+      return;
+    }
     try {
-      const original = policiesByRole[selectedRole] || [];
-      const current = editablePoliciesByRole[selectedRole] || [];
-
-      const origMap = new Map<string, Set<string>>();
-      original.forEach((p: any) => {
-        origMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
-      });
-
-      const currentMap = new Map<string, Set<string>>();
-      current.forEach((p: any) => {
-        currentMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
-      });
-
-      // Normalize keys based on registry truth before diffing
-      const normalizedCurrentMap = new Map<string, Set<string>>();
-      for (const [rawKey, actionsSet] of currentMap.entries()) {
-        for (const action of actionsSet) {
-        const targetKey = resolveKeyForAction(rawKey, action);
-        if (!targetKey) {
-          setError(`Registry missing key for ${rawKey} (action ${action})`);
-          return;
-        }
-        const allowedSet = augmentAllowedByKey(
-          targetKey,
-          new Set<string>(
-            (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
-          ),
-        );
-          const normalizedAction = normalizeActionForAllowed(action, allowedSet);
-          const allowedArray = Array.from(allowedSet);
-          const finalAction =
-            allowedSet.size && !allowedSet.has(normalizedAction)
-              ? allowedArray[0] || normalizedAction
-              : normalizedAction;
-          const existing = normalizedCurrentMap.get(targetKey) || new Set<string>();
-          existing.add(finalAction);
-          normalizedCurrentMap.set(targetKey, existing);
-        }
-      }
-
-      const debugAuth =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("debugAuth") === "1";
-      if (debugAuth) {
-        console.log("[rolePolicies debug] submitting keys", Array.from(normalizedCurrentMap.keys()));
-      }
-
-      const payload: any[] = [];
-
-      // additions/updates
-      normalizedCurrentMap.forEach((actionsSet, key) => {
-        if (!resourcesByKey[key]) return; // skip unknown keys defensively
-        const origSet = origMap.get(key);
-        if (actionsSet.size === 0) {
-          if (origSet && origSet.size > 0) {
-            payload.push({ resource_key: key, actions: [] }); // removal
-          }
-          return;
-        }
-        if (!setsEqual(actionsSet, origSet)) {
-          payload.push({ resource_key: key, actions: Array.from(actionsSet) });
-        }
-      });
-
-      // removals for keys no longer present
-      origMap.forEach((origSet, key) => {
-        if (!normalizedCurrentMap.has(key) && origSet.size > 0 && resourcesByKey[key]) {
-          payload.push({ resource_key: key, actions: [] });
-        }
-      });
-
-      // Final canonical rewrite against registry truth
-      const { mapped, errors } = finalizePayloadKeys(payload);
-      if (errors.length) {
-        setError(`Invalid registry key(s): ${errors.join(", ")}`);
-        return;
-      }
-      // Clamp actions to allowed_actions before saving
-      const finalPayload = mapped.map((entry) => {
-        const allowedRaw = resourcesByKey[entry.resource_key]?.allowed_actions || [];
-        const allowed = allowedRaw.map((a: string) => String(a || "").toUpperCase());
-        const allowedSet = new Set(allowed);
-        let actions = (entry.actions || []).map((a: string) => String(a || "").toUpperCase());
-        if (allowedSet.size) {
-          actions = actions.filter((a) => allowedSet.has(a));
-          if (actions.length === 0 && allowed.length > 0) {
-            actions = [allowed[0]]; // fallback to first allowed action (e.g., UPDATE)
-          }
-        }
-        return { ...entry, actions };
-      });
-
-      setLoading(true);
+      setSaving(true);
+      setError(null);
+      const verified = await ensureStepUp("role_policies.edit", "UPDATE", { source: "GUARD", force: true });
+      if (!verified) return;
+      const permissions = buildFullPolicyPayload();
       const resp = await updateRolePolicies({
         username,
         country: "IN",
         role_slug: selectedRole,
-        permissions: finalPayload,
+        permissions,
+        expected_version: Number(selectedRoleEntry?.version || 0),
       });
-      if (resp?.response?.responsecode === "0") {
-        enqueueSnackbar("Role policy updated.", { variant: "success" });
-        const refreshed = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-        const payloadRef = unwrapDashboardPayload(refreshed);
-        setPoliciesByRole(payloadRef.policiesByRole || {});
-        setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));
-        setDiagnostics(payloadRef.diagnostics || {});
-        await refresh({ invalidate: true });
-      } else {
-        enqueueSnackbar(resp?.response?.description || "Failed to save role policies", { variant: "error" });
+      if (resp?.response?.responsecode !== "0") {
+        throw new Error(resp?.response?.description || "Failed to update role policy");
       }
+      message.success("Role policy updated and previous version archived.");
+      await loadDashboard(true);
+      await refresh({ invalidate: true });
+      if (historyOpen) await loadHistory(selectedRole, 1);
     } catch (err: any) {
-      setError(err?.message || "Failed to save role policies");
+      setError(err?.message || "Failed to update role policy");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const unknownForRole = useMemo(() => diagnostics?.unknownByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
-  const missingForRole = useMemo(() => diagnostics?.missingByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
-  const isProtectedRole = useMemo(() => {
-    const current = roles.find((r) => r.role_slug === selectedRole);
-    return current?.is_protected === "Y" || current?.source === "SYSTEM";
-  }, [roles, selectedRole]);
+  const loadHistory = async (roleSlug = selectedRole, page = historyPage) => {
+    if (!username || !roleSlug) return;
+    try {
+      setHistoryLoading(true);
+      const resp = await fetchRolePolicyHistory({
+        username,
+        country: "IN",
+        role_slug: roleSlug,
+        page,
+        limit: historyLimit,
+      });
+      if (resp?.response?.responsecode !== "0") {
+        throw new Error(resp?.response?.description || "Failed to load policy history");
+      }
+      const payload = unwrapHistoryPayload(resp);
+      setHistoryRows(payload?.history || []);
+      setHistoryPage(payload?.pagination?.page || page);
+      setHistoryTotal(payload?.pagination?.total || 0);
+    } catch (err: any) {
+      message.error(err?.message || "Failed to load policy history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
-  if (!username) {
-    return <Typography>Please log in.</Typography>;
-  }
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryPage(1);
+    await loadHistory(selectedRole, 1);
+  };
 
-  if (loading && !roles.length) {
-    return (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <CircularProgress size={20} /> <Typography>Loading...</Typography>
-      </Box>
-    );
-  }
+  const restoreHistoryEntry = (entry: HistoryEntry) => {
+    if (isProtectedRole) return;
+    Modal.confirm({
+      title: `Restore ${selectedRole} from version ${entry.snapshot_version}?`,
+      content: "The current policy will be archived first. The historical permissions will then be validated against the current Resource Registry before restore.",
+      okText: "Restore version",
+      okButtonProps: { danger: true },
+      async onOk() {
+        const verified = await ensureStepUp("role_policies.edit", "UPDATE", { source: "GUARD", force: true });
+        if (!verified) return Promise.reject(new Error("Step-up verification was not completed."));
+        const resp = await restoreRolePolicyVersion({
+          username,
+          country: "IN",
+          role_slug: selectedRole,
+          history_id: entry._id,
+          expected_version: Number(selectedRoleEntry?.version || 0),
+        });
+        if (resp?.response?.responsecode !== "0") {
+          throw new Error(resp?.response?.description || "Failed to restore policy version");
+        }
+        message.success(`Restored ${selectedRole} from archived version ${entry.snapshot_version}.`);
+        await loadDashboard(true);
+        await loadHistory(selectedRole, 1);
+        await refresh({ invalidate: true });
+      },
+    });
+  };
+
+  const registeredColumns: ColumnsType<RegistryEntry> = [
+    {
+      title: "Resource",
+      dataIndex: "resource_key",
+      key: "resource_key",
+      width: 360,
+      render: (value: string, row) => (
+        <Space direction="vertical" size={2}>
+          <Text strong>{value}</Text>
+          {row.description ? <Text type="secondary">{row.description}</Text> : null}
+          {row.aliases?.length ? (
+            <Space size={[4, 4]} wrap>
+              {row.aliases.map((alias) => <Tag key={alias}>alias: {alias}</Tag>)}
+            </Space>
+          ) : null}
+        </Space>
+      ),
+    },
+    {
+      title: "Module",
+      dataIndex: "module",
+      key: "module",
+      width: 220,
+      render: (value?: string) => value || "Other",
+    },
+    {
+      title: "Permission",
+      key: "actions",
+      render: (_, row) => {
+        const granted = rolePermissionLookup.get(row.resource_key) || new Set<string>();
+        return (
+          <Space size={[6, 6]} wrap>
+            {(row.allowed_actions || []).map((action) => {
+              const normalizedAction = normalizeAction(action);
+              const checked = granted.has(normalizedAction);
+              return (
+                <Checkbox
+                  key={`${row.resource_key}:${normalizedAction}`}
+                  checked={checked}
+                  disabled={isProtectedRole}
+                  onChange={(event) => toggleAction(row.resource_key, normalizedAction, event.target.checked)}
+                >
+                  {normalizedAction.split("_").join(" ")}
+                </Checkbox>
+              );
+            })}
+          </Space>
+        );
+      },
+    },
+  ];
+
+  const unregisteredColumns: ColumnsType<UiOnlyResource> = [
+    { title: "Resource", dataIndex: "resource_key", key: "resource_key", render: (value) => <Text strong>{value}</Text> },
+    { title: "UI Action", dataIndex: "action_code", key: "action_code", width: 160, render: (value) => value ? <Tag>{value}</Tag> : "—" },
+    { title: "Screen / Type", dataIndex: "screen", key: "screen", width: 220, render: (value) => value || "—" },
+    { title: "Route", dataIndex: "route", key: "route", render: (value) => value || "—" },
+  ];
+
+  const historyColumns: ColumnsType<HistoryEntry> = [
+    { title: "Version", dataIndex: "snapshot_version", key: "snapshot_version", width: 90, render: (value) => <Tag>v{value}</Tag> },
+    { title: "Reason", dataIndex: "snapshot_reason", key: "snapshot_reason", width: 150, render: (value) => String(value || "—").split("_").join(" ") },
+    { title: "Permissions", key: "permissions", width: 110, render: (_, row) => row.permissions?.length || 0 },
+    { title: "Changed By", dataIndex: "changed_by", key: "changed_by", width: 160, render: (value) => value || "—" },
+    { title: "Archived On", dataIndex: "changed_on", key: "changed_on", width: 190, render: (value) => value ? new Date(value).toLocaleString() : "—" },
+    {
+      title: "Action",
+      key: "action",
+      width: 130,
+      render: (_, row) => (
+        <Button
+          size="small"
+          icon={<UndoOutlined />}
+          disabled={isProtectedRole}
+          onClick={() => restoreHistoryEntry(row)}
+        >
+          Restore
+        </Button>
+      ),
+    },
+  ];
+
+  if (!username) return <Alert type="warning" showIcon message="Please log in." />;
 
   return (
     <div className="cm-page">
       <div className="cm-page-header">
         <h1 className="cm-page-title">Role Policy Manager</h1>
-        <div className="cm-page-subtitle">Manage role permissions using the canonical resource registry.</div>
+        <div className="cm-page-subtitle">
+          Assign role permissions from the canonical Resource Registry with versioned recovery.
+        </div>
       </div>
-    <Stack spacing={2} sx={{ position: "relative", minHeight: "60vh" }}>
-      <Paper
-        sx={{
-          position: "sticky",
-          top: (theme) => theme.spacing(1),
-          zIndex: (theme) => theme.zIndex.appBar + 1,
-          p: 2,
-          bgcolor: "background.paper",
-          borderBottom: "1px solid",
-          borderColor: "divider",
-          boxShadow: 2,
-        }}
-      >
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-          <Box />
-          <Box sx={{ flex: 1 }} />
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="role-select-label">Role</InputLabel>
+
+      <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Row gutter={[12, 12]}>
+          <Col xs={24} md={6}><Card className="cm-card"><Statistic title="Roles" value={roles.length} /></Card></Col>
+          <Col xs={24} md={6}><Card className="cm-card"><Statistic title="Active Registry Resources" value={registry.length} /></Card></Col>
+          <Col xs={24} md={6}><Card className="cm-card"><Statistic title="Granted Resources" value={currentPolicy.length} /></Card></Col>
+          <Col xs={24} md={6}><Card className="cm-card"><Statistic title="Unsaved Changes" value={hasChanges ? 1 : 0} /></Card></Col>
+        </Row>
+
+        {error ? <Alert type="error" showIcon message={error} closable onClose={() => setError(null)} /> : null}
+        {isProtectedRole ? (
+          <Alert type="warning" showIcon message={`${selectedRole} is protected and cannot be edited.`} />
+        ) : null}
+        {unknownForRole.length ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Policy contains resources missing from the current Registry"
+            description={`${unknownForRole.join(", ")}. Saving is blocked until these are reconciled in Resource Health / Resource Registry.`}
+          />
+        ) : null}
+        {duplicatesForRole.length ? (
+          <Alert type="warning" showIcon message={`Duplicate policy keys detected: ${duplicatesForRole.join(", ")}`} />
+        ) : null}
+
+        <Card className="cm-card">
+          <Row gutter={[12, 12]} align="middle">
+            <Col xs={24} lg={6}>
               <Select
-                labelId="role-select-label"
-                label="Role"
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-              >
-                {roles.map((r) => (
-                  <MenuItem key={r.role_slug} value={r.role_slug}>
-                    {r.role_name || r.role_slug}{" "}
-                    {r.is_protected === "Y" || r.source === "SYSTEM" ? "(SYSTEM)" : ""}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel id="module-select-label">Module</InputLabel>
+                value={selectedRole || undefined}
+                onChange={(value) => { setSelectedRole(value); setHistoryRows([]); setHistoryTotal(0); }}
+                options={roles.map((role) => ({
+                  value: role.role_slug,
+                  label: `${role.role_name || role.role_slug}${role.is_protected === "Y" ? " (PROTECTED)" : role.source === "SYSTEM" ? " (PLATFORM)" : ""}`,
+                }))}
+                style={{ width: "100%" }}
+                placeholder="Select role"
+                showSearch
+                optionFilterProp="label"
+              />
+            </Col>
+            <Col xs={24} lg={5}>
               <Select
-                labelId="module-select-label"
-                label="Module"
                 value={selectedModule}
-                onChange={(e) => setSelectedModule(e.target.value)}
+                onChange={setSelectedModule}
+                options={moduleOptions}
+                style={{ width: "100%" }}
                 disabled={activeTab === "unregistered"}
-              >
-                {moduleOptions.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m === "ALL" ? "All modules" : m}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole || isProtectedRole || activeTab === "unregistered"}>
-              {loading ? "Saving..." : "Save"}
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
+              />
+            </Col>
+            <Col xs={24} lg={7}>
+              <Input
+                prefix={<SearchOutlined />}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search resource, module or description"
+                allowClear
+                disabled={activeTab === "unregistered"}
+              />
+            </Col>
+            <Col xs={24} lg={6}>
+              <Space wrap>
+                <Button icon={<HistoryOutlined />} onClick={openHistory} disabled={!selectedRole}>History</Button>
+                <Button icon={<ReloadOutlined />} onClick={() => loadDashboard(true)} loading={loading}>Refresh</Button>
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleSave}
+                  loading={saving}
+                  disabled={!selectedRole || !hasChanges || isProtectedRole || !!unknownForRole.length || activeTab !== "registered"}
+                >
+                  Save
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
 
-      <Stack direction="row" spacing={1}>
-        <Button
-          variant={activeTab === "registered" ? "contained" : "outlined"}
-          onClick={() => setActiveTab("registered")}
-          size="small"
+        <Card
+          className="cm-card"
+          tabList={[
+            { key: "registered", tab: `Registered (${registry.length})` },
+            { key: "unregistered", tab: `Unregistered UI (${unregisteredResources.length})` },
+          ]}
+          activeTabKey={activeTab}
+          onTabChange={(key) => setActiveTab(key as "registered" | "unregistered")}
         >
-          Registered (assignable)
-        </Button>
-        <Button
-          variant={activeTab === "unregistered" ? "contained" : "outlined"}
-          onClick={() => setActiveTab("unregistered")}
-          size="small"
-        >
-          Unregistered UI resources
-        </Button>
-      </Stack>
-
-      {isProtectedRole && (
-        <Paper sx={{ p: 2 }}>
-          <Alert severity="warning">This role is protected and cannot be edited.</Alert>
-        </Paper>
-      )}
-
-      {error && (
-        <Paper sx={{ p: 2 }}>
-          <Alert severity="error">{error}</Alert>
-        </Paper>
-      )}
-
-      {activeTab === "registered" ? (
-        <Paper sx={{ p: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Resource</TableCell>
-                <TableCell>Module</TableCell>
-                <TableCell>Allowed Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredResources.map((r) => {
-                const allowedActionValues = Array.from(
-                  new Set(
-                    (r.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()).filter(Boolean),
-                  ),
-                );
-                const allowedActions = allowedActionValues
-                  .map((action) => {
-                    if (action === "UPDATE_STATUS") {
-                      return { value: "UPDATE", label: "Update Status" };
-                    }
-                    if (action === "UPDATE" && String(r.resource_key || "").toLowerCase().endsWith(".update_status")) {
-                      return { value: "UPDATE", label: "Update Status" };
-                    }
-                    return { value: action, label: action };
-                  })
-                  .reduce((acc: Array<{ value: string; label: string }>, entry) => {
-                    if (!acc.find((e) => e.value === entry.value)) acc.push(entry);
-                    return acc;
-                  }, []);
-                const granted = rolePermsLookup[r.resource_key] || new Set<string>();
-                return (
-                  <TableRow key={r.resource_key}>
-                    <TableCell>
-                      <Stack spacing={0.25}>
-                        <Typography variant="body2">{r.resource_key}</Typography>
-                        {r.description && (
-                          <Typography variant="caption" color="text.secondary">
-                            {r.description}
-                          </Typography>
-                        )}
-                        {r.aliases?.length ? (
-                          <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                            {r.aliases.map((a: string) => (
-                              <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
-                            ))}
-                          </Stack>
-                        ) : null}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{r.module || "-"}</TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {allowedActions.map((action) => (
-                          <Chip
-                            key={`${r.resource_key}-${action.value}`}
-                            label={action.label}
-                            color={granted.has(action.value) ? "primary" : "default"}
-                            variant={granted.has(action.value) ? "filled" : "outlined"}
-                            onClick={() =>
-                              toggleAction(r.resource_key, action.value, !granted.has(action.value))
-                            }
-                            sx={{ cursor: "pointer" }}
-                          />
-                        ))}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Paper>
-      ) : (
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Unregistered UI resources (maintenance only)
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            These keys exist in UI resources but are not in the canonical resource registry. They are not assignable.
-          </Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Resource</TableCell>
-                <TableCell>Module / Family</TableCell>
-                <TableCell>Notes</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {unregisteredResources.map((r) => {
-                const family = r.resource_key.split('.')[0] || 'misc';
-                return (
-                  <TableRow key={r.resource_key}>
-                    <TableCell>
-                      <Typography variant="body2">{r.resource_key}</Typography>
-                    </TableCell>
-                    <TableCell>{r.module || family}</TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip size="small" color="warning" label="Unregistered" />
-                        {r.resource_key.startsWith("org_mandi.") && (
-                          <Chip size="small" color="error" label="Alias / skipped" />
-                        )}
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        Suggested: disable in UI resources or register under canonical key family.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Paper>
-      )}
-
-      {(unknownForRole.length > 0 || missingForRole.length > 0) && (
-        <Paper sx={{ p: 2 }}>
-          <Stack spacing={1}>
-            {unknownForRole.length > 0 && (
-              <Alert severity="warning">
-                Unknown keys (not in registry):{" "}
-                {unknownForRole.map((u: string) => (
-                  <Chip key={u} label={u} size="small" sx={{ mr: 0.5 }} />
-                ))}
-              </Alert>
-            )}
-            {missingForRole.length > 0 && (
+          {activeTab === "registered" ? (
+            <Table
+              rowKey="resource_key"
+              columns={registeredColumns}
+              dataSource={filteredRegistry}
+              loading={loading}
+              pagination={{ pageSize: 50, showSizeChanger: true, pageSizeOptions: [25, 50, 100], showTotal: (total) => `${total} resources` }}
+              scroll={{ x: 900 }}
+              size="middle"
+            />
+          ) : (
+            <>
               <Alert
-                severity="info"
-                action={
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        const expected = missingForRole
-                          .filter((m: string) =>
-                            /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-                          );
-                        const suspicious = missingForRole.filter((m: string) => !expected.includes(m));
-                        const payload = {
-                          expected,
-                          suspicious,
-                        };
-                        try {
-                          navigator?.clipboard?.writeText(JSON.stringify(payload, null, 2));
-                        } catch (_) {
-                          // ignore
-                        }
-                      }}
-                    >
-                      Copy
-                    </Button>
-                    <Button size="small" onClick={() => setDebugExpanded((prev) => !prev)}>
-                      {debugExpanded ? "Hide list" : "Show list"}
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        const next = !showDebug;
-                        setShowDebug(next);
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("rp_show_debug", next ? "true" : "false");
-                        }
-                      }}
-                    >
-                      {showDebug ? "Hide debug" : "Show debug"}
-                    </Button>
-                  </Stack>
-                }
-              >
-                Debug: {missingForRole.length} policy keys not in UI resources (click to expand)
-                <Typography variant="caption" display="block" color="text.secondary">
-                  These are valid registry/policy actions that may not have UI menu entries. They remain assignable and are used for button gating.
-                </Typography>
-                {showDebug && debugExpanded && (
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="subtitle2">Expected (actions-only)</Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {missingForRole
-                        .filter((m: string) =>
-                          /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-                        )
-                        .map((m: string) => (
-                          <Chip key={m} label={m} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                        ))}
-                    </Stack>
-                    <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                      Suspicious (legacy/typo families)
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {missingForRole
-                        .filter(
-                          (m: string) =>
-                            !/\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-                        )
-                        .map((m: string) => (
-                          <Chip key={m} label={m} size="small" color="warning" sx={{ mr: 0.5, mb: 0.5 }} />
-                        ))}
-                    </Stack>
-                  </Box>
-                )}
-              </Alert>
-            )}
-          </Stack>
-        </Paper>
-      )}
-    </Stack>
+                type="info"
+                showIcon
+                message="Maintenance view only"
+                description="These active UI resources are not registered in the canonical Resource Registry and cannot be assigned here. Reconcile them through Resource Health / Resource Registry."
+                style={{ marginBottom: 12 }}
+              />
+              <Table
+                rowKey="key"
+                columns={unregisteredColumns}
+                dataSource={unregisteredResources}
+                pagination={{ pageSize: 50, showSizeChanger: true, pageSizeOptions: [25, 50, 100] }}
+                scroll={{ x: 850 }}
+                size="middle"
+              />
+            </>
+          )}
+        </Card>
+      </Space>
+
+      <Drawer
+        title={`Policy History — ${selectedRole || "Role"}`}
+        width={900}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        destroyOnClose={false}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="Restore is controlled"
+          description="A restore archives the current version first, requires step-up verification, and revalidates every historical resource/action against the current Resource Registry."
+          style={{ marginBottom: 12 }}
+        />
+        <Table
+          rowKey="_id"
+          columns={historyColumns}
+          dataSource={historyRows}
+          loading={historyLoading}
+          pagination={false}
+          scroll={{ x: 800 }}
+          size="middle"
+        />
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+          <Pagination
+            current={historyPage}
+            pageSize={historyLimit}
+            total={historyTotal}
+            showSizeChanger={false}
+            onChange={(page) => loadHistory(selectedRole, page)}
+          />
+        </div>
+      </Drawer>
     </div>
   );
 };
@@ -923,816 +662,3 @@ const GuardedRolesPermissionsPage: React.FC = () => {
 };
 
 export default GuardedRolesPermissionsPage;
-
-
-// import React, { useEffect, useMemo, useState } from "react";
-// import {
-//   Alert,
-//   Box,
-//   Button,
-//   Chip,
-//   CircularProgress,
-//   FormControl,
-//   InputLabel,
-//   MenuItem,
-//   Paper,
-//   Select,
-//   Stack,
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableHead,
-//   TableRow,
-//   Typography,
-// } from "@mui/material";
-// import { useSnackbar } from "notistack";
-// import { fetchRolePoliciesDashboardData, updateRolePolicies } from "../../services/rolePoliciesApi";
-// import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-
-// type PolicyEntry = { resource_key: string; actions: string[] };
-// type RoleEntry = { role_slug: string; role_name?: string; source?: string; is_protected?: string };
-// type RegistryEntry = {
-//   resource_key: string;
-//   module?: string;
-//   allowed_actions: string[];
-//   description?: string;
-//   aliases?: string[];
-//   ui_only?: boolean;
-// };
-
-// const normalizeKey = (key: string): string => {
-//   const k = String(key || '').trim();
-//   if (!k) return '';
-//   const lower = k.toLowerCase().replace(/\s+/g, '');
-//   if (lower.endsWith('.update')) return lower.replace(/\.update$/, '.edit');
-//   if (lower.endsWith('.delete') || lower.endsWith('.disable') || lower.endsWith('.toggle')) {
-//     return lower.replace(/\.(delete|disable|toggle)$/, '.deactivate');
-//   }
-//   return lower;
-// };
-
-//   const resolveModuleName = (key: string): string => {
-//   if (!key) return 'Misc';
-//   const k = normalizeKey(key);
-//   const starts = (p: string) => k.startsWith(p);
-
-//   if (starts('menu.role_policies') || starts('user_roles.') || starts('resource_registry.') || starts('resources_registry.') || starts('admin_users.')) {
-//     return 'System Administration';
-//   }
-//   if (starts('organisations.') || starts('org_mandi_mappings.')) {
-//     return 'Organisation Management';
-//   }
-//   if (starts('commodities_masters.') || starts('commodity_products_masters.')) {
-//     return 'Masters – Commodities';
-//   }
-//   if (
-//     starts('auction_methods_masters.') ||
-//     starts('auction_rounds_masters.') ||
-//     starts('cm_mandi_auction_policies.') ||
-//     starts('auction_sessions.') ||
-//     starts('auction_lots.') ||
-//     starts('auction_results.')
-//   ) {
-//     return 'Auctions';
-//   }
-//   if (
-//     starts('mandis.') ||
-//     starts('mandi_facilities.') ||
-//     starts('mandi_hours.') ||
-//     starts('mandi_coverage.') ||
-//     starts('mandi_prices.')
-//   ) {
-//     return 'Mandi Setup & Configuration';
-//   }
-//   if (
-//     starts('mandi_gates.') ||
-//     starts('gate_entry_reasons_masters.') ||
-//     starts('gate_vehicle_types_masters.') ||
-//     starts('cm_gate_devices.') ||
-//     starts('gate_entry_tokens.') ||
-//     starts('gate_pass_tokens.') ||
-//     starts('weighment_tickets.') ||
-//     starts('gate_movements_log.') ||
-//     starts('gate_device_configs.')
-//   ) {
-//     return 'Gate & Yard';
-//   }
-//   if (starts('traders.') || starts('farmers.') || starts('trader_approvals.')) {
-//     return 'Participants';
-//   }
-//   if (
-//     starts('payment_models.') ||
-//     starts('payment_modes.') ||
-//     starts('org_payment_settings.') ||
-//     starts('mandi_payment_settings.') ||
-//     starts('commodity_fees.') ||
-//     starts('custom_fees.') ||
-//     starts('role_custom_fees.') ||
-//     starts('settlements.') ||
-//     starts('payments_log.') ||
-//     starts('subscriptions.') ||
-//     starts('subscription_invoices.')
-//   ) {
-//     return 'Payments & Finance';
-//   }
-//   if (starts('reports.')) {
-//     return 'Reports';
-//   }
-//   return 'Misc';
-// };
-
-// const moduleOrder = [
-//   'System Administration',
-//   'Organisation Management',
-//   'Masters – Commodities',
-//   'Auctions',
-//   'Mandi Setup & Configuration',
-//   'Gate & Yard',
-//   'Participants',
-//   'Payments & Finance',
-//   'Reports',
-//   'Misc',
-// ];
-
-// const RolesPermissionsPage: React.FC = () => {
-//   const rawUser = typeof window !== "undefined" ? localStorage.getItem("cd_user") : null;
-//   const parsedUser = rawUser ? JSON.parse(rawUser) : null;
-//   const username: string = parsedUser?.username || "";
-//   const { enqueueSnackbar } = useSnackbar();
-//   const { refresh, ui_resources } = useAdminUiConfig();
-
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState<string | null>(null);
-//   const [roles, setRoles] = useState<RoleEntry[]>([]);
-//   const [registry, setRegistry] = useState<RegistryEntry[]>([]);
-//   const [policiesByRole, setPoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
-//   const [editablePoliciesByRole, setEditablePoliciesByRole] = useState<Record<string, PolicyEntry[]>>({});
-//   const [selectedRole, setSelectedRole] = useState<string>("");
-//   const [selectedModule, setSelectedModule] = useState<string>("ALL");
-//   const [activeTab, setActiveTab] = useState<"registered" | "unregistered">("registered");
-//   const [diagnostics, setDiagnostics] = useState<any>({});
-//   const [showDebug, setShowDebug] = useState<boolean>(() => {
-//     if (typeof window === "undefined") return false;
-//     const saved = localStorage.getItem("rp_show_debug");
-//     return saved === "true";
-//   });
-//   const [debugExpanded, setDebugExpanded] = useState<boolean>(false);
-
-//   useEffect(() => {
-//     const load = async () => {
-//       try {
-//         setLoading(true);
-//         setError(null);
-//         const resp = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-//         const payload = resp?.data || resp || {};
-//         const rolesList: RoleEntry[] = payload.roles || [];
-//         const registryList: RegistryEntry[] = (payload.registry || []).map((r: any) => ({
-//           ...r,
-//           resource_key: normalizeKey(r.resource_key),
-//         }));
-//         const pMapRaw: Record<string, PolicyEntry[]> = payload.policiesByRole || {};
-//         const pMap: Record<string, PolicyEntry[]> = {};
-//         Object.keys(pMapRaw || {}).forEach((roleKey) => {
-//           pMap[roleKey] = (pMapRaw[roleKey] || []).map((p: any) => ({
-//             resource_key: normalizeKey(p.resource_key),
-//             actions: (p.actions || []).map((a: string) => a.toUpperCase()),
-//           }));
-//         });
-
-//         setRoles(rolesList);
-//         setRegistry(registryList);
-//         setPoliciesByRole(pMap);
-//         setEditablePoliciesByRole(JSON.parse(JSON.stringify(pMap)));
-//         setDiagnostics(payload.diagnostics || {});
-//         if (rolesList.length > 0) {
-//           setSelectedRole(rolesList[0].role_slug);
-//         }
-//         if (resp?.response?.responsecode !== "0") {
-//           setError(resp?.response?.description || "Failed to load role policies");
-//         }
-//       } catch (err: any) {
-//         setError(err?.message || "Failed to load role policies");
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-//     if (username) load();
-//   }, [username]);
-
-//   const rolePermsLookup = useMemo(() => {
-//     const selectedPerms = editablePoliciesByRole[selectedRole] || [];
-//     const map: Record<string, Set<string>> = {};
-//     selectedPerms.forEach((p) => {
-//       const key = normalizeKey(p.resource_key);
-//       map[key] = new Set((p.actions || []).map((a) => a.toUpperCase()));
-//     });
-//     return map;
-//   }, [editablePoliciesByRole, selectedRole]);
-
-//   const mergedRegistry = useMemo(() => {
-//     const baseKeys = new Set(registry.map((r) => r.resource_key));
-//     const normalizedRegistry = registry.map((r) => ({
-//       ...r,
-//       resource_key: normalizeKey(r.resource_key),
-//       module: resolveModuleName(r.resource_key) || r.module,
-//     }));
-//     return normalizedRegistry;
-//   }, [registry, ui_resources]);
-
-//   const registeredResources = useMemo(() => mergedRegistry, [mergedRegistry]);
-
-//   const unregisteredResources = useMemo(() => {
-//     const registryKeys = new Set(registeredResources.map((r) => r.resource_key));
-//     const uiOnly =
-//       ui_resources
-//         ?.filter(
-//           (u: any) =>
-//             u?.is_active &&
-//             u.resource_key &&
-//             !registryKeys.has(normalizeKey(u.resource_key)),
-//         )
-//         .map((u: any) => ({
-//           resource_key: normalizeKey(u.resource_key),
-//           module: resolveModuleName(u.resource_key) || u.module || "UI resource",
-//           allowed_actions: u.allowed_actions || [],
-//           description: "UI resource not registered in resource registry",
-//           aliases: u.aliases || [],
-//           is_active: u.is_active,
-//           ui_only: true,
-//         })) || [];
-//     return uiOnly;
-//   }, [ui_resources, registeredResources]);
-
-//   const moduleOptions = useMemo(() => {
-//     const set = new Set<string>();
-//     registeredResources.forEach((r) => {
-//       if (r.module) set.add(r.module);
-//     });
-//     return ["ALL", ...Array.from(set).sort()];
-//   }, [registeredResources]);
-
-//   const filteredResources = useMemo(() => {
-//     if (selectedModule === "ALL") return registeredResources;
-//     return registeredResources.filter((r) => (r.module || "") === selectedModule);
-//   }, [registeredResources, selectedModule]);
-
-//   const resolveKeyForAction = (resourceKey: string, action: string): string | null => {
-//     const normalizedKey = normalizeKey(resourceKey);
-//     if (resourcesByKey[normalizedKey]) {
-//       return normalizedKey;
-//     }
-//     const normalizedAction = action.toUpperCase() === "EDIT" ? "UPDATE" : action.toUpperCase();
-//     // Only try edit/update mapping when suffix matches edit/update
-//     if (normalizedAction === "UPDATE" && /\.(edit|update)$/.test(normalizedKey)) {
-//       const base = normalizedKey.replace(/\.(edit|update)$/, "");
-//       const updateKey = `${base}.update`;
-//       const editKey = `${base}.edit`;
-//       if (resourcesByKey[updateKey]) return updateKey;
-//       if (resourcesByKey[editKey]) return editKey;
-//     }
-//     return null;
-//   };
-
-//   const normalizeActionForAllowed = (action: string, allowedSet: Set<string>) => {
-//     const upper = action.toUpperCase();
-//     if (upper === "EDIT") return "UPDATE";
-//     // Special cases that should map to UPDATE when registry allows UPDATE
-//     const specialUpdate = [
-//       "APPROVE",
-//       "REJECT",
-//       "REQUEST_MORE_INFO",
-//       "UPDATE_STATUS",
-//       "RESET_PASSWORD",
-//     ];
-//     if (specialUpdate.includes(upper) && allowedSet.has("UPDATE")) {
-//       return "UPDATE";
-//     }
-//     return upper;
-//   };
-
-//   const augmentAllowedByKey = (resourceKey: string, allowedSet: Set<string>): Set<string> => {
-//     const augmented = new Set(Array.from(allowedSet));
-//     const key = normalizeKey(resourceKey);
-//     if (/\.create$/.test(key)) augmented.add("CREATE");
-//     if (/\.(edit|update)$/.test(key)) augmented.add("UPDATE");
-//     if (/\.(deactivate)$/.test(key)) augmented.add("DEACTIVATE");
-//     if (/\.(menu|list|detail|view)$/.test(key)) augmented.add("VIEW");
-//     if (key.endsWith(".approve") || key.endsWith(".reject") || key.endsWith(".request_more_info") || key.endsWith(".update_status") || key.endsWith(".reset_password")) {
-//       augmented.add("UPDATE");
-//     }
-//     return augmented;
-//   };
-
-//   const finalizePayloadKeys = (entries: { resource_key: string; actions: string[] }[]) => {
-//     const errors: string[] = [];
-//     const mapped: { resource_key: string; actions: string[] }[] = [];
-//     entries.forEach((p) => {
-//       const normKey = normalizeKey(p.resource_key);
-//       let key = normKey;
-//       if (!resourcesByKey[key]) {
-//         if (key.endsWith(".edit")) {
-//           const base = key.replace(/\.edit$/, "");
-//           const candidate = `${base}.update`;
-//           if (resourcesByKey[candidate]) key = candidate;
-//         } else if (key.endsWith(".update")) {
-//           const base = key.replace(/\.update$/, "");
-//           const candidate = `${base}.edit`;
-//           if (resourcesByKey[candidate]) key = candidate;
-//         }
-//       }
-//       if (!resourcesByKey[key]) {
-//         errors.push(key);
-//         return;
-//       }
-//       const allowedSet = augmentAllowedByKey(
-//         key,
-//         new Set<string>((resourcesByKey[key]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase())),
-//       );
-//       const normActions = Array.from(
-//         new Set(
-//           (p.actions || []).map((a) => {
-//             const upper = String(a || "").toUpperCase();
-//             if (upper === "EDIT") return "UPDATE";
-//             const specials = ["APPROVE", "REJECT", "REQUEST_MORE_INFO", "UPDATE_STATUS", "RESET_PASSWORD"];
-//             if (specials.includes(upper)) return allowedSet.has("UPDATE") ? "UPDATE" : upper;
-//             return upper;
-//           }),
-//         ),
-//       ).filter((a) => !allowedSet.size || allowedSet.has(a));
-//       mapped.push({ resource_key: key, actions: normActions });
-//     });
-//     return { mapped, errors };
-//   };
-
-//   const toggleAction = (resourceKey: string, action: string, checked: boolean) => {
-//     setEditablePoliciesByRole((prev) => {
-//       const current = prev[selectedRole] || [];
-//       const next = [...current];
-//       const regEntry = resourcesByKey[resourceKey];
-//       if (regEntry?.ui_only) {
-//         return prev; // do not allow toggling unregistered resources
-//       }
-
-//       const targetKey = resolveKeyForAction(resourceKey, action);
-//       if (!targetKey) {
-//         setError(`Registry is missing an entry for ${resourceKey} (action ${action}).`);
-//         return prev;
-//       }
-//       const allowedSet = augmentAllowedByKey(
-//         targetKey,
-//         new Set<string>(
-//           (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
-//         ),
-//       );
-//       const normalizedAction = normalizeActionForAllowed(action, allowedSet);
-//       if (allowedSet.size && !allowedSet.has(normalizedAction)) {
-//         setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
-//         return prev;
-//       }
-
-//       const idx = next.findIndex((p) => p.resource_key === targetKey);
-//       if (checked) {
-//         if (idx === -1) {
-//           next.push({ resource_key: targetKey, actions: [normalizedAction] });
-//         } else {
-//           const actions = new Set(next[idx].actions || []);
-//           actions.add(normalizedAction);
-//           next[idx] = { ...next[idx], actions: Array.from(actions) };
-//         }
-//       } else if (idx !== -1) {
-//         const actions = new Set(next[idx].actions || []);
-//         actions.delete(normalizedAction);
-//         if (actions.size === 0) {
-//           next.splice(idx, 1);
-//         } else {
-//           next[idx] = { ...next[idx], actions: Array.from(actions) };
-//         }
-//       }
-//       return { ...prev, [selectedRole]: next };
-//     });
-//   };
-
-//   const resourcesByKey = useMemo(() => {
-//     const map: Record<string, any> = {};
-//     mergedRegistry.forEach((r: any) => {
-//       if (r?.resource_key) map[r.resource_key] = r;
-//     });
-//     return map;
-//   }, [mergedRegistry]);
-
-//   const setsEqual = (a?: Set<string>, b?: Set<string>) => {
-//     if (!a && !b) return true;
-//     if (!a || !b) return false;
-//     if (a.size !== b.size) return false;
-//     for (const v of a) if (!b.has(v)) return false;
-//     return true;
-//   };
-
-//   const handleSave = async () => {
-//     try {
-//       const original = policiesByRole[selectedRole] || [];
-//       const current = editablePoliciesByRole[selectedRole] || [];
-
-//       const origMap = new Map<string, Set<string>>();
-//       original.forEach((p: any) => {
-//         origMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
-//       });
-
-//       const currentMap = new Map<string, Set<string>>();
-//       current.forEach((p: any) => {
-//         currentMap.set(p.resource_key, new Set((p.actions || []).map((a: string) => a.toUpperCase())));
-//       });
-
-//       // Normalize keys based on registry truth before diffing
-//       const normalizedCurrentMap = new Map<string, Set<string>>();
-//       for (const [rawKey, actionsSet] of currentMap.entries()) {
-//         for (const action of actionsSet) {
-//         const targetKey = resolveKeyForAction(rawKey, action);
-//         if (!targetKey) {
-//           setError(`Registry missing key for ${rawKey} (action ${action})`);
-//           return;
-//         }
-//         const allowedSet = augmentAllowedByKey(
-//           targetKey,
-//           new Set<string>(
-//             (resourcesByKey[targetKey]?.allowed_actions || []).map((a: string) => String(a || "").toUpperCase()),
-//           ),
-//         );
-//           const normalizedAction = normalizeActionForAllowed(action, allowedSet);
-//           if (allowedSet.size && !allowedSet.has(normalizedAction)) {
-//             setError(`Action ${normalizedAction} not allowed for ${targetKey} (allowed: ${Array.from(allowedSet).join(", ") || "none"})`);
-//             return;
-//           }
-//           const existing = normalizedCurrentMap.get(targetKey) || new Set<string>();
-//           existing.add(normalizedAction);
-//           normalizedCurrentMap.set(targetKey, existing);
-//         }
-//       }
-
-//       const debugAuth =
-//         typeof window !== "undefined" &&
-//         new URLSearchParams(window.location.search).get("debugAuth") === "1";
-//       if (debugAuth) {
-//         console.log("[rolePolicies debug] submitting keys", Array.from(normalizedCurrentMap.keys()));
-//       }
-
-//       const payload: any[] = [];
-
-//       // additions/updates
-//       normalizedCurrentMap.forEach((actionsSet, key) => {
-//         if (!resourcesByKey[key]) return; // skip unknown keys defensively
-//         const origSet = origMap.get(key);
-//         if (actionsSet.size === 0) {
-//           if (origSet && origSet.size > 0) {
-//             payload.push({ resource_key: key, actions: [] }); // removal
-//           }
-//           return;
-//         }
-//         if (!setsEqual(actionsSet, origSet)) {
-//           payload.push({ resource_key: key, actions: Array.from(actionsSet) });
-//         }
-//       });
-
-//       // removals for keys no longer present
-//       origMap.forEach((origSet, key) => {
-//         if (!normalizedCurrentMap.has(key) && origSet.size > 0 && resourcesByKey[key]) {
-//           payload.push({ resource_key: key, actions: [] });
-//         }
-//       });
-
-//       // Final canonical rewrite against registry truth
-//       const { mapped, errors } = finalizePayloadKeys(payload);
-//       if (errors.length) {
-//         setError(`Invalid registry key(s): ${errors.join(", ")}`);
-//         return;
-//       }
-//       const finalPayload = mapped;
-
-//       setLoading(true);
-//       const resp = await updateRolePolicies({
-//         username,
-//         country: "IN",
-//         role_slug: selectedRole,
-//         permissions: finalPayload,
-//       });
-//       if (resp?.response?.responsecode === "0") {
-//         enqueueSnackbar("Role policy updated.", { variant: "success" });
-//         const refreshed = await fetchRolePoliciesDashboardData({ username: username || "", country: "IN" });
-//         const payloadRef = refreshed?.data || refreshed || {};
-//         setPoliciesByRole(payloadRef.policiesByRole || {});
-//         setEditablePoliciesByRole(JSON.parse(JSON.stringify(payloadRef.policiesByRole || {})));
-//         setDiagnostics(payloadRef.diagnostics || {});
-//         await refresh({ invalidate: true });
-//       } else {
-//         enqueueSnackbar(resp?.response?.description || "Failed to save role policies", { variant: "error" });
-//       }
-//     } catch (err: any) {
-//       setError(err?.message || "Failed to save role policies");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const unknownForRole = useMemo(() => diagnostics?.unknownByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
-//   const missingForRole = useMemo(() => diagnostics?.missingByRole?.[selectedRole] || [], [diagnostics, selectedRole]);
-//   const isProtectedRole = useMemo(() => {
-//     const current = roles.find((r) => r.role_slug === selectedRole);
-//     return current?.is_protected === "Y" || current?.source === "SYSTEM";
-//   }, [roles, selectedRole]);
-
-//   if (!username) {
-//     return <Typography>Please log in.</Typography>;
-//   }
-
-//   if (loading && !roles.length) {
-//     return (
-//       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-//         <CircularProgress size={20} /> <Typography>Loading...</Typography>
-//       </Box>
-//     );
-//   }
-
-//   return (
-//     <Stack spacing={2} sx={{ position: "relative", minHeight: "60vh" }}>
-//       <Paper
-//         sx={{
-//           position: "sticky",
-//           top: 0,
-//           zIndex: 5,
-//           p: 2,
-//           bgcolor: "background.paper",
-//           borderBottom: "1px solid",
-//           borderColor: "divider",
-//         }}
-//       >
-//         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "flex-start", md: "center" }}>
-//           <Box>
-//             <Typography variant="h5">Role Policy Manager</Typography>
-//             <Typography variant="body2" color="text.secondary">
-//               Manage role permissions using the canonical resource registry.
-//             </Typography>
-//           </Box>
-//           <Box sx={{ flex: 1 }} />
-//           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
-//             <FormControl size="small" sx={{ minWidth: 180 }}>
-//               <InputLabel id="role-select-label">Role</InputLabel>
-//               <Select
-//                 labelId="role-select-label"
-//                 label="Role"
-//                 value={selectedRole}
-//                 onChange={(e) => setSelectedRole(e.target.value)}
-//               >
-//                 {roles.map((r) => (
-//                   <MenuItem key={r.role_slug} value={r.role_slug}>
-//                     {r.role_name || r.role_slug}{" "}
-//                     {r.is_protected === "Y" || r.source === "SYSTEM" ? "(SYSTEM)" : ""}
-//                   </MenuItem>
-//                 ))}
-//               </Select>
-//             </FormControl>
-//             <FormControl size="small" sx={{ minWidth: 180 }}>
-//               <InputLabel id="module-select-label">Module</InputLabel>
-//               <Select
-//                 labelId="module-select-label"
-//                 label="Module"
-//                 value={selectedModule}
-//                 onChange={(e) => setSelectedModule(e.target.value)}
-//                 disabled={activeTab === "unregistered"}
-//               >
-//                 {moduleOptions.map((m) => (
-//                   <MenuItem key={m} value={m}>
-//                     {m === "ALL" ? "All modules" : m}
-//                   </MenuItem>
-//                 ))}
-//               </Select>
-//             </FormControl>
-//             <Button variant="contained" onClick={handleSave} disabled={loading || !selectedRole || isProtectedRole || activeTab === "unregistered"}>
-//               {loading ? "Saving..." : "Save"}
-//             </Button>
-//           </Stack>
-//         </Stack>
-//       </Paper>
-
-//       <Stack direction="row" spacing={1}>
-//         <Button
-//           variant={activeTab === "registered" ? "contained" : "outlined"}
-//           onClick={() => setActiveTab("registered")}
-//           size="small"
-//         >
-//           Registered (assignable)
-//         </Button>
-//         <Button
-//           variant={activeTab === "unregistered" ? "contained" : "outlined"}
-//           onClick={() => setActiveTab("unregistered")}
-//           size="small"
-//         >
-//           Unregistered UI resources
-//         </Button>
-//       </Stack>
-
-//       {isProtectedRole && (
-//         <Paper sx={{ p: 2 }}>
-//           <Alert severity="warning">This role is protected and cannot be edited.</Alert>
-//         </Paper>
-//       )}
-
-//       {error && (
-//         <Paper sx={{ p: 2 }}>
-//           <Alert severity="error">{error}</Alert>
-//         </Paper>
-//       )}
-
-//       {activeTab === "registered" ? (
-//         <Paper sx={{ p: 2 }}>
-//           <Table size="small">
-//             <TableHead>
-//               <TableRow>
-//                 <TableCell>Resource</TableCell>
-//                 <TableCell>Module</TableCell>
-//                 <TableCell>Allowed Actions</TableCell>
-//               </TableRow>
-//             </TableHead>
-//             <TableBody>
-//               {filteredResources.map((r) => {
-//                 const allowedActions = r.allowed_actions || [];
-//                 const granted = rolePermsLookup[r.resource_key] || new Set<string>();
-//                 return (
-//                   <TableRow key={r.resource_key}>
-//                     <TableCell>
-//                       <Stack spacing={0.25}>
-//                         <Typography variant="body2">{r.resource_key}</Typography>
-//                         {r.description && (
-//                           <Typography variant="caption" color="text.secondary">
-//                             {r.description}
-//                           </Typography>
-//                         )}
-//                         {r.aliases?.length ? (
-//                           <Stack direction="row" spacing={0.5} flexWrap="wrap">
-//                             {r.aliases.map((a: string) => (
-//                               <Chip key={a} size="small" variant="outlined" label={`alias: ${a}`} />
-//                             ))}
-//                           </Stack>
-//                         ) : null}
-//                       </Stack>
-//                     </TableCell>
-//                     <TableCell>{r.module || "-"}</TableCell>
-//                     <TableCell>
-//                       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-//                         {allowedActions.map((action: string) => (
-//                           <Chip
-//                             key={`${r.resource_key}-${action}`}
-//                             label={action}
-//                             color={granted.has(action) ? "primary" : "default"}
-//                             variant={granted.has(action) ? "filled" : "outlined"}
-//                             onClick={() => toggleAction(r.resource_key, action, !granted.has(action))}
-//                             sx={{ cursor: "pointer" }}
-//                           />
-//                         ))}
-//                       </Stack>
-//                     </TableCell>
-//                   </TableRow>
-//                 );
-//               })}
-//             </TableBody>
-//           </Table>
-//         </Paper>
-//       ) : (
-//         <Paper sx={{ p: 2 }}>
-//           <Typography variant="h6" gutterBottom>
-//             Unregistered UI resources (maintenance only)
-//           </Typography>
-//           <Typography variant="body2" color="text.secondary" gutterBottom>
-//             These keys exist in UI resources but are not in the canonical resource registry. They are not assignable.
-//           </Typography>
-//           <Table size="small">
-//             <TableHead>
-//               <TableRow>
-//                 <TableCell>Resource</TableCell>
-//                 <TableCell>Module / Family</TableCell>
-//                 <TableCell>Notes</TableCell>
-//               </TableRow>
-//             </TableHead>
-//             <TableBody>
-//               {unregisteredResources.map((r) => {
-//                 const family = r.resource_key.split('.')[0] || 'misc';
-//                 return (
-//                   <TableRow key={r.resource_key}>
-//                     <TableCell>
-//                       <Typography variant="body2">{r.resource_key}</Typography>
-//                     </TableCell>
-//                     <TableCell>{r.module || family}</TableCell>
-//                     <TableCell>
-//                       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-//                         <Chip size="small" color="warning" label="Unregistered" />
-//                         {r.resource_key.startsWith("org_mandi.") && (
-//                           <Chip size="small" color="error" label="Alias / skipped" />
-//                         )}
-//                       </Stack>
-//                       <Typography variant="caption" color="text.secondary">
-//                         Suggested: disable in UI resources or register under canonical key family.
-//                       </Typography>
-//                     </TableCell>
-//                   </TableRow>
-//                 );
-//               })}
-//             </TableBody>
-//           </Table>
-//         </Paper>
-//       )}
-
-//       {(unknownForRole.length > 0 || missingForRole.length > 0) && (
-//         <Paper sx={{ p: 2 }}>
-//           <Stack spacing={1}>
-//             {unknownForRole.length > 0 && (
-//               <Alert severity="warning">
-//                 Unknown keys (not in registry):{" "}
-//                 {unknownForRole.map((u: string) => (
-//                   <Chip key={u} label={u} size="small" sx={{ mr: 0.5 }} />
-//                 ))}
-//               </Alert>
-//             )}
-//             {missingForRole.length > 0 && (
-//               <Alert
-//                 severity="info"
-//                 action={
-//                   <Stack direction="row" spacing={1} alignItems="center">
-//                     <Button
-//                       size="small"
-//                       onClick={() => {
-//                         const expected = missingForRole
-//                           .filter((m: string) =>
-//                             /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-//                           );
-//                         const suspicious = missingForRole.filter((m: string) => !expected.includes(m));
-//                         const payload = {
-//                           expected,
-//                           suspicious,
-//                         };
-//                         try {
-//                           navigator?.clipboard?.writeText(JSON.stringify(payload, null, 2));
-//                         } catch (_) {
-//                           // ignore
-//                         }
-//                       }}
-//                     >
-//                       Copy
-//                     </Button>
-//                     <Button size="small" onClick={() => setDebugExpanded((prev) => !prev)}>
-//                       {debugExpanded ? "Hide list" : "Show list"}
-//                     </Button>
-//                     <Button
-//                       size="small"
-//                       onClick={() => {
-//                         const next = !showDebug;
-//                         setShowDebug(next);
-//                         if (typeof window !== "undefined") {
-//                           localStorage.setItem("rp_show_debug", next ? "true" : "false");
-//                         }
-//                       }}
-//                     >
-//                       {showDebug ? "Hide debug" : "Show debug"}
-//                     </Button>
-//                   </Stack>
-//                 }
-//               >
-//                 Debug: {missingForRole.length} policy keys not in UI resources (click to expand)
-//                 <Typography variant="caption" display="block" color="text.secondary">
-//                   These are valid registry/policy actions that may not have UI menu entries. They remain assignable and are used for button gating.
-//                 </Typography>
-//                 {showDebug && debugExpanded && (
-//                   <Box sx={{ mt: 1 }}>
-//                     <Typography variant="subtitle2">Expected (actions-only)</Typography>
-//                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-//                       {missingForRole
-//                         .filter((m: string) =>
-//                           /\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-//                         )
-//                         .map((m: string) => (
-//                           <Chip key={m} label={m} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-//                         ))}
-//                     </Stack>
-//                     <Typography variant="subtitle2" sx={{ mt: 1 }}>
-//                       Suspicious (legacy/typo families)
-//                     </Typography>
-//                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-//                       {missingForRole
-//                         .filter(
-//                           (m: string) =>
-//                             !/\.(list|detail|create|edit|deactivate|approve|reject|request_more_info|update_status|bulk_upload|reset_password)$/.test(m),
-//                         )
-//                         .map((m: string) => (
-//                           <Chip key={m} label={m} size="small" color="warning" sx={{ mr: 0.5, mb: 0.5 }} />
-//                         ))}
-//                     </Stack>
-//                   </Box>
-//                 )}
-//               </Alert>
-//             )}
-//           </Stack>
-//         </Paper>
-//       )}
-//     </Stack>
-//   );
-// };
-
-// export default RolesPermissionsPage;

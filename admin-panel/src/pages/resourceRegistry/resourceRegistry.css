@@ -1,0 +1,173 @@
+/* Resource Registry — scoped Ant Design cleanup.
+   The legacy global native input/select skin applies to all raw inputs.
+   Ant compound controls render internal native inputs, so this page resets
+   those internal elements and keeps exactly one visible control shell. */
+
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selector,
+.cm-resource-registry-modal .ant-input,
+.cm-resource-registry-modal textarea.ant-input {
+  min-height: 38px !important;
+  border: 1px solid var(--cm-border-strong, #d7dccf) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+/* Ant Input.Search / affix-wrapper internal native input */
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper > input,
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper > input:hover,
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper > input:focus {
+  min-height: 0 !important;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* rc-select always owns its outer border. Its native search/input element must
+   never receive CiberMandi's legacy global input border/min-height. */
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selection-search,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selection-search-input,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selector input,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selector input:hover,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selector input:focus,
+.cm-resource-registry-page .ant-pagination .ant-select-selection-search,
+.cm-resource-registry-page .ant-pagination .ant-select-selection-search-input,
+.cm-resource-registry-page .ant-pagination .ant-select-selector input {
+  min-height: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selector,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selection-wrap {
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selection-item,
+.cm-resource-registry-page .cm-resource-registry-select .ant-select-selection-placeholder {
+  line-height: 36px !important;
+}
+
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper:hover,
+.cm-resource-registry-page .cm-resource-registry-select:hover .ant-select-selector,
+.cm-resource-registry-modal .ant-input:hover,
+.cm-resource-registry-modal textarea.ant-input:hover {
+  border-color: var(--cm-primary, #55632c) !important;
+}
+
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper-focused,
+.cm-resource-registry-page .cm-resource-registry-search.ant-input-affix-wrapper:focus-within,
+.cm-resource-registry-page .cm-resource-registry-select.ant-select-focused .ant-select-selector,
+.cm-resource-registry-modal .ant-input:focus,
+.cm-resource-registry-modal textarea.ant-input:focus {
+  border-color: var(--cm-primary, #55632c) !important;
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-resource-registry-page .cm-resource-registry-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cm-resource-registry-page .cm-resource-registry-table-toolbar .ant-segmented {
+  background: #f4f5ef;
+  border: 1px solid var(--cm-border-strong, #d7dccf);
+  border-radius: 9px;
+  padding: 2px;
+}
+
+.cm-resource-registry-page .ant-table-pagination.ant-pagination {
+  align-items: center;
+  row-gap: 8px;
+}
+
+.cm-resource-registry-page .ant-table-cell {
+  vertical-align: middle;
+}
+
+.cm-resource-registry-page .ant-table-cell .ant-switch {
+  flex: 0 0 auto;
+}
+
+.cm-resource-registry-modal .ant-modal-body {
+  padding-top: 4px;
+}
+
+.cm-resource-registry-modal .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.cm-resource-registry-modal .ant-form-item-label {
+  padding-bottom: 6px;
+}
+
+.cm-resource-registry-modal .cm-resource-registry-readonly-actions {
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border, #e5e8df);
+  border-radius: 9px;
+  background: var(--cm-bg-soft, #f8f8f4);
+}
+
+.cm-resource-registry-modal .cm-resource-registry-action-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.cm-resource-registry-modal .ant-form-item-extra {
+  margin-top: 5px;
+  color: #7a8175;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .cm-resource-registry-page .ant-table-pagination.ant-pagination {
+    justify-content: flex-start;
+  }
+
+  .cm-resource-registry-page .cm-resource-registry-table-toolbar {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* Filter controls deliberately use Dropdown + Button instead of rc-select.
+   The global legacy `input/select/textarea` rules cannot affect these buttons,
+   so there is only one visible control shell. */
+.cm-resource-registry-page .cm-resource-registry-filter-button.ant-btn {
+  min-height: 38px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--cm-border-strong, #d7dccf) !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  color: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+
+.cm-resource-registry-page .cm-resource-registry-filter-button.ant-btn:hover,
+.cm-resource-registry-page .cm-resource-registry-filter-button.ant-btn:focus-visible {
+  border-color: var(--cm-primary, #55632c) !important;
+  color: inherit !important;
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.12) !important;
+}

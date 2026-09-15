@@ -1,39 +1,84 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Checkbox, Input, Space, Spin, Switch, Table, Tag, Typography, message } from "antd";
-import { ReloadOutlined, SaveOutlined } from "@ant-design/icons";
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Dropdown,
+  Space,
+  Spin,
+  Switch,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+  message,
+} from "antd";
+import {
+  DownOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+  SearchOutlined,
+  SafetyCertificateOutlined,
+} from "@ant-design/icons";
 import { StepUpGuard } from "../../../components/StepUpGuard";
 import { getStepupPolicyScreens, saveStepupPolicySelection } from "../../../services/security/stepupPolicyService";
 import { getSecuritySwitches, updateSecuritySwitches } from "../../../services/security/securitySwitchService";
 import { getStoredAdminUser } from "../../../utils/session";
+import "./stepupPolicies.css";
 
 const { Text, Title } = Typography;
 
-type StepupScreen = { label: string; route: string; group: string; resource_key: string };
+type StepupScreen = {
+  label: string;
+  route: string;
+  group: string;
+  resource_key: string;
+};
 
-const normalize = (v: unknown) => String(v || "").trim().toLowerCase();
+const normalize = (value: unknown) => String(value || "").trim().toLowerCase();
+
 const arrays = (resp: any, field: string): any[] => {
   const candidates = [resp, resp?.data, resp?.response, resp?.data?.data, resp?.response?.data];
-  for (const c of candidates) if (c && Array.isArray(c[field])) return c[field];
+  for (const candidate of candidates) {
+    if (candidate && Array.isArray(candidate[field])) return candidate[field];
+  }
   return [];
 };
+
 const matchObj = (resp: any) => {
   const candidates = [resp, resp?.data, resp?.response, resp?.data?.data, resp?.response?.data];
-  for (const c of candidates) if (c?.match && typeof c.match === "object") return c.match;
+  for (const candidate of candidates) {
+    if (candidate?.match && typeof candidate.match === "object") return candidate.match;
+  }
   return null;
 };
-const unique = (values: string[]) => Array.from(new Set(values.map(normalize).filter(Boolean)));
+
+const unique = (values: string[]) =>
+  Array.from(new Set(values.map(normalize).filter(Boolean)));
+
+const sameKeySet = (a: string[], b: string[]) => {
+  const left = new Set(a);
+  const right = new Set(b);
+  if (left.size !== right.size) return false;
+  for (const key of left) if (!right.has(key)) return false;
+  return true;
+};
 
 const StepUpPoliciesPage: React.FC = () => {
   const username = useMemo(() => getStoredAdminUser()?.username || "", []);
   const [screens, setScreens] = useState<StepupScreen[]>([]);
   const [locked, setLocked] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [baselineSelected, setBaselineSelected] = useState<string[]>([]);
   const [binding, setBinding] = useState<"Y" | "N">("N");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bindingSaving, setBindingSaving] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState("ALL");
+  const [protectedOnly, setProtectedOnly] = useState(false);
 
   const load = useCallback(async () => {
     if (!username) return;
@@ -44,27 +89,42 @@ const StepUpPoliciesPage: React.FC = () => {
         getStepupPolicyScreens({ username }),
         getSecuritySwitches({ username }),
       ]);
+
       const response = policyResp?.response || policyResp?.data?.response;
-      if (response?.responsecode && response.responsecode !== "0") throw new Error(response.description || "Unable to load step-up policies.");
+      if (response?.responsecode && response.responsecode !== "0") {
+        throw new Error(response.description || "Unable to load step-up policies.");
+      }
 
       const normalizedScreens: StepupScreen[] = arrays(policyResp, "screens")
-        .map((s: any) => ({
-          label: String(s?.label || s?.resource_key || "Untitled"),
-          route: String(s?.route || ""),
-          group: String(s?.group || "General"),
-          resource_key: normalize(s?.resource_key),
+        .map((screen: any) => ({
+          label: String(screen?.label || screen?.resource_key || "Untitled"),
+          route: String(screen?.route || ""),
+          group: String(screen?.group || "General"),
+          resource_key: normalize(screen?.resource_key),
         }))
-        .filter((s: StepupScreen) => s.resource_key && s.route);
+        .filter((screen: StepupScreen) => screen.resource_key && screen.route)
+        .sort((a, b) => {
+          const groupCompare = a.group.localeCompare(b.group);
+          return groupCompare !== 0 ? groupCompare : a.label.localeCompare(b.label);
+        });
+
       const lockedKeys = unique(arrays(policyResp, "locked_defaults"));
       const match = matchObj(policyResp);
       const matchType = String(match?.type || "RESOURCE_KEY_PREFIX").toUpperCase();
       const matchValues = unique(Array.isArray(match?.values) ? match.values : []);
       const selectedKeys = normalizedScreens
-        .filter((s) => matchType === "RESOURCE_KEY_PREFIX" ? matchValues.some((p) => s.resource_key.startsWith(p)) : matchValues.includes(s.resource_key))
-        .map((s) => s.resource_key);
+        .filter((screen) =>
+          matchType === "RESOURCE_KEY_PREFIX"
+            ? matchValues.some((prefix) => screen.resource_key.startsWith(prefix))
+            : matchValues.includes(screen.resource_key),
+        )
+        .map((screen) => screen.resource_key);
+
+      const normalizedSelection = unique([...selectedKeys, ...lockedKeys]);
       setScreens(normalizedScreens);
       setLocked(lockedKeys);
-      setSelected(unique([...selectedKeys, ...lockedKeys]));
+      setSelected(normalizedSelection);
+      setBaselineSelected(normalizedSelection);
 
       const switchValue =
         switchResp?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
@@ -78,39 +138,85 @@ const StepUpPoliciesPage: React.FC = () => {
     }
   }, [username]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const lockedSet = useMemo(() => new Set(locked), [locked]);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+  const groups = useMemo(() => {
+    const values = Array.from(new Set(screens.map((screen) => screen.group).filter(Boolean)));
+    return values.sort((a, b) => a.localeCompare(b));
+  }, [screens]);
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return screens;
-    return screens.filter((s) => [s.label, s.route, s.group, s.resource_key].some((v) => v.toLowerCase().includes(q)));
-  }, [screens, search]);
+    const query = search.trim().toLowerCase();
+    return screens.filter((screen) => {
+      if (groupFilter !== "ALL" && screen.group !== groupFilter) return false;
+      if (protectedOnly && !selectedSet.has(screen.resource_key)) return false;
+      if (!query) return true;
+      return [screen.label, screen.route, screen.group, screen.resource_key]
+        .some((value) => value.toLowerCase().includes(query));
+    });
+  }, [screens, search, groupFilter, protectedOnly, selectedSet]);
+
+  const optionalProtectedCount = useMemo(
+    () => selected.filter((key) => !lockedSet.has(key)).length,
+    [selected, lockedSet],
+  );
+
+  const unprotectedCount = Math.max(0, screens.length - selectedSet.size);
+  const dirty = useMemo(
+    () => !sameKeySet(selected, baselineSelected),
+    [selected, baselineSelected],
+  );
+
+  const changedCount = useMemo(() => {
+    const before = new Set(baselineSelected);
+    const after = new Set(selected);
+    let count = 0;
+    before.forEach((key) => { if (!after.has(key)) count += 1; });
+    after.forEach((key) => { if (!before.has(key)) count += 1; });
+    return count;
+  }, [selected, baselineSelected]);
 
   const toggle = (key: string) => {
     if (lockedSet.has(key)) return;
-    setSelected((prev) => {
-      const next = new Set(prev);
+    setSelected((previous) => {
+      const next = new Set(previous);
       next.has(key) ? next.delete(key) : next.add(key);
       return Array.from(next);
     });
+  };
+
+  const protectVisible = () => {
+    setSelected((previous) => unique([...previous, ...filtered.map((screen) => screen.resource_key)]));
+  };
+
+  const clearOptionalVisible = () => {
+    const visible = new Set(filtered.map((screen) => screen.resource_key));
+    setSelected((previous) => previous.filter((key) => lockedSet.has(key) || !visible.has(key)));
+  };
+
+  const discardChanges = () => {
+    setSelected(baselineSelected);
   };
 
   const save = async () => {
     setSaving(true);
     try {
       const all = unique([...selected, ...locked]);
-      const valid = new Set(screens.map((s) => s.resource_key));
-      locked.forEach((k) => valid.add(k));
-      const resourceKeys = unique(all.filter((k) => valid.has(k)));
+      const valid = new Set(screens.map((screen) => screen.resource_key));
+      locked.forEach((key) => valid.add(key));
+      const resourceKeys = unique(all.filter((key) => valid.has(key)));
       if (!resourceKeys.length) throw new Error("No valid step-up resources selected.");
-      // The API validates exact resource keys, then derives RESOURCE_KEY_PREFIX values internally.
-      // Sending prefixes here (for example `admin_users.`) causes INVALID_KEYS because those are
-      // not actual cm_ui_resources.resource_key values.
+
       const resp: any = await saveStepupPolicySelection({ username, selected: resourceKeys });
       const response = resp?.response || resp?.data?.response;
-      if (response?.responsecode !== "0") throw new Error(response?.description || "Unable to save step-up policy.");
+      if (response?.responsecode !== "0") {
+        throw new Error(response?.description || "Unable to save step-up policy.");
+      }
       message.success("Step-up policy saved.");
       await load();
     } catch (err: any) {
@@ -124,11 +230,16 @@ const StepUpPoliciesPage: React.FC = () => {
     setBindingSaving(true);
     try {
       const next: "Y" | "N" = checked ? "Y" : "N";
-      const resp: any = await updateSecuritySwitches({ username, switches: { STEPUP_BROWSER_SESSION_BINDING: next } });
+      const resp: any = await updateSecuritySwitches({
+        username,
+        switches: { STEPUP_BROWSER_SESSION_BINDING: next },
+      });
       const response = resp?.response || resp?.data?.response;
-      if (response?.responsecode !== "0") throw new Error(response?.description || "Unable to update browser-session binding.");
+      if (response?.responsecode !== "0") {
+        throw new Error(response?.description || "Unable to update browser-session binding.");
+      }
       setBinding(next);
-      message.success("Browser-session binding updated.");
+      message.success(checked ? "Browser-session binding enabled." : "Browser-session binding disabled.");
     } catch (err: any) {
       message.error(err?.message || "Unable to update browser-session binding.");
       await load();
@@ -137,72 +248,218 @@ const StepUpPoliciesPage: React.FC = () => {
     }
   };
 
+  const groupMenuItems = [
+    { key: "ALL", label: "All groups" },
+    ...groups.map((group) => ({ key: group, label: group })),
+  ];
+
   if (!username) return <Alert type="warning" showIcon message="Please log in." />;
 
   return (
     <StepUpGuard username={username} resourceKey="stepup_policy.view">
-      <div className="cm-page">
-        <div className="cm-page-header">
-          <h1 className="cm-page-title">Step-up Policies</h1>
-          <div className="cm-page-subtitle">Choose which sensitive admin screens always require recent verification.</div>
+      <div className="cm-page cm-stepup-page">
+        <div className="cm-page-header cm-stepup-header">
+          <div>
+            <h1 className="cm-page-title">Step-up Policies</h1>
+            <div className="cm-page-subtitle">
+              Require recent verification before an administrator can open sensitive screens.
+            </div>
+          </div>
+          <Button icon={<ReloadOutlined />} onClick={() => void load()} disabled={loading || saving}>
+            Refresh
+          </Button>
         </div>
 
+        <Alert
+          className="cm-stepup-intro"
+          type="info"
+          showIcon
+          icon={<SafetyCertificateOutlined />}
+          message="How this works"
+          description="Selected screens require a recent step-up verification. Locked defaults are protected by the platform and cannot be removed. Changes below are not applied until you save the policy."
+        />
+
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+
         <Spin spinning={loading}>
           <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <Card className="cm-card" bordered={false}>
-              <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
+            <Card className="cm-card cm-stepup-binding-card" bordered={false}>
+              <div className="cm-stepup-binding-row">
                 <div>
-                  <Title level={5} style={{ margin: 0 }}>Browser-session binding</Title>
-                  <Text type="secondary">When enabled, step-up approval is valid only for the current browser session.</Text>
+                  <Space size={8} align="center" wrap>
+                    <Title level={5} style={{ margin: 0 }}>Bind verification to this browser session</Title>
+                    <Tag color={binding === "Y" ? "green" : "default"}>
+                      {binding === "Y" ? "Enabled" : "Disabled"}
+                    </Tag>
+                  </Space>
+                  <Text type="secondary">
+                    When enabled, a successful step-up verification is valid only in the browser session where it was completed.
+                  </Text>
                 </div>
-                <Switch checked={binding === "Y"} onChange={toggleBinding} loading={bindingSaving} disabled={bindingSaving} />
-              </Space>
+                <Switch
+                  checked={binding === "Y"}
+                  onChange={toggleBinding}
+                  loading={bindingSaving}
+                  disabled={bindingSaving}
+                />
+              </div>
             </Card>
 
-            <Card className="cm-card" bordered={false}>
-              <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
-                  <Space>
-                    <Tag color="blue">{selected.length} protected</Tag>
-                    <Tag>{locked.length} locked defaults</Tag>
-                  </Space>
-                  <Space wrap>
-                    <Input
-                      placeholder="Search screen, route or resource"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      style={{ width: 320 }}
-                    />
-                    <Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button>
-                    <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>Save policy</Button>
-                  </Space>
-                </Space>
+            <div className="cm-stepup-summary-grid">
+              <Card className="cm-card cm-stepup-summary-card" bordered={false}>
+                <Text type="secondary">Protected screens</Text>
+                <div className="cm-stepup-summary-value">{selectedSet.size}</div>
+                <Text type="secondary">of {screens.length} available</Text>
+              </Card>
+              <Card className="cm-card cm-stepup-summary-card" bordered={false}>
+                <Text type="secondary">Locked defaults</Text>
+                <div className="cm-stepup-summary-value">{locked.length}</div>
+                <Text type="secondary">always protected</Text>
+              </Card>
+              <Card className="cm-card cm-stepup-summary-card" bordered={false}>
+                <Text type="secondary">Optional protections</Text>
+                <div className="cm-stepup-summary-value">{optionalProtectedCount}</div>
+                <Text type="secondary">selected by administrator</Text>
+              </Card>
+              <Card className="cm-card cm-stepup-summary-card" bordered={false}>
+                <Text type="secondary">Not protected</Text>
+                <div className="cm-stepup-summary-value">{unprotectedCount}</div>
+                <Text type="secondary">screens without step-up</Text>
+              </Card>
+            </div>
 
-                <Alert type="info" showIcon message="Locked defaults cannot be removed" description="Core administrative screens remain protected even if they are not manually selected." />
+            <Card className="cm-card" bordered={false}>
+              <Space direction="vertical" size={14} style={{ width: "100%" }}>
+                <div className="cm-stepup-toolbar">
+                  <div className="cm-stepup-search-shell">
+                    <SearchOutlined className="cm-stepup-search-icon" />
+                    <input
+                      className="cm-stepup-search-input"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search screen, route or resource"
+                      aria-label="Search step-up policy screens"
+                    />
+                  </div>
+
+                  <Space wrap>
+                    <Dropdown
+                      menu={{
+                        items: groupMenuItems,
+                        selectable: true,
+                        selectedKeys: [groupFilter],
+                        onClick: ({ key }) => setGroupFilter(String(key)),
+                      }}
+                      trigger={["click"]}
+                    >
+                      <Button>
+                        {groupFilter === "ALL" ? "All groups" : groupFilter} <DownOutlined />
+                      </Button>
+                    </Dropdown>
+
+                    <Tooltip title="Show only screens that currently require step-up verification">
+                      <Button
+                        type={protectedOnly ? "primary" : "default"}
+                        onClick={() => setProtectedOnly((value) => !value)}
+                      >
+                        {protectedOnly ? "Showing protected" : "Protected only"}
+                      </Button>
+                    </Tooltip>
+                  </Space>
+                </div>
+
+                <div className="cm-stepup-bulkbar">
+                  <Space wrap>
+                    <Button onClick={protectVisible} disabled={!filtered.length}>
+                      Protect all in current view
+                    </Button>
+                    <Button onClick={clearOptionalVisible} disabled={!filtered.length}>
+                      Clear optional in current view
+                    </Button>
+                  </Space>
+                  <Text type="secondary">
+                    {filtered.length} screen{filtered.length === 1 ? "" : "s"} in current view
+                  </Text>
+                </div>
 
                 <Table
                   rowKey="resource_key"
                   dataSource={filtered}
-                  pagination={{ pageSize: 25, showSizeChanger: false }}
+                  pagination={{ pageSize: 25, showSizeChanger: false, hideOnSinglePage: filtered.length <= 25 }}
                   columns={[
-                    { title: "Screen", dataIndex: "label", key: "label", render: (v, r: StepupScreen) => <div><Text strong>{v}</Text><br/><Text type="secondary">{r.resource_key}</Text></div> },
-                    { title: "Group", dataIndex: "group", key: "group", width: 180 },
-                    { title: "Route", dataIndex: "route", key: "route", ellipsis: true },
                     {
-                      title: "Require step-up",
-                      key: "selected",
-                      width: 160,
-                      align: "center" as const,
-                      render: (_: unknown, r: StepupScreen) => (
-                        <Space direction="vertical" size={2} align="center">
-                          <Checkbox checked={selectedSet.has(r.resource_key)} disabled={lockedSet.has(r.resource_key)} onChange={() => toggle(r.resource_key)} />
-                          {lockedSet.has(r.resource_key) && <Text type="secondary">Locked</Text>}
-                        </Space>
+                      title: "Screen",
+                      dataIndex: "label",
+                      key: "label",
+                      render: (value, row: StepupScreen) => (
+                        <div>
+                          <Text strong>{value}</Text>
+                          <div className="cm-stepup-route">{row.route}</div>
+                          <Tooltip title={row.resource_key}>
+                            <Text type="secondary" className="cm-stepup-resource-key">{row.resource_key}</Text>
+                          </Tooltip>
+                        </div>
                       ),
+                    },
+                    {
+                      title: "Area",
+                      dataIndex: "group",
+                      key: "group",
+                      width: 190,
+                      render: (value: string) => <Tag>{value}</Tag>,
+                    },
+                    {
+                      title: "Protection",
+                      key: "selected",
+                      width: 210,
+                      render: (_: unknown, row: StepupScreen) => {
+                        const isLocked = lockedSet.has(row.resource_key);
+                        const isSelected = selectedSet.has(row.resource_key);
+                        return (
+                          <div className="cm-stepup-protection-cell">
+                            <Checkbox
+                              checked={isSelected}
+                              disabled={isLocked}
+                              onChange={() => toggle(row.resource_key)}
+                            >
+                              Require step-up
+                            </Checkbox>
+                            {isLocked && <Tag color="blue">Locked default</Tag>}
+                            {!isLocked && isSelected && <Tag color="green">Protected</Tag>}
+                            {!isLocked && !isSelected && <Tag>Optional</Tag>}
+                          </div>
+                        );
+                      },
                     },
                   ]}
                 />
+
+                <div className="cm-stepup-savebar">
+                  <div>
+                    {dirty ? (
+                      <Space size={8} wrap>
+                        <Tag color="orange">Unsaved changes</Tag>
+                        <Text>{changedCount} screen{changedCount === 1 ? "" : "s"} changed</Text>
+                      </Space>
+                    ) : (
+                      <Text type="secondary">Policy is up to date.</Text>
+                    )}
+                  </div>
+                  <Space>
+                    <Button onClick={discardChanges} disabled={!dirty || saving}>
+                      Discard changes
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      loading={saving}
+                      disabled={!dirty}
+                      onClick={save}
+                    >
+                      Save policy
+                    </Button>
+                  </Space>
+                </div>
               </Space>
             </Card>
           </Space>

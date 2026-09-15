@@ -1,412 +1,223 @@
-import React from "react";
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Card,
-  CardContent,
-  Chip,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
-import { useSnackbar } from "@refinedev/mui";
-import {
-  getStepUpSetup,
-  enableStepUp,
-  rotateStepUp,
-  getStepUpStatus,
-} from "../../../services/adminUsersApi";
-import { securityUi } from "../securityUi";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Button, Card, Divider, Input, Modal, Radio, Space, Spin, Tag, Typography, message } from "antd";
+import { KeyOutlined, ReloadOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { enableStepUp, getStepUpSetup, getStepUpStatus, rotateStepUp } from "../../../services/adminUsersApi";
+import { getStoredAdminUser } from "../../../utils/session";
+
+const { Paragraph, Text, Title } = Typography;
+
+type SetupPayload = {
+  provisioning_uri: string;
+  secret_base32: string;
+  challenge_id: string;
+};
 
 const TwoFactorSettings: React.FC = () => {
-  const [setup, setSetup] = React.useState<{
-    provisioning_uri: string;
-    secret_base32: string;
-    challenge_id: string;
-  } | null>(null);
-  const [otp, setOtp] = React.useState("");
-  const [backupCodes, setBackupCodes] = React.useState<string[] | null>(null);
-  const [showBackupCodes, setShowBackupCodes] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [status, setStatus] = React.useState("Not configured");
-  const { enqueueSnackbar } = useSnackbar();
-  const [rotating, setRotating] = React.useState(false);
-  const [isEnabled, setIsEnabled] = React.useState(false);
-  const [rotatePromptOpen, setRotatePromptOpen] = React.useState(false);
-  const [rotateMode, setRotateMode] = React.useState<"otp" | "backup">("otp");
-  const [rotateCode, setRotateCode] = React.useState("");
-  const [statusInfo, setStatusInfo] = React.useState<{
-    enabled: string;
-    enforcement_mode: string;
-    last_verified_on: string | null;
-  }>({
-    enabled: 'N',
-    enforcement_mode: 'OPTIONAL',
-    last_verified_on: null,
-  });
+  const username = useMemo(() => getStoredAdminUser()?.username || "", []);
+  const [setup, setSetup] = useState<SetupPayload | null>(null);
+  const [otp, setOtp] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  const [statusInfo, setStatusInfo] = useState({ enabled: "N", enforcement_mode: "OPTIONAL", last_verified_on: null as string | null });
+  const [error, setError] = useState("");
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotateMode, setRotateMode] = useState<"otp" | "backup">("otp");
+  const [rotateCode, setRotateCode] = useState("");
 
-  const fetchStatus = async () => {
-    try {
-      const usernameRaw = localStorage.getItem("cd_user");
-      const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
-      const username = parsed?.username;
-      if (!username) return;
-      const resp: any = await getStepUpStatus({ username });
-      const stepupPayload = resp?.stepup?.stepup || resp?.stepup || {};
-      setIsEnabled(stepupPayload.enabled === "Y");
-      const enabledFlag = stepupPayload.enabled || "N";
-      setStatus(enabledFlag === "Y" ? "Enabled" : "Not configured");
-      setStatusInfo({
-        enabled: enabledFlag,
-        enforcement_mode: stepupPayload.enforcement_mode || "OPTIONAL",
-        last_verified_on: stepupPayload.last_verified_on || null,
-      });
-    } catch (_err) {
-      // ignore status failure
-    }
-  };
-
-  const fetchSetup = async () => {
+  const loadStatus = async () => {
+    if (!username) return;
     setLoading(true);
+    setError("");
     try {
-      const usernameRaw = localStorage.getItem("cd_user");
-      const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
-      const username = parsed?.username;
-      if (!username) {
-        enqueueSnackbar("User context missing.", { variant: "error" });
-        return;
-      }
-      const resp: any = await getStepUpSetup({
-        username,
-        target_username: username,
+      const resp: any = await getStepUpStatus({ username });
+      const response = resp?.response || resp?.data?.response;
+      if (response?.responsecode && response.responsecode !== "0") throw new Error(response.description || "Unable to load 2FA status.");
+      const payload = resp?.stepup?.stepup || resp?.stepup || resp?.data?.stepup || {};
+      const flag = payload.enabled === "Y" ? "Y" : "N";
+      setEnabled(flag === "Y");
+      setStatusInfo({
+        enabled: flag,
+        enforcement_mode: payload.enforcement_mode || "OPTIONAL",
+        last_verified_on: payload.last_verified_on || null,
       });
-      if (resp?.response?.responsecode === "0") {
-        const payload = resp.stepup || resp.setup || null;
-        setSetup(payload);
-        setStatus("Setup initiated");
-        setBackupCodes(null);
-        setOtp("");
-      } else {
-        enqueueSnackbar(resp?.response?.description || "Setup currently unavailable.", { variant: "warning" });
-      }
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Setup currently unavailable.", { variant: "error" });
+      setError(err?.message || "Unable to load 2FA status.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRotate = async (otp?: string, backupCode?: string) => {
-    const usernameRaw = localStorage.getItem("cd_user");
-    const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
-    const username = parsed?.username;
-    if (!username) {
-      enqueueSnackbar("User context missing.", { variant: "error" });
-      return;
-    }
-    const session = typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") : null;
-    if (!session) {
-      enqueueSnackbar("Step-up session required to rotate 2FA.", { variant: "warning" });
-      return;
-    }
-    setRotating(true);
+  useEffect(() => { void loadStatus(); }, [username]);
+
+  const startSetup = async () => {
+    setWorking(true);
     try {
+      const resp: any = await getStepUpSetup({ username, target_username: username });
+      const response = resp?.response || resp?.data?.response;
+      if (response?.responsecode !== "0") throw new Error(response?.description || "Unable to start 2FA setup.");
+      const payload = resp?.stepup || resp?.setup || resp?.data?.stepup || null;
+      if (!payload?.challenge_id || !payload?.provisioning_uri) throw new Error("2FA setup response is incomplete.");
+      setSetup(payload);
+      setOtp("");
+      setBackupCodes([]);
+    } catch (err: any) {
+      message.error(err?.message || "Unable to start 2FA setup.");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const enable = async () => {
+    if (!setup || otp.length !== 6) return;
+    setWorking(true);
+    try {
+      const resp: any = await enableStepUp({ username, challenge_id: setup.challenge_id, otp });
+      const response = resp?.response || resp?.data?.response;
+      if (response?.responsecode !== "0") throw new Error(response?.description || "OTP verification failed.");
+      const codes = resp?.stepup?.backup_codes || resp?.backup_codes || resp?.data?.backup_codes || [];
+      setBackupCodes(Array.isArray(codes) ? codes : []);
+      setSetup(null);
+      setOtp("");
+      message.success("Two-factor authentication enabled.");
+      await loadStatus();
+    } catch (err: any) {
+      message.error(err?.message || "OTP verification failed.");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const rotate = async () => {
+    setWorking(true);
+    try {
+      const sessionId = typeof window !== "undefined" ? localStorage.getItem("cm_stepup_session_id") || undefined : undefined;
+      if (!sessionId) throw new Error("A valid step-up session is required before reconfiguring 2FA.");
       const resp: any = await rotateStepUp({
         username,
-        session_id: session,
-        otp,
-        backup_code: backupCode,
+        session_id: sessionId,
+        otp: rotateMode === "otp" ? rotateCode : undefined,
+        backup_code: rotateMode === "backup" ? rotateCode : undefined,
       });
-      if (resp?.response?.responsecode === "0") {
-        const payload = resp.stepup?.stepup || resp.stepup || null;
-        setSetup(payload);
-        setStatus("Setup initiated");
-        setBackupCodes(null);
-        setOtp("");
-        setIsEnabled(false);
-        setRotatePromptOpen(false);
-        setRotateCode("");
-        enqueueSnackbar("2FA rotation initiated.", { variant: "success" });
-      } else {
-        enqueueSnackbar(resp?.response?.description || "Rotation failed.", { variant: "error" });
-        if (resp?.response?.description?.includes("Step-up required")) {
-          enqueueSnackbar(
-            "Please complete the step-up OTP on a protected screen before rotating.",
-            { variant: "warning" },
-          );
-        }
-      }
+      const response = resp?.response || resp?.data?.response;
+      if (response?.responsecode !== "0") throw new Error(response?.description || "Unable to reconfigure 2FA.");
+      const payload = resp?.stepup?.stepup || resp?.stepup || null;
+      setRotateOpen(false);
+      setRotateCode("");
+      setSetup(payload);
+      setEnabled(false);
+      setBackupCodes([]);
+      message.success("2FA reconfiguration started. Complete setup with the new authenticator secret.");
+      await loadStatus();
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Rotation failed.", { variant: "error" });
+      message.error(err?.message || "Unable to reconfigure 2FA.");
     } finally {
-      setRotating(false);
+      setWorking(false);
     }
   };
 
-  const handleEnable = async () => {
-    if (!setup || otp.length !== 6) return;
-    setLoading(true);
-    try {
-      const usernameRaw = localStorage.getItem("cd_user");
-      const parsed = usernameRaw ? JSON.parse(usernameRaw) : null;
-      const username = parsed?.username;
-      if (!username) {
-        enqueueSnackbar("User context missing.", { variant: "error" });
-        return;
-      }
-      const resp: any = await enableStepUp({
-        username,
-        challenge_id: setup.challenge_id,
-        otp,
-      });
-      if (resp?.response?.responsecode === "0") {
-        const codes = resp?.stepup?.backup_codes || resp?.backup_codes || [];
-        setBackupCodes(codes);
-        setShowBackupCodes(true);
-        setStatus("Enabled");
-        setIsEnabled(true);
-        setStatusInfo((prev) => ({ ...prev, enabled: "Y", last_verified_on: new Date().toISOString() }));
-        enqueueSnackbar(resp.response.description || "2FA enabled.", { variant: "success" });
-      } else {
-        enqueueSnackbar(resp?.response?.description || "OTP verification failed.", { variant: "error" });
-      }
-    } catch (err: any) {
-      enqueueSnackbar(err?.message || "OTP verification failed.", { variant: "error" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (!username) return <Alert type="warning" showIcon message="Please log in." />;
 
   const qrSrc = setup
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-        setup.provisioning_uri
-      )}`
-    : undefined;
-
-  React.useEffect(() => {
-    fetchStatus();
-  }, []);
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(setup.provisioning_uri)}`
+    : "";
 
   return (
     <div className="cm-page">
       <div className="cm-page-header">
         <h1 className="cm-page-title">Two-Factor Authentication (2FA)</h1>
-        <div className="cm-page-subtitle">Secure super-admin operations with authenticator-based step-up verification.</div>
+        <div className="cm-page-subtitle">Authenticator-based verification for sensitive administrative operations.</div>
       </div>
-    <Box sx={securityUi.container}>
-      <Box sx={securityUi.content}>
-        <Box sx={securityUi.headerRow}>
-          <Box />
-          <Chip
-            label={isEnabled ? "Enabled" : "Not configured"}
-            color={isEnabled ? "success" : "warning"}
-            size="small"
-          />
-        </Box>
 
-        <Stack spacing={2}>
-          <Card className="cm-card" sx={securityUi.card}>
-            <CardContent sx={securityUi.cardContent}>
-              <Box sx={securityUi.cardHeader}>
-                <Typography variant="subtitle1">Current status</Typography>
-                <Typography sx={securityUi.helper}>
-                  Keep an eye on enforcement mode and last successful verification.
-                </Typography>
-              </Box>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={3}
-                justifyContent="space-between"
-              >
-                <Stack spacing={0.5}>
-                  <Typography sx={securityUi.label}>State</Typography>
-                  <Typography sx={securityUi.value}>
-                    {statusInfo.enabled === "Y" ? "Enabled" : "Not configured"}
-                  </Typography>
-                  <Typography sx={securityUi.helper}>
-                    Enforcement: {statusInfo.enforcement_mode}
-                  </Typography>
-                  <Typography sx={securityUi.helper}>
-                    Last verified:{" "}
-                    {statusInfo.last_verified_on
-                      ? new Date(statusInfo.last_verified_on).toLocaleString()
-                      : "Never"}
-                  </Typography>
-                </Stack>
-                <Stack spacing={1} sx={{ flexGrow: 1 }}>
-                  <Typography sx={securityUi.label}>Actions</Typography>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={securityUi.actionBar}
-                    flexWrap="wrap"
-                  >
-                    <Button
-                      variant="contained"
-                      onClick={fetchSetup}
-                      disabled={loading || isEnabled}
-                    >
-                      {setup ? "Refresh setup" : "Start setup"}
-                    </Button>
-                    {isEnabled && (
-                      <Button
-                        variant="outlined"
-                        onClick={() => setRotatePromptOpen((prev) => !prev)}
-                        disabled={rotating || loading}
-                      >
-                        {rotating ? "Rotating..." : "Reconfigure 2FA"}
-                      </Button>
-                    )}
-                  </Stack>
-                  {rotatePromptOpen && isEnabled && (
-                    <Box
-                      sx={{
-                        ...securityUi.section,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        borderRadius: 1,
-                        mt: 1,
-                      }}
-                    >
-                      <Typography sx={securityUi.helper}>
-                        Confirm rotation with your authenticator or a backup code.
-                      </Typography>
-                      <ButtonGroup size="small" variant="outlined" sx={{ mb: 1 }}>
-                        <Button
-                          variant={rotateMode === "otp" ? "contained" : undefined}
-                          onClick={() => setRotateMode("otp")}
-                        >
-                          Authenticator
-                        </Button>
-                        <Button
-                          variant={rotateMode === "backup" ? "contained" : undefined}
-                          onClick={() => setRotateMode("backup")}
-                        >
-                          Backup code
-                        </Button>
-                      </ButtonGroup>
-                      <TextField
-                        label={rotateMode === "otp" ? "Authenticator code" : "Backup code"}
-                        value={rotateCode}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setRotateCode(
-                            rotateMode === "otp"
-                              ? value.replace(/\D/g, "").slice(0, 6)
-                              : value,
-                          );
-                        }}
-                        fullWidth
-                        size="small"
-                        helperText={
-                          rotateMode === "otp"
-                            ? "Enter the 6-digit authenticator code."
-                            : "Enter a one-time backup code."
-                        }
+      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+
+      <Spin spinning={loading}>
+        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+          <Card className="cm-card" bordered={false}>
+            <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }} align="start">
+              <Space align="start">
+                <SafetyCertificateOutlined style={{ fontSize: 22 }} />
+                <div>
+                  <Title level={5} style={{ margin: 0 }}>Current status</Title>
+                  <Text type="secondary">Enforcement: {statusInfo.enforcement_mode}</Text>
+                  <br />
+                  <Text type="secondary">Last verified: {statusInfo.last_verified_on ? new Date(statusInfo.last_verified_on).toLocaleString() : "Never"}</Text>
+                </div>
+              </Space>
+              <Tag color={enabled ? "green" : "orange"}>{enabled ? "Enabled" : "Not configured"}</Tag>
+            </Space>
+            <Divider />
+            <Space wrap>
+              {!enabled && <Button type="primary" icon={<KeyOutlined />} loading={working} onClick={startSetup}>Start setup</Button>}
+              {enabled && <Button icon={<ReloadOutlined />} loading={working} onClick={() => setRotateOpen(true)}>Reconfigure 2FA</Button>}
+              <Button onClick={() => void loadStatus()} disabled={working}>Refresh status</Button>
+            </Space>
+          </Card>
+
+          {setup && (
+            <Card className="cm-card" bordered={false} title="Complete authenticator setup">
+              <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                <Alert type="warning" showIcon message="Store the authenticator secret securely. Do not share it." />
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, auto) 1fr", gap: 24, alignItems: "start" }}>
+                  <div>
+                    <img src={qrSrc} width={220} height={220} alt="Authenticator QR code" style={{ display: "block", maxWidth: "100%" }} />
+                  </div>
+                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <div><Text strong>Manual setup key</Text><Paragraph copyable code style={{ marginTop: 6 }}>{setup.secret_base32}</Paragraph></div>
+                    <div>
+                      <Text strong>6-digit authenticator code</Text>
+                      <Input
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        maxLength={6}
+                        inputMode="numeric"
+                        placeholder="Enter 6-digit code"
+                        style={{ maxWidth: 260, marginTop: 6 }}
                       />
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        <Button
-                          variant="contained"
-                          onClick={() =>
-                            handleRotate(
-                              rotateMode === "otp" ? rotateCode : undefined,
-                              rotateMode === "backup" ? rotateCode : undefined,
-                            )
-                          }
-                          disabled={
-                            rotating ||
-                            (rotateMode === "otp" ? rotateCode.length !== 6 : !rotateCode.trim())
-                          }
-                        >
-                          {rotating ? "Verifying..." : "Confirm rotate"}
-                        </Button>
-                        <Button variant="text" onClick={() => setRotatePromptOpen(false)}>
-                          Cancel
-                        </Button>
-                      </Stack>
-                    </Box>
-                  )}
-                </Stack>
-              </Stack>
-              <Typography sx={{ mt: 2, fontSize: 13, color: "text.secondary" }}>
-                2FA must be configured before sensitive screens can be accessed.
-              </Typography>
-            </CardContent>
-          </Card>
+                    </div>
+                    <Button type="primary" onClick={enable} loading={working} disabled={otp.length !== 6}>Verify and enable</Button>
+                  </Space>
+                </div>
+              </Space>
+            </Card>
+          )}
 
-          <Card className="cm-card" sx={securityUi.card}>
-            <CardContent sx={securityUi.cardContent}>
-              <Box sx={securityUi.cardHeader}>
-                <Typography variant="subtitle1">Setup & Backup</Typography>
-              </Box>
-              <Stack spacing={2}>
-                {setup && qrSrc && (
-                  <Box textAlign="center">
-                    <img src={qrSrc} alt="2FA QR" width={200} height={200} />
-                    <Typography sx={securityUi.helper}>
-                      Scan with Google Authenticator or Authy.
-                    </Typography>
-                  </Box>
-                )}
-                <Box sx={securityUi.section}>
-                  <Typography sx={securityUi.label}>Secret</Typography>
-                  <Box sx={securityUi.codeBox}>
-                    {setup?.secret_base32 || "Trigger setup to reveal the secret."}
-                  </Box>
-                </Box>
-                <TextField
-                  label="One-Time Password"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  fullWidth
-                  size="small"
-                  helperText="Enter the 6-digit code from your authenticator."
-                />
-                <Box>
-                  <Button
-                    variant="contained"
-                    onClick={handleEnable}
-                    disabled={loading || otp.length !== 6}
-                  >
-                    Enable 2FA
-                  </Button>
-                </Box>
-                {status && (
-                  <Typography sx={securityUi.helper}>Status: {status}</Typography>
-                )}
-                {backupCodes && backupCodes.length > 0 && showBackupCodes && (
-                  <Box>
-                    <Typography sx={securityUi.label}>Backup codes (store safely)</Typography>
-                    <Stack spacing={1} sx={securityUi.codeBox}>
-                      {backupCodes.map((code) => (
-                        <Typography key={code} variant="body2">
-                          {code}
-                        </Typography>
-                      ))}
-                    </Stack>
-                    <Button
-                      variant="text"
-                      onClick={() => {
-                        setShowBackupCodes(false);
-                        setBackupCodes(null);
-                      }}
-                    >
-                      I have saved these codes
-                    </Button>
-                  </Box>
-                )}
-                {backupCodes && backupCodes.length > 0 && !showBackupCodes && (
-                  <Typography sx={securityUi.helper}>
-                    Backup codes hidden after confirmation.
-                  </Typography>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Stack>
-      </Box>
-    </Box>
+          {backupCodes.length > 0 && (
+            <Card className="cm-card" bordered={false} title="Backup codes">
+              <Alert type="success" showIcon message="2FA is enabled. Save these one-time backup codes now." style={{ marginBottom: 12 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                {backupCodes.map((code) => <Text key={code} copyable code>{code}</Text>)}
+              </div>
+            </Card>
+          )}
+        </Space>
+      </Spin>
+
+      <Modal
+        open={rotateOpen}
+        title="Reconfigure two-factor authentication"
+        onCancel={() => { if (!working) { setRotateOpen(false); setRotateCode(""); } }}
+        onOk={rotate}
+        okText="Continue"
+        confirmLoading={working}
+        okButtonProps={{ disabled: rotateMode === "otp" ? rotateCode.length !== 6 : !rotateCode.trim() }}
+        destroyOnClose
+      >
+        <Alert type="warning" showIcon message="This starts rotation of your current authenticator configuration." style={{ marginBottom: 16 }} />
+        <Radio.Group value={rotateMode} onChange={(e) => { setRotateMode(e.target.value); setRotateCode(""); }}>
+          <Radio.Button value="otp">Authenticator code</Radio.Button>
+          <Radio.Button value="backup">Backup code</Radio.Button>
+        </Radio.Group>
+        <div style={{ marginTop: 16 }}>
+          <Input
+            value={rotateCode}
+            onChange={(e) => setRotateCode(rotateMode === "otp" ? e.target.value.replace(/\D/g, "").slice(0, 6) : e.target.value)}
+            maxLength={rotateMode === "otp" ? 6 : undefined}
+            placeholder={rotateMode === "otp" ? "6-digit authenticator code" : "One-time backup code"}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

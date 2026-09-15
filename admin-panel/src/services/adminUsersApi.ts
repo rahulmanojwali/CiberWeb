@@ -169,6 +169,7 @@ export async function requireStepUp({
   resource_key,
   action,
   browser_session_id,
+  force_stepup,
 }: {
   username: string;
   target_username: string;
@@ -178,6 +179,7 @@ export async function requireStepUp({
   resource_key?: string;
   action?: string;
   browser_session_id?: string;
+  force_stepup?: boolean;
 }) {
   const items: Record<string, any> = {
     api: API_TAGS.ADMIN_2FA.requireStepUp,
@@ -197,6 +199,9 @@ export async function requireStepUp({
   }
   if (browser_session_id) {
     items.browser_session_id = browser_session_id;
+  }
+  if (force_stepup) {
+    items.force_stepup = true;
   }
   const headers: Record<string, string> = session_id
     ? { "X-StepUp-Session": session_id }

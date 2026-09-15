@@ -31,6 +31,7 @@ export type StepupSelectionPayload = {
   selected: string[];
   language?: string;
   country?: string;
+  mode?: "OPTIONAL" | "MANDATORY";
 };
 
 export async function saveStepupPolicySelection({
@@ -38,6 +39,7 @@ export async function saveStepupPolicySelection({
   selected,
   language = DEFAULT_LANGUAGE,
   country = DEFAULT_COUNTRY,
+  mode = "OPTIONAL",
 }: StepupSelectionPayload) {
   const items: Record<string, any> = {
     api: API_TAGS.STEPUP_POLICY.saveSelection,
@@ -45,6 +47,7 @@ export async function saveStepupPolicySelection({
     language,
     country,
     selected,
+    mode,
   };
   return postEncrypted(API_ROUTES.admin.saveStepupPolicySelection, items);
 }

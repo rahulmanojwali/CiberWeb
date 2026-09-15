@@ -758,7 +758,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
   }, [ensureCacheLoaded]);
 
   const issueStepUpCheck = React.useCallback(
-    async (resourceKey: string, action: string) => {
+    async (resourceKey: string, action: string, forceStepUp: boolean = false) => {
       const storedUser = getStoredAdminUser();
       const username = storedUser?.username || getCurrentAdminUsername();
       if (!username) {
@@ -779,6 +779,7 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
         browser_session_id: browserSessionId || undefined,
         resource_key: resourceKey,
         action,
+        force_stepup: forceStepUp,
       });
 
       return (
@@ -816,20 +817,26 @@ export const StepUpProvider: React.FC<React.PropsWithChildren<unknown>> = ({ chi
       if (!normalized) return true;
       const lockedSet = getStepupLockedSet();
       const isLockedScreen = Boolean(normalized && lockedSet.has(normalized));
-      const shouldForce = Boolean(opts?.force);
+      const normalizedAction = String(action || "VIEW").trim().toUpperCase();
+      // Mutations must always ask the server whether policy requires step-up.
+      // `force` is stronger: it explicitly requires a fresh challenge even when
+      // the current DB policy would not otherwise require one.
+      const forceChallenge = Boolean(opts?.force);
+      const mustCheckServer = forceChallenge || normalizedAction !== "VIEW";
       console.info(
         "[STEPUP_UI]",
         {
           resource_key: normalized,
           locked: isLockedScreen,
-          force: shouldForce,
+          force: forceChallenge,
+          server_check: mustCheckServer,
           source: opts?.source ?? "UNKNOWN"
         },
       );
-      if (!isLockedScreen && !shouldForce) return true;
+      if (!isLockedScreen && !mustCheckServer) return true;
 
       try {
-        const stepup = await issueStepUpCheck(normalized, action);
+        const stepup = await issueStepUpCheck(normalized, action, forceChallenge);
         if (!stepup) return true;
         if (stepup.mode === "ENROLL_MANDATORY") {
           enqueueSnackbar(

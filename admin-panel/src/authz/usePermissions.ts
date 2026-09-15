@@ -18,8 +18,6 @@ const normalizeAction = (action?: string | null) => {
 
 export function usePermissions() {
   const uiConfig = useAdminUiConfig();
-  const roleSlug = (uiConfig.role || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
-
   const permissionsMap = useMemo(() => {
     const permSource = uiConfig.permissions || [];
     const fallback = (uiConfig as any).resources || [];
@@ -29,91 +27,12 @@ export function usePermissions() {
     Object.entries(actionMap).forEach(([key, actions]) => {
       map[key] = new Set(actions.map((action) => normalizeAction(action)).filter(Boolean));
     });
-    if (
-      roleSlug === "PLATFORM_REVIEWER" ||
-      roleSlug === "PLATFORM_APPROVER" ||
-      roleSlug === "PLATFORM_SUPERVISOR" ||
-      roleSlug === "PLATFORM_OPERATIONS_MANAGER"
-    ) {
-      const ensure = (resourceKey: string, actions: string[]) => {
-        const key = canonicalizeResourceKey(resourceKey);
-        if (!key) return;
-        const existing = map[key] || new Set<string>();
-        actions.forEach((a) => existing.add(a));
-        map[key] = existing;
-      };
-      const reviewActions =
-        roleSlug === "PLATFORM_REVIEWER"
-          ? ["VIEW", "REVIEW", "CHANGE_REQUEST", "REJECT"]
-          : ["VIEW", "REVIEW", "APPROVE", "REJECT", "CHANGE_REQUEST"];
-      ensure("dashboard.menu", ["VIEW"]);
-      ensure("direct_trade_approvals.menu", ["VIEW"]);
-      ensure("direct_trade_approvals.list", ["VIEW"]);
-      // The current approval detail API authorizes against the compatibility key
-      // direct_trade_approvals.view. Keep that key explicit until the API contract
-      // is migrated in a dedicated backward-compatible change.
-      ensure("direct_trade_approvals.view", ["VIEW"]);
-      ensure("direct_trade_approvals.review", ["REVIEW"]);
-      if (reviewActions.includes("APPROVE")) ensure("direct_trade_approvals.approve", ["APPROVE"]);
-      ensure("direct_trade_approvals.reject", ["REJECT"]);
-      ensure("direct_trade_approvals.change_request", ["REQUEST_MORE_INFO"]);
-      ensure("direct_trade_orders.menu", ["VIEW"]);
-    }
-
-    if (roleSlug === "MANDI_MANAGER") {
-      const ensure = (resourceKey: string, actions: string[]) => {
-        const key = canonicalizeResourceKey(resourceKey);
-        if (!key) return;
-        const existing = map[key] || new Set<string>();
-        actions.forEach((a) => existing.add(normalizeAction(a)));
-        map[key] = existing;
-      };
-
-      // MANDI_MANAGER root navigation safety grants. The DB policy remains
-      // authoritative for backend access; these keep the frontend menu stable
-      // when the UI-resource cache is stale or an older payload omits actions.
-      ensure("dashboard.menu", ["VIEW"]);
-      ensure("dashboard.view", ["VIEW"]);
-      ensure("mandi_operations.menu", ["VIEW"]);
-      ensure("mandi_approvals.menu", ["VIEW"]);
-      ensure("mandi_staff.menu", ["VIEW"]);
-      ensure("mandi_staff.list", ["VIEW"]);
-      ensure("mandi_reports.menu", ["VIEW"]);
-      ensure("mandi_management.menu", ["VIEW"]);
-    }
-
-    if (roleSlug === "MANDI_ADMIN") {
-      const ensure = (resourceKey: string, actions: string[]) => {
-        const key = canonicalizeResourceKey(resourceKey);
-        if (!key) return;
-        const existing = map[key] || new Set<string>();
-        actions.forEach((a) => existing.add(a));
-        map[key] = existing;
-      };
-      const mandiActions = ["VIEW", "CREATE", "UPDATE", "DEACTIVATE"];
-      ensure("mandis.menu", ["VIEW"]);
-      ensure("mandis.list", ["VIEW"]);
-      ensure("mandis.detail", ["VIEW"]);
-      ensure("mandis.create", mandiActions);
-      ensure("mandis.edit", mandiActions);
-      ensure("mandis.deactivate", mandiActions);
-      ensure("mandis.system.list", ["VIEW"]);
-      ensure("mandis.org.list", ["VIEW"]);
-      ensure("mandis.import", ["CREATE"]);
-      ensure("org_mandi_mappings.menu", ["VIEW"]);
-      ensure("org_mandi_mappings.list", ["VIEW"]);
-      ensure("org_mandi_mappings.create", mandiActions);
-      ensure("org_mandi_mappings.edit", mandiActions);
-      ensure("org_mandi_mappings.deactivate", mandiActions);
-      ensure("lots.menu", ["VIEW"]);
-      ensure("lots.list", ["VIEW"]);
-      ensure("lots.detail", ["VIEW"]);
-      ensure("lots.verify", ["UPDATE"]);
-      ensure("lots.map_to_auction", ["UPDATE"]);
-      ensure("lots.update_status", ["UPDATE"]);
-    }
+    // Do not synthesize frontend permissions from hard-coded role names.
+    // The effective role policy returned by the API is authoritative for all
+    // menu and action visibility. Frontend-only grants can make the UI disagree
+    // with backend RBAC and can expose controls a role was never assigned.
     return map;
-  }, [uiConfig.permissions, (uiConfig as any).resources, roleSlug]);
+  }, [uiConfig.permissions, (uiConfig as any).resources]);
 
   const can = (resourceKey: string, action: Action = "VIEW") => {
     const normKey = canonicalizeResourceKey(resourceKey);
@@ -124,6 +43,7 @@ export function usePermissions() {
 
   const authContext = {
     role: (uiConfig.role || "").toUpperCase(),
+    role_scope: String(uiConfig.scope?.role_scope || "").trim().toUpperCase(),
     org_id: uiConfig.scope?.org_id || null,
     org_code: uiConfig.scope?.org_code || null,
   };

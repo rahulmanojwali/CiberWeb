@@ -1255,13 +1255,10 @@ export function filterMenuByResources(
     const items: MenuItemRow[] = [];
     freezeItems.forEach((freeze) => {
       const key = canonicalizeResourceKey(freeze.resource_key);
-      const staticMenuItem = findMenuItemByResourceKey(APP_MENU, freeze.resource_key);
-      const roleAllowed =
-        isSuperAdmin ||
-        !staticMenuItem?.roles?.length ||
-        staticMenuItem.roles.includes(normalizedRole as RoleSlug);
-      if (!roleAllowed) return;
-
+      // Runtime sidebar visibility is permission-driven. `roles` on APP_MENU is
+      // legacy presentation metadata only and must never act as a second
+      // authorization gate. If RBAC grants VIEW for an active menu resource,
+      // the menu is eligible to render regardless of role slug.
       const dbMenu = dbMenusByResourceKey.get(key) || (!key ? dbMenusByRoute.get(normalizeRoute(freeze.route)) : undefined);
       if (dbMenu && !isDbActive((dbMenu as any).is_active)) return;
       if (!dbMenu && !isSuperAdmin) return;
@@ -1314,10 +1311,8 @@ export function filterMenuByResources(
     const systemCapacityControlPermissionMatch = Boolean(
       permissionsMap?.[systemCapacityControlKey]?.has("VIEW"),
     );
-    const systemCapacityControlRoleMatch = Boolean(
-      !systemCapacityControlItem?.roles?.length ||
-        (fallbackRole && systemCapacityControlItem.roles.includes(fallbackRole as RoleSlug)),
-    );
+    // Capacity Control follows the same RBAC-only visibility rule. Do not
+    // hard-code role slugs here; the role policy is the source of truth.
     const systemCapacityControlResource = byKey.get(systemCapacityControlKey);
     const systemCapacityControlDbMenu =
       dbMenusByResourceKey.get(systemCapacityControlKey);
@@ -1326,7 +1321,6 @@ export function filterMenuByResources(
       systemCapacityControlItem &&
       (!systemCapacityControlDbMenu || isDbActive((systemCapacityControlDbMenu as any).is_active)) &&
       systemCapacityControlPermissionMatch &&
-      systemCapacityControlRoleMatch &&
       !items.some((item) => canonicalizeResourceKey(item.resourceKey) === systemCapacityControlKey)
     ) {
       items.push({

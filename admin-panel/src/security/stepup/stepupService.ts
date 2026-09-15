@@ -14,9 +14,9 @@ export function isStepUpReady(): boolean {
   return stepUpTrigger !== null;
 }
 
-export async function triggerStepUp(resourceKey?: string | null) {
+export async function triggerStepUp(resourceKey?: string | null, action: string = "VIEW") {
   if (!stepUpTrigger) {
     return false;
   }
-  return stepUpTrigger(resourceKey, "VIEW", { source: "STEPUP_CLIENT" });
+  return stepUpTrigger(resourceKey, action, { source: "STEPUP_CLIENT" });
 }

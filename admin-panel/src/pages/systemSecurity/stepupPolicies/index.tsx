@@ -5,6 +5,7 @@ import {
   Card,
   Checkbox,
   Dropdown,
+  Modal,
   Space,
   Spin,
   Switch,
@@ -16,6 +17,7 @@ import {
 } from "antd";
 import {
   DownOutlined,
+  LockOutlined,
   ReloadOutlined,
   SaveOutlined,
   SearchOutlined,
@@ -46,13 +48,6 @@ const arrays = (resp: any, field: string): any[] => {
   return [];
 };
 
-const matchObj = (resp: any) => {
-  const candidates = [resp, resp?.data, resp?.response, resp?.data?.data, resp?.response?.data];
-  for (const candidate of candidates) {
-    if (candidate?.match && typeof candidate.match === "object") return candidate.match;
-  }
-  return null;
-};
 
 const unique = (values: string[]) =>
   Array.from(new Set(values.map(normalize).filter(Boolean)));
@@ -79,6 +74,9 @@ const StepUpPoliciesPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [protectedOnly, setProtectedOnly] = useState(false);
+  const [mandatoryOpen, setMandatoryOpen] = useState(false);
+  const [mandatorySaving, setMandatorySaving] = useState(false);
+  const [mandatoryDraft, setMandatoryDraft] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!username) return;
@@ -109,22 +107,13 @@ const StepUpPoliciesPage: React.FC = () => {
         });
 
       const lockedKeys = unique(arrays(policyResp, "locked_defaults"));
-      const match = matchObj(policyResp);
-      const matchType = String(match?.type || "RESOURCE_KEY_PREFIX").toUpperCase();
-      const matchValues = unique(Array.isArray(match?.values) ? match.values : []);
-      const selectedKeys = normalizedScreens
-        .filter((screen) =>
-          matchType === "RESOURCE_KEY_PREFIX"
-            ? matchValues.some((prefix) => screen.resource_key.startsWith(prefix))
-            : matchValues.includes(screen.resource_key),
-        )
-        .map((screen) => screen.resource_key);
-
+      const selectedKeys = unique(arrays(policyResp, "selected"));
       const normalizedSelection = unique([...selectedKeys, ...lockedKeys]);
       setScreens(normalizedScreens);
       setLocked(lockedKeys);
       setSelected(normalizedSelection);
       setBaselineSelected(normalizedSelection);
+      setMandatoryDraft(lockedKeys);
 
       const switchValue =
         switchResp?.switches?.STEPUP_BROWSER_SESSION_BINDING ||
@@ -226,6 +215,47 @@ const StepUpPoliciesPage: React.FC = () => {
     }
   };
 
+  const openMandatoryManager = () => {
+    setMandatoryDraft(locked);
+    setMandatoryOpen(true);
+  };
+
+  const toggleMandatory = (key: string) => {
+    setMandatoryDraft((previous) => {
+      const next = new Set(previous);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return Array.from(next);
+    });
+  };
+
+  const saveMandatoryDefaults = async () => {
+    if (!mandatoryDraft.length) {
+      message.warning("Keep at least one mandatory step-up screen.");
+      return;
+    }
+    setMandatorySaving(true);
+    try {
+      const valid = new Set(screens.map((screen) => screen.resource_key));
+      const exactKeys = unique(mandatoryDraft.filter((key) => valid.has(key)));
+      const resp: any = await saveStepupPolicySelection({
+        username,
+        selected: exactKeys,
+        mode: "MANDATORY",
+      });
+      const response = resp?.response || resp?.data?.response;
+      if (response?.responsecode !== "0") {
+        throw new Error(response?.description || "Unable to save mandatory defaults.");
+      }
+      message.success("Mandatory step-up defaults updated.");
+      setMandatoryOpen(false);
+      await load();
+    } catch (err: any) {
+      message.error(err?.message || "Unable to save mandatory defaults.");
+    } finally {
+      setMandatorySaving(false);
+    }
+  };
+
   const toggleBinding = async (checked: boolean) => {
     setBindingSaving(true);
     try {
@@ -276,7 +306,7 @@ const StepUpPoliciesPage: React.FC = () => {
           showIcon
           icon={<SafetyCertificateOutlined />}
           message="How this works"
-          description="Selected screens require a recent step-up verification. Locked defaults are protected by the platform and cannot be removed. Changes below are not applied until you save the policy."
+          description="Selected screens require recent verification. Mandatory defaults come from the database and cannot be unchecked in the normal list. SUPER_ADMIN can change that mandatory set only through the dedicated manager below."
         />
 
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
@@ -376,6 +406,9 @@ const StepUpPoliciesPage: React.FC = () => {
                     <Button onClick={clearOptionalVisible} disabled={!filtered.length}>
                       Clear optional in current view
                     </Button>
+                    <Button icon={<LockOutlined />} onClick={openMandatoryManager}>
+                      Manage mandatory defaults
+                    </Button>
                   </Space>
                   <Text type="secondary">
                     {filtered.length} screen{filtered.length === 1 ? "" : "s"} in current view
@@ -424,7 +457,7 @@ const StepUpPoliciesPage: React.FC = () => {
                             >
                               Require step-up
                             </Checkbox>
-                            {isLocked && <Tag color="blue">Locked default</Tag>}
+                            {isLocked && <Tag color="blue">Mandatory</Tag>}
                             {!isLocked && isSelected && <Tag color="green">Protected</Tag>}
                             {!isLocked && !isSelected && <Tag>Optional</Tag>}
                           </div>
@@ -464,6 +497,64 @@ const StepUpPoliciesPage: React.FC = () => {
             </Card>
           </Space>
         </Spin>
+
+        <Modal
+          title="Manage mandatory step-up defaults"
+          open={mandatoryOpen}
+          onCancel={() => setMandatoryOpen(false)}
+          onOk={() => void saveMandatoryDefaults()}
+          okText="Save mandatory defaults"
+          confirmLoading={mandatorySaving}
+          width={760}
+          destroyOnClose={false}
+        >
+          <Alert
+            type="warning"
+            showIcon
+            message="Platform-wide mandatory protection"
+            description="Screens selected here cannot be disabled from the normal policy list. Changing this set affects all administrators and requires a verified SUPER_ADMIN session."
+            style={{ marginBottom: 16 }}
+          />
+          <Table
+            rowKey="resource_key"
+            size="small"
+            dataSource={screens}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            columns={[
+              {
+                title: "Screen",
+                dataIndex: "label",
+                key: "label",
+                render: (value: string, row: StepupScreen) => (
+                  <div>
+                    <Text strong>{value}</Text>
+                    <div className="cm-stepup-route">{row.route}</div>
+                  </div>
+                ),
+              },
+              {
+                title: "Area",
+                dataIndex: "group",
+                key: "group",
+                width: 180,
+                render: (value: string) => <Tag>{value}</Tag>,
+              },
+              {
+                title: "Mandatory",
+                key: "mandatory",
+                width: 140,
+                render: (_: unknown, row: StepupScreen) => (
+                  <Checkbox
+                    checked={mandatoryDraft.includes(row.resource_key)}
+                    onChange={() => toggleMandatory(row.resource_key)}
+                  >
+                    Lock
+                  </Checkbox>
+                ),
+              },
+            ]}
+          />
+        </Modal>
       </div>
     </StepUpGuard>
   );

@@ -46,14 +46,14 @@ function shouldHandleStepupChallenge(error: any, path: string): boolean {
   return Boolean(payload?.required === true);
 }
 
-async function ensureStepUpSession(resourceKey?: string | null) {
+async function ensureStepUpSession(resourceKey?: string | null, action: string = "VIEW") {
   if (!isStepUpReady()) {
     return false;
   }
   if (!stepupInFlight) {
     stepupInFlight = (async () => {
       try {
-        return await triggerStepUp(resourceKey);
+        return await triggerStepUp(resourceKey, action);
       } finally {
         stepupInFlight = null;
       }
@@ -81,12 +81,20 @@ export function deriveStepupResourceKey(items?: Record<string, any>): string | n
   return null;
 }
 
+
+export function deriveStepupAction(items?: Record<string, any>): string {
+  if (!items) return "VIEW";
+  const raw = items.action || items.permission_action || items.stepup_action || "VIEW";
+  return String(raw || "VIEW").trim().toUpperCase() || "VIEW";
+}
+
 export interface RunEncryptedRequestOptions {
   url: string;
   getBody: () => Promise<any>;
   headersFactory: () => Record<string, string>;
   path: string;
   resourceKey?: string | null;
+  action?: string;
   excludeStepup?: boolean;
   retryCount?: number;
   metadata?: { _stepupRetried?: boolean };
@@ -99,6 +107,7 @@ export async function runEncryptedRequest({
   headersFactory,
   path,
   resourceKey,
+  action = "VIEW",
   excludeStepup = false,
   retryCount = 0,
   metadata = {},
@@ -125,7 +134,7 @@ export async function runEncryptedRequest({
         throw error;
       }
 
-      const verified = await ensureStepUpSession(resourceKey);
+      const verified = await ensureStepUpSession(resourceKey, action);
       if (!verified) {
         throw error;
       }
@@ -137,6 +146,7 @@ export async function runEncryptedRequest({
         headersFactory,
         path,
         resourceKey,
+        action,
         excludeStepup,
         retryCount: retryCount + 1,
         metadata,

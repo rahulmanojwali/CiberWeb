@@ -4,6 +4,7 @@ import { getStepupSessionId } from "../security/stepup/storage";
 import { API_BASE_URL } from "../config/appConfig";
 import {
   deriveStepupResourceKey,
+  deriveStepupAction,
   isStepupExemptPath,
   runEncryptedRequest,
 } from "./encryptedRequestRunner";
@@ -117,6 +118,7 @@ export async function postEncrypted(
     headersFactory,
     path,
     resourceKey: deriveStepupResourceKey(items),
+    action: deriveStepupAction(items),
     excludeStepup: isStepupExemptPath(path),
     dedupeFingerprint: fingerprint,
   });

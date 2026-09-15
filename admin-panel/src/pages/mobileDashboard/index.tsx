@@ -30,6 +30,8 @@ import {
   PlusOutlined,
   QuestionCircleOutlined,
   ReloadOutlined,
+  LockOutlined,
+  BgColorsOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
@@ -42,6 +44,8 @@ import {
   type MobileDashboardWidget,
   reorderMobileDashboardWidgets,
   saveMobileDashboardWidget,
+  saveMobileAppControl,
+  type MobileAppControl,
   updateMobileDashboardWidgetStatus,
 } from "../../services/mobileDashboardAdminApi";
 import { DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../../config/appConfig";
@@ -153,6 +157,8 @@ const MobileDashboardAdminPage = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => blankForm());
   const [loadError, setLoadError] = useState("");
+  const [appControl, setAppControl] = useState<MobileAppControl | null>(null);
+  const [appControlSaving, setAppControlSaving] = useState(false);
 
   const loadRows = useCallback(
     async (nextPage = pagination.page, nextRole = roleFilter) => {
@@ -187,6 +193,7 @@ const MobileDashboardAdminPage = () => {
           page: Number(data.pagination?.page || nextPage || 1),
           total: Number(data.pagination?.total || 0),
         }));
+        if (data.app_control) setAppControl(data.app_control as MobileAppControl);
 
         if (!nextRole && roles.length) {
           const firstConfigured = roles.find((item: MobileDashboardRoleOption) => item.configured) || roles[0];
@@ -392,6 +399,47 @@ const MobileDashboardAdminPage = () => {
     }
   };
 
+  const toggleAppControl = (controlKey: string) => {
+    setAppControl((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        controls: prev.controls.map((item) =>
+          item.control_key === controlKey && item.locked !== "Y"
+            ? { ...item, enabled: item.enabled === "Y" ? "N" : "Y" }
+            : item,
+        ),
+      };
+    });
+  };
+
+  const updateTheme = (key: keyof MobileAppControl["theme"], value: string) => {
+    setAppControl((prev) => prev ? { ...prev, theme: { ...prev.theme, [key]: value } } : prev);
+  };
+
+  const saveAppWideControl = async () => {
+    if (!canEdit || !appControl) return;
+    if (!(await requireEditStepup())) return;
+    setAppControlSaving(true);
+    try {
+      const resp = await saveMobileAppControl({ ...baseInput, app_control: appControl });
+      if (!responseOk(resp)) {
+        toastApi.error(resp?.response?.description || "Unable to save Mobile App Control.");
+        return;
+      }
+      const saved = responseData(resp)?.app_control;
+      if (saved) setAppControl(saved as MobileAppControl);
+      toastApi.success("Mobile App Control updated.");
+    } catch (error: any) {
+      toastApi.error(error?.response?.description || error?.message || "Unable to save Mobile App Control.");
+    } finally {
+      setAppControlSaving(false);
+    }
+  };
+
+  const controlsByType = (type: string) =>
+    (appControl?.controls || []).filter((item) => item.control_type === type).sort((a, b) => a.order - b.order);
+
   const roleMenu = {
     items: roleOptions.map((item) => ({
       key: item.role_code,
@@ -576,6 +624,126 @@ const MobileDashboardAdminPage = () => {
         message="The API configuration is authoritative"
         description="Enable, disable and reorder items here. The Android app must render the successful API response; it must not invent role-specific fallback actions when this configuration fails."
       />
+
+      {appControl ? (
+        <Card
+          style={{ marginTop: 16 }}
+          title={
+            <Space>
+              <BgColorsOutlined />
+              <span>App-wide controls & theme</span>
+            </Space>
+          }
+          extra={
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              disabled={!canEdit || appControlSaving}
+              loading={appControlSaving}
+              onClick={saveAppWideControl}
+            >
+              Save app-wide controls
+            </Button>
+          }
+        >
+          <Alert
+            type="warning"
+            showIcon
+            message="Locked controls cannot be disabled"
+            description="Authentication, legal and safe-navigation entries are intentionally protected. Other feature and guest-home controls can be switched off remotely."
+            style={{ marginBottom: 16 }}
+          />
+
+          <Typography.Title level={5}>Platform features</Typography.Title>
+          <Row gutter={[12, 12]}>
+            {controlsByType("FEATURE").map((item) => (
+              <Col xs={24} md={12} lg={8} key={item.control_key}>
+                <Card size="small">
+                  <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                    <div>
+                      <Typography.Text strong>{item.label}</Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">{item.control_key}</Typography.Text>
+                    </div>
+                    <Switch checked={item.enabled === "Y"} disabled={!canEdit || item.locked === "Y"} onChange={() => toggleAppControl(item.control_key)} />
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+
+          <Typography.Title level={5} style={{ marginTop: 20 }}>Guest / public home</Typography.Title>
+          <Row gutter={[12, 12]}>
+            {controlsByType("PUBLIC_SECTION").map((item) => (
+              <Col xs={24} md={12} lg={8} key={item.control_key}>
+                <Card size="small">
+                  <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                    <div>
+                      <Space>
+                        <Typography.Text strong>{item.label}</Typography.Text>
+                        {item.locked === "Y" ? <Tag icon={<LockOutlined />}>Locked</Tag> : null}
+                      </Space>
+                      <br />
+                      <Typography.Text type="secondary">{item.control_key}</Typography.Text>
+                    </div>
+                    <Switch checked={item.enabled === "Y"} disabled={!canEdit || item.locked === "Y"} onChange={() => toggleAppControl(item.control_key)} />
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+
+          <Collapse
+            style={{ marginTop: 20 }}
+            items={[{
+              key: "theme",
+              label: "Remote theme colours",
+              children: (
+                <>
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="Theme colours are cached by Android"
+                    description="Remote-aware screens and the app shell use these tokens with the existing CiberMandi colours as offline fallback."
+                    style={{ marginBottom: 12 }}
+                  />
+                  <Row gutter={[12, 12]}>
+                    {[
+                      ["primary_hex", "Primary"],
+                      ["secondary_hex", "Secondary"],
+                      ["accent_hex", "Accent"],
+                      ["app_bg_hex", "App background"],
+                      ["surface_hex", "Surface"],
+                    ].map(([key, label]) => (
+                      <Col xs={24} sm={12} lg={8} key={key}>
+                        <label>
+                          <span>{label}</span>
+                          <Input
+                            value={String((appControl.theme as any)?.[key] || "")}
+                            disabled={!canEdit}
+                            placeholder="#55632C"
+                            onChange={(event) => updateTheme(key as keyof MobileAppControl["theme"], event.target.value)}
+                          />
+                        </label>
+                      </Col>
+                    ))}
+                  </Row>
+                </>
+              ),
+            }, {
+              key: "locked",
+              label: "Locked safety / legal screens",
+              children: (
+                <Space wrap>
+                  {controlsByType("SYSTEM_SCREEN").map((item) => (
+                    <Tag key={item.control_key} icon={<LockOutlined />} color="default">{item.label}</Tag>
+                  ))}
+                </Space>
+              ),
+            }]}
+          />
+        </Card>
+      ) : null}
 
       {loadError ? (
         <Alert
@@ -833,12 +1001,26 @@ const MobileDashboardAdminPage = () => {
         </div>
       </Drawer>
 
-      <Drawer title="Mobile Dashboard Help" width={680} open={helpOpen} onClose={() => setHelpOpen(false)}>
+      <Drawer title="Mobile App Control Help" width={680} open={helpOpen} onClose={() => setHelpOpen(false)}>
         <Typography.Title level={4}>What this screen controls</Typography.Title>
         <Typography.Paragraph>
           This is the central configuration for the role-based dashboard returned to the Android app. Each role has its
           own ordered list of dashboard items. The mobile API returns only active configuration for the user&apos;s
           effective role and then applies the item&apos;s permission key where one is configured.
+        </Typography.Paragraph>
+
+        <Typography.Title level={5}>App-wide controls</Typography.Title>
+        <Typography.Paragraph>
+          Platform feature switches can hide major modules across role dashboards and block their Android Activities.
+          Guest/public-home switches control the pre-login home sections. Controls marked <strong>Locked</strong> are
+          safety, authentication or legal paths and cannot be disabled from this screen.
+        </Typography.Paragraph>
+
+        <Typography.Title level={5}>Remote theme colours</Typography.Title>
+        <Typography.Paragraph>
+          Primary, secondary, accent, background and surface colours are cached by Android. Remote-aware screens and
+          the global app shell use them, while the existing CiberMandi resource colours remain the offline fallback.
+          Use valid six-digit HEX values such as <strong>#55632C</strong>.
         </Typography.Paragraph>
 
         <Typography.Title level={5}>Safe way to make a change</Typography.Title>

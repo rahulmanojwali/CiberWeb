@@ -27,6 +27,37 @@ export type MobileDashboardWidget = {
   updated_by?: string | null;
 };
 
+
+export type MobileAppControlItem = {
+  control_key: string;
+  control_type: "FEATURE" | "PUBLIC_SECTION" | "SYSTEM_SCREEN";
+  label: string;
+  enabled: "Y" | "N";
+  locked: "Y" | "N";
+  order: number;
+  activity_tokens?: string[];
+  notes?: string | null;
+};
+
+export type MobileAppControl = {
+  _id?: string;
+  config_key: string;
+  version: number;
+  is_active: "Y" | "N";
+  theme: {
+    enabled: "Y" | "N";
+    preset_name: string;
+    primary_hex: string;
+    secondary_hex: string;
+    accent_hex: string;
+    app_bg_hex: string;
+    surface_hex: string;
+  };
+  controls: MobileAppControlItem[];
+  updated_on?: string | null;
+  updated_by?: string | null;
+};
+
 type BaseInput = {
   username: string;
   country?: string | null;
@@ -105,5 +136,23 @@ export function reorderMobileDashboardWidgets(
     action: "UPDATE",
     role_code: input.role_code,
     widgets: input.widgets,
+  });
+}
+
+
+export function saveMobileAppControl(
+  input: BaseInput & { app_control: MobileAppControl },
+) {
+  return postEncrypted(API_ROUTES.admin.saveMobileDashboardWidget, {
+    ...withBase(input, API_TAGS.MOBILE_DASHBOARD_ADMIN.save),
+    resource_key: "mobile_dashboard.view",
+    action: "UPDATE",
+    config_kind: "APP_CONTROL",
+    expected_version: input.app_control.version,
+    theme: input.app_control.theme,
+    controls: input.app_control.controls.map((item) => ({
+      control_key: item.control_key,
+      enabled: item.enabled,
+    })),
   });
 }

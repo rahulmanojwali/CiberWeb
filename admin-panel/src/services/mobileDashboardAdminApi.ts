@@ -45,14 +45,19 @@ export type MobileAppControl = {
   version: number;
   is_active: "Y" | "N";
   theme: {
-    enabled: "Y" | "N";
-    preset_name: string;
-    primary_hex: string;
-    secondary_hex: string;
-    accent_hex: string;
-    app_bg_hex: string;
-    surface_hex: string;
+    enabled: "Y" | "N"; preset_name: string; primary_hex: string; secondary_hex: string; accent_hex: string; app_bg_hex: string; surface_hex: string;
+    text_primary_hex: string; text_secondary_hex: string; text_muted_hex: string; border_hex: string;
+    success_hex: string; warning_hex: string; error_hex: string; info_hex: string;
+    icon_tint_hex: string; icon_container_hex: string; card_background_hex: string; card_border_hex: string;
+    input_background_hex: string; input_border_hex: string; input_focus_border_hex: string;
+    toolbar_background_hex: string; toolbar_title_hex: string; toolbar_icon_hex: string;
+    bottom_nav_background_hex: string; bottom_nav_selected_hex: string; bottom_nav_unselected_hex: string;
   };
+  layout_density: {
+    screen_horizontal_dp:number; screen_vertical_dp:number; section_gap_dp:number; card_gap_dp:number; card_inner_padding_dp:number; grid_gutter_dp:number;
+    control_gap_dp:number; toolbar_horizontal_dp:number; card_radius_dp:number; control_height_dp:number; icon_dp:number; icon_container_dp:number;
+  };
+  typography: { title_sp:number; section_sp:number; body_sp:number; small_sp:number; button_sp:number; label_sp:number; input_sp:number; };
   controls: MobileAppControlItem[];
   updated_on?: string | null;
   updated_by?: string | null;
@@ -150,6 +155,8 @@ export function saveMobileAppControl(
     config_kind: "APP_CONTROL",
     expected_version: input.app_control.version,
     theme: input.app_control.theme,
+    layout_density: input.app_control.layout_density,
+    typography: input.app_control.typography,
     controls: input.app_control.controls.map((item) => ({
       control_key: item.control_key,
       enabled: item.enabled,

@@ -417,6 +417,14 @@ const MobileDashboardAdminPage = () => {
     setAppControl((prev) => prev ? { ...prev, theme: { ...prev.theme, [key]: value } } : prev);
   };
 
+  const updateLayoutToken = (key: keyof MobileAppControl["layout_density"], value: number | null) => {
+    setAppControl((prev) => prev ? { ...prev, layout_density: { ...prev.layout_density, [key]: Number(value ?? 0) } } : prev);
+  };
+
+  const updateTypographyToken = (key: keyof MobileAppControl["typography"], value: number | null) => {
+    setAppControl((prev) => prev ? { ...prev, typography: { ...prev.typography, [key]: Number(value ?? 0) } } : prev);
+  };
+
   const saveAppWideControl = async () => {
     if (!canEdit || !appControl) return;
     if (!(await requireEditStepup())) return;
@@ -709,11 +717,13 @@ const MobileDashboardAdminPage = () => {
                   />
                   <Row gutter={[12, 12]}>
                     {[
-                      ["primary_hex", "Primary"],
-                      ["secondary_hex", "Secondary"],
-                      ["accent_hex", "Accent"],
-                      ["app_bg_hex", "App background"],
-                      ["surface_hex", "Surface"],
+                      ["primary_hex", "Primary action"], ["secondary_hex", "Secondary"], ["accent_hex", "Accent"], ["app_bg_hex", "App background"], ["surface_hex", "Surface"],
+                      ["text_primary_hex", "Primary text"], ["text_secondary_hex", "Secondary text"], ["text_muted_hex", "Muted text"], ["border_hex", "Default border"],
+                      ["success_hex", "Success"], ["warning_hex", "Warning"], ["error_hex", "Error / destructive"], ["info_hex", "Info"],
+                      ["icon_tint_hex", "Default icon tint"], ["icon_container_hex", "Icon container"], ["card_background_hex", "Card background"], ["card_border_hex", "Card border"],
+                      ["input_background_hex", "Input background"], ["input_border_hex", "Input border"], ["input_focus_border_hex", "Input focus border"],
+                      ["toolbar_background_hex", "Toolbar background"], ["toolbar_title_hex", "Toolbar title"], ["toolbar_icon_hex", "Toolbar icon"],
+                      ["bottom_nav_background_hex", "Bottom nav background"], ["bottom_nav_selected_hex", "Bottom nav selected"], ["bottom_nav_unselected_hex", "Bottom nav unselected"],
                     ].map(([key, label]) => (
                       <Col xs={24} sm={12} lg={8} key={key}>
                         <label>
@@ -728,6 +738,47 @@ const MobileDashboardAdminPage = () => {
                       </Col>
                     ))}
                   </Row>
+                </>
+              ),
+            }, {
+              key: "layout-density",
+              label: "Layout, density & typography",
+              children: (
+                <>
+                  <Alert type="info" showIcon message="One spacing owner per boundary" description="Screen inset, RecyclerView inset and card inner padding are separate semantic tokens. Android responsive containers consume them through CmResponsiveUi so padding is not accidentally stacked." style={{ marginBottom: 12 }} />
+                  <Typography.Text strong>Layout & density (dp)</Typography.Text>
+                  <Row gutter={[12, 12]} style={{ marginTop: 10 }}>
+                    {[
+                      ["screen_horizontal_dp","Screen horizontal",8,24], ["screen_vertical_dp","Screen vertical",4,24], ["section_gap_dp","Section gap",4,24], ["card_gap_dp","Card gap",4,24],
+                      ["card_inner_padding_dp","Card inner padding",8,24], ["grid_gutter_dp","Grid gutter",4,20], ["control_gap_dp","Control gap",4,20], ["toolbar_horizontal_dp","Toolbar inset",8,24],
+                      ["card_radius_dp","Card radius",8,24], ["control_height_dp","Control height",44,60], ["icon_dp","Icon size",18,30], ["icon_container_dp","Icon container",32,52],
+                    ].map(([key,label,min,max]) => (
+                      <Col xs={24} sm={12} lg={8} key={String(key)}><label><span>{String(label)}</span><InputNumber style={{ width:"100%" }} min={Number(min)} max={Number(max)} disabled={!canEdit} value={Number((appControl.layout_density as any)?.[String(key)] ?? 0)} onChange={(value) => updateLayoutToken(key as keyof MobileAppControl["layout_density"], value)} /></label></Col>
+                    ))}
+                  </Row>
+                  <Typography.Text strong style={{ display:"block", marginTop:18 }}>Typography (sp)</Typography.Text>
+                  <Row gutter={[12, 12]} style={{ marginTop: 10 }}>
+                    {[
+                      ["title_sp","Title",18,24], ["section_sp","Section",14,20], ["body_sp","Body",12,17], ["small_sp","Small / caption",10,14], ["button_sp","Button",12,17], ["label_sp","Field label",11,16], ["input_sp","Input text",13,18],
+                    ].map(([key,label,min,max]) => (
+                      <Col xs={24} sm={12} lg={8} key={String(key)}><label><span>{String(label)}</span><InputNumber style={{ width:"100%" }} min={Number(min)} max={Number(max)} step={0.5} disabled={!canEdit} value={Number((appControl.typography as any)?.[String(key)] ?? 0)} onChange={(value) => updateTypographyToken(key as keyof MobileAppControl["typography"], value)} /></label></Col>
+                    ))}
+                  </Row>
+                  <Typography.Text strong style={{ display:"block", marginTop:18 }}>Design preview</Typography.Text>
+                  <div style={{ marginTop:10, maxWidth:360, padding:Number(appControl.layout_density?.screen_horizontal_dp || 16), background:String(appControl.theme?.app_bg_hex || "#F7F5EF"), borderRadius:18, border:`1px solid ${String(appControl.theme?.border_hex || "#DDE2D5")}` }}>
+                    <div style={{ padding:`10px ${Number(appControl.layout_density?.toolbar_horizontal_dp || 16)}px`, background:String(appControl.theme?.toolbar_background_hex || "#FFFFFF"), color:String(appControl.theme?.toolbar_title_hex || "#1F2933"), borderRadius:10, fontSize:Number(appControl.typography?.section_sp || 16), fontWeight:700 }}>CiberMandi preview</div>
+                    <div style={{ marginTop:Number(appControl.layout_density?.section_gap_dp || 12), padding:Number(appControl.layout_density?.card_inner_padding_dp || 16), background:String(appControl.theme?.card_background_hex || "#FFFFFF"), border:`1px solid ${String(appControl.theme?.card_border_hex || "#DDE2D5")}`, borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>
+                      <div style={{ color:String(appControl.theme?.text_primary_hex || "#1F2933"), fontSize:Number(appControl.typography?.section_sp || 16), fontWeight:700 }}>Marketplace card</div>
+                      <div style={{ color:String(appControl.theme?.text_secondary_hex || "#6B7280"), fontSize:Number(appControl.typography?.body_sp || 14), marginTop:Number(appControl.layout_density?.control_gap_dp || 8) }}>This preview uses the same semantic tokens saved for Android.</div>
+                      <Space style={{ marginTop:Number(appControl.layout_density?.section_gap_dp || 12) }}>
+                        <Button style={{ background:String(appControl.theme?.primary_hex || "#55632C"), borderColor:String(appControl.theme?.primary_hex || "#55632C"), color:"#fff", borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>Primary</Button>
+                        <Button style={{ color:String(appControl.theme?.primary_hex || "#55632C"), borderColor:String(appControl.theme?.primary_hex || "#55632C"), borderRadius:Number(appControl.layout_density?.card_radius_dp || 16) }}>Secondary</Button>
+                      </Space>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-around", marginTop:Number(appControl.layout_density?.card_gap_dp || 12), padding:10, background:String(appControl.theme?.bottom_nav_background_hex || "#FFFFFF"), color:String(appControl.theme?.bottom_nav_selected_hex || "#55632C"), borderRadius:12 }}>
+                      <span>Home</span><span style={{ color:String(appControl.theme?.bottom_nav_unselected_hex || "#8A9086") }}>Market</span><span style={{ color:String(appControl.theme?.bottom_nav_unselected_hex || "#8A9086") }}>More</span>
+                    </div>
+                  </div>
                 </>
               ),
             }, {
@@ -1021,6 +1072,11 @@ const MobileDashboardAdminPage = () => {
           Primary, secondary, accent, background and surface colours are cached by Android. Remote-aware screens and
           the global app shell use them, while the existing CiberMandi resource colours remain the offline fallback.
           Use valid six-digit HEX values such as <strong>#55632C</strong>.
+        </Typography.Paragraph>
+
+        <Typography.Title level={5}>Layout, density and typography</Typography.Title>
+        <Typography.Paragraph>
+          Screen inset, card spacing, card inner padding, grid gutter and control spacing are centrally controlled but clamped to safe ranges. Android applies these through <strong>CmResponsiveUi</strong> and responsive XML/custom roots. A RecyclerView that owns the screen inset must not also use item-level horizontal screen margins; card inner padding is a separate token. Typography uses the system Android font stack with semantic sizes rather than custom font files.
         </Typography.Paragraph>
 
         <Typography.Title level={5}>Safe way to make a change</Typography.Title>

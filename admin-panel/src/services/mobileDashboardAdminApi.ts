@@ -62,6 +62,13 @@ export type MobileAppControl = {
     control_gap_dp:number; toolbar_horizontal_dp:number; card_radius_dp:number; control_height_dp:number; icon_dp:number; icon_container_dp:number;
   };
   typography: { title_sp:number; section_sp:number; body_sp:number; small_sp:number; button_sp:number; label_sp:number; input_sp:number; };
+  public_home_content: {
+    weekly_haat_promo: {
+      title_i18n: Record<string,string>; subtitle_i18n: Record<string,string>; cta_i18n: Record<string,string>;
+      image_url: string; action_type: "WEEKLY_HAAT_NEARBY" | "DEEP_LINK" | "URL"; action_value: string;
+    };
+    tip_strip: { tip_id: string; message_i18n: Record<string,string>; dismissible: "Y" | "N"; dismiss_days: number; };
+  };
   controls: MobileAppControlItem[];
   updated_on?: string | null;
   updated_by?: string | null;
@@ -161,6 +168,7 @@ export function saveMobileAppControl(
     theme: input.app_control.theme,
     layout_density: input.app_control.layout_density,
     typography: input.app_control.typography,
+    public_home_content: input.app_control.public_home_content,
     controls: input.app_control.controls.map((item) => ({
       control_key: item.control_key,
       enabled: item.enabled,

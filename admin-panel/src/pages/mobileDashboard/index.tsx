@@ -6,6 +6,7 @@ import {
   Card,
   Col,
   Collapse,
+  ColorPicker,
   Drawer,
   Dropdown,
   Empty,
@@ -13,6 +14,7 @@ import {
   InputNumber,
   Modal,
   Row,
+  Select,
   Space,
   Statistic,
   Switch,
@@ -130,6 +132,91 @@ function blendHex(foreground: string, background: string, foregroundRatio: numbe
   const ratio = Math.max(0, Math.min(1, foregroundRatio));
   const channel = (index: number) => Math.round(fg[index] * ratio + bg[index] * (1 - ratio)).toString(16).padStart(2, "0").toUpperCase();
   return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
+
+type ThemePreset = { name: string; label: string; primary: string; secondary: string; accent: string };
+
+const THEME_PRESETS: ThemePreset[] = [
+  { name: "CIBERMANDI_OLIVE", label: "CiberMandi Olive", primary: "#55632C", secondary: "#6E7C3A", accent: "#C57A35" },
+  { name: "TERRACOTTA", label: "Warm Terracotta", primary: "#AD5C39", secondary: "#7D6A54", accent: "#D39A45" },
+  { name: "FOREST_SAGE", label: "Forest Sage", primary: "#356859", secondary: "#5F806F", accent: "#C9934C" },
+  { name: "CALM_TEAL", label: "Calm Teal", primary: "#2F6F73", secondary: "#587F80", accent: "#C88948" },
+  { name: "SLATE_BLUE", label: "Slate Blue", primary: "#496A8A", secondary: "#6A7E95", accent: "#C28A4A" },
+  { name: "SOFT_PLUM", label: "Soft Plum", primary: "#76556F", secondary: "#8A6B83", accent: "#C58A57" },
+  { name: "HARVEST_GOLD", label: "Harvest Gold", primary: "#9A6A22", secondary: "#7B7042", accent: "#B75538" },
+  { name: "OCEAN", label: "Ocean Blue", primary: "#356A85", secondary: "#5D8093", accent: "#C88948" },
+  { name: "EARTH_CLAY", label: "Earth Clay", primary: "#8A5D48", secondary: "#76695B", accent: "#B98746" },
+];
+
+function semanticThemeFromBase(
+  current: MobileAppControl["theme"],
+  presetName: string,
+  primary: string,
+  secondary: string,
+  accent: string,
+): MobileAppControl["theme"] {
+  const surface = "#FFFFFF";
+  const appBg = blendHex(primary, "#FFFFFF", 0.035);
+  const surfaceVariant = blendHex(primary, surface, 0.08);
+  const sectionBackground = blendHex(primary, surface, 0.04);
+  const elevated = blendHex(primary, surface, 0.015);
+  const border = blendHex(primary, surface, 0.18);
+  const iconContainer = blendHex(primary, surface, 0.10);
+  const success = "#2E7D32";
+  const warning = "#C57A35";
+  const error = "#B3261E";
+  const info = "#466B7A";
+  return {
+    ...current,
+    enabled: current.enabled || "Y",
+    preset_name: presetName,
+    primary_hex: primary,
+    secondary_hex: secondary,
+    accent_hex: accent,
+    app_bg_hex: appBg,
+    surface_hex: surface,
+    text_primary_hex: "#1F2933",
+    text_secondary_hex: "#5F665D",
+    text_muted_hex: "#8A9086",
+    border_hex: border,
+    success_hex: success,
+    warning_hex: warning,
+    error_hex: error,
+    info_hex: info,
+    icon_tint_hex: primary,
+    icon_container_hex: iconContainer,
+    card_background_hex: surface,
+    card_border_hex: border,
+    input_background_hex: surface,
+    input_border_hex: border,
+    input_focus_border_hex: primary,
+    toolbar_background_hex: surface,
+    toolbar_title_hex: "#1F2933",
+    toolbar_icon_hex: "#1F2933",
+    bottom_nav_background_hex: surface,
+    bottom_nav_selected_hex: primary,
+    bottom_nav_unselected_hex: "#8A9086",
+    surface_variant_hex: surfaceVariant,
+    surface_elevated_hex: elevated,
+    section_background_hex: sectionBackground,
+    success_background_hex: blendHex(success, surface, 0.10),
+    warning_background_hex: blendHex(warning, surface, 0.11),
+    error_background_hex: blendHex(error, surface, 0.09),
+    info_background_hex: blendHex(info, surface, 0.09),
+    chip_selected_background_hex: primary,
+    chip_selected_text_hex: "#FFFFFF",
+    chip_unselected_background_hex: surfaceVariant,
+    chip_unselected_text_hex: "#1F2933",
+    step_active_hex: primary,
+    step_completed_hex: success,
+    step_inactive_hex: border,
+  };
+}
+
+function currentPresetValue(theme?: MobileAppControl["theme"] | null) {
+  const raw = String(theme?.preset_name || "").trim().toUpperCase();
+  return THEME_PRESETS.some((item) => item.name === raw) ? raw : "CUSTOM";
 }
 
 function friendlyRoleLabel(role: MobileDashboardRoleOption) {
@@ -427,11 +514,43 @@ const MobileDashboardAdminPage = () => {
     });
   };
 
+
+  const applyThemePreset = (presetName: string) => {
+    if (presetName === "CUSTOM") {
+      setAppControl((prev) => prev ? { ...prev, theme: { ...prev.theme, preset_name: "CUSTOM" } } : prev);
+      return;
+    }
+    const preset = THEME_PRESETS.find((item) => item.name === presetName);
+    if (!preset) return;
+    setAppControl((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        theme: semanticThemeFromBase(prev.theme, preset.name, preset.primary, preset.secondary, preset.accent),
+      };
+    });
+  };
+
+  const generateThemeFromPrimary = (primary: string) => {
+    const normalized = String(primary || "").trim().toUpperCase();
+    if (!/^#[0-9A-F]{6}$/.test(normalized)) {
+      toastApi.warning("Choose a valid 6-digit primary colour first.");
+      return;
+    }
+    setAppControl((prev) => {
+      if (!prev) return prev;
+      const secondary = blendHex(normalized, "#59635A", 0.72);
+      const accent = blendHex(normalized, "#D08A3B", 0.30);
+      return { ...prev, theme: semanticThemeFromBase(prev.theme, "CUSTOM", normalized, secondary, accent) };
+    });
+  };
+
   const updateTheme = (key: keyof MobileAppControl["theme"], value: string) => {
     setAppControl((prev) => {
       if (!prev) return prev;
       const oldTheme = prev.theme;
       const nextTheme = { ...oldTheme, [key]: value };
+      if (key !== "enabled" && key !== "preset_name") nextTheme.preset_name = "CUSTOM";
 
       // Keep semantic aliases linked while they still match their base token. Once an
       // administrator customises an alias independently, later base-colour edits no longer
@@ -795,37 +914,97 @@ const MobileDashboardAdminPage = () => {
                   <Alert
                     type="info"
                     showIcon
-                    message="Theme colours are cached by Android"
-                    description="Remote-aware screens and the app shell use these tokens with the existing CiberMandi colours as offline fallback."
-                    style={{ marginBottom: 12 }}
+                    message="One theme selection controls the whole semantic palette"
+                    description="Choose a preset and every related app colour is generated together: buttons, backgrounds, cards, icons, icon containers, inputs, toolbar, bottom navigation, chips and workflow steps. Android consumes these same saved tokens."
+                    style={{ marginBottom: 14 }}
                   />
-                  <Row gutter={[12, 12]}>
-                    {[
-                      ["primary_hex", "Primary action"], ["secondary_hex", "Secondary"], ["accent_hex", "Accent"], ["app_bg_hex", "App background"], ["surface_hex", "Surface"],
-                      ["text_primary_hex", "Primary text"], ["text_secondary_hex", "Secondary text"], ["text_muted_hex", "Muted text"], ["border_hex", "Default border"],
-                      ["success_hex", "Success"], ["warning_hex", "Warning"], ["error_hex", "Error / destructive"], ["info_hex", "Info"],
-                      ["icon_tint_hex", "Default icon tint"], ["icon_container_hex", "Icon container"], ["card_background_hex", "Card background"], ["card_border_hex", "Card border"],
-                      ["input_background_hex", "Input background"], ["input_border_hex", "Input border"], ["input_focus_border_hex", "Input focus border"],
-                      ["toolbar_background_hex", "Toolbar background"], ["toolbar_title_hex", "Toolbar title"], ["toolbar_icon_hex", "Toolbar icon"],
-                      ["bottom_nav_background_hex", "Bottom nav background"], ["bottom_nav_selected_hex", "Bottom nav selected"], ["bottom_nav_unselected_hex", "Bottom nav unselected"],
-                      ["surface_variant_hex", "Surface variant"], ["surface_elevated_hex", "Elevated surface"], ["section_background_hex", "Section background"],
-                      ["success_background_hex", "Success background"], ["warning_background_hex", "Warning background"], ["error_background_hex", "Error background"], ["info_background_hex", "Info background"],
-                      ["chip_selected_background_hex", "Selected chip background"], ["chip_selected_text_hex", "Selected chip text"], ["chip_unselected_background_hex", "Unselected chip background"], ["chip_unselected_text_hex", "Unselected chip text"],
-                      ["step_active_hex", "Active step"], ["step_completed_hex", "Completed step"], ["step_inactive_hex", "Inactive step"],
-                    ].map(([key, label]) => (
-                      <Col xs={24} sm={12} lg={8} key={key}>
-                        <label>
-                          <span>{label}</span>
-                          <Input
-                            value={String((appControl.theme as any)?.[key] || "")}
-                            disabled={!canEdit}
-                            placeholder="#55632C"
-                            onChange={(event) => updateTheme(key as keyof MobileAppControl["theme"], event.target.value)}
-                          />
-                        </label>
-                      </Col>
-                    ))}
+                  <Row gutter={[16, 16]} align="top">
+                    <Col xs={24} xl={14}>
+                      <Card size="small" title="Theme selection" style={{ height: "100%" }}>
+                        <Row gutter={[12, 12]}>
+                          <Col xs={24} md={14}>
+                            <label><span>Theme preset</span>
+                              <Select
+                                style={{ width: "100%", marginTop: 6 }}
+                                disabled={!canEdit}
+                                value={currentPresetValue(appControl.theme)}
+                                onChange={applyThemePreset}
+                                options={[
+                                  ...THEME_PRESETS.map((preset) => ({
+                                    value: preset.name,
+                                    label: <Space size={8}><span style={{ width:14, height:14, borderRadius:4, background:preset.primary, border:"1px solid #D0D5D0", display:"inline-block" }} />{preset.label}</Space>,
+                                  })),
+                                  { value: "CUSTOM", label: "Custom palette" },
+                                ]}
+                              />
+                            </label>
+                          </Col>
+                          <Col xs={24} md={10}>
+                            <label><span>Primary colour</span>
+                              <Space.Compact style={{ width: "100%", marginTop: 6 }}>
+                                <ColorPicker
+                                  disabled={!canEdit}
+                                  value={String(appControl.theme?.primary_hex || "#55632C")}
+                                  showText={false}
+                                  onChangeComplete={(color) => generateThemeFromPrimary(color.toHexString().toUpperCase())}
+                                />
+                                <Input
+                                  value={String(appControl.theme?.primary_hex || "")}
+                                  disabled={!canEdit}
+                                  onChange={(event) => updateTheme("primary_hex", event.target.value)}
+                                  onBlur={() => generateThemeFromPrimary(String(appControl.theme?.primary_hex || ""))}
+                                />
+                              </Space.Compact>
+                            </label>
+                          </Col>
+                        </Row>
+                        <Typography.Text type="secondary" style={{ display:"block", marginTop:10 }}>
+                          Selecting a preset replaces the complete palette as one coherent set. Use Custom only when you intentionally want to override individual semantic colours.
+                        </Typography.Text>
+                      </Card>
+                    </Col>
+                    <Col xs={24} xl={10}>
+                      <Card size="small" title="Live app palette" style={{ background:String(appControl.theme?.app_bg_hex || "#F7F5EF") }}>
+                        <div style={{ background:String(appControl.theme?.toolbar_background_hex || "#FFFFFF"), color:String(appControl.theme?.toolbar_title_hex || "#1F2933"), borderRadius:10, padding:"10px 12px", fontWeight:700, border:`1px solid ${String(appControl.theme?.border_hex || "#DDE2D5")}` }}>CiberMandi</div>
+                        <div style={{ marginTop:10, padding:12, borderRadius:Number(appControl.layout_density?.card_radius_dp || 16), background:String(appControl.theme?.card_background_hex || "#FFFFFF"), border:`1px solid ${String(appControl.theme?.card_border_hex || "#DDE2D5")}` }}>
+                          <Space align="center"><span style={{ width:34, height:34, borderRadius:10, background:String(appControl.theme?.icon_container_hex || "#EEF1E5"), color:String(appControl.theme?.icon_tint_hex || "#55632C"), display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>●</span><div><div style={{ color:String(appControl.theme?.text_primary_hex || "#1F2933"), fontWeight:700 }}>Marketplace card</div><div style={{ color:String(appControl.theme?.text_secondary_hex || "#6B7280"), fontSize:12 }}>Icon, card, text and controls use one palette.</div></div></Space>
+                          <Space wrap style={{ marginTop:12 }}>
+                            <Button style={{ background:String(appControl.theme?.primary_hex || "#55632C"), borderColor:String(appControl.theme?.primary_hex || "#55632C"), color:"#fff" }}>Primary</Button>
+                            <Button style={{ color:String(appControl.theme?.secondary_hex || "#6E7C3A"), borderColor:String(appControl.theme?.secondary_hex || "#6E7C3A") }}>Secondary</Button>
+                            <Tag style={{ background:String(appControl.theme?.success_background_hex || "#EAF5EB"), color:String(appControl.theme?.success_hex || "#2E7D32"), borderColor:"transparent" }}>Success</Tag>
+                          </Space>
+                          <div style={{ marginTop:12, height:38, borderRadius:10, background:String(appControl.theme?.input_background_hex || "#FFFFFF"), border:`1px solid ${String(appControl.theme?.input_border_hex || "#DDE2D5")}`, color:String(appControl.theme?.text_muted_hex || "#8A9086"), display:"flex", alignItems:"center", padding:"0 10px" }}>Search CiberMandi</div>
+                        </div>
+                        <div style={{ marginTop:10, display:"flex", justifyContent:"space-around", padding:9, borderRadius:10, background:String(appControl.theme?.bottom_nav_background_hex || "#FFFFFF"), border:`1px solid ${String(appControl.theme?.border_hex || "#DDE2D5")}` }}><strong style={{ color:String(appControl.theme?.bottom_nav_selected_hex || "#55632C") }}>Home</strong><span style={{ color:String(appControl.theme?.bottom_nav_unselected_hex || "#8A9086") }}>Market</span><span style={{ color:String(appControl.theme?.bottom_nav_unselected_hex || "#8A9086") }}>More</span></div>
+                      </Card>
+                    </Col>
                   </Row>
+                  <Collapse
+                    ghost
+                    style={{ marginTop: 12 }}
+                    items={[{
+                      key: "advanced-theme",
+                      label: "Advanced / individual semantic colours",
+                      children: <Row gutter={[12, 12]}>
+                        {[
+                          ["primary_hex", "Primary action"], ["secondary_hex", "Secondary"], ["accent_hex", "Accent"], ["app_bg_hex", "App background"], ["surface_hex", "Surface"],
+                          ["text_primary_hex", "Primary text"], ["text_secondary_hex", "Secondary text"], ["text_muted_hex", "Muted text"], ["border_hex", "Default border"],
+                          ["success_hex", "Success"], ["warning_hex", "Warning"], ["error_hex", "Error / destructive"], ["info_hex", "Info"],
+                          ["icon_tint_hex", "Default icon tint"], ["icon_container_hex", "Icon container"], ["card_background_hex", "Card background"], ["card_border_hex", "Card border"],
+                          ["input_background_hex", "Input background"], ["input_border_hex", "Input border"], ["input_focus_border_hex", "Input focus border"],
+                          ["toolbar_background_hex", "Toolbar background"], ["toolbar_title_hex", "Toolbar title"], ["toolbar_icon_hex", "Toolbar icon"],
+                          ["bottom_nav_background_hex", "Bottom nav background"], ["bottom_nav_selected_hex", "Bottom nav selected"], ["bottom_nav_unselected_hex", "Bottom nav unselected"],
+                          ["surface_variant_hex", "Surface variant"], ["surface_elevated_hex", "Elevated surface"], ["section_background_hex", "Section background"],
+                          ["success_background_hex", "Success background"], ["warning_background_hex", "Warning background"], ["error_background_hex", "Error background"], ["info_background_hex", "Info background"],
+                          ["chip_selected_background_hex", "Selected chip background"], ["chip_selected_text_hex", "Selected chip text"], ["chip_unselected_background_hex", "Unselected chip background"], ["chip_unselected_text_hex", "Unselected chip text"],
+                          ["step_active_hex", "Active step"], ["step_completed_hex", "Completed step"], ["step_inactive_hex", "Inactive step"],
+                        ].map(([key, label]) => {
+                          const value = String((appControl.theme as any)?.[key] || "");
+                          return <Col xs={24} sm={12} lg={8} key={key}><label><span>{label}</span><Space.Compact style={{ width:"100%", marginTop:6 }}><ColorPicker disabled={!canEdit} value={value || "#FFFFFF"} showText={false} onChangeComplete={(color) => updateTheme(key as keyof MobileAppControl["theme"], color.toHexString().toUpperCase())} /><Input value={value} disabled={!canEdit} placeholder="#55632C" onChange={(event) => updateTheme(key as keyof MobileAppControl["theme"], event.target.value)} /></Space.Compact></label></Col>;
+                        })}
+                      </Row>,
+                    }]}
+                  />
                 </>
               ),
             }, {

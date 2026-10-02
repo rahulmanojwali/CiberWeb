@@ -48,13 +48,38 @@
   padding: 48px 12px;
 }
 
-/* The legacy global native-input rules must not create a second box inside Ant controls. */
-.cm-mandi-prices-page .ant-select-selector {
-  border: 1px solid var(--cm-border, #d9ded2) !important;
-  box-shadow: none !important;
+/* Ant 6 Select: exactly one visible outer control.
+   Project-wide native input rules must not style rc-select internals. */
+.cm-mandi-prices-page .cm-mandi-prices-select.ant-select {
+  border: 1px solid var(--cm-border, #d9ded2);
+  border-radius: 10px;
+  background: #fff;
+  min-height: 36px;
 }
 
-.cm-mandi-prices-page .ant-select-selection-search-input,
+.cm-mandi-prices-page .cm-mandi-prices-select.ant-select .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-mandi-prices-page .cm-mandi-prices-select.ant-select input {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.cm-mandi-prices-page .cm-mandi-prices-select.ant-select-focused {
+  border-color: var(--cm-color-primary, #55632c);
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.1);
+}
+
+/* Date range keeps its Ant border; only the internal native inputs are reset. */
 .cm-mandi-prices-page .ant-picker input {
   border: 0 !important;
   border-radius: 0 !important;
@@ -66,7 +91,6 @@
   outline: 0 !important;
 }
 
-.cm-mandi-prices-page .ant-select-focused .ant-select-selector,
 .cm-mandi-prices-page .ant-picker-focused {
   border-color: var(--cm-color-primary, #55632c) !important;
   box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.1) !important;

@@ -1,0 +1,67 @@
+.cm-mcp-page { display: flex; flex-direction: column; gap: 12px; }
+.cm-mcp-eyebrow { display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--cm-color-primary, #55632c); }
+.cm-mcp-scope-title { margin: 2px 0 3px; font-size: 16px; font-weight: 700; color: var(--cm-color-text, #1f2933); }
+.cm-mcp-stats { margin: 0; }
+.cm-mcp-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.cm-mcp-toolbar > .cm-mcp-select { min-width: 190px; }
+.cm-mcp-toolbar > .cm-mcp-status-select { min-width: 130px; }
+.cm-mcp-toolbar-spacer { flex: 1 1 auto; }
+.cm-mcp-muted { font-size: 11px; }
+.cm-mcp-table .ant-table-thead > tr > th { white-space: nowrap; }
+.cm-mcp-form { margin-top: 16px; }
+.cm-mcp-import-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 4px 0 12px; }
+.cm-mcp-trade-select { min-width: 170px; }
+.cm-mcp-import-list { max-height: 420px; overflow-y: auto; border: 1px solid #eceee8; border-radius: 12px; }
+.cm-mcp-import-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f0f1ed; cursor: pointer; }
+.cm-mcp-import-row:last-child { border-bottom: 0; }
+.cm-mcp-import-row:hover { background: #fafbf8; }
+.cm-mcp-import-copy { display: flex; flex-direction: column; gap: 1px; }
+
+/* Ant Select single-border fix. Legacy global native input styling otherwise leaks into rc-select internals. */
+.cm-mcp-page .cm-mcp-select.ant-select,
+.cm-mcp-modal .cm-mcp-select.ant-select,
+.cm-mcp-page .ant-pagination-options .ant-select {
+  border: 1px solid #d9ddd2;
+  border-radius: 9px;
+  background: #fff;
+  min-height: 34px;
+}
+.cm-mcp-page .cm-mcp-select.ant-select:hover,
+.cm-mcp-modal .cm-mcp-select.ant-select:hover,
+.cm-mcp-page .ant-pagination-options .ant-select:hover { border-color: #99a47d; }
+.cm-mcp-page .cm-mcp-select.ant-select-focused,
+.cm-mcp-modal .cm-mcp-select.ant-select-focused,
+.cm-mcp-page .ant-pagination-options .ant-select-focused { border-color: #55632c; box-shadow: 0 0 0 2px rgba(85,99,44,.08); }
+.cm-mcp-page .cm-mcp-select .ant-select-selector,
+.cm-mcp-modal .cm-mcp-select .ant-select-selector,
+.cm-mcp-page .ant-pagination-options .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.cm-mcp-page .cm-mcp-select input,
+.cm-mcp-modal .cm-mcp-select input,
+.cm-mcp-page .ant-pagination-options .ant-select input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .cm-mcp-toolbar { align-items: stretch; }
+  .cm-mcp-toolbar > .cm-mcp-select { min-width: 0; flex: 1 1 220px; }
+  .cm-mcp-toolbar-spacer { display: none; }
+}
+
+@media (max-width: 600px) {
+  .cm-mcp-toolbar { flex-direction: column; }
+  .cm-mcp-toolbar > .cm-mcp-select,
+  .cm-mcp-toolbar .ant-space { width: 100%; }
+  .cm-mcp-toolbar .ant-space-item { flex: 1; }
+  .cm-mcp-toolbar .ant-btn { width: 100%; }
+  .cm-mcp-import-head { align-items: stretch; flex-direction: column; }
+  .cm-mcp-trade-select { width: 100%; }
+}

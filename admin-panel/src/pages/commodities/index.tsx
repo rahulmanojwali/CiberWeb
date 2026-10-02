@@ -651,6 +651,7 @@ export const Commodities: React.FC = () => {
       </div>
 
       <Modal
+        rootClassName="cm-commodities-modal"
         open={createOpen}
         title="Add organisation commodity"
         okText="Create commodity"
@@ -680,6 +681,7 @@ export const Commodities: React.FC = () => {
       </Modal>
 
       <Modal
+        rootClassName="cm-commodities-modal"
         open={importOpen}
         title="Import from platform commodity master"
         width={920}

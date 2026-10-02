@@ -44,6 +44,7 @@ import {
   getMobileDashboardWidgets,
   type MobileDashboardRoleOption,
   type MobileDashboardWidget,
+  type MobileThemePreset,
   reorderMobileDashboardWidgets,
   saveMobileDashboardWidget,
   saveMobileAppControl,
@@ -52,6 +53,7 @@ import {
 } from "../../services/mobileDashboardAdminApi";
 import { DEFAULT_COUNTRY, DEFAULT_LANGUAGE } from "../../config/appConfig";
 import "../../styles/systemAdmin.css";
+import "./mobileDashboard.css";
 
 const LAYOUTS = ["FULL_WIDTH", "GRID_2", "LIST"] as const;
 
@@ -135,20 +137,6 @@ function blendHex(foreground: string, background: string, foregroundRatio: numbe
 }
 
 
-type ThemePreset = { name: string; label: string; primary: string; secondary: string; accent: string };
-
-const THEME_PRESETS: ThemePreset[] = [
-  { name: "CIBERMANDI_OLIVE", label: "CiberMandi Olive", primary: "#55632C", secondary: "#6E7C3A", accent: "#C57A35" },
-  { name: "TERRACOTTA", label: "Warm Terracotta", primary: "#AD5C39", secondary: "#7D6A54", accent: "#D39A45" },
-  { name: "FOREST_SAGE", label: "Forest Sage", primary: "#356859", secondary: "#5F806F", accent: "#C9934C" },
-  { name: "CALM_TEAL", label: "Calm Teal", primary: "#2F6F73", secondary: "#587F80", accent: "#C88948" },
-  { name: "SLATE_BLUE", label: "Slate Blue", primary: "#496A8A", secondary: "#6A7E95", accent: "#C28A4A" },
-  { name: "SOFT_PLUM", label: "Soft Plum", primary: "#76556F", secondary: "#8A6B83", accent: "#C58A57" },
-  { name: "HARVEST_GOLD", label: "Harvest Gold", primary: "#9A6A22", secondary: "#7B7042", accent: "#B75538" },
-  { name: "OCEAN", label: "Ocean Blue", primary: "#356A85", secondary: "#5D8093", accent: "#C88948" },
-  { name: "EARTH_CLAY", label: "Earth Clay", primary: "#8A5D48", secondary: "#76695B", accent: "#B98746" },
-];
-
 function semanticThemeFromBase(
   current: MobileAppControl["theme"],
   presetName: string,
@@ -214,9 +202,9 @@ function semanticThemeFromBase(
   };
 }
 
-function currentPresetValue(theme?: MobileAppControl["theme"] | null) {
+function currentPresetValue(theme: MobileAppControl["theme"] | null | undefined, presets: MobileThemePreset[]) {
   const raw = String(theme?.preset_name || "").trim().toUpperCase();
-  return THEME_PRESETS.some((item) => item.name === raw) ? raw : "CUSTOM";
+  return presets.some((item) => item.preset_key === raw) ? raw : "CUSTOM";
 }
 
 function friendlyRoleLabel(role: MobileDashboardRoleOption) {
@@ -259,6 +247,7 @@ const MobileDashboardAdminPage = () => {
   const [form, setForm] = useState<FormState>(() => blankForm());
   const [loadError, setLoadError] = useState("");
   const [appControl, setAppControl] = useState<MobileAppControl | null>(null);
+  const [themePresets, setThemePresets] = useState<MobileThemePreset[]>([]);
   const [appControlSaving, setAppControlSaving] = useState(false);
 
   const loadRows = useCallback(
@@ -295,6 +284,18 @@ const MobileDashboardAdminPage = () => {
           total: Number(data.pagination?.total || 0),
         }));
         if (data.app_control) setAppControl(data.app_control as MobileAppControl);
+        setThemePresets(
+          (Array.isArray(data.theme_presets) ? data.theme_presets : [])
+            .filter((item: MobileThemePreset) => item?.is_active === "Y" && item?.preset_key)
+            .map((item: MobileThemePreset) => ({
+              ...item,
+              preset_key: String(item.preset_key).trim().toUpperCase(),
+              display_order: Number(item.display_order || 0),
+            }))
+            .sort((a: MobileThemePreset, b: MobileThemePreset) =>
+              a.display_order - b.display_order || a.label.localeCompare(b.label),
+            ),
+        );
 
         if (!nextRole && roles.length) {
           const firstConfigured = roles.find((item: MobileDashboardRoleOption) => item.configured) || roles[0];
@@ -520,13 +521,13 @@ const MobileDashboardAdminPage = () => {
       setAppControl((prev) => prev ? { ...prev, theme: { ...prev.theme, preset_name: "CUSTOM" } } : prev);
       return;
     }
-    const preset = THEME_PRESETS.find((item) => item.name === presetName);
+    const preset = themePresets.find((item) => item.preset_key === presetName);
     if (!preset) return;
     setAppControl((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        theme: semanticThemeFromBase(prev.theme, preset.name, preset.primary, preset.secondary, preset.accent),
+        theme: semanticThemeFromBase(prev.theme, preset.preset_key, preset.primary_hex, preset.secondary_hex, preset.accent_hex),
       };
     });
   };
@@ -918,25 +919,66 @@ const MobileDashboardAdminPage = () => {
                     description="Choose a preset and every related app colour is generated together: buttons, backgrounds, cards, icons, icon containers, inputs, toolbar, bottom navigation, chips and workflow steps. Android consumes these same saved tokens."
                     style={{ marginBottom: 14 }}
                   />
+                  {themePresets.length === 0 ? (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message="No active theme presets were returned by the API"
+                      description="Theme presets are now master-data driven. The Mobile Dashboard API must return active cm_mobile_theme_presets records in response.data.theme_presets. No theme catalogue is hard-coded in this Web Admin."
+                      style={{ marginBottom: 14 }}
+                    />
+                  ) : null}
                   <Row gutter={[16, 16]} align="top">
                     <Col xs={24} xl={14}>
                       <Card size="small" title="Theme selection" style={{ height: "100%" }}>
                         <Row gutter={[12, 12]}>
                           <Col xs={24} md={14}>
                             <label><span>Theme preset</span>
-                              <Select
-                                style={{ width: "100%", marginTop: 6 }}
+                              <Dropdown
+                                trigger={["click"]}
                                 disabled={!canEdit}
-                                value={currentPresetValue(appControl.theme)}
-                                onChange={applyThemePreset}
-                                options={[
-                                  ...THEME_PRESETS.map((preset) => ({
-                                    value: preset.name,
-                                    label: <Space size={8}><span style={{ width:14, height:14, borderRadius:4, background:preset.primary, border:"1px solid #D0D5D0", display:"inline-block" }} />{preset.label}</Space>,
-                                  })),
-                                  { value: "CUSTOM", label: "Custom palette" },
-                                ]}
-                              />
+                                menu={{
+                                  selectedKeys: [currentPresetValue(appControl.theme, themePresets)],
+                                  onClick: ({ key }) => applyThemePreset(String(key)),
+                                  items: [
+                                    ...themePresets.map((preset) => ({
+                                      key: preset.preset_key,
+                                      label: (
+                                        <div className="cm-mobile-theme-option">
+                                          <span className="cm-mobile-theme-option__label">{preset.label}</span>
+                                          <span className="cm-mobile-theme-option__swatches" aria-hidden="true">
+                                            {[preset.primary_hex, preset.secondary_hex, preset.accent_hex].map((hex, index) => (
+                                              <span
+                                                key={`${preset.preset_key}:${index}`}
+                                                className="cm-mobile-theme-swatch"
+                                                title={hex}
+                                                style={{ background: hex }}
+                                              />
+                                            ))}
+                                          </span>
+                                        </div>
+                                      ),
+                                    })),
+                                    { type: "divider" as const },
+                                    { key: "CUSTOM", label: "Custom palette" },
+                                  ],
+                                }}
+                              >
+                                <Button
+                                  className="cm-mobile-theme-preset-trigger"
+                                  disabled={!canEdit}
+                                  block
+                                >
+                                  <span className="cm-mobile-theme-preset-trigger__label">
+                                    {(() => {
+                                      const key = currentPresetValue(appControl.theme, themePresets);
+                                      if (key === "CUSTOM") return "Custom palette";
+                                      return themePresets.find((preset) => preset.preset_key === key)?.label || "Select a theme preset";
+                                    })()}
+                                  </span>
+                                  <DownOutlined className="cm-mobile-theme-preset-trigger__arrow" />
+                                </Button>
+                              </Dropdown>
                             </label>
                           </Col>
                           <Col xs={24} md={10}>

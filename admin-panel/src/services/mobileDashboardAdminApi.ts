@@ -8,6 +8,18 @@ export type MobileDashboardRoleOption = {
   configured?: boolean;
 };
 
+export type MobileThemePreset = {
+  preset_key: string;
+  label: string;
+  primary_hex: string;
+  secondary_hex: string;
+  accent_hex: string;
+  is_active: "Y" | "N";
+  display_order: number;
+  description?: string | null;
+  version?: number;
+};
+
 export type MobileDashboardWidget = {
   _id?: string;
   role_code: string;

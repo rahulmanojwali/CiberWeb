@@ -1,0 +1,71 @@
+/* Mobile Dashboard theme preset chooser.
+   Deliberately uses Ant Dropdown + Button instead of Select so no hidden/search
+   input exists inside the field. This avoids the global native-input skin from
+   drawing a second rounded box inside the control. */
+.cm-mobile-theme-preset-trigger.ant-btn {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 6px;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--cm-border, #dfe4d8) !important;
+  border-radius: 10px !important;
+  background: var(--cm-surface, #fff) !important;
+  color: var(--cm-text, #1f241a) !important;
+  box-shadow: none !important;
+  font-weight: 500;
+  text-align: left;
+}
+
+.cm-mobile-theme-preset-trigger.ant-btn:hover,
+.cm-mobile-theme-preset-trigger.ant-btn:focus-visible {
+  border-color: var(--cm-primary, #55632c) !important;
+  color: var(--cm-text, #1f241a) !important;
+}
+
+.cm-mobile-theme-preset-trigger__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-mobile-theme-preset-trigger__arrow {
+  flex: 0 0 auto;
+  color: var(--cm-text-muted, #7c8577);
+  font-size: 11px;
+}
+
+.cm-mobile-theme-option {
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cm-mobile-theme-option__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.cm-mobile-theme-option__swatches {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cm-mobile-theme-swatch {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  border-radius: 5px;
+  border: 1px solid rgba(31, 41, 51, 0.18);
+}

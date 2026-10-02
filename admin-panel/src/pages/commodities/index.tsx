@@ -1,554 +1,745 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
   Alert,
-  useMediaQuery,
-  useTheme,
-  Pagination,
-} from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
-import DownloadIcon from "@mui/icons-material/Download";
-import AddIcon from "@mui/icons-material/Add";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
-import CheckIcon from "@mui/icons-material/CheckCircleOutline";
-import { useTranslation } from "react-i18next";
-import { PageContainer } from "../../components/PageContainer";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-import { normalizeLanguageCode } from "../../config/languages";
-import { DEFAULT_PAGE_SIZE, MOBILE_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../../config/uiDefaults";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
+  Button,
+  Col,
+  Dropdown,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import type { MenuProps, TableColumnsType } from "antd";
 import {
-  fetchCommodities,
-  createCommodity,
-  updateCommodity,
-} from "../../services/mandiApi";
+  AppstoreOutlined,
+  CheckCircleOutlined,
+  DownOutlined,
+  ImportOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  StopOutlined,
+  TagsOutlined,
+} from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
+import { PageContainer } from "../../components/PageContainer";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
+import { normalizeLanguageCode } from "../../config/languages";
+import { DEFAULT_LANGUAGE } from "../../config/appConfig";
+import { usePermissions } from "../../authz/usePermissions";
+import { fetchOrganisations } from "../../services/adminUsersApi";
+import { createCommodity, fetchCommodities, updateCommodity } from "../../services/mandiApi";
+import "./commodities.css";
+
+const { Text } = Typography;
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+type CommodityStatus = "Y" | "N";
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
+
+type OrganisationOption = {
+  value: string;
+  label: string;
+  orgCode: string;
+};
 
 type CommodityRow = {
   commodity_id: number;
-  name: string;
-  group?: string;
-  code?: string;
-  is_active: boolean;
+  display_label: string;
+  commodity_slug?: string | null;
+  commodity_group?: string | null;
+  is_active: CommodityStatus;
+  source?: string | null;
+  is_master_import?: boolean;
 };
 
-type ImportedCommodityRow = {
+type MasterCommodityRow = {
   commodity_id: number;
   display_label: string;
-  commodity_slug?: string;
-  is_active: "Y" | "N";
+  commodity_slug?: string | null;
+  commodity_group?: string | null;
+  is_active: boolean;
+  already_imported?: boolean;
+  org_is_active?: CommodityStatus | null;
 };
 
-function currentUsername(): string | null {
+type CommoditySummary = {
+  total: number;
+  active: number;
+  inactive: number;
+  master_import: number;
+  manual: number;
+};
+
+const EMPTY_SUMMARY: CommoditySummary = {
+  total: 0,
+  active: 0,
+  inactive: 0,
+  master_import: 0,
+  manual: 0,
+};
+
+function currentUsername(): string {
   try {
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed?.username || null;
+    return String(parsed?.username || "");
   } catch {
-    return null;
+    return "";
   }
+}
+
+function responseData(raw: any): any {
+  return raw?.data || raw?.response?.data || raw || {};
+}
+
+function responseMeta(raw: any): { code: string; description: string } {
+  const response = raw?.response || raw?.data?.response || raw;
+  return {
+    code: String(response?.responsecode ?? raw?.responsecode ?? raw?.responseCode ?? "0"),
+    description: String(response?.description ?? raw?.description ?? ""),
+  };
+}
+
+function localizedName(row: any, language: string): string {
+  return String(
+    row?.display_label ||
+      row?.name_i18n?.[language] ||
+      row?.label_i18n?.[language] ||
+      row?.name_i18n?.en ||
+      row?.label_i18n?.en ||
+      row?.commodity_slug ||
+      row?.slug ||
+      row?.commodity_id ||
+      "",
+  );
 }
 
 export const Commodities: React.FC = () => {
   const { t, i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
-  const initialPageSize = isSmallScreen ? MOBILE_PAGE_SIZE : DEFAULT_PAGE_SIZE;
-  const [importedRows, setImportedRows] = useState<ImportedCommodityRow[]>([]);
-  const [masterRows, setMasterRows] = useState<CommodityRow[]>([]);
+  const username = currentUsername();
+  const [searchParams] = useSearchParams();
+  const { authContext, can, isSuper } = usePermissions();
+  const [messageApi, messageContextHolder] = message.useMessage();
+
+  const canCreate = can("commodities_masters.create", "CREATE");
+  const canUpdate = can("commodities_masters.edit", "UPDATE");
+  const canDeactivate = can("commodities_masters.deactivate", "DEACTIVATE");
+
+  const requestedOrgId = String(searchParams.get("org_id") || "").trim();
+  const [selectedSuperOrgId, setSelectedSuperOrgId] = useState<string>(isSuper ? requestedOrgId : "");
+  const [organisationOptions, setOrganisationOptions] = useState<OrganisationOption[]>([]);
+  const [organisationsLoading, setOrganisationsLoading] = useState(false);
+  const orgId = isSuper ? selectedSuperOrgId : String(authContext.org_id || "");
+  const selectedOrg = organisationOptions.find((option) => option.value === selectedSuperOrgId);
+
+  const [rows, setRows] = useState<CommodityRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(initialPageSize);
-  const [rowCount, setRowCount] = useState(0);
-  const [statusFilter, setStatusFilter] = useState("ALL" as "ALL" | "ACTIVE" | "INACTIVE");
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [masterSelection, setMasterSelection] = useState<number[]>([]);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    display_label: "",
-    is_active: "Y",
-  });
-  const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" | "info" }>({
-    open: false,
-    message: "",
-    severity: "info",
-  });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [summary, setSummary] = useState<CommoditySummary>(EMPTY_SUMMARY);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [searchText, setSearchText] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { canCreate, canDeactivate } = useCrudPermissions("commodities_masters");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createForm] = Form.useForm<{ display_label: string; is_active: CommodityStatus }>();
 
-  const importedColumns = useMemo<GridColDef<ImportedCommodityRow>[]>(
-    () => [
-      { field: "commodity_id", headerName: "ID", width: 90 },
-      { field: "display_label", headerName: "Name", flex: 1, minWidth: 220 },
-      { field: "commodity_slug", headerName: "Code", width: 180 },
-      {
-        field: "is_active",
-        headerName: "Active",
-        width: 110,
-        renderCell: (params) => (
-          <Chip
-            label={params.value === "Y" ? "Active" : "Inactive"}
-            color={params.value === "Y" ? "success" : "default"}
-            size="small"
-          />
-        ),
-      },
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 160,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canDeactivate && (
-              <Button
-                size="small"
-                startIcon={params.row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
-                color={params.row.is_active === "Y" ? "error" : "success"}
-                onClick={() => handleToggleImported(params.row)}
-              >
-                {params.row.is_active === "Y" ? "Deactivate" : "Activate"}
-              </Button>
-            )}
-          </Stack>
-        ),
-      },
-    ],
-    [canDeactivate],
-  );
+  const [importOpen, setImportOpen] = useState(false);
+  const [masterRows, setMasterRows] = useState<MasterCommodityRow[]>([]);
+  const [masterLoading, setMasterLoading] = useState(false);
+  const [masterPage, setMasterPage] = useState(1);
+  const [masterPageSize, setMasterPageSize] = useState(20);
+  const [masterTotal, setMasterTotal] = useState(0);
+  const [masterSearch, setMasterSearch] = useState("");
+  const [masterDebouncedSearch, setMasterDebouncedSearch] = useState("");
+  const [masterSelection, setMasterSelection] = useState<React.Key[]>([]);
+  const [importSubmitting, setImportSubmitting] = useState(false);
 
-  const masterColumns = useMemo<GridColDef<CommodityRow>[]>(
-    () => [
-      { field: "commodity_id", headerName: "ID", width: 90 },
-      { field: "name", headerName: "Name", flex: 1, minWidth: 220 },
-      { field: "group", headerName: "Group", flex: 1, minWidth: 160 },
-      { field: "code", headerName: "Code", width: 180 },
-      {
-        field: "is_active",
-        headerName: "Active",
-        width: 110,
-        renderCell: (params) => (
-          <Chip
-            label={params.value ? "Active" : "Inactive"}
-            color={params.value ? "success" : "default"}
-            size="small"
-          />
-        ),
-      },
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 140,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canCreate && (
-              <Button
-                size="small"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleImport([params.row.commodity_id])}
-              >
-                Import
-              </Button>
-            )}
-          </Stack>
-        ),
-      },
-    ],
-    [canCreate],
-  );
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
 
-  const loadImported = async () => {
-    const username = currentUsername();
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMasterDebouncedSearch(masterSearch.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [masterSearch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, orgId]);
+
+  useEffect(() => {
+    setMasterPage(1);
+    setMasterSelection([]);
+  }, [masterDebouncedSearch, orgId]);
+
+  useEffect(() => {
+    if (!isSuper || !username) return;
+    let cancelled = false;
+
+    const load = async () => {
+      setOrganisationsLoading(true);
+      try {
+        const raw = await fetchOrganisations({ username, language: DEFAULT_LANGUAGE });
+        if (cancelled) return;
+        const meta = responseMeta(raw);
+        if (meta.code && meta.code !== "0") throw new Error(meta.description || "Failed to load organisations.");
+        const data = responseData(raw);
+        const organisations = data?.organisations || raw?.response?.data?.organisations || [];
+        const options = (Array.isArray(organisations) ? organisations : [])
+          .filter((org: any) => org?._id && org?.org_code)
+          .map((org: any) => ({
+            value: String(org._id),
+            label: String(org.org_name || org.org_code),
+            orgCode: String(org.org_code),
+          }));
+        setOrganisationOptions(options);
+      } catch (error: any) {
+        if (!cancelled) {
+          setOrganisationOptions([]);
+          messageApi.error(error?.message || "Failed to load organisations.");
+        }
+      } finally {
+        if (!cancelled) setOrganisationsLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuper, language, messageApi, username]);
+
+  const loadImported = useCallback(async () => {
     if (!username) return;
+    if (isSuper && !orgId) {
+      setRows([]);
+      setTotalCount(0);
+      setSummary(EMPTY_SUMMARY);
+      return;
+    }
+
     setLoading(true);
     try {
-      const resp = await fetchCommodities({
+      const raw = await fetchCommodities({
         username,
         language,
         filters: {
           view: "IMPORTED",
+          org_id: orgId || undefined,
           mandi_id: 0,
           is_active: statusFilter === "ALL" ? undefined : statusFilter === "ACTIVE" ? "Y" : "N",
-          page: page + 1,
+          search: debouncedSearch || undefined,
+          page,
           pageSize,
         },
       });
-      const data = resp?.data || resp?.response?.data || resp || {};
-      const list = data?.rows || data?.imported || data?.org_selected || [];
-      const total = Number.isFinite(Number(data?.totalCount)) ? Number(data.totalCount) : list.length;
-      setRowCount(total);
-      setImportedRows(
-        list.map((c: any) => ({
-          commodity_id: c.commodity_id,
-          display_label: c.display_label || c?.label_i18n?.en || String(c.commodity_id),
-          commodity_slug: c.commodity_slug || "",
-          is_active: c.is_active === "N" ? "N" : "Y",
+      const meta = responseMeta(raw);
+      if (meta.code && meta.code !== "0") throw new Error(meta.description || "Failed to load commodities.");
+      const data = responseData(raw);
+      const list = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(
+        list.map((row: any) => ({
+          commodity_id: Number(row.commodity_id),
+          display_label: localizedName(row, language),
+          commodity_slug: row.commodity_slug || null,
+          commodity_group: row.commodity_group || null,
+          is_active: row.is_active === "N" ? "N" : "Y",
+          source: row.source || null,
+          is_master_import: Boolean(row.is_master_import || row.source === "MASTER_IMPORT"),
         })),
       );
+      setTotalCount(Number(data?.totalCount ?? list.length));
+      setSummary({ ...EMPTY_SUMMARY, ...(data?.summary || {}) });
+    } catch (error: any) {
+      setRows([]);
+      setTotalCount(0);
+      messageApi.error(error?.message || "Failed to load commodities.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, isSuper, language, messageApi, orgId, page, pageSize, statusFilter, username]);
 
-  const loadMasters = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    setLoading(true);
+  const loadMasters = useCallback(async () => {
+    if (!username || !importOpen) return;
+    if (isSuper && !orgId) return;
+
+    setMasterLoading(true);
     try {
-      const resp = await fetchCommodities({
+      const raw = await fetchCommodities({
         username,
         language,
         filters: {
           view: "MASTER",
+          org_id: orgId || undefined,
           is_active: "Y",
+          search: masterDebouncedSearch || undefined,
+          page: masterPage,
+          pageSize: masterPageSize,
         },
       });
-      const data = resp?.data || resp?.response?.data || resp || {};
-      const list = data?.rows || data?.masters || data?.commodities || [];
+      const meta = responseMeta(raw);
+      if (meta.code && meta.code !== "0") throw new Error(meta.description || "Failed to load master catalogue.");
+      const data = responseData(raw);
+      const list = Array.isArray(data?.rows) ? data.rows : [];
       setMasterRows(
-        list.map((c: any) => ({
-          commodity_id: c.commodity_id,
-          name: c?.name_i18n?.en || c.slug || String(c.commodity_id),
-          group: c.commodity_group || c.commodity_category || "",
-          code: c.commodity_slug || c.slug || "",
-          is_active: Boolean(c.is_active),
+        list.map((row: any) => ({
+          commodity_id: Number(row.commodity_id),
+          display_label: localizedName(row, language),
+          commodity_slug: row.commodity_slug || row.slug || null,
+          commodity_group: row.commodity_group || row.commodity_category || null,
+          is_active: row.is_active !== false,
+          already_imported: Boolean(row.already_imported),
+          org_is_active: row.org_is_active === "N" ? "N" : row.org_is_active === "Y" ? "Y" : null,
         })),
       );
+      setMasterTotal(Number(data?.totalCount ?? list.length));
+    } catch (error: any) {
+      setMasterRows([]);
+      setMasterTotal(0);
+      messageApi.error(error?.message || "Failed to load master catalogue.");
     } finally {
-      setLoading(false);
+      setMasterLoading(false);
     }
-  };
+  }, [importOpen, isSuper, language, masterDebouncedSearch, masterPage, masterPageSize, messageApi, orgId, username]);
 
   useEffect(() => {
-    loadImported();
-  }, [language, statusFilter, page, pageSize]);
+    void loadImported();
+  }, [loadImported]);
 
-  const handleImport = async (commodityIds: number[]) => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const payload = commodityIds.length === 1 ? { commodity_id: commodityIds[0] } : { commodity_ids: commodityIds };
-      const resp = await createCommodity({ username, language, payload });
-      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
-      const description = resp?.response?.description || resp?.description || "";
-      if (String(responseCode) === "0") {
-        setToast({ open: true, message: "Commodities imported.", severity: "success" });
-        setMasterSelection([]);
-        await loadImported();
-      } else {
-        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
-      }
-    } catch (err: any) {
-      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
-    }
-  };
+  useEffect(() => {
+    void loadMasters();
+  }, [loadMasters]);
 
-  const handleManualCreate = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const displayLabel = createForm.display_label.trim();
-    if (!displayLabel) {
-      setToast({ open: true, message: "Name is required.", severity: "error" });
-      return;
-    }
-    try {
-      const payload: Record<string, any> = {
-        display_label: displayLabel,
-        is_active: createForm.is_active,
-      };
-      const resp = await createCommodity({ username, language, payload });
-      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
-      const description = resp?.response?.description || resp?.description || "";
-      if (String(responseCode) === "0") {
-        setToast({ open: true, message: "Commodity created.", severity: "success" });
-        setCreateDialogOpen(false);
-        setCreateForm({
-          display_label: "",
-          is_active: "Y",
+  const handleToggle = useCallback(
+    async (row: CommodityRow) => {
+      if (!username || !orgId) return;
+      const nextStatus: CommodityStatus = row.is_active === "Y" ? "N" : "Y";
+      try {
+        const raw = await updateCommodity({
+          username,
+          language,
+          payload: { org_id: orgId, commodity_id: row.commodity_id, is_active: nextStatus },
         });
+        const meta = responseMeta(raw);
+        if (meta.code !== "0") throw new Error(meta.description || "Commodity status update failed.");
+        messageApi.success(nextStatus === "Y" ? "Commodity activated." : "Commodity deactivated.");
         await loadImported();
-      } else {
-        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
+      } catch (error: any) {
+        messageApi.error(error?.message || "Commodity status update failed.");
       }
-    } catch (err: any) {
-      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
+    },
+    [language, loadImported, messageApi, orgId, username],
+  );
+
+  const handleCreate = async () => {
+    if (!username || !orgId) return;
+    try {
+      const values = await createForm.validateFields();
+      setCreateSubmitting(true);
+      const raw = await createCommodity({
+        username,
+        language,
+        payload: {
+          org_id: orgId,
+          display_label: values.display_label.trim(),
+          is_active: values.is_active || "Y",
+        },
+      });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Commodity creation failed.");
+      messageApi.success("Organisation commodity created.");
+      createForm.resetFields();
+      setCreateOpen(false);
+      await loadImported();
+    } catch (error: any) {
+      if (error?.errorFields) return;
+      messageApi.error(error?.message || "Commodity creation failed.");
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
-  const handleToggleImported = async (row: ImportedCommodityRow) => {
-    const username = currentUsername();
-    if (!username) return;
+  const handleImport = async () => {
+    if (!username || !orgId || !masterSelection.length) return;
+    setImportSubmitting(true);
     try {
-      const nextStatus = row.is_active === "Y" ? "N" : "Y";
-      const resp = await updateCommodity({ username, language, payload: { commodity_id: row.commodity_id, is_active: nextStatus } });
-      const responseCode = resp?.response?.responsecode || resp?.responsecode || resp?.responseCode;
-      const description = resp?.response?.description || resp?.description || "";
-      if (String(responseCode) === "0") {
-        setImportedRows((prev) =>
-          prev.map((item) =>
-            item.commodity_id === row.commodity_id ? { ...item, is_active: nextStatus } : item,
-          ),
-        );
-      } else {
-        setToast({ open: true, message: description || "Operation failed.", severity: "error" });
-      }
-    } catch (err: any) {
-      setToast({ open: true, message: err?.message || "Operation failed.", severity: "error" });
+      const raw = await createCommodity({
+        username,
+        language,
+        payload: { org_id: orgId, commodity_ids: masterSelection.map((value) => Number(value)) },
+      });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Commodity import failed.");
+      messageApi.success(`${masterSelection.length} commodit${masterSelection.length === 1 ? "y" : "ies"} imported.`);
+      setMasterSelection([]);
+      await Promise.all([loadImported(), loadMasters()]);
+    } catch (error: any) {
+      messageApi.error(error?.message || "Commodity import failed.");
+    } finally {
+      setImportSubmitting(false);
     }
   };
+
+  const importedColumns = useMemo<TableColumnsType<CommodityRow>>(
+    () => [
+      {
+        title: "Commodity",
+        dataIndex: "display_label",
+        key: "display_label",
+        render: (value: string, row) => (
+          <div className="cm-commodities-name-cell">
+            <Text strong>{value}</Text>
+            <Text type="secondary" className="cm-commodities-code-text">{row.commodity_slug || `ID ${row.commodity_id}`}</Text>
+          </div>
+        ),
+      },
+      {
+        title: "ID",
+        dataIndex: "commodity_id",
+        key: "commodity_id",
+        width: 110,
+        responsive: ["md"],
+      },
+      {
+        title: "Group",
+        dataIndex: "commodity_group",
+        key: "commodity_group",
+        width: 180,
+        responsive: ["lg"],
+        render: (value) => value || <Text type="secondary">—</Text>,
+      },
+      {
+        title: "Source",
+        dataIndex: "source",
+        key: "source",
+        width: 150,
+        responsive: ["lg"],
+        render: (value, row) => (
+          <Tag bordered={false} color={row.is_master_import ? "blue" : "gold"}>
+            {row.is_master_import ? "Master" : value === "MANUAL" ? "Organisation" : value || "Organisation"}
+          </Tag>
+        ),
+      },
+      {
+        title: "Status",
+        dataIndex: "is_active",
+        key: "is_active",
+        width: 120,
+        render: (value: CommodityStatus) => (
+          <Tag bordered={false} color={value === "Y" ? "success" : "default"} icon={value === "Y" ? <CheckCircleOutlined /> : <StopOutlined />}>
+            {value === "Y" ? "Active" : "Inactive"}
+          </Tag>
+        ),
+      },
+      {
+        title: "Actions",
+        key: "actions",
+        width: 150,
+        align: "right",
+        render: (_, row) => {
+          const items: MenuProps["items"] = [];
+          if ((row.is_active === "Y" ? canDeactivate : canUpdate) && orgId) {
+            items.push({
+              key: "toggle",
+              danger: row.is_active === "Y",
+              icon: row.is_active === "Y" ? <StopOutlined /> : <CheckCircleOutlined />,
+              label: row.is_active === "Y" ? "Deactivate" : "Activate",
+              onClick: () => void handleToggle(row),
+            });
+          }
+          if (!items.length) return <Text type="secondary">View only</Text>;
+          return (
+            <Dropdown menu={{ items }} trigger={["click"]}>
+              <Button type="text" size="small">Actions <DownOutlined /></Button>
+            </Dropdown>
+          );
+        },
+      },
+    ],
+    [canDeactivate, canUpdate, handleToggle, orgId],
+  );
+
+  const masterColumns = useMemo<TableColumnsType<MasterCommodityRow>>(
+    () => [
+      {
+        title: "Master commodity",
+        dataIndex: "display_label",
+        key: "display_label",
+        render: (value: string, row) => (
+          <div className="cm-commodities-name-cell">
+            <Text strong>{value}</Text>
+            <Text type="secondary" className="cm-commodities-code-text">{row.commodity_slug || `ID ${row.commodity_id}`}</Text>
+          </div>
+        ),
+      },
+      {
+        title: "Group",
+        dataIndex: "commodity_group",
+        key: "commodity_group",
+        width: 180,
+        responsive: ["md"],
+        render: (value) => value || <Text type="secondary">—</Text>,
+      },
+      {
+        title: "Organisation status",
+        key: "org_status",
+        width: 170,
+        render: (_, row) => {
+          if (!row.already_imported) return <Tag bordered={false}>Available</Tag>;
+          if (row.org_is_active === "N") return <Tag bordered={false} color="warning">Inactive · can reactivate</Tag>;
+          return <Tag bordered={false} color="success">Already added</Tag>;
+        },
+      },
+    ],
+    [],
+  );
+
+  const scopeLabel = isSuper
+    ? selectedOrg?.label || "Select an organisation"
+    : authContext.org_code || authContext.org_id || "Organisation scope";
 
   return (
     <PageContainer>
-      <Box sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, gap: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
-          <Typography variant="h5">{t("menu.commodities", { defaultValue: "Commodities" })}</Typography>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <TextField
-              select
-              label="Status"
-              size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              sx={{ width: 140 }}
-            >
-              <MenuItem value="ALL">All</MenuItem>
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-            </TextField>
-            {canCreate && (
-              <>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => setCreateDialogOpen(true)}
-                >
-                  Create (Org Only)
-                </Button>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<DownloadIcon />}
-                  onClick={async () => {
-                    setImportDialogOpen(true);
-                    await loadMasters();
-                  }}
-                >
-                  Import
-                </Button>
-              </>
-            )}
-          </Stack>
-        </Stack>
+      {messageContextHolder}
+      <div className="cm-commodities-page">
+        <CmPageHeader
+          eyebrow={<Tag color="gold">Mandi Master Data</Tag>}
+          title={t("menu.commodities", { defaultValue: "Commodities" })}
+          subtitle="Control the organisation commodity catalogue from the protected platform master, with role-aware activation and local additions."
+          actions={
+            <Button icon={<ReloadOutlined />} onClick={() => void loadImported()} loading={loading}>
+              Refresh
+            </Button>
+          }
+        />
 
-        {isSmallScreen ? (
-          <Stack
-            spacing={1.5}
-            sx={{
-              maxWidth: 640,
-              mx: "auto",
-              width: "100%",
-              flex: 1,
-              overflowY: "auto",
-            }}
-          >
-            {importedRows.map((row) => (
-              <Box
-                key={row.commodity_id}
-                sx={{
-                  borderRadius: 2,
-                  border: `1px solid ${theme.palette.divider}`,
-                  p: 2,
-                  boxShadow: 1,
+        <CmSectionCard compact className="cm-commodities-scope-card">
+          <div className="cm-commodities-scope-layout">
+            <div>
+              <Text className="cm-commodities-scope-kicker">Working scope</Text>
+              <div className="cm-commodities-scope-title">{scopeLabel}</div>
+              <Text type="secondary">
+                {isSuper
+                  ? "Choose the organisation whose commodity catalogue you want to manage. Platform master commodities remain global."
+                  : "Your organisation scope is enforced by backend RBAC. Mandi-scoped roles use the organisation catalogue only when their policy permits it."}
+              </Text>
+            </div>
+            {isSuper && (
+              <Select
+                className="cm-commodities-org-select"
+                value={selectedSuperOrgId || undefined}
+                placeholder="Select organisation"
+                loading={organisationsLoading}
+                showSearch
+                optionFilterProp="label"
+                options={organisationOptions}
+                onChange={(value) => {
+                  setSelectedSuperOrgId(value);
+                  setMasterSelection([]);
                 }}
-              >
-                <Stack spacing={1.25}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                      {row.display_label}
-                    </Typography>
-                    <Chip
-                      label={row.is_active === "Y" ? "Active" : "Inactive"}
-                      color={row.is_active === "Y" ? "success" : "default"}
-                      size="small"
-                      sx={{ fontSize: "0.75rem" }}
-                    />
-                  </Stack>
-
-                  <Box>
-                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                      Commodity ID
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-                      {row.commodity_id}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block", fontSize: "0.75rem" }}>
-                      Commodity Name
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                      {row.display_label || "-"}
-                    </Typography>
-                  </Box>
-
-                  {canDeactivate && (
-                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                      <Button
-                        size="small"
-                        variant="text"
-                        color={row.is_active === "Y" ? "error" : "success"}
-                        startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckIcon />}
-                        onClick={() => handleToggleImported(row)}
-                        sx={{ textTransform: "none" }}
-                      >
-                        {row.is_active === "Y" ? "Deactivate" : "Activate"}
-                      </Button>
-                    </Stack>
-                  )}
-                </Stack>
-              </Box>
-            ))}
-            {!importedRows.length && (
-              <Typography variant="body2" color="text.secondary">
-                No commodities imported yet. Select from Master Catalogue and click Import.
-              </Typography>
+              />
             )}
-            {rowCount > pageSize && (
-              <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
-                <Pagination
-                  count={Math.max(1, Math.ceil(rowCount / pageSize))}
-                  page={page + 1}
-                  onChange={(_event, newPage: number) => setPage(newPage - 1)}
-                  color="primary"
-                />
-              </Box>
-            )}
-          </Stack>
+          </div>
+        </CmSectionCard>
+
+        {isSuper && !orgId ? (
+          <Alert
+            type="info"
+            showIcon
+            message="Select an organisation to manage commodities"
+            description="The commodity master is platform-wide, but activation, imports and custom commodities belong to an organisation."
+          />
         ) : (
-          <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            <ResponsiveDataGrid
-              columns={importedColumns}
-              rows={importedRows}
-              loading={loading}
-              getRowId={(r) => r.commodity_id}
-              paginationMode="server"
-              rowCount={rowCount}
-              paginationModel={{ page, pageSize }}
-              onPaginationModelChange={(model) => {
-                setPage(model.page);
-                if (model.pageSize !== pageSize) {
-                  setPageSize(model.pageSize);
-                  setPage(0);
-                }
-              }}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-              disableRowSelectionOnClick
-              sx={{
-                "& .MuiDataGrid-columnHeaders": {
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 2,
-                  backgroundColor: theme.palette.background.paper,
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                },
-              }}
-            />
-          </Box>
+          <>
+            <Row gutter={[12, 12]}>
+              <Col xs={12} sm={12} lg={6}>
+                <CmStatCard label="Catalogue" value={summary.total.toLocaleString("en-IN")} helper="Organisation commodities" icon={<AppstoreOutlined />} tone="olive" />
+              </Col>
+              <Col xs={12} sm={12} lg={6}>
+                <CmStatCard label="Active" value={summary.active.toLocaleString("en-IN")} helper="Available for downstream use" icon={<CheckCircleOutlined />} tone="olive" />
+              </Col>
+              <Col xs={12} sm={12} lg={6}>
+                <CmStatCard label="Inactive" value={summary.inactive.toLocaleString("en-IN")} helper="Retained, not deleted" icon={<StopOutlined />} tone="neutral" />
+              </Col>
+              <Col xs={12} sm={12} lg={6}>
+                <CmStatCard label="Master / Local" value={`${summary.master_import} / ${summary.manual}`} helper="Source mix" icon={<TagsOutlined />} tone="amber" />
+              </Col>
+            </Row>
+
+            <CmSectionCard className="cm-commodities-table-card">
+              <div className="cm-commodities-toolbar">
+                <div className="cm-commodities-toolbar-search">
+                  <Input
+                    allowClear
+                    prefix={<SearchOutlined />}
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="Search commodity name or code"
+                  />
+                  <Select<StatusFilter>
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={[
+                      { value: "ALL", label: "All statuses" },
+                      { value: "ACTIVE", label: "Active" },
+                      { value: "INACTIVE", label: "Inactive" },
+                    ]}
+                  />
+                </div>
+                <Space wrap>
+                  {canCreate && (
+                    <Button icon={<PlusOutlined />} onClick={() => { createForm.setFieldsValue({ display_label: "", is_active: "Y" }); setCreateOpen(true); }}>
+                      Add organisation commodity
+                    </Button>
+                  )}
+                  {canCreate && (
+                    <Button type="primary" icon={<ImportOutlined />} onClick={() => { setImportOpen(true); setMasterSelection([]); }}>
+                      Import from master
+                    </Button>
+                  )}
+                </Space>
+              </div>
+
+              <Table<CommodityRow>
+                className="cm-commodities-table"
+                rowKey="commodity_id"
+                columns={importedColumns}
+                dataSource={rows}
+                loading={loading}
+                locale={{
+                  emptyText: (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={debouncedSearch || statusFilter !== "ALL" ? "No commodities match the current filters." : "No organisation commodities yet. Import from the platform master to begin."}
+                    />
+                  ),
+                }}
+                pagination={{
+                  current: page,
+                  pageSize,
+                  total: totalCount,
+                  showSizeChanger: true,
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  showTotal: (total) => `${total.toLocaleString("en-IN")} commodities`,
+                  onChange: (nextPage, nextSize) => {
+                    setPage(nextSize !== pageSize ? 1 : nextPage);
+                    setPageSize(nextSize);
+                  },
+                }}
+                scroll={{ x: 760 }}
+              />
+            </CmSectionCard>
+          </>
         )}
-      </Box>
+      </div>
 
-      <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle>Import Commodities</DialogTitle>
-        <DialogContent>
-          <Box sx={{ height: 520 }}>
-            <ResponsiveDataGrid
-              columns={masterColumns}
-              rows={masterRows}
-              loading={loading}
-              getRowId={(r) => r.commodity_id}
-              checkboxSelection
-              rowSelectionModel={masterSelection}
-              onRowSelectionModelChange={(selection) =>
-                setMasterSelection((selection as number[]).map((value) => Number(value)))
-              }
-              disableRowSelectionOnClick
-              pageSizeOptions={[25, 50, 100, 200]}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setImportDialogOpen(false)}>Close</Button>
-          <Button
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            disabled={!masterSelection.length}
-            onClick={() => handleImport(masterSelection)}
-          >
-            Import Selected {masterSelection.length ? `(${masterSelection.length})` : ""}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create Commodity (Org Only)</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Name"
-              value={createForm.display_label}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, display_label: event.target.value }))}
-              fullWidth
-              required
-            />
-            <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
-              Slug is generated automatically from the name.
-            </Typography>
-            <TextField
-              select
-              label="Active"
-              value={createForm.is_active}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, is_active: event.target.value }))}
-              fullWidth
-            >
-              <MenuItem value="Y">Yes</MenuItem>
-              <MenuItem value="N">No</MenuItem>
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleManualCreate}>
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={4000}
-        onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      <Modal
+        open={createOpen}
+        title="Add organisation commodity"
+        okText="Create commodity"
+        confirmLoading={createSubmitting}
+        onOk={() => void handleCreate()}
+        onCancel={() => { setCreateOpen(false); createForm.resetFields(); }}
+        destroyOnHidden
       >
         <Alert
-          severity={toast.severity}
-          onClose={() => setToast((prev) => ({ ...prev, open: false }))}
-          sx={{ width: "100%" }}
-        >
-          {toast.message}
-        </Alert>
-      </Snackbar>
+          className="cm-commodities-modal-alert"
+          type="info"
+          showIcon
+          message="Use this only when the commodity does not exist in the platform master."
+        />
+        <Form form={createForm} layout="vertical" initialValues={{ is_active: "Y" }} requiredMark="optional">
+          <Form.Item
+            name="display_label"
+            label="Commodity name"
+            rules={[{ required: true, whitespace: true, message: "Enter the commodity name." }]}
+          >
+            <Input maxLength={120} placeholder="e.g. Local speciality crop" />
+          </Form.Item>
+          <Form.Item name="is_active" label="Initial status">
+            <Select options={[{ value: "Y", label: "Active" }, { value: "N", label: "Inactive" }]} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={importOpen}
+        title="Import from platform commodity master"
+        width={920}
+        onCancel={() => { setImportOpen(false); setMasterSelection([]); setMasterSearch(""); }}
+        footer={[
+          <Button key="close" onClick={() => { setImportOpen(false); setMasterSelection([]); setMasterSearch(""); }}>
+            Close
+          </Button>,
+          <Button
+            key="import"
+            type="primary"
+            icon={<ImportOutlined />}
+            disabled={!masterSelection.length}
+            loading={importSubmitting}
+            onClick={() => void handleImport()}
+          >
+            Import selected{masterSelection.length ? ` (${masterSelection.length})` : ""}
+          </Button>,
+        ]}
+      >
+        <div className="cm-commodities-import-toolbar">
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            value={masterSearch}
+            onChange={(event) => setMasterSearch(event.target.value)}
+            placeholder="Search platform commodity master"
+          />
+          <Text type="secondary">Active master records only</Text>
+        </div>
+        <Table<MasterCommodityRow>
+          rowKey="commodity_id"
+          columns={masterColumns}
+          dataSource={masterRows}
+          loading={masterLoading}
+          rowSelection={{
+            selectedRowKeys: masterSelection,
+            preserveSelectedRowKeys: true,
+            onChange: setMasterSelection,
+            getCheckboxProps: (record) => ({
+              disabled: record.already_imported && record.org_is_active === "Y",
+            }),
+          }}
+          pagination={{
+            current: masterPage,
+            pageSize: masterPageSize,
+            total: masterTotal,
+            showSizeChanger: true,
+            pageSizeOptions: PAGE_SIZE_OPTIONS,
+            showTotal: (total) => `${total.toLocaleString("en-IN")} master commodities`,
+            onChange: (nextPage, nextSize) => {
+              setMasterPage(nextSize !== masterPageSize ? 1 : nextPage);
+              setMasterPageSize(nextSize);
+            },
+          }}
+          scroll={{ x: 650, y: 430 }}
+        />
+      </Modal>
     </PageContainer>
   );
 };
+
+export default Commodities;

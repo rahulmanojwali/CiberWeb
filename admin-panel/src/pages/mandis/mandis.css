@@ -1,0 +1,68 @@
+.cm-mandis-page{display:flex;flex-direction:column;gap:16px}.cm-mandis-scope-card{background:linear-gradient(135deg,rgba(85,99,44,.07),rgba(197,122,53,.05));border-color:var(--cm-border)!important}.cm-mandis-scope-grid{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:18px;align-items:end}.cm-mandis-scope-note{display:flex;align-items:center;gap:9px;min-height:40px;color:var(--cm-text-soft);font-size:13px}.cm-mandis-toolbar{display:grid;grid-template-columns:minmax(190px,240px) minmax(240px,1fr) 120px auto;gap:10px;align-items:end}.cm-mandis-toolbar-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}.cm-mandis-toolbar .ant-input-affix-wrapper,.cm-mandis-toolbar .ant-select-selector{min-height:40px!important}.cm-mandis-toolbar .ant-select-selector{display:flex!important;align-items:center!important}.cm-mandis-summary{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.cm-mandis-table-card .ant-card-body{padding:0!important}.cm-mandis-table-card .ant-table-wrapper{overflow:hidden;border-radius:0 0 var(--cm-radius-card) var(--cm-radius-card)}.cm-mandis-table-card .ant-table-thead>tr>th{background:var(--cm-surface-muted)!important;color:var(--cm-text-soft)!important;font-size:12px;font-weight:800}.cm-mandis-table-card .ant-table-cell{vertical-align:middle}.cm-mandis-name{display:flex;flex-direction:column;gap:2px}.cm-mandis-name strong{color:var(--cm-text);font-size:13px}.cm-mandis-name span{font-size:11px;color:var(--cm-text-muted)}.cm-mandis-import-guide{padding:28px 18px;text-align:center}.cm-mandis-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.cm-mandis-modal-grid .cm-span-2{grid-column:1/-1}.cm-mandis-coordinates{display:flex;gap:18px;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--cm-border-strong);border-radius:var(--cm-radius-md);background:var(--cm-surface-muted)}.cm-mandis-history-card{border:1px solid var(--cm-border);border-radius:var(--cm-radius-md);padding:14px;background:#fff}.cm-mandis-history-diff{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}.cm-mandis-history-diff th,.cm-mandis-history-diff td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--cm-border);vertical-align:top;word-break:break-word}.cm-mandis-history-diff th{background:var(--cm-surface-muted);font-weight:700}.cm-mandis-tabs>.ant-tabs-nav{margin-bottom:12px}.cm-mandis-tabs .ant-tabs-tab{font-weight:700}.cm-mandis-table-card .ant-pagination{padding:0 16px 14px}.cm-mandis-row-actions{display:flex;gap:4px;justify-content:flex-end}.cm-mandis-status-note{font-size:12px;color:var(--cm-text-muted)}
+@media(max-width:980px){.cm-mandis-toolbar{grid-template-columns:1fr 1fr}.cm-mandis-toolbar-actions{justify-content:flex-start}.cm-mandis-scope-grid{grid-template-columns:1fr}}
+@media(max-width:640px){.cm-mandis-toolbar{grid-template-columns:1fr}.cm-mandis-toolbar-actions{justify-content:stretch;flex-wrap:wrap}.cm-mandis-toolbar-actions .ant-btn{flex:1}.cm-mandis-modal-grid{grid-template-columns:1fr}.cm-mandis-modal-grid .cm-span-2{grid-column:auto}.cm-mandis-coordinates{flex-direction:column;gap:4px}}
+
+/* Mandi Ant Select — exactly one visible outer box.
+   Ant Design 6 keeps an internal selector/search input. The wrapper owns the
+   visible outline; selector/search internals stay transparent and borderless. */
+.cm-mandis-page .cm-mandis-select.ant-select {
+  width: 100%;
+  min-height: 40px !important;
+  height: 40px !important;
+  border: 1px solid var(--cm-border-strong, #d7dccf) !important;
+  border-radius: var(--cm-radius-md, 10px) !important;
+  background: var(--cm-surface, #ffffff) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.cm-mandis-page .cm-mandis-select.ant-select:hover {
+  border-color: var(--cm-primary-soft, #6e7c3a) !important;
+}
+
+.cm-mandis-page .cm-mandis-select.ant-select-focused {
+  border-color: var(--cm-primary, #55632c) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-mandis-page .cm-mandis-select.ant-select .ant-select-selector {
+  width: 100% !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 11px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.cm-mandis-page .cm-mandis-select .ant-select-selection-wrap,
+.cm-mandis-page .cm-mandis-select .ant-select-selection-search,
+.cm-mandis-page .cm-mandis-select .ant-select-selection-search input,
+.cm-mandis-page .cm-mandis-select input,
+.cm-mandis-page .cm-mandis-select input:hover,
+.cm-mandis-page .cm-mandis-select input:focus {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-mandis-page .cm-mandis-select .ant-select-selection-search input,
+.cm-mandis-page .cm-mandis-select input {
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.cm-mandis-page .cm-mandis-select .ant-select-selection-item,
+.cm-mandis-page .cm-mandis-select .ant-select-selection-placeholder {
+  line-height: 38px !important;
+}

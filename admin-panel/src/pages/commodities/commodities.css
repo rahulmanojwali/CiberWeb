@@ -1,0 +1,130 @@
+.cm-commodities-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cm-commodities-scope-card .ant-card-body {
+  padding-block: 14px;
+}
+
+.cm-commodities-scope-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 20px;
+  align-items: center;
+}
+
+.cm-commodities-scope-kicker {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--cm-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cm-commodities-scope-title {
+  margin-bottom: 4px;
+  color: var(--cm-text);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.cm-commodities-org-select {
+  width: 100%;
+}
+
+.cm-commodities-table-card .ant-card-body {
+  padding-top: 14px;
+}
+
+.cm-commodities-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.cm-commodities-toolbar-search {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) 160px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cm-commodities-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cm-commodities-code-text {
+  overflow: hidden;
+  max-width: 440px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.cm-commodities-table .ant-table-thead > tr > th {
+  white-space: nowrap;
+}
+
+.cm-commodities-table .ant-table-row {
+  transition: background-color 140ms ease;
+}
+
+.cm-commodities-modal-alert {
+  margin-bottom: 16px;
+}
+
+.cm-commodities-import-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .cm-commodities-scope-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-commodities-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cm-commodities-toolbar > .ant-space {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .cm-commodities-toolbar-search,
+  .cm-commodities-import-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-commodities-toolbar > .ant-space {
+    width: 100%;
+  }
+
+  .cm-commodities-toolbar > .ant-space .ant-space-item {
+    flex: 1 1 auto;
+  }
+
+  .cm-commodities-toolbar > .ant-space .ant-btn {
+    width: 100%;
+  }
+
+  .cm-commodities-code-text {
+    max-width: 240px;
+  }
+}

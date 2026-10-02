@@ -1,55 +1,47 @@
-// src/pages/mandis/index.tsx
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Box,
+  Alert,
   Button,
   Card,
-  CardContent,
-  Stack,
-  Tab,
+  Col,
+  Descriptions,
+  Dropdown,
+  Empty,
+  Grid,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Table,
   Tabs,
-  TextField,
-  Typography,
-  MenuItem,
+  Tag,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  CircularProgress,
-  InputAdornment,
-  Chip,
-  IconButton,
-  Menu,
-  useMediaQuery,
-} from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
-import { Alert as AntAlert, Button as AntButton, Col as AntCol, Dropdown, Input as AntInput, Modal as AntModal, Row as AntRow, Typography as AntTypography } from "antd";
+  Typography,
+} from "antd";
+import type { TableColumnsType } from "antd";
 import {
   CheckCircleOutlined,
-  DownOutlined,
+  EditOutlined,
+  EnvironmentOutlined,
+  HistoryOutlined,
+  MoreOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SearchOutlined as AntSearchOutlined,
+  SearchOutlined,
+  ShopOutlined,
   StopOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import EditIcon from "@mui/icons-material/Edit";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import AddIcon from "@mui/icons-material/Add";
-import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import { useSnackbar } from "notistack";
 
 import { PageContainer } from "../../components/PageContainer";
 import { CmInput } from "../../design-system/components/CmInput";
-import { CmSelect } from "../../design-system/components/CmSelect";
 import { CmReadOnlyField } from "../../design-system/components/CmReadOnlyField";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
 import { usePermissions } from "../../authz/usePermissions";
 import {
   fetchOrgMandisLite,
@@ -61,63 +53,15 @@ import {
   fetchProtectedMandiCorrectionHistory,
 } from "../../services/mandiApi";
 import { fetchStatesDistrictsByPincode } from "../../services/mastersApi";
-import { useSnackbar } from "notistack";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { fetchOrganisations } from "../../services/adminUsersApi";
-import { useTheme } from "@mui/material/styles";
 import { useStepUp } from "../../security/stepup/useStepUp";
-
-
-
-type MandisDropdownOption = { value: string | number; label: React.ReactNode };
+import "./mandis.css";
 
 type OrganisationOption = {
   value: string;
   label: string;
   orgCode: string;
-};
-
-const MandisBoxedDropdown = ({
-  id,
-  value,
-  options,
-  onChange,
-  disabled = false,
-}: {
-  id: string;
-  value: string | number;
-  options: MandisDropdownOption[];
-  onChange: (value: string | number) => void;
-  disabled?: boolean;
-}) => {
-  const selected = options.find((option) => String(option.value) === String(value));
-  return (
-    <Dropdown
-      disabled={disabled}
-      trigger={["click"]}
-      menu={{
-        selectedKeys: [String(value)],
-        items: options.map((option) => ({
-          key: String(option.value),
-          label: option.label,
-        })),
-        onClick: ({ key }) => {
-          const option = options.find((item) => String(item.value) === String(key));
-          if (option) onChange(option.value);
-        },
-      }}
-    >
-      <AntButton
-        id={id}
-        disabled={disabled}
-        className="cm-mandis-dropdown-trigger"
-        style={{ width: "100%", height: 40, display: "flex", alignItems: "center", justifyContent: "space-between" }}
-      >
-        <span>{selected?.label ?? "Select"}</span>
-        <DownOutlined />
-      </AntButton>
-    </Dropdown>
-  );
 };
 
 type MandiLite = {
@@ -222,7 +166,6 @@ export const Mandis: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
   const { ensureStepUp } = useStepUp();
-  const theme = useTheme();
 
   const username =
     (() => {
@@ -253,11 +196,11 @@ export const Mandis: React.FC = () => {
   const canCreate = can("mandis.create", "CREATE");
 
   const [activeTab, setActiveTab] = useState<"MY" | "IMPORT">("MY");
-  const isSmDown = useMediaQuery(theme.breakpoints.down("sm"));
-  const isMdDown = useMediaQuery(theme.breakpoints.down("md"));
+  const screens = Grid.useBreakpoint();
+  const isSmDown = !screens.sm;
+  const isMdDown = !screens.md;
 
   // Action menu (row-level)
-  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionMenuRow, setActionMenuRow] = useState<MandiLite | null>(null);
 
   const [correctionRow, setCorrectionRow] = useState<MandiLite | null>(null);
@@ -429,7 +372,6 @@ export const Mandis: React.FC = () => {
 
   // ======== Row actions (declare BEFORE myColumns to avoid TS2448/TS2454) ========
   const closeActionMenu = useCallback(() => {
-    setActionMenuAnchor(null);
     setActionMenuRow(null);
   }, []);
 
@@ -478,9 +420,7 @@ export const Mandis: React.FC = () => {
     [enqueueSnackbar, rowIsActive, updateLocalRowsStatus, username],
   );
 
-  const openActionMenu = useCallback((event: React.MouseEvent<HTMLElement>, row: MandiLite) => {
-    event.stopPropagation();
-    setActionMenuAnchor(event.currentTarget);
+  const openActionMenu = useCallback((row: MandiLite) => {
     setActionMenuRow(row);
   }, []);
 
@@ -589,98 +529,98 @@ export const Mandis: React.FC = () => {
     handleRowToggleStatus(actionMenuRow);
   }, [actionMenuRow, canRemove, closeActionMenu, handleRowToggleStatus]);
 
-  // ======== Columns ========
-  const myColumns: GridColDef<MandiLite>[] = useMemo(
+  // ======== Ant Design table columns ========
+  const myColumns: TableColumnsType<MandiLite> = useMemo(
     () => [
-      { field: "display_name", headerName: "Name", flex: 1, minWidth: 200 },
-      { field: "state_code", headerName: "State", width: 110, hide: isSmDown },
       {
-        field: "status",
-        headerName: "Status",
-        width: 140,
-        renderCell: (params) => {
-          const activeFlag = rowIsActive(params.row as MandiLite);
-          return (
-            <Chip
-              label={activeFlag ? "Active" : "Inactive"}
-              size="small"
-              color={activeFlag ? "success" : "default"}
-              variant="outlined"
-            />
-          );
-        },
+        title: "Mandi",
+        dataIndex: "display_name",
+        key: "display_name",
+        minWidth: 220,
+        render: (_value, row) => (
+          <div className="cm-mandis-name">
+            <strong>{String(row.display_name || row.name_i18n?.en || "—")}</strong>
+            <span>{row.mandi_slug || `Mandi ID ${row.mandi_id || "—"}`}</span>
+          </div>
+        ),
       },
-      { field: "district_display", headerName: "District", flex: 1, minWidth: 160, hide: isSmDown },
-      { field: "pincode", headerName: "Pincode", width: 120, hide: isSmDown },
-      { field: "mandi_id", headerName: "ID", width: 110, hide: isMdDown },
+      { title: "State", dataIndex: "state_code", key: "state_code", width: 100, responsive: ["sm"] },
       {
-        field: "actions",
-        headerName: "",
-        width: isSmDown ? 64 : 110,
-        sortable: false,
-        filterable: false,
-        disableColumnMenu: true,
-        renderCell: (params) => {
-          const row = params.row as MandiLite;
+        title: "Status",
+        key: "status",
+        width: 120,
+        render: (_value, row) => rowIsActive(row) ? <Tag color="success">Active</Tag> : <Tag>Inactive</Tag>,
+      },
+      { title: "District", dataIndex: "district_display", key: "district_display", minWidth: 150, responsive: ["md"] },
+      { title: "Pincode", dataIndex: "pincode", key: "pincode", width: 105, responsive: ["md"] },
+      { title: "ID", dataIndex: "mandi_id", key: "mandi_id", width: 95, responsive: ["lg"] },
+      {
+        title: "Actions",
+        key: "actions",
+        width: 120,
+        align: "right",
+        render: (_value, row) => {
           const active = rowIsActive(row);
-          const icon = active ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />;
-          const label = active ? "Deactivate" : "Activate";
-
-          // ✅ Mobile: 3-dot menu only
+          const menuItems = [
+            ...(isSuper && row.imported_from_system
+              ? [
+                  { key: "correct", label: "Correct master data", icon: <EditOutlined /> },
+                  { key: "history", label: "Correction history", icon: <HistoryOutlined /> },
+                ]
+              : []),
+            {
+              key: "toggle",
+              label: active ? "Deactivate" : "Activate",
+              icon: active ? <StopOutlined /> : <CheckCircleOutlined />,
+              disabled: !canRemove,
+              danger: active,
+            },
+          ];
+          const onMenuClick = ({ key }: { key: string }) => {
+            setActionMenuRow(row);
+            if (key === "correct") openCorrection(row);
+            if (key === "history") void openCorrectionHistory(row);
+            if (key === "toggle" && canRemove) void handleRowToggleStatus(row);
+          };
           if (isSmDown) {
             return (
-              <IconButton
-                size="small"
-                onClick={(event) => openActionMenu(event, row)}
-                aria-label="More actions"
-                disabled={!canRemove && !canCreate}
-              >
-                <MoreVertIcon fontSize="small" />
-              </IconButton>
+              <Dropdown menu={{ items: menuItems, onClick: onMenuClick }} trigger={["click"]}>
+                <Button type="text" icon={<MoreOutlined />} aria-label="Mandi actions" />
+              </Dropdown>
             );
           }
-
-          // ✅ Desktop: icons only
           return (
-            <Stack direction="row" spacing={0.5}>
+            <div className="cm-mandis-row-actions">
               {isSuper && row.imported_from_system ? (
                 <Tooltip title="Correct protected master data">
-                  <span>
-                    <IconButton size="small" onClick={() => openCorrection(row)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </span>
+                  <Button type="text" icon={<EditOutlined />} onClick={() => openCorrection(row)} />
                 </Tooltip>
               ) : null}
-
-              <Tooltip title={label}>
-                <span>
-                  <IconButton
-                    size="small"
-                    color={active ? "error" : "primary"}
-                    onClick={() => handleRowToggleStatus(row)}
-                    disabled={!canRemove}
-                  >
-                    {icon}
-                  </IconButton>
-                </span>
+              <Tooltip title={active ? "Deactivate" : "Activate"}>
+                <Button
+                  type="text"
+                  danger={active}
+                  icon={active ? <StopOutlined /> : <CheckCircleOutlined />}
+                  disabled={!canRemove}
+                  onClick={() => void handleRowToggleStatus(row)}
+                />
               </Tooltip>
-            </Stack>
+            </div>
           );
         },
       },
     ],
-    [canCreate, canRemove, handleRowToggleStatus, isMdDown, isSmDown, isSuper, openActionMenu, openCorrection, rowIsActive],
+    [canRemove, handleRowToggleStatus, isSmDown, isSuper, openCorrection, openCorrectionHistory, rowIsActive],
   );
 
-  const impColumns: GridColDef[] = [
-    { field: "display_name", headerName: "Name", flex: 1, minWidth: 180 },
-    { field: "state_code", headerName: "State", width: 110 },
-    { field: "district_display", headerName: "District", flex: 1, minWidth: 160 },
-    { field: "pincode", headerName: "Pincode", width: 110 },
-    { field: "mandi_id", headerName: "ID", width: 90 },
-    { field: "address_line", headerName: "Address", flex: 2, minWidth: 220 },
-    { field: "contact_number", headerName: "Contact", width: 150 },
+  const impColumns: TableColumnsType<MandiLite> = [
+    { title: "Mandi", dataIndex: "display_name", key: "display_name", minWidth: 200 },
+    { title: "State", dataIndex: "state_code", key: "state_code", width: 90 },
+    { title: "District", dataIndex: "district_display", key: "district_display", minWidth: 150 },
+    { title: "Pincode", dataIndex: "pincode", key: "pincode", width: 105 },
+    { title: "ID", dataIndex: "mandi_id", key: "mandi_id", width: 90 },
+    { title: "Address", dataIndex: "address_line", key: "address_line", minWidth: 230, ellipsis: true },
+    { title: "Contact", dataIndex: "contact_number", key: "contact_number", width: 140 },
   ];
 
   useEffect(() => {
@@ -1048,7 +988,8 @@ export const Mandis: React.FC = () => {
   const handleCreateCustomMandi = async () => {
     if (!canCreate) return;
 
-    if (!authContext.org_code) {
+    const targetOrgCode = isSuper ? selectedOrgCode : String(authContext.org_code || "");
+    if (!targetOrgCode) {
       enqueueSnackbar("Organisation not found", { variant: "error" });
       return;
     }
@@ -1066,7 +1007,7 @@ export const Mandis: React.FC = () => {
         username,
         language: DEFAULT_LANGUAGE,
         payload: {
-          org_code: String(authContext.org_code),
+          org_code: targetOrgCode,
           name_i18n: { en: createForm.name.trim() },
           pincode: createForm.pincode.trim(),
           address_line: createForm.address.trim(),
@@ -1096,784 +1037,366 @@ export const Mandis: React.FC = () => {
     canCreate &&
     Boolean(createForm.name.trim()) &&
     Boolean(createForm.address.trim()) &&
+    /^\d{10,15}$/.test(createForm.contact.trim()) &&
     pincodeStatus === "success" &&
     Boolean(pincodeLookup.district_name) &&
     Boolean(pincodeLookup.state_name);
 
-  // ======== Render: My Mandis ========
-  const renderMyMandis = () => {
-    const addTooltip = !canCreate ? "No permission to add mandi" : "";
+  // ======== Render helpers ========
+  const stateOptions = useMemo(
+    () => [{ value: "", label: "All states" }, ...STATE_OPTIONS.map((code) => ({ value: code, label: STATE_NAME_MAP[code] || code }))],
+    [],
+  );
 
+  const activeOnPage = useMemo(() => myRows.filter(rowIsActive).length, [myRows, rowIsActive]);
+  const inactiveOnPage = Math.max(0, myRows.length - activeOnPage);
+
+  const commonToolbar = (mode: "MY" | "IMPORT") => {
+    const isMy = mode === "MY";
+    const stateValue = isMy ? myState : impState;
+    const searchValue = isMy ? mySearch : impSearch;
+    const pageSizeValue = isMy ? myPageSize : impPageSize;
+    const disabled = !isMy && !impState;
     return (
-      <Stack spacing={2}>
-        {/* Toolbar */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={1}
-          alignItems={{ xs: "stretch", sm: "center" }}
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 20,
-            bgcolor: "background.paper",
-            borderBottom: 1,
-            borderColor: "divider",
-            py: 1,
-            gap: 1,
-          }}
-        >
-          <Box sx={{ width: { xs: "100%", sm: 220 }, flex: "0 0 auto" }}>
-            <Typography component="label" htmlFor="mandis-my-state" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-              State
-            </Typography>
-            <MandisBoxedDropdown
-              id="mandis-my-state"
-              value={myState}
-              onChange={(value) => {
+      <div className="cm-mandis-toolbar">
+        <label className="cm-field">
+          <span className="cm-field-label">State</span>
+          <Select
+            className="cm-mandis-select"
+            value={stateValue}
+            options={isMy ? stateOptions : [{ value: "", label: "Select state" }, ...stateOptions.slice(1)]}
+            onChange={(value) => {
+              if (isMy) {
                 setMyState(String(value || ""));
                 setMyPage(1);
-              }}
-              options={[
-                { value: "", label: "All States" },
-                ...STATE_OPTIONS.map((code) => ({ value: code, label: STATE_NAME_MAP[code] || code })),
-              ]}
-            />
-          </Box>
+              } else {
+                setImpState(String(value || ""));
+                setImpPage(1);
+                setImpSelectionModel([]);
+              }
+            }}
+          />
+        </label>
 
-          <Box sx={{ width: { xs: "100%", sm: 320 }, flex: "0 0 auto" }}>
-            <Typography component="label" htmlFor="mandis-my-search" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-              Search
-            </Typography>
-            <AntInput
-              id="mandis-my-search"
-              value={mySearch}
-              prefix={<AntSearchOutlined />}
-              placeholder="Search mandi"
-              onChange={(e) => {
-                setMySearch(e.target.value);
+        <label className="cm-field">
+          <span className="cm-field-label">Search</span>
+          <Input
+            prefix={<SearchOutlined />}
+            allowClear
+            placeholder={isMy ? "Search by mandi, district or pincode" : "Search system mandi"}
+            value={searchValue}
+            disabled={disabled}
+            onChange={(event) => {
+              if (isMy) {
+                setMySearch(event.target.value);
                 setMyPage(1);
-              }}
-              style={{ width: "100%" }}
-              allowClear
-            />
-          </Box>
+              } else {
+                setImpSearch(event.target.value);
+                setImpPage(1);
+              }
+            }}
+          />
+        </label>
 
-          <Box sx={{ width: { xs: "100%", sm: 120 }, flex: "0 0 auto" }}>
-            <Typography component="label" htmlFor="mandis-my-page-size" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-              Page Size
-            </Typography>
-            <MandisBoxedDropdown
-              id="mandis-my-page-size"
-              value={myPageSize}
-              onChange={(value) => {
+        <label className="cm-field">
+          <span className="cm-field-label">Rows</span>
+          <Select
+            className="cm-mandis-select"
+            value={pageSizeValue}
+            disabled={disabled}
+            options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
+            onChange={(value) => {
+              if (isMy) {
                 setMyPageSize(Number(value));
                 setMyPage(1);
-              }}
-              options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
-            />
-          </Box>
-
-          {/* Actions align to the same 40px control baseline as State/Search/Page Size. */}
-          <Stack
-            direction="row"
-            spacing={0.75}
-            alignItems="center"
-            sx={{
-              ml: { sm: "auto" },
-              alignSelf: { xs: "stretch", sm: "flex-end" },
-              height: 40,
+              } else {
+                setImpPageSize(Number(value));
+                setImpPage(1);
+              }
             }}
-          >
-            <Tooltip title="Refresh" arrow>
-              <span>
-                <AntButton
-                  aria-label="Refresh"
-                  icon={<ReloadOutlined />}
-                  onClick={resetMy}
-                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                />
-              </span>
-            </Tooltip>
+          />
+        </label>
 
-            <Tooltip
-              title={
-                !canRemove
-                  ? "No permission"
-                  : activeSelectedRows.length
-                    ? "Deactivate selected"
-                    : "Select an active mandi to deactivate"
-              }
-              arrow
+        <div className="cm-mandis-toolbar-actions">
+          <Tooltip title="Refresh">
+            <Button
+              icon={<ReloadOutlined />}
+              disabled={disabled}
+              onClick={() => isMy ? resetMy() : void fetchSystemMandis()}
             >
-              <span>
-                <AntButton
-                  danger
-                  aria-label="Deactivate selected"
-                  icon={<StopOutlined />}
-                  disabled={!canRemove || activeSelectedRows.length === 0}
-                  onClick={handleRemoveSelected}
-                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                />
-              </span>
-            </Tooltip>
-
-            <Tooltip
-              title={
-                !canRemove
-                  ? "No permission"
-                  : inactiveSelectedRows.length
-                    ? "Activate selected"
-                    : "Select an inactive mandi to activate"
-              }
-              arrow
-            >
-              <span>
-                <AntButton
-                  aria-label="Activate selected"
-                  icon={<CheckCircleOutlined />}
-                  disabled={!canRemove || inactiveSelectedRows.length === 0}
-                  onClick={handleActivateSelected}
-                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                />
-              </span>
-            </Tooltip>
-
-            <Tooltip title={addTooltip || "Add custom mandi"} arrow>
-              <span>
-                <AntButton
-                  type="primary"
-                  aria-label="Add custom mandi"
-                  icon={<PlusOutlined />}
-                  disabled={!canCreate}
-                  onClick={() => canCreate && setCreateModalOpen(true)}
-                  style={{ width: 40, height: 40, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                />
-              </span>
-            </Tooltip>
-          </Stack>
-        </Stack>
-
-        <Card>
-          <CardContent>
-            <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <ResponsiveDataGrid
-                autoHeight
-                getRowId={getMyRowId}
-                rows={myRows}
-                columns={myColumns}
-                loading={myLoading}
-                paginationMode="server"
-                rowCount={myTotal}
-                pageSizeOptions={PAGE_SIZES}
-                paginationModel={{ page: myPage - 1, pageSize: myPageSize }}
-                onPaginationModelChange={(m) => {
-                  setMyPage(m.page + 1);
-                  setMyPageSize(m.pageSize);
-                }}
-                checkboxSelection
-                disableRowSelectionOnClick
-                rowSelectionModel={mySelectionModel}
-                onRowSelectionModelChange={(model) => {
-                  const next = Array.isArray(model) ? model : [];
-                  setMySelectionModel(next);
-                }}
-                sx={{
-                  minWidth: isSmDown ? 600 : 840,
-                  // Keep DataGrid selection controls readable. The global theme styles
-                  // native inputs, so explicitly size/reset the MUI checkbox internals
-                  // for both header and row selectors on this screen.
-                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root": {
-                    width: 36,
-                    height: 36,
-                    minWidth: 36,
-                    minHeight: 36,
-                    padding: "6px !important",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  },
-                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root .MuiSvgIcon-root": {
-                    width: 22,
-                    height: 22,
-                    fontSize: "22px !important",
-                  },
-                  "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root input[type='checkbox'], & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root input[type='checkbox']": {
-                    minHeight: "0 !important",
-                    border: "0 !important",
-                    borderRadius: "0 !important",
-                    background: "transparent !important",
-                    boxShadow: "none !important",
-                    padding: "0 !important",
-                  },
-                }}
-              />
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Menu
-          anchorEl={actionMenuAnchor}
-          open={Boolean(actionMenuAnchor)}
-          onClose={closeActionMenu}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-        >
-          {isSuper && actionMenuRow?.imported_from_system ? (
+              {!isSmDown ? "Refresh" : null}
+            </Button>
+          </Tooltip>
+          {isMy ? (
             <>
-              <MenuItem onClick={handleActionMenuEdit}>Correct Master Data</MenuItem>
-              <MenuItem onClick={handleActionMenuHistory}>Correction History</MenuItem>
+              <Tooltip title={!canRemove ? "No permission" : activeSelectedRows.length ? "Deactivate selected" : "Select active mandis first"}>
+                <Button danger icon={<StopOutlined />} disabled={!canRemove || !activeSelectedRows.length} onClick={handleRemoveSelected}>
+                  {!isSmDown ? "Deactivate" : null}
+                </Button>
+              </Tooltip>
+              <Tooltip title={!canRemove ? "No permission" : inactiveSelectedRows.length ? "Activate selected" : "Select inactive mandis first"}>
+                <Button icon={<CheckCircleOutlined />} disabled={!canRemove || !inactiveSelectedRows.length} onClick={() => void handleActivateSelected()}>
+                  {!isSmDown ? "Activate" : null}
+                </Button>
+              </Tooltip>
+              <Tooltip title={!canCreate ? "No permission to add mandi" : "Add a custom mandi"}>
+                <Button type="primary" icon={<PlusOutlined />} disabled={!canCreate} onClick={() => setCreateModalOpen(true)}>
+                  {!isSmDown ? "Add Mandi" : null}
+                </Button>
+              </Tooltip>
             </>
-          ) : null}
-          <MenuItem onClick={handleActionMenuToggle} disabled={!canRemove}>
-            {actionMenuRow && rowIsActive(actionMenuRow) ? "Deactivate" : "Activate"}
-          </MenuItem>
-        </Menu>
-      </Stack>
+          ) : (
+            <Button
+              type="primary"
+              disabled={!canImport || !impState || selectedImportMandiIds.length === 0}
+              onClick={() => void handleImport()}
+            >
+              Import Selected{selectedImportMandiIds.length ? ` (${selectedImportMandiIds.length})` : ""}
+            </Button>
+          )}
+        </div>
+      </div>
     );
   };
 
-  // ======== Render: Import Mandis ========
-  const renderImportMandis = () => {
-    return (
-      <Box sx={{ height: "72vh", display: "flex", flexDirection: "column", width: "100%" }}>
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 50,
-            bgcolor: "background.paper",
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            px: 1,
-            py: 1,
+  const renderMyMandis = () => (
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      <CmSectionCard compact>{commonToolbar("MY")}</CmSectionCard>
+      <Row gutter={[12, 12]}>
+        <Col xs={12} lg={6}><CmStatCard label="Total Mandis" value={myTotal.toLocaleString("en-IN")} icon={<ShopOutlined />} tone="olive" /></Col>
+        <Col xs={12} lg={6}><CmStatCard label="Active on page" value={activeOnPage} icon={<CheckCircleOutlined />} tone="olive" /></Col>
+        <Col xs={12} lg={6}><CmStatCard label="Inactive on page" value={inactiveOnPage} icon={<StopOutlined />} tone="neutral" /></Col>
+        <Col xs={12} lg={6}><CmStatCard label="Selected" value={mySelectionModel.length} icon={<TeamOutlined />} tone="amber" /></Col>
+      </Row>
+      <Card className="cm-mandis-table-card" bordered>
+        <Table<MandiLite>
+          rowKey={getMyRowId}
+          columns={myColumns}
+          dataSource={myRows}
+          loading={myLoading}
+          scroll={{ x: 860 }}
+          rowSelection={{
+            selectedRowKeys: mySelectionModel,
+            preserveSelectedRowKeys: true,
+            onChange: (keys) => setMySelectionModel(keys as (string | number)[]),
           }}
-        >
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-            <Box sx={{ width: { xs: "100%", sm: 240 }, flex: "0 0 auto" }}>
-              <Typography component="label" htmlFor="mandis-import-state" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-                State
-              </Typography>
-              <MandisBoxedDropdown
-                id="mandis-import-state"
-                value={impState}
-                onChange={(value) => {
-                  setImpState(String(value || ""));
-                  setImpPage(1);
-                  setImpSelectionModel([]);
-                }}
-                options={[
-                  { value: "", label: "Select state" },
-                  ...STATE_OPTIONS.map((code) => ({ value: code, label: STATE_NAME_MAP?.[code] || code })),
-                ]}
-              />
-            </Box>
+          pagination={{
+            current: myPage,
+            pageSize: myPageSize,
+            total: myTotal,
+            showSizeChanger: false,
+            showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+            onChange: (page) => setMyPage(page),
+          }}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No mandis found for this scope" /> }}
+        />
+      </Card>
+    </Space>
+  );
 
-            <Box sx={{ width: { xs: "100%", sm: 320 }, flex: "0 0 auto" }}>
-              <Typography component="label" htmlFor="mandis-import-search" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-                Search
-              </Typography>
-              <AntInput
-                id="mandis-import-search"
-                value={impSearch}
-                prefix={<AntSearchOutlined />}
-                placeholder="Search system mandi"
-                onChange={(e) => {
-                  setImpSearch(e.target.value);
-                  setImpPage(1);
-                }}
-                disabled={!impState}
-                style={{ width: "100%" }}
-                allowClear
-              />
-            </Box>
-
-            <Box sx={{ width: { xs: "100%", sm: 120 }, flex: "0 0 auto" }}>
-              <Typography component="label" htmlFor="mandis-import-page-size" variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-                Page Size
-              </Typography>
-              <MandisBoxedDropdown
-                id="mandis-import-page-size"
-                value={impPageSize}
-                onChange={(value) => {
-                  setImpPageSize(Number(value));
-                  setImpPage(1);
-                }}
-                options={PAGE_SIZES.map((size) => ({ value: size, label: String(size) }))}
-                disabled={!impState}
-              />
-            </Box>
-
-            <Box sx={{ width: { xs: "100%", sm: "auto" }, alignSelf: { sm: "flex-end" } }}>
-              <AntButton
-                icon={<ReloadOutlined />}
-                onClick={() => {
-                  if (impState) fetchSystemMandis();
-                }}
-                disabled={!impState}
-                block={isSmDown}
-                style={{ height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-              >
-                Refresh
-              </AntButton>
-            </Box>
-
-            <Box sx={{ width: { xs: "100%", sm: "auto" }, alignSelf: { sm: "flex-end" } }}>
-              <Tooltip title={!canImport ? "No permission" : ""} arrow>
-                <span style={{ display: "block" }}>
-                  <AntButton
-                    type="primary"
-                    disabled={!canImport || !impState || selectedImportMandiIds.length === 0}
-                    onClick={handleImport}
-                    block={isSmDown}
-                    style={{ height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    Import Selected
-                  </AntButton>
-                </span>
-              </Tooltip>
-            </Box>
-
-            <Typography
-              variant="body2"
-              sx={{
-                opacity: 0.72,
-                alignSelf: { xs: "stretch", sm: "flex-end" },
-                minHeight: 40,
-                display: "flex",
-                alignItems: "center",
-                whiteSpace: "nowrap",
-                px: { xs: 0, sm: 0.5 },
-              }}
-            >
-              Selected: {selectedImportMandiIds.length} (max 25) • Total: {impTotal}
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          {!impState ? (
-            <Box sx={{ p: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Select a state to load system mandis.
-              </Typography>
-            </Box>
-          ) : (
-            <ResponsiveDataGrid
-              rows={impRows}
-              columns={impColumns}
-              loading={impLoading}
-              checkboxSelection
-              disableRowSelectionOnClick
-              getRowId={(row: any) => String(row?.mandi_id ?? row?._id ?? row?._rowId)}
-              rowSelectionModel={impSelectionModel}
-              onRowSelectionModelChange={(m) => {
-                const next = Array.isArray(m) ? m : [];
-                if (next.length > 25) {
+  const renderImportMandis = () => (
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      <CmSectionCard compact>{commonToolbar("IMPORT")}</CmSectionCard>
+      <Alert
+        type="info"
+        showIcon
+        message="Import from the protected system mandi master"
+        description="Choose a state, select up to 25 mandis, and import them into the selected organisation. Existing mappings are skipped by the API."
+      />
+      <Card className="cm-mandis-table-card" bordered>
+        {!impState ? (
+          <div className="cm-mandis-import-guide">
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Select a state to load system mandis" />
+          </div>
+        ) : (
+          <Table<MandiLite>
+            rowKey={(row) => String(row?.mandi_id ?? row?._id ?? row?._rowId)}
+            columns={impColumns}
+            dataSource={impRows}
+            loading={impLoading}
+            scroll={{ x: 1050 }}
+            rowSelection={{
+              selectedRowKeys: impSelectionModel,
+              preserveSelectedRowKeys: true,
+              onChange: (keys) => {
+                if (keys.length > 25) {
                   enqueueSnackbar("You can import 25 mandis at a time.", { variant: "warning" });
                   return;
                 }
-                setImpSelectionModel(next);
-              }}
-              paginationMode="server"
-              rowCount={impTotal}
-              pageSizeOptions={PAGE_SIZES}
-              paginationModel={{ page: impPage - 1, pageSize: impPageSize }}
-              onPaginationModelChange={(m) => {
-                setImpPage(m.page + 1);
-                setImpPageSize(m.pageSize);
-              }}
-              sx={{
-                height: "100%",
-                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root": {
-                  width: 36,
-                  height: 36,
-                  minWidth: 36,
-                  minHeight: 36,
-                  padding: "6px !important",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                },
-                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root .MuiSvgIcon-root, & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root .MuiSvgIcon-root": {
-                  width: 22,
-                  height: 22,
-                  fontSize: "22px !important",
-                },
-                "& .MuiDataGrid-cellCheckbox .MuiCheckbox-root input[type='checkbox'], & .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root input[type='checkbox']": {
-                  minHeight: "0 !important",
-                  border: "0 !important",
-                  borderRadius: "0 !important",
-                  background: "transparent !important",
-                  boxShadow: "none !important",
-                  padding: "0 !important",
-                },
-                "& .MuiDataGrid-columnHeaders": {
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10,
-                  backgroundColor: "background.paper",
-                  borderBottom: "1px solid",
-                  borderColor: "divider",
-                  boxShadow: 1,
-                },
-                "& .MuiDataGrid-virtualScroller": { overflowY: "auto" },
-              }}
-            />
-          )}
-        </Box>
-      </Box>
-    );
-  };
-
-  // ======== Dialogs ========
-  const renderCreateDialog = () => (
-    <Dialog open={createModalOpen} onClose={handleCloseCreateModal} fullWidth maxWidth="sm">
-      <DialogTitle>Add Custom Mandi</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <CmInput
-            label="Mandi name (English)"
-            value={createForm.name}
-            onChange={(value) => setCreateForm((prev) => ({ ...prev, name: value }))}
-            required
-          />
-
-          <CmInput
-            label="Pincode"
-            value={createForm.pincode}
-            onChange={(value) => setCreateForm((prev) => ({ ...prev, pincode: value }))}
-            required
-            maxLength={6}
-            inputMode="numeric"
-            help={pincodeError || (pincodeStatus === "loading" ? "Looking up pincode…" : "Enter a 6-digit pincode")}
-            error={Boolean(pincodeError) && pincodeStatus === "error"}
-          />
-
-          <div className="cm-form-grid cm-form-grid-2">
-            <CmReadOnlyField label="State" value={pincodeLookup.state_name} />
-            <CmReadOnlyField label="District" value={pincodeLookup.district_name} />
-          </div>
-
-          <CmInput
-            label="Address line"
-            value={createForm.address}
-            onChange={(value) => setCreateForm((prev) => ({ ...prev, address: value }))}
-            required
-            multiline
-            rows={3}
-          />
-
-          <CmInput
-            label="Contact number"
-            value={createForm.contact}
-            onChange={(value) => setCreateForm((prev) => ({ ...prev, contact: value }))}
-          />
-
-          <Stack direction="row" spacing={2}>
-            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-              Latitude: {pincodeLookup.latitude ?? "-"}
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-              Longitude: {pincodeLookup.longitude ?? "-"}
-            </Typography>
-          </Stack>
-        </Stack>
-      </DialogContent>
-
-      <DialogActions>
-        <Button onClick={handleCloseCreateModal} disabled={createSubmitting}>
-          Cancel
-        </Button>
-        <Button variant="contained" color="primary" disabled={!canSubmitCreate || createSubmitting} onClick={handleCreateCustomMandi}>
-          {createSubmitting ? <CircularProgress size={18} color="inherit" /> : "Save"}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  const renderDeactivateDialog = () => (
-    <Dialog open={deactivateConfirmOpen} onClose={cancelDeactivate} aria-labelledby="deactivate-mandi-dialog-title">
-      <DialogTitle id="deactivate-mandi-dialog-title">Deactivate Mandi</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          This will deactivate the mandi for this organisation. You can activate it again later if required.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={cancelDeactivate}>Cancel</Button>
-        <Button variant="contained" color="error" onClick={confirmDeactivate}>
-          Deactivate
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  // ======== Page ========
-  return (
-    <>
-      <PageContainer>
-      {isSuper && selectedSuperOrgId && selectedOrgCode ? (
-        <Box sx={{ mb: 1.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            Organisation scope: <strong>{selectedOrgCode}</strong>
-          </Typography>
-        </Box>
-      ) : null}
-
-        <Box className="cm-mandis-page">
-          <Stack spacing={2}>
-          <Typography variant="h5">Mandis</Typography>
-
-          {isSuper ? (
-            <Box sx={{ width: { xs: "100%", sm: 360 }, maxWidth: "100%" }}>
-              <Typography variant="caption" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
-                Organisation
-              </Typography>
-              <MandisBoxedDropdown
-                id="mandis-organisation-filter"
-                value={selectedSuperOrgId}
-                disabled={organisationsLoading}
-                options={[
-                  { value: "", label: organisationsLoading ? "Loading organisations..." : "Select Organisation" },
-                  ...organisationOptions.map((option) => ({ value: option.value, label: option.label })),
-                ]}
-                onChange={(value) => {
-                  setSelectedSuperOrgId(String(value));
-                  setMyState("");
-                  setImpState("");
-                }}
-              />
-            </Box>
-          ) : null}
-
-          <Tabs
-            value={activeTab}
-            onChange={(_, v) => {
-              setActiveTab(v);
-              if (v === "MY") {
-                setMyPage(1);
-              } else {
-                resetImport();
-              }
+                setImpSelectionModel(keys as (string | number)[]);
+              },
             }}
-          >
-            <Tab label="My Mandis" value="MY" />
-            <Tab label="Import Mandis" value="IMPORT" />
-          </Tabs>
+            pagination={{
+              current: impPage,
+              pageSize: impPageSize,
+              total: impTotal,
+              showSizeChanger: false,
+              showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+              onChange: (page) => setImpPage(page),
+            }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No system mandis found" /> }}
+          />
+        )}
+      </Card>
+    </Space>
+  );
 
-          {activeTab === "MY" ? renderMyMandis() : renderImportMandis()}
-          </Stack>
-        </Box>
-
-      <AntModal
-        open={Boolean(correctionRow)}
-        title="Correct Protected Mandi Master Data"
-        width={720}
-        style={{ top: 84, paddingBottom: 24 }}
-        destroyOnClose
-        maskClosable={!correctionSubmitting}
-        closable={!correctionSubmitting}
-        onCancel={() => !correctionSubmitting && setCorrectionRow(null)}
-        footer={[
-          <AntButton
-            key="cancel"
-            onClick={() => setCorrectionRow(null)}
-            disabled={correctionSubmitting}
-          >
-            Cancel
-          </AntButton>,
-          <AntButton
-            key="save"
-            type="primary"
-            onClick={submitCorrection}
-            loading={correctionSubmitting}
-            disabled={correctionSubmitting || correctionReason.trim().length < 10}
-          >
-            Save Correction
-          </AntButton>,
-        ]}
-      >
-        <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto", paddingRight: 4 }}>
-        <AntAlert
-          type="warning"
-          showIcon
-          message="Protected platform master data"
-          description="Only SUPER_ADMIN can make verified corrections. Changes require step-up verification, are synchronized to imported organisation copies, and are permanently audited."
-          style={{ marginBottom: 20 }}
+  return (
+    <PageContainer>
+      <div className="cm-mandis-page">
+        <CmPageHeader
+          title="Mandis"
+          subtitle="Manage organisation mandi access, import protected system masters, and maintain operational availability from one scoped workspace."
+          eyebrow={<Tag color="gold">Mandi Administration</Tag>}
+          actions={<Button icon={<ReloadOutlined />} onClick={() => activeTab === "MY" ? resetMy() : impState ? void fetchSystemMandis() : undefined}>Refresh</Button>}
         />
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <AntTypography.Text strong>Mandi name</AntTypography.Text>
-            <AntInput
-              value={correctionName}
-              onChange={(e) => setCorrectionName(e.target.value)}
-              style={{ marginTop: 6, height: 40 }}
-            />
-          </div>
-
-          <AntRow gutter={[16, 16]}>
-            <AntCol xs={24} sm={12}>
-              <AntTypography.Text strong>State code</AntTypography.Text>
-              <AntInput
-                value={correctionState}
-                maxLength={3}
-                onChange={(e) => setCorrectionState(e.target.value.toUpperCase())}
-                style={{ marginTop: 6, height: 40 }}
-              />
-            </AntCol>
-            <AntCol xs={24} sm={12}>
-              <AntTypography.Text strong>District</AntTypography.Text>
-              <AntInput
-                value={correctionDistrict}
-                onChange={(e) => setCorrectionDistrict(e.target.value)}
-                style={{ marginTop: 6, height: 40 }}
-              />
-            </AntCol>
-          </AntRow>
-
-          <AntRow gutter={[16, 16]}>
-            <AntCol xs={24} sm={12}>
-              <AntTypography.Text strong>Pincode</AntTypography.Text>
-              <AntInput
-                value={correctionPincode}
-                maxLength={6}
-                inputMode="numeric"
-                onChange={(e) => setCorrectionPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                style={{ marginTop: 6, height: 40 }}
-              />
-            </AntCol>
-            <AntCol xs={24} sm={12}>
-              <AntTypography.Text strong>Contact</AntTypography.Text>
-              <AntInput
-                value={correctionContact}
-                maxLength={15}
-                inputMode="tel"
-                onChange={(e) => setCorrectionContact(e.target.value.replace(/\D/g, "").slice(0, 15))}
-                style={{ marginTop: 6, height: 40 }}
-              />
-            </AntCol>
-          </AntRow>
-
-          <div>
-            <AntTypography.Text strong>Address</AntTypography.Text>
-            <AntInput.TextArea
-              value={correctionAddress}
-              onChange={(e) => setCorrectionAddress(e.target.value)}
-              autoSize={{ minRows: 2, maxRows: 4 }}
-              style={{ marginTop: 6 }}
-            />
-          </div>
-
-          <div>
-            <AntTypography.Text strong>Correction reason <span style={{ color: "#cf1322" }}>*</span></AntTypography.Text>
-            <AntInput.TextArea
-              value={correctionReason}
-              maxLength={500}
-              showCount
-              onChange={(e) => setCorrectionReason(e.target.value.slice(0, 500))}
-              autoSize={{ minRows: 3, maxRows: 6 }}
-              status={correctionReason.length > 0 && correctionReason.trim().length < 10 ? "error" : undefined}
-              style={{ marginTop: 6 }}
-            />
-            <AntTypography.Text type={correctionReason.length > 0 && correctionReason.trim().length < 10 ? "danger" : "secondary"}>
-              Mandatory. Minimum 10 characters. This reason is stored in the audit history.
-            </AntTypography.Text>
-          </div>
-        </div>
-        </div>
-      </AntModal>
-
-      <AntModal
-        open={Boolean(historyRow)}
-        title="Protected Mandi Correction History"
-        width={860}
-        style={{ top: 84, paddingBottom: 24 }}
-        destroyOnClose
-        footer={[
-          <AntButton key="close" onClick={() => setHistoryRow(null)}>Close</AntButton>,
-        ]}
-        onCancel={() => setHistoryRow(null)}
-      >
-        <div style={{ maxHeight: "calc(100vh - 190px)", overflowY: "auto", paddingRight: 4 }}>
-          <AntAlert
-            type="info"
+        {isSuper ? (
+          <CmSectionCard className="cm-mandis-scope-card" compact>
+            <div className="cm-mandis-scope-grid">
+              <label className="cm-field">
+                <span className="cm-field-label">Organisation scope</span>
+                <Select
+                  className="cm-mandis-select"
+                  showSearch
+                  optionFilterProp="label"
+                  loading={organisationsLoading}
+                  value={selectedSuperOrgId || undefined}
+                  placeholder="Select organisation"
+                  options={organisationOptions.map((option) => ({ value: option.value, label: `${option.label} · ${option.orgCode}` }))}
+                  onChange={(value) => {
+                    setSelectedSuperOrgId(String(value || ""));
+                    setMyState("");
+                    setImpState("");
+                  }}
+                />
+              </label>
+              <div className="cm-mandis-scope-note">
+                <EnvironmentOutlined />
+                {selectedSuperOrgId
+                  ? <>Operating within <strong>{selectedOrgCode || "selected organisation"}</strong>. All list, import and create actions use this organisation scope.</>
+                  : <>Select an organisation before loading or changing its mandis.</>}
+              </div>
+            </div>
+          </CmSectionCard>
+        ) : (
+          <Alert
+            type="success"
             showIcon
-            message={historyRow ? String(historyRow?.name_i18n?.en || historyRow?.display_name || "Protected Mandi") : "Protected Mandi"}
-            description="Every protected master-data correction is retained here. The reason belongs to that specific correction and is not reused for future edits."
-            style={{ marginBottom: 16 }}
+            message="Organisation scope locked by your account"
+            description={`All mandi actions are restricted to your authorised organisation${authContext.org_code ? ` (${authContext.org_code})` : ""}.`}
           />
+        )}
 
+        {!orgId ? (
+          <CmSectionCard>
+            <Empty description={isSuper ? "Select an organisation to manage its mandis" : "No organisation scope is available for this account"} />
+          </CmSectionCard>
+        ) : (
+          <Tabs
+            className="cm-mandis-tabs"
+            activeKey={activeTab}
+            onChange={(key) => {
+              const next = key as "MY" | "IMPORT";
+              setActiveTab(next);
+              if (next === "MY") setMyPage(1);
+              else resetImport();
+            }}
+            items={[
+              { key: "MY", label: "Organisation Mandis", children: renderMyMandis() },
+              { key: "IMPORT", label: "Import from System", children: renderImportMandis(), disabled: !canImport },
+            ]}
+          />
+        )}
+
+        <Modal
+          open={createModalOpen}
+          title="Add Custom Mandi"
+          width={680}
+          onCancel={handleCloseCreateModal}
+          confirmLoading={createSubmitting}
+          okText="Create Mandi"
+          okButtonProps={{ disabled: !canSubmitCreate }}
+          onOk={() => void handleCreateCustomMandi()}
+          destroyOnClose
+        >
+          <Alert type="info" showIcon message="Create inside current organisation scope" description="Location metadata is resolved from the pincode master; business data is not invented by the Admin UI." style={{ marginBottom: 16 }} />
+          <div className="cm-mandis-modal-grid">
+            <div className="cm-span-2"><CmInput label="Mandi name (English)" value={createForm.name} onChange={(value) => setCreateForm((prev) => ({ ...prev, name: value }))} required /></div>
+            <CmInput label="Pincode" value={createForm.pincode} onChange={(value) => setCreateForm((prev) => ({ ...prev, pincode: value.replace(/\D/g, "").slice(0, 6) }))} required maxLength={6} inputMode="numeric" help={pincodeError || (pincodeStatus === "loading" ? "Looking up pincode…" : "Enter a 6-digit pincode")} error={Boolean(pincodeError) && pincodeStatus === "error"} />
+            <CmInput label="Contact number" value={createForm.contact} onChange={(value) => setCreateForm((prev) => ({ ...prev, contact: value.replace(/\D/g, "").slice(0, 15) }))} inputMode="tel" required help="10–15 digits, as required by the Mandi API" error={Boolean(createForm.contact) && !/^\d{10,15}$/.test(createForm.contact)} />
+            <CmReadOnlyField label="State" value={pincodeLookup.state_name} />
+            <CmReadOnlyField label="District" value={pincodeLookup.district_name} />
+            <div className="cm-span-2"><CmInput label="Address line" value={createForm.address} onChange={(value) => setCreateForm((prev) => ({ ...prev, address: value }))} required multiline rows={3} /></div>
+            <div className="cm-span-2 cm-mandis-coordinates"><Typography.Text type="secondary">Latitude: {pincodeLookup.latitude ?? "—"}</Typography.Text><Typography.Text type="secondary">Longitude: {pincodeLookup.longitude ?? "—"}</Typography.Text></div>
+          </div>
+        </Modal>
+
+        <Modal
+          open={deactivateConfirmOpen}
+          title="Deactivate Mandi"
+          okText="Deactivate"
+          okButtonProps={{ danger: true }}
+          onCancel={cancelDeactivate}
+          onOk={() => void confirmDeactivate()}
+        >
+          <Typography.Paragraph>This deactivates the selected mandi mappings for this organisation. They remain visible and can be activated again later.</Typography.Paragraph>
+        </Modal>
+
+        <Modal
+          open={Boolean(correctionRow)}
+          title="Correct Protected Mandi Master Data"
+          width={760}
+          destroyOnClose
+          maskClosable={!correctionSubmitting}
+          closable={!correctionSubmitting}
+          onCancel={() => !correctionSubmitting && setCorrectionRow(null)}
+          footer={[
+            <Button key="cancel" onClick={() => setCorrectionRow(null)} disabled={correctionSubmitting}>Cancel</Button>,
+            <Button key="save" type="primary" onClick={() => void submitCorrection()} loading={correctionSubmitting} disabled={correctionReason.trim().length < 10}>Save Correction</Button>,
+          ]}
+        >
+          <Alert type="warning" showIcon message="Protected platform master data" description="Only SUPER_ADMIN can make verified corrections. Changes require step-up verification, synchronize to imported organisation copies, and are permanently audited." style={{ marginBottom: 16 }} />
+          <div className="cm-mandis-modal-grid">
+            <div className="cm-span-2"><CmInput label="Mandi name" value={correctionName} onChange={setCorrectionName} /></div>
+            <CmInput label="State code" value={correctionState} onChange={(value) => setCorrectionState(value.toUpperCase().slice(0, 3))} maxLength={3} />
+            <CmInput label="District" value={correctionDistrict} onChange={setCorrectionDistrict} />
+            <CmInput label="Pincode" value={correctionPincode} onChange={(value) => setCorrectionPincode(value.replace(/\D/g, "").slice(0, 6))} maxLength={6} />
+            <CmInput label="Contact" value={correctionContact} onChange={(value) => setCorrectionContact(value.replace(/\D/g, "").slice(0, 15))} maxLength={15} />
+            <div className="cm-span-2"><CmInput label="Address" value={correctionAddress} onChange={setCorrectionAddress} multiline rows={3} /></div>
+            <div className="cm-span-2"><CmInput label="Correction reason" value={correctionReason} onChange={(value) => setCorrectionReason(value.slice(0, 500))} multiline rows={4} error={correctionReason.length > 0 && correctionReason.trim().length < 10} help="Mandatory. Minimum 10 characters. Stored permanently in correction history." /></div>
+          </div>
+        </Modal>
+
+        <Modal open={Boolean(historyRow)} title="Protected Mandi Correction History" width={900} footer={<Button onClick={() => setHistoryRow(null)}>Close</Button>} onCancel={() => setHistoryRow(null)} destroyOnClose>
+          <Alert type="info" showIcon message={historyRow ? String(historyRow?.name_i18n?.en || historyRow?.display_name || "Protected Mandi") : "Protected Mandi"} description="Every protected master-data correction is retained with its reason and changed fields." style={{ marginBottom: 16 }} />
           {historyLoading ? (
-            <div style={{ padding: "28px 0", textAlign: "center" }}>Loading correction history…</div>
+            <div style={{ padding: 30, textAlign: "center" }}><Typography.Text>Loading correction history…</Typography.Text></div>
           ) : historyItems.length === 0 ? (
-            <AntTypography.Text type="secondary">No correction history is available for this Mandi yet.</AntTypography.Text>
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No correction history available" />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Space direction="vertical" size={12} style={{ width: "100%" }}>
               {historyItems.map((item, index) => {
                 const before = item?.before && typeof item.before === "object" ? item.before : {};
                 const after = item?.after && typeof item.after === "object" ? item.after : {};
                 const fields = Array.isArray(item?.changed_fields) ? item.changed_fields : [];
                 return (
-                  <div key={String(item?._id || index)} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 14 }}>
-                    <AntRow gutter={[12, 8]}>
-                      <AntCol xs={24} md={8}>
-                        <AntTypography.Text type="secondary">Changed on</AntTypography.Text><br />
-                        <AntTypography.Text>{item?.changed_on ? new Date(item.changed_on).toLocaleString() : "—"}</AntTypography.Text>
-                      </AntCol>
-                      <AntCol xs={24} md={8}>
-                        <AntTypography.Text type="secondary">Changed by</AntTypography.Text><br />
-                        <AntTypography.Text>{item?.changed_by || "—"}</AntTypography.Text>
-                      </AntCol>
-                      <AntCol xs={24} md={8}>
-                        <AntTypography.Text type="secondary">Status</AntTypography.Text><br />
-                        <AntTypography.Text strong>{item?.status || "—"}</AntTypography.Text>
-                      </AntCol>
-                    </AntRow>
-
-                    <div style={{ marginTop: 12 }}>
-                      <AntTypography.Text type="secondary">Reason</AntTypography.Text><br />
-                      <AntTypography.Text>{item?.reason || "—"}</AntTypography.Text>
-                    </div>
-
-                    <div style={{ marginTop: 12 }}>
-                      <AntTypography.Text type="secondary">Fields changed</AntTypography.Text><br />
-                      <AntTypography.Text>{fields.length ? fields.join(", ") : "—"}</AntTypography.Text>
-                    </div>
-
-                    {fields.length > 0 ? (
-                      <div style={{ marginTop: 12, overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                          <thead>
-                            <tr>
-                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>Field</th>
-                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>Previous</th>
-                              <th style={{ textAlign: "left", padding: "7px 8px", borderBottom: "1px solid #e5e7eb" }}>New</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {fields.map((field: string) => (
-                              <tr key={field}>
-                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0" }}>{field}</td>
-                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0", wordBreak: "break-word" }}>{typeof before[field] === "object" ? JSON.stringify(before[field]) : String(before[field] ?? "—")}</td>
-                                <td style={{ padding: "7px 8px", verticalAlign: "top", borderBottom: "1px solid #f0f0f0", wordBreak: "break-word" }}>{typeof after[field] === "object" ? JSON.stringify(after[field]) : String(after[field] ?? "—")}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : null}
+                  <div className="cm-mandis-history-card" key={String(item?._id || index)}>
+                    <Descriptions size="small" column={{ xs: 1, sm: 3 }} items={[
+                      { key: "when", label: "Changed on", children: item?.changed_on ? new Date(item.changed_on).toLocaleString() : "—" },
+                      { key: "by", label: "Changed by", children: item?.changed_by || "—" },
+                      { key: "status", label: "Status", children: item?.status || "—" },
+                      { key: "reason", label: "Reason", children: item?.reason || "—", span: 3 },
+                      { key: "fields", label: "Fields changed", children: fields.length ? fields.join(", ") : "—", span: 3 },
+                    ]} />
+                    {fields.length ? <table className="cm-mandis-history-diff"><thead><tr><th>Field</th><th>Previous</th><th>New</th></tr></thead><tbody>{fields.map((field: string) => <tr key={field}><td>{field}</td><td>{typeof before[field] === "object" ? JSON.stringify(before[field]) : String(before[field] ?? "—")}</td><td>{typeof after[field] === "object" ? JSON.stringify(after[field]) : String(after[field] ?? "—")}</td></tr>)}</tbody></table> : null}
                   </div>
                 );
               })}
-            </div>
+            </Space>
           )}
-        </div>
-      </AntModal>
-      </PageContainer>
-
-      {renderCreateDialog()}
-      {renderDeactivateDialog()}
-    </>
+        </Modal>
+      </div>
+    </PageContainer>
   );
 };

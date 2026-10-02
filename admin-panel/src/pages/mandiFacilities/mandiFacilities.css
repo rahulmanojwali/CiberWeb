@@ -1,0 +1,157 @@
+.cm-mandi-facilities-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-facility-scope-card .ant-card-body {
+  padding: 14px 16px;
+}
+
+.cm-facility-scope-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cm-facility-scope-kicker {
+  color: var(--cm-color-primary, #55632c);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cm-facility-scope-title {
+  font-size: 15px;
+}
+
+.cm-facility-scope-lock {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: rgba(0, 0, 0, 0.58);
+  font-size: 12px;
+}
+
+.cm-facility-catalogue-card .ant-card-body {
+  padding: 12px;
+}
+
+.cm-facility-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cm-facility-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cm-facility-mandi-select {
+  width: 250px;
+}
+
+.cm-facility-status-select {
+  width: 142px;
+}
+
+.cm-facility-search {
+  width: min(360px, 100%);
+}
+
+.cm-facility-code {
+  font-size: 11px;
+}
+
+/*
+ * The legacy Admin stylesheet applies native input borders globally.
+ * Ant Select contains an internal input for search/focus, so strip styling from
+ * that internal input and let Ant's selector remain the single visible control.
+ */
+.cm-mandi-facilities-page .cm-facility-select.ant-select .ant-select-selector,
+.cm-facility-modal .cm-facility-select.ant-select .ant-select-selector,
+.cm-mandi-facilities-page .ant-table-pagination .ant-select .ant-select-selector,
+.cm-facility-modal .ant-table-pagination .ant-select .ant-select-selector {
+  border-radius: 9px !important;
+}
+
+.cm-mandi-facilities-page .cm-facility-select.ant-select input,
+.cm-facility-modal .cm-facility-select.ant-select input,
+.cm-mandi-facilities-page .ant-table-pagination .ant-select input,
+.cm-facility-modal .ant-table-pagination .ant-select input,
+.cm-mandi-facilities-page .cm-facility-select .ant-select-selection-search-input,
+.cm-facility-modal .cm-facility-select .ant-select-selection-search-input,
+.cm-mandi-facilities-page .ant-table-pagination .ant-select-selection-search-input,
+.cm-facility-modal .ant-table-pagination .ant-select-selection-search-input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.cm-mandi-facilities-page .cm-facility-select.ant-select-focused .ant-select-selector,
+.cm-facility-modal .cm-facility-select.ant-select-focused .ant-select-selector,
+.cm-mandi-facilities-page .ant-table-pagination .ant-select-focused .ant-select-selector,
+.cm-facility-modal .ant-table-pagination .ant-select-focused .ant-select-selector {
+  border-color: #6e7c3a !important;
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.08) !important;
+}
+
+.cm-facility-modal .ant-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-facility-form {
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .cm-facility-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cm-facility-toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .cm-facility-mandi-select,
+  .cm-facility-search {
+    width: 100%;
+  }
+
+  .cm-facility-status-select {
+    width: 180px;
+  }
+
+  .cm-facility-scope-lock {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .cm-facility-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cm-facility-status-select {
+    width: 100%;
+  }
+}

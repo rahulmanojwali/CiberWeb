@@ -1,2500 +1,544 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Autocomplete,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-  useMediaQuery,
-  useTheme,
   Alert,
-  IconButton,
-  CircularProgress,
-  Chip,
-  Tooltip,
-} from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import RefreshIcon from "@mui/icons-material/Refresh";
+  Button,
+  Col,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  CheckCircleOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  StopOutlined,
+  SwapOutlined,
+} from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { PageContainer } from "../../components/PageContainer";
-import { CmSelect } from "../../design-system/components/CmSelect";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
 import { normalizeLanguageCode } from "../../config/languages";
+import { usePermissions } from "../../authz/usePermissions";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import {
-  fetchMandiGates,
   createMandiGate,
-  updateMandiGate,
   deactivateMandiGate,
-  fetchMandis,
-  fetchGateBootstrap, // ✅ correct export in your project
+  fetchGateBootstrap,
+  fetchMandiGates,
+  updateMandiGate,
 } from "../../services/mandiApi";
-import { ActionGate } from "../../authz/ActionGate";
-import { usePermissions } from "../../authz/usePermissions";
-import { useRecordLock } from "../../authz/isRecordLocked";
-import { useSearchParams } from "react-router-dom";
+import "./mandiGates.css";
 
-function currentUsername(): string | null {
-  try {
-    const raw = localStorage.getItem("cd_user");
-    const parsed = raw ? JSON.parse(raw) : null;
-    return parsed?.username || null;
-  } catch {
-    return null;
-  }
-}
+const { Text, Paragraph } = Typography;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+type StatusFlag = "Y" | "N";
+type StatusFilter = "ALL" | "Y" | "N";
 
+type OrganisationOption = { value: string; label: string; orgCode: string };
+type MandiOption = { value: string; label: string; isActive: StatusFlag };
 type GateRow = {
   id: string;
   org_id: string;
-  org_name?: string;
   mandi_id: number;
   mandi_name?: string;
   gate_code: string;
   gate_name: string;
-  gate_direction?: string;
-  gate_type?: string;
-  has_weighbridge?: string;
+  name_i18n?: Record<string, string>;
+  is_entry_only: StatusFlag;
+  is_exit_only: StatusFlag;
+  is_weighbridge: StatusFlag;
+  allowed_vehicle_codes: string[];
   description?: string | null;
-  is_active: string;
+  is_active: StatusFlag;
   updated_on?: string;
   updated_by?: string;
-  org_scope?: string | null;
-  owner_type?: string | null;
-  owner_org_id?: string | null;
-  is_protected?: string | null;
 };
 
-type MandiOption = {
-  mandi_id: string;
-  label: string;
-  is_active?: "Y" | "N";
-};
+type GateSummary = { total: number; active: number; inactive: number; weighbridge: number };
+const EMPTY_SUMMARY: GateSummary = { total: 0, active: 0, inactive: 0, weighbridge: 0 };
 
-const defaultForm = {
-  org_id: "",
-  mandi_id: "",
-  gate_code: "",
-  name_en: "",
-  name_hi: "",
-  gate_direction: "BOTH",
-  gate_type: "VEHICLE",
-  has_weighbridge: "N",
-  notes: "",
-  is_active: "Y",
-};
+function currentUsername(): string {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return String(parsed?.username || "");
+  } catch {
+    return "";
+  }
+}
+
+function responseData(raw: any): any {
+  return raw?.data || raw?.response?.data || raw || {};
+}
+function responseMeta(raw: any): { code: string; description: string } {
+  const response = raw?.response || raw?.data?.response || raw;
+  return {
+    code: String(response?.responsecode ?? raw?.responsecode ?? "0"),
+    description: String(response?.description ?? raw?.description ?? ""),
+  };
+}
+function localize(row: any, language: string): string {
+  return String(row?.name_i18n?.[language] || row?.name_i18n?.en || row?.label || row?.mandi_slug || row?.gate_code || row?.mandi_id || "");
+}
 
 export const MandiGates: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const language = normalizeLanguageCode(i18n.language);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { can, authContext, isSuper } = usePermissions();
-  const { isRecordLocked } = useRecordLock();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const username = currentUsername();
+  const { authContext, can, isSuper } = usePermissions();
+  const [searchParams] = useSearchParams();
+  const [messageApi, messageContextHolder] = message.useMessage();
 
+  const canCreate = can("mandi_gates.create", "CREATE");
+  const canUpdate = can("mandi_gates.edit", "UPDATE");
+  const canDeactivate = can("mandi_gates.deactivate", "DEACTIVATE");
+
+  const [organisationOptions, setOrganisationOptions] = useState<OrganisationOption[]>([]);
+  const [organisationsLoading, setOrganisationsLoading] = useState(false);
+  const [selectedSuperOrgId, setSelectedSuperOrgId] = useState<string>(String(searchParams.get("org_id") || ""));
+  const orgId = isSuper ? selectedSuperOrgId : String(authContext.org_id || "");
+  const selectedOrg = organisationOptions.find((x) => x.value === selectedSuperOrgId);
+
+  const [mandis, setMandis] = useState<MandiOption[]>([]);
+  const [selectedMandiId, setSelectedMandiId] = useState<string>(String(searchParams.get("mandi_id") || ""));
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [searchText, setSearchText] = useState("");
   const [rows, setRows] = useState<GateRow[]>([]);
-  const [allRows, setAllRows] = useState<GateRow[]>([]); // ✅ keep full list, filter client-side
-  const [orgOptions, setOrgOptions] = useState<any[]>([]);
-  const [mandiOptions, setMandiOptions] = useState<MandiOption[]>([]);
-  const storedOrgId =
-    searchParams.get("org_id") ||
-    localStorage.getItem("mandiGates.org_id") ||
-    authContext.org_id ||
-    "";
-  const storedMandi =
-    searchParams.get("mandi_id") ||
-    localStorage.getItem("mandiGates.mandi_id") ||
-    "";
-  const storedStatus =
-    (searchParams.get("status") as "ALL" | "Y" | "N" | null) ||
-    (localStorage.getItem("mandiGates.status") as any) ||
-    "ALL";
+  const [summary, setSummary] = useState<GateSummary>(EMPTY_SUMMARY);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
 
-  const isScopedOrg = authContext.role === "MANDI_ADMIN" || (!isSuper && !!authContext.org_id);
-
-  const [selectedOrgId, setSelectedOrgId] = useState<string>(storedOrgId || "");
-  const [selectedOrgCode, setSelectedOrgCode] = useState<string>(authContext.org_code || "");
-  const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
-  const [mandiSearchText, setMandiSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState(storedStatus as "ALL" | "Y" | "N");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [editId, setEditId] = useState<string | null>(null);
-
-  // ✅ prevent repeated bootstrap calls (mount + strict mode + state init)
-  const mountedOnceRef = useRef(false);
-  const inflightRef = useRef(false);
-  const bootstrapInFlightRef = useRef(false);
-  const bootstrapLastKeyRef = useRef<string>("");
-
-  const [gateCodeDirty, setGateCodeDirty] = useState(false);
-  const [gateCodeError, setGateCodeError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-  const [orgLabel, setOrgLabel] = useState<string>("");
-
-  const canCreateMandiGate = useMemo(() => can("mandi_gates.create", "CREATE"), [can]);
-  const canEdit = useMemo(() => can("mandi_gates.edit", "UPDATE"), [can]);
-  const canDeactivate = useMemo(() => can("mandi_gates.deactivate", "DEACTIVATE"), [can]);
-
-  // ✅ filter client-side so status change doesn't hit API again
-  useEffect(() => {
-    const filtered =
-      statusFilter === "ALL"
-        ? allRows
-        : allRows.filter((r) => String(r.is_active || "").toUpperCase() === statusFilter);
-    setRows(filtered);
-  }, [statusFilter, allRows]);
-
-  const columns = useMemo<GridColDef<GateRow>[]>(
-    () => [
-      { field: "gate_code", headerName: "Code", width: 130 },
-      { field: "gate_name", headerName: "Gate", flex: 1, minWidth: 200 },
-      { field: "gate_direction", headerName: "Dir", width: 110 },
-      { field: "gate_type", headerName: "Type", width: 140 },
-      { field: "has_weighbridge", headerName: "WB", width: 90 },
-      { field: "mandi_name", headerName: "Mandi", width: 160 },
-      {
-        field: "is_active",
-        headerName: "Status",
-        width: 120,
-        renderCell: (params) => {
-          const val = String(params.row.is_active || "").toUpperCase() === "Y";
-          return <Chip size="small" label={val ? "Active" : "Inactive"} color={val ? "success" : "default"} />;
-        },
-      },
-      { field: "updated_on", headerName: "Updated", width: 160 },
-      {
-        field: "actions",
-        headerName: "",
-        width: 120,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => {
-          const row = params.row as GateRow;
-          const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
-          const nextActive = String(row.is_active || "").toUpperCase() === "Y" ? "N" : "Y";
-
-          return (
-            <Stack direction="row" spacing={0.5}>
-              <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-                <Tooltip title="Edit">
-                  <span>
-                    <IconButton
-                      size="small"
-                      onClick={() => openEdit(row)}
-                      disabled={!canEdit || lockInfo.locked}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </ActionGate>
-
-              <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-                <Tooltip title={nextActive === "N" ? "Deactivate" : "Activate"}>
-                  <span>
-                    <IconButton
-                      size="small"
-                      color={nextActive === "N" ? "error" : "success"}
-                      onClick={() => handleDeactivate(row.id, nextActive)}
-                      disabled={!canDeactivate || lockInfo.locked}
-                    >
-                      {nextActive === "N" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </ActionGate>
-            </Stack>
-          );
-        },
-      },
-    ],
-    [authContext, isSuper, canDeactivate, canEdit, isRecordLocked],
-  );
-
-  const loadOrgs = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const resp = await fetchOrganisations({ username, language });
-      const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-      if (orgs.length === 0 && isScopedOrg) {
-        setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-        setSelectedOrgId(String(authContext.org_id));
-        setSelectedOrgCode(String(authContext.org_code || ""));
-        return;
-      }
-      setOrgOptions(orgs);
-      if (!selectedOrgId && orgs.length) {
-        setSelectedOrgId(String(orgs[0]._id));
-        setSelectedOrgCode(String(orgs[0].org_code || ""));
-      }
-    } catch (err) {
-      console.error("[mandiGates] loadOrgs failed", err);
-      if (isScopedOrg && authContext.org_id) {
-        setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-        setSelectedOrgId(String(authContext.org_id));
-        setSelectedOrgCode(String(authContext.org_code || ""));
-      }
-    }
-  };
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRow, setEditRow] = useState<GateRow | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm<{
+    gate_code: string;
+    gate_name: string;
+    description?: string;
+    direction: "ENTRY" | "EXIT" | "BOTH";
+    has_weighbridge: boolean;
+    allowed_vehicle_codes: string[];
+    is_active: StatusFlag;
+  }>();
 
   useEffect(() => {
-    if (isScopedOrg && authContext.org_id) {
-      setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-      setSelectedOrgId(String(authContext.org_id));
-      setSelectedOrgCode(String(authContext.org_code || ""));
-    } else {
-      loadOrgs();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScopedOrg, authContext.org_id, authContext.org_code]);
-
-  useEffect(() => {
-    if (!selectedOrgId) return;
-    if (selectedOrgCode) return;
-    const match = orgOptions.find((o: any) => String(o._id) === String(selectedOrgId));
-    if (match?.org_code) setSelectedOrgCode(String(match.org_code));
-  }, [selectedOrgId, selectedOrgCode, orgOptions]);
-
-  // ✅ ORG scoped bootstrap (no gates unless mandi_id provided)
-  const loadGateBootstrap = useCallback(
-    async (mandiId?: number) => {
-      const username = currentUsername();
-      if (!username) return;
-      if (inflightRef.current) return;
-
-      inflightRef.current = true;
+    if (!isSuper || !username) return;
+    let cancelled = false;
+    (async () => {
+      setOrganisationsLoading(true);
       try {
-        const resp = await fetchGateBootstrap({
-          username,
-          language,
-          payload: {
-            mandi_page: 1,
-            mandi_pageSize: 200,
-            gates_page: 1,
-            gates_pageSize: 200,
-            mandi_id: typeof mandiId === "number" ? mandiId : undefined,
-          },
-        });
-
-        const code = resp?.response?.responsecode;
-        if (code !== "0") {
-          setToast({ open: true, message: resp?.response?.description || "Failed", severity: "error" });
-          // Keep UI stable
-          if (!mandiId) {
-            setAllRows([]);
-            setRows([]);
-          }
-          return;
-        }
-
-        const data = resp?.data || resp?.response?.data || null;
-        const org = data?.org || null;
-        const mandis = data?.mandis?.items || [];
-        const gates = data?.gates?.items || [];
-
-        if (org?.org_name) setOrgLabel(String(org.org_name));
-        if (org?.org_id && !selectedOrgId) setSelectedOrgId(String(org.org_id));
-        if (org?.org_code && !selectedOrgCode) setSelectedOrgCode(String(org.org_code));
-
-        // ✅ show active + inactive mandis (label inactive)
-        const mappedMandis: MandiOption[] = mandis.map((m: any) => {
-          const isActive =
-            String(m?.is_active || "N").toUpperCase() === "Y" &&
-            String(m?.org_mandi_is_active || "Y").toUpperCase() === "Y";
-          const baseLabel = m?.label || m?.name_i18n?.en || m?.mandi_slug || String(m?.mandi_id);
-          return {
-            mandi_id: String(m.mandi_id),
-            label: isActive ? baseLabel : `${baseLabel} (Inactive)`,
-            is_active: isActive ? "Y" : "N",
-          };
-        });
-
-        setMandiOptions([{ mandi_id: "", label: "Select Mandi" }, ...mappedMandis]);
-
-        if (typeof mandiId === "number") {
-          const mandiName =
-            mappedMandis.find((x) => String(x.mandi_id) === String(mandiId))?.label || `Mandi ${mandiId}`;
-
-          const mappedGates: GateRow[] = gates.map((g: any) => ({
-            id: g._id,
-            org_id: g.org_id,
-            org_name: org?.org_name || "",
-            mandi_id: g.mandi_id,
-            mandi_name: mandiName,
-            gate_code: g.gate_code,
-            gate_name: g?.name_i18n?.en || g.gate_code,
-            gate_direction:
-              g.gate_direction ||
-              (g.is_entry_only === "Y" && g.is_exit_only === "N"
-                ? "ENTRY"
-                : g.is_entry_only === "N" && g.is_exit_only === "Y"
-                  ? "EXIT"
-                  : "BOTH"),
-            gate_type:
-              g.gate_type ||
-              (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length
-                ? g.allowed_vehicle_codes.join(", ")
-                : "Gate"),
-            has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-            description: g.description || null,
-            is_active: g.is_active,
-            updated_on: g.updated_on,
-            updated_by: g.updated_by,
-            org_scope: g.org_scope || null,
-            owner_type: g.owner_type || null,
-            owner_org_id: g.owner_org_id || null,
-            is_protected: g.is_protected || null,
-          }));
-
-          setAllRows(mappedGates);
-        } else {
-          // ✅ no gates until mandi selected
-          setAllRows([]);
-        }
-      } catch (err) {
-        console.error("[mandiGates] loadGateBootstrap failed", err);
-        setMandiOptions([]);
-        setAllRows([]);
+        const raw = await fetchOrganisations({ username, language });
+        const data = responseData(raw);
+        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data?.organisations) ? data.organisations : Array.isArray(data) ? data : [];
+        const options: OrganisationOption[] = list
+          .map((item: any) => ({
+            value: String(item?._id || item?.org_id || ""),
+            label: String(item?.org_name || item?.name || item?.org_code || item?._id || ""),
+            orgCode: String(item?.org_code || ""),
+          }))
+          .filter((item: OrganisationOption) => item.value && item.label);
+        if (!cancelled) setOrganisationOptions(options);
+      } catch (err: any) {
+        if (!cancelled) messageApi.error(err?.message || "Unable to load organisations.");
       } finally {
-        inflightRef.current = false;
+        if (!cancelled) setOrganisationsLoading(false);
       }
-    },
-    [language, selectedOrgCode, selectedOrgId],
-  );
+    })();
+    return () => { cancelled = true; };
+  }, [isSuper, username, language, messageApi]);
 
-  const runBootstrap = useCallback(
-    async (mandiId?: number) => {
-      const key = `mandi:${mandiId ?? "none"}`;
-      if (bootstrapInFlightRef.current && bootstrapLastKeyRef.current === key) {
-        return;
-      }
-      bootstrapInFlightRef.current = true;
-      bootstrapLastKeyRef.current = key;
-      try {
-        await loadGateBootstrap(mandiId);
-      } finally {
-        bootstrapInFlightRef.current = false;
-      }
-    },
-    [loadGateBootstrap],
-  );
-
-  // SUPER_ADMIN legacy mandi list (keep, but NOT for ORG admins)
-  const loadMandis = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    const orgCodeParam = selectedOrgCode || authContext.org_code || undefined;
+  const loadBootstrap = useCallback(async () => {
+    if (!username || !orgId) {
+      setMandis([]);
+      setRows([]);
+      setTotal(0);
+      setSummary(EMPTY_SUMMARY);
+      return;
+    }
     try {
-      const resp = await fetchMandis({
+      const raw = await fetchGateBootstrap({
+        username,
+        language,
+        payload: { org_id: orgId, mandi_page: 1, mandi_pageSize: 500 },
+      });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Unable to load gate workspace.");
+      const data = responseData(raw);
+      const mandiItems = Array.isArray(data?.mandis?.items) ? data.mandis.items : [];
+      const options: MandiOption[] = mandiItems
+        .map((item: any) => ({
+          value: String(item?.mandi_id ?? ""),
+          label: localize(item, language),
+          isActive: String(item?.org_mandi_is_active || item?.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
+        }))
+        .filter((item: MandiOption) => item.value && item.label);
+      setMandis(options);
+      if (selectedMandiId && !options.some((x) => x.value === selectedMandiId)) setSelectedMandiId("");
+      if (!selectedMandiId && options.length === 1) setSelectedMandiId(options[0].value);
+    } catch (err: any) {
+      messageApi.error(err?.message || "Unable to load Mandi gates setup.");
+    }
+  }, [username, orgId, language, selectedMandiId, messageApi]);
+
+  useEffect(() => { loadBootstrap(); }, [loadBootstrap]);
+
+  const loadRows = useCallback(async () => {
+    if (!username || !orgId || !selectedMandiId) {
+      setRows([]); setTotal(0); setSummary(EMPTY_SUMMARY); return;
+    }
+    setLoading(true);
+    try {
+      const raw = await fetchMandiGates({
         username,
         language,
         filters: {
-          is_active: true,
-          org_code: orgCodeParam,
-          page: 1,
-          pageSize: 1000,
+          org_id: orgId,
+          mandi_id: Number(selectedMandiId),
+          ...(statusFilter === "ALL" ? {} : { is_active: statusFilter }),
+          ...(searchText.trim() ? { search: searchText.trim() } : {}),
+          page,
+          pageSize,
         },
       });
-      const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
-      const mapped = mandis.map((m: any) => ({
-        mandi_id: String(m.mandi_id),
-        label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
-      }));
-      setMandiOptions([{ mandi_id: "", label: "Select Mandi" }, ...mapped]);
-    } catch (err) {
-      console.error("[mandiGates] loadMandis failed", err);
-      setMandiOptions([]);
-    }
-  };
-
-  const loadData = async () => {
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const resp = await fetchMandiGates({
-        username,
-        language,
-        filters: {
-          org_id: selectedOrgId || undefined,
-          mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
-          is_active: statusFilter === "ALL" ? undefined : statusFilter,
-        },
-      });
-      const list = resp?.data?.gates || resp?.data?.items || [];
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Unable to load Mandi gates.");
+      const data = responseData(raw);
+      const list = Array.isArray(data?.items) ? data.items : Array.isArray(data?.gates) ? data.gates : [];
       const mapped: GateRow[] = list.map((g: any) => ({
-        id: g._id,
-        org_id: g.org_id,
-        org_name: g.org_name || "",
-        mandi_id: g.mandi_id,
-        mandi_name: g.mandi_name || "",
-        gate_code: g.gate_code,
-        gate_name: g?.name_i18n?.en || g.gate_code,
-        gate_direction:
-          g.gate_direction ||
-          (g.is_entry_only === "Y" && g.is_exit_only === "N"
-            ? "ENTRY"
-            : g.is_entry_only === "N" && g.is_exit_only === "Y"
-              ? "EXIT"
-              : "BOTH"),
-        gate_type:
-          g.gate_type ||
-          (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length
-            ? g.allowed_vehicle_codes.join(", ")
-            : "Gate"),
-        has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-        description: g.description || null,
-        is_active: g.is_active,
-        updated_on: g.updated_on,
-        updated_by: g.updated_by,
-        org_scope: g.org_scope || null,
-        owner_type: g.owner_type || null,
-        owner_org_id: g.owner_org_id || null,
-        is_protected: g.is_protected || null,
+        id: String(g?._id || g?.id || ""),
+        org_id: String(g?.org_id || ""),
+        mandi_id: Number(g?.mandi_id || 0),
+        mandi_name: String(g?.mandi_name || ""),
+        gate_code: String(g?.gate_code || ""),
+        gate_name: localize(g, language),
+        name_i18n: g?.name_i18n || {},
+        is_entry_only: String(g?.is_entry_only || "N").toUpperCase() === "Y" ? "Y" : "N",
+        is_exit_only: String(g?.is_exit_only || "N").toUpperCase() === "Y" ? "Y" : "N",
+        is_weighbridge: String(g?.is_weighbridge || "N").toUpperCase() === "Y" ? "Y" : "N",
+        allowed_vehicle_codes: Array.isArray(g?.allowed_vehicle_codes) ? g.allowed_vehicle_codes.map(String) : [],
+        description: g?.description || null,
+        is_active: String(g?.is_active || "N").toUpperCase() === "Y" ? "Y" : "N",
+        updated_on: g?.updated_on,
+        updated_by: g?.updated_by,
       }));
-      setAllRows(mapped);
-    } catch (err) {
-      console.error("[mandiGates] loadData failed", err);
-      setAllRows([]);
+      setRows(mapped);
+      const count = Number(data?.meta?.totalCount ?? mapped.length);
+      setTotal(count);
+      const allForSummary = statusFilter === "ALL" ? mapped : mapped;
+      setSummary({
+        total: count,
+        active: allForSummary.filter((x) => x.is_active === "Y").length,
+        inactive: allForSummary.filter((x) => x.is_active === "N").length,
+        weighbridge: allForSummary.filter((x) => x.is_weighbridge === "Y").length,
+      });
+    } catch (err: any) {
+      setRows([]); setTotal(0); setSummary(EMPTY_SUMMARY);
+      messageApi.error(err?.message || "Unable to load Mandi gates.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [username, orgId, selectedMandiId, statusFilter, searchText, page, pageSize, language, messageApi]);
 
-  // ✅ Mount behavior:
-  // - SUPER_ADMIN: legacy mandis list
-  // - ORG scoped: bootstrap once (NO gates)
-  useEffect(() => {
-    if (isSuper) {
-      loadMandis();
-      return;
-    }
-    if (mountedOnceRef.current) return;
-    mountedOnceRef.current = true;
-    runBootstrap(undefined);
-  }, [isSuper, runBootstrap]);
-
-  // ✅ Only when mandi changes:
-  // - ORG scoped: bootstrap with mandi_id
-  // - SUPER_ADMIN: legacy gates list
-  useEffect(() => {
-    if (!selectedMandi) {
-      setAllRows([]);
-      return;
-    }
-    if (!isSuper) {
-      runBootstrap(Number(selectedMandi));
-    } else {
-      loadData();
-    }
-  }, [selectedMandi, isSuper, runBootstrap]);
-
-  // persist params (no API call)
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (selectedOrgId) next.set("org_id", selectedOrgId); else next.delete("org_id");
-    if (selectedMandi) next.set("mandi_id", selectedMandi); else next.delete("mandi_id");
-    if (statusFilter) next.set("status", statusFilter);
-    setSearchParams(next, { replace: true });
-    try {
-      localStorage.setItem("mandiGates.org_id", selectedOrgId || "");
-      localStorage.setItem("mandiGates.mandi_id", selectedMandi || "");
-      localStorage.setItem("mandiGates.status", statusFilter);
-    } catch {
-      // ignore
-    }
-  }, [selectedOrgId, selectedMandi, statusFilter]);
+  useEffect(() => { loadRows(); }, [loadRows]);
 
   const openCreate = () => {
-    setIsEdit(false);
-    setEditId(null);
-    setGateCodeDirty(false);
-    setGateCodeError(null);
-    setForm({ ...defaultForm, mandi_id: selectedMandi, org_id: selectedOrgId });
-    setDialogOpen(true);
+    setEditRow(null);
+    form.setFieldsValue({
+      gate_code: "",
+      gate_name: "",
+      description: "",
+      direction: "BOTH",
+      has_weighbridge: false,
+      allowed_vehicle_codes: ["general"],
+      is_active: "Y",
+    });
+    setModalOpen(true);
   };
-
-  const handleOpenCreate = () => {
-    setCreateOpen(true);
-    openCreate();
-  };
-
-  const handleCloseDialog = () => {
-    setCreateOpen(false);
-    setDialogOpen(false);
-  };
-
   const openEdit = (row: GateRow) => {
-    setCreateOpen(false);
-    setIsEdit(true);
-    setEditId(row.id);
-    setGateCodeDirty(false);
-    setGateCodeError(null);
-    setForm({
-      org_id: row.org_id,
-      mandi_id: String(row.mandi_id),
+    setEditRow(row);
+    const direction = row.is_entry_only === "Y" && row.is_exit_only === "Y" ? "BOTH" : row.is_entry_only === "Y" ? "ENTRY" : "EXIT";
+    form.setFieldsValue({
       gate_code: row.gate_code,
-      name_en: row.gate_name,
-      name_hi: "",
-      gate_direction: row.gate_direction || "BOTH",
-      gate_type: (row.gate_type || "").toUpperCase() || "VEHICLE",
-      has_weighbridge: row.has_weighbridge || "N",
-      notes: row.description || "",
+      gate_name: row.gate_name,
+      description: row.description || "",
+      direction,
+      has_weighbridge: row.is_weighbridge === "Y",
+      allowed_vehicle_codes: row.allowed_vehicle_codes.length ? row.allowed_vehicle_codes : ["general"],
       is_active: row.is_active,
     });
-    setDialogOpen(true);
+    setModalOpen(true);
   };
 
-  const handleSave = async () => {
-    const username = currentUsername();
-    if (!username) return;
-
-    const gateCodePattern = /^[a-z0-9_-]{2,32}$/;
-    if (!gateCodePattern.test(form.gate_code)) {
-      setGateCodeError("Gate code must be 2-32 chars, lowercase letters, numbers, _ or -");
-      return;
-    }
-    if (!form.mandi_id) {
-      setGateCodeError(null);
-      setToast({ open: true, message: "Select a Mandi", severity: "error" });
-      return;
-    }
-
-    const payload: any = {
-      org_id: form.org_id || selectedOrgId,
-      mandi_id: Number(form.mandi_id || selectedMandi),
-      gate_code: form.gate_code,
-      name_i18n: { en: form.name_en, hi: form.name_hi },
-      gate_direction: form.gate_direction,
-      gate_type: form.gate_type,
-      has_weighbridge: form.has_weighbridge,
-      allowed_vehicle_codes: [form.gate_type.toLowerCase() || "general"],
-      is_entry_only: form.gate_direction === "ENTRY" ? "Y" : "N",
-      is_exit_only: form.gate_direction === "EXIT" ? "Y" : "N",
-      notes: form.notes,
-      is_active: form.is_active,
-    };
-
+  const submit = async () => {
+    if (!selectedMandiId || !orgId) return;
     try {
-      let resp;
-      if (isEdit && editId) {
-        payload._id = editId;
-        resp = await updateMandiGate({ username, language, payload });
-      } else {
-        resp = await createMandiGate({ username, language, payload });
-      }
-
-      const description =
-        resp?.response?.description ||
-        resp?.description ||
-        (resp?.response?.responsecode === "0" ? "Success" : "Something went wrong");
-      const code = resp?.response?.responsecode || resp?.responsecode || "1";
-
-      if (code !== "0") {
-        setToast({ open: true, message: description, severity: "error" });
-        return;
-      }
-
-      setToast({ open: true, message: description || "Success", severity: "success" });
-      handleCloseDialog();
-
-      // reload gates for selected mandi only (ORG) / legacy refresh (SUPER)
-      if (selectedMandi) {
-        if (isSuper) await loadData();
-        else await runBootstrap(Number(selectedMandi));
-      }
+      const values = await form.validateFields();
+      setSubmitting(true);
+      const both = values.direction === "BOTH";
+      const payload = {
+        ...(editRow ? { _id: editRow.id } : {}),
+        org_id: orgId,
+        mandi_id: Number(selectedMandiId),
+        gate_code: values.gate_code.trim().toLowerCase(),
+        name_i18n: { ...(editRow?.name_i18n || {}), en: values.gate_name.trim() },
+        description: values.description?.trim() || "",
+        is_entry_only: both || values.direction === "ENTRY" ? "Y" : "N",
+        is_exit_only: both || values.direction === "EXIT" ? "Y" : "N",
+        is_weighbridge: values.has_weighbridge ? "Y" : "N",
+        allowed_vehicle_codes: values.allowed_vehicle_codes,
+        is_active: values.is_active,
+      };
+      const raw = editRow
+        ? await updateMandiGate({ username, language, payload })
+        : await createMandiGate({ username, language, payload });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || `Unable to ${editRow ? "update" : "create"} gate.`);
+      messageApi.success(editRow ? "Gate updated." : "Gate created.");
+      setModalOpen(false);
+      setPage(1);
+      await loadRows();
     } catch (err: any) {
-      console.error("[mandiGates] save error", err);
-      setToast({ open: true, message: err?.message || "Something went wrong", severity: "error" });
+      if (err?.errorFields) return;
+      messageApi.error(err?.message || "Unable to save gate.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDeactivate = async (id: string, nextActive: string) => {
-    const username = currentUsername();
-    if (!username) return;
-
-    try {
-      const resp = await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
-      const description = resp?.response?.description || resp?.description || "Updated";
-      const code = resp?.response?.responsecode || resp?.responsecode || "1";
-
-      if (code !== "0") {
-        setToast({ open: true, message: description, severity: "error" });
-        return;
-      }
-
-      // ✅ update UI immediately
-      setAllRows((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: nextActive } : r)));
-      setToast({ open: true, message: description, severity: "success" });
-    } catch (err: any) {
-      console.error("[mandiGates] deactivate error", err);
-      setToast({ open: true, message: err?.message || "Failed to update gate", severity: "error" });
-    }
+  const toggleActive = async (row: GateRow) => {
+    const next: StatusFlag = row.is_active === "Y" ? "N" : "Y";
+    Modal.confirm({
+      title: next === "Y" ? "Activate gate?" : "Deactivate gate?",
+      content: `${row.gate_name} (${row.gate_code})`,
+      okText: next === "Y" ? "Activate" : "Deactivate",
+      okButtonProps: { danger: next === "N" },
+      onOk: async () => {
+        const raw = await deactivateMandiGate({ username, language, _id: row.id, is_active: next });
+        const meta = responseMeta(raw);
+        if (meta.code !== "0") throw new Error(meta.description || "Unable to update gate status.");
+        messageApi.success(next === "Y" ? "Gate activated." : "Gate deactivated.");
+        await loadRows();
+      },
+    });
   };
 
-  const selectedMandiOption = useMemo(() => {
-    if (!selectedMandi) return null;
-    return mandiOptions.find((m) => String(m.mandi_id) === String(selectedMandi)) || null;
-  }, [mandiOptions, selectedMandi]);
+  const columns: TableColumnsType<GateRow> = useMemo(() => [
+    {
+      title: "Gate",
+      dataIndex: "gate_name",
+      key: "gate_name",
+      render: (_: any, row) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{row.gate_name || row.gate_code}</Text>
+          <Text type="secondary" className="cm-gates-code">{row.gate_code}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Direction",
+      key: "direction",
+      width: 130,
+      render: (_: any, row) => {
+        const label = row.is_entry_only === "Y" && row.is_exit_only === "Y" ? "Both" : row.is_entry_only === "Y" ? "Entry" : "Exit";
+        return <Tag>{label}</Tag>;
+      },
+    },
+    { title: "Vehicles", dataIndex: "allowed_vehicle_codes", key: "vehicles", width: 180, render: (codes: string[]) => (codes || []).join(", ") || "—" },
+    { title: "Weighbridge", key: "wb", width: 120, render: (_: any, row) => row.is_weighbridge === "Y" ? <Tag color="green">Yes</Tag> : <Tag>No</Tag> },
+    { title: "Status", dataIndex: "is_active", key: "status", width: 110, render: (v: StatusFlag) => <Tag color={v === "Y" ? "success" : "default"}>{v === "Y" ? "Active" : "Inactive"}</Tag> },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 150,
+      align: "right",
+      render: (_: any, row) => (
+        <Space size={4}>
+          {canUpdate && <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(row)} />}
+          {canDeactivate && (
+            <Button
+              type="text"
+              size="small"
+              danger={row.is_active === "Y"}
+              icon={row.is_active === "Y" ? <StopOutlined /> : <CheckCircleOutlined />}
+              onClick={() => toggleActive(row)}
+            />
+          )}
+        </Space>
+      ),
+    },
+  ], [canUpdate, canDeactivate]);
 
-  const handleRefresh = async () => {
-    if (!selectedMandi) {
-      if (!isSuper) await runBootstrap(undefined);
-      else await loadMandis();
-      return;
-    }
-    if (!isSuper) await runBootstrap(Number(selectedMandi));
-    else await loadData();
-  };
+  const scopeLabel = isSuper ? selectedOrg?.label || "Select an organisation" : String(authContext.org_code || "Organisation");
 
   return (
-    <PageContainer
-      title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
-      actions={
-        <ActionGate resourceKey="mandi_gates.create" action="CREATE">
-          {canCreateMandiGate && (
-            <Button variant="contained" startIcon={<AddIcon />} disabled={createOpen || !selectedMandi} onClick={handleOpenCreate}>
-              {t("actions.create", { defaultValue: "Create" })}
-            </Button>
-          )}
-        </ActionGate>
-      }
-    >
-      <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
-        {!isSuper && (
-          <Typography variant="body2" sx={{ minWidth: 260 }}>
-            Organisation: <b>{orgLabel || authContext.org_code || ""}</b>
-          </Typography>
-        )}
+    <PageContainer>
+      {messageContextHolder}
+      <div className="cm-gates-page">
+        <CmPageHeader
+          eyebrow="MANDI OPERATIONS"
+          title="Mandi Gates"
+          subtitle="Manage entry and exit points, vehicle access and weighbridge-linked gates within the selected mandi."
+          actions={<Button icon={<ReloadOutlined />} onClick={() => { loadBootstrap(); loadRows(); }}>Refresh</Button>}
+        />
 
-        <div style={{ minWidth: 280 }}>
-          <CmSelect
-            label="Mandi"
-            showSearch
-            value={selectedMandi || undefined}
-            placeholder="Select Mandi"
-            optionFilterProp="label"
-            options={mandiOptions
-              .filter((item: any) => item.mandi_id !== "")
-              .map((item: any) => ({ value: String(item.mandi_id), label: item.label || String(item.mandi_id) }))}
-            onSearch={(value) => setMandiSearchText(value)}
-            onChange={(value) => {
-              const next = String(value || "");
-              setSelectedMandi(next);
-              const match = mandiOptions.find((item: any) => String(item.mandi_id) === next);
-              setMandiSearchText(match?.label || next);
-            }}
-          />
-        </div>
-
-        <div style={{ width: 150 }}>
-          <CmSelect
-            label="Status"
-            value={statusFilter}
-            options={[
-              { value: "ALL", label: "All" },
-              { value: "Y", label: "Active" },
-              { value: "N", label: "Inactive" },
-            ]}
-            onChange={(value) => setStatusFilter(value as any)}
-          />
-        </div>
-
-        <Tooltip title="Refresh">
-          <IconButton onClick={handleRefresh}>
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
-      </Stack>
-
-      {!selectedMandi && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Select a mandi to load gates.
-        </Alert>
-      )}
-
-      {isMobile ? (
-        <Stack spacing={2}>
-          {rows.map((row) => (
-            <Card key={row.id} variant="outlined">
-              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Code: {row.gate_code} • Dir: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Mandi: {row.mandi_name || row.mandi_id}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Weighbridge: {row.has_weighbridge || "N"}
-                </Typography>
-                <Chip
-                  size="small"
-                  sx={{ width: "fit-content", mt: 1 }}
-                  label={row.is_active === "Y" ? "Active" : "Inactive"}
-                  color={row.is_active === "Y" ? "success" : "default"}
+        <CmSectionCard compact className="cm-gates-scope-card">
+          <Row gutter={[16, 12]} align="middle">
+            <Col xs={24} lg={10}>
+              <Text className="cm-gates-kicker">WORKING SCOPE</Text>
+              <div className="cm-gates-scope-title">{scopeLabel}</div>
+              <Text type="secondary">Gate administration remains locked to the current organisation and permitted mandi scope.</Text>
+            </Col>
+            <Col xs={24} lg={14}>
+              {isSuper ? (
+                <Select
+                  className="cm-gates-select"
+                  value={selectedSuperOrgId || undefined}
+                  placeholder="Select organisation"
+                  loading={organisationsLoading}
+                  options={organisationOptions.map((x) => ({ value: x.value, label: `${x.label}${x.orgCode ? ` · ${x.orgCode}` : ""}` }))}
+                  onChange={(value) => { setSelectedSuperOrgId(value); setSelectedMandiId(""); setPage(1); }}
+                  showSearch
+                  optionFilterProp="label"
                 />
-              </CardContent>
-              <CardActions>
-                <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-                    Edit
-                  </Button>
-                </ActionGate>
-                <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-                  <Button
-                    size="small"
-                    color={row.is_active === "Y" ? "error" : "success"}
-                    startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
-                    onClick={() => handleDeactivate(row.id, row.is_active === "Y" ? "N" : "Y")}
-                  >
-                    {row.is_active === "Y" ? "Deactivate" : "Activate"}
-                  </Button>
-                </ActionGate>
-              </CardActions>
-            </Card>
-          ))}
-        </Stack>
-      ) : (
-        <Box sx={{ height: 520 }}>
-          <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
-        </Box>
-      )}
+              ) : (
+                <Alert type="info" showIcon message={`Organisation scope: ${scopeLabel}`} />
+              )}
+            </Col>
+          </Row>
+        </CmSectionCard>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
-        <DialogTitle>{isEdit ? "Edit Gate" : "Create Gate"}</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <TextField
-            select
-            label="Organisation"
-            value={form.org_id || selectedOrgId}
-            onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
-            fullWidth
-            disabled={isEdit || isScopedOrg}
-          >
-            {orgOptions.map((o: any) => (
-              <MenuItem key={o._id} value={o._id}>
-                {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-              </MenuItem>
-            ))}
-          </TextField>
+        <Row gutter={[12, 12]} className="cm-gates-stats">
+          <Col xs={12} xl={6}><CmStatCard label="Gates" value={summary.total} helper="Current mandi" icon={<SwapOutlined />} /></Col>
+          <Col xs={12} xl={6}><CmStatCard label="Active" value={summary.active} helper="Available for operations" icon={<CheckCircleOutlined />} /></Col>
+          <Col xs={12} xl={6}><CmStatCard label="Inactive" value={summary.inactive} helper="Retained history" icon={<StopOutlined />} tone="neutral" /></Col>
+          <Col xs={12} xl={6}><CmStatCard label="Weighbridge" value={summary.weighbridge} helper="Linked gate capability" icon={<SwapOutlined />} tone="amber" /></Col>
+        </Row>
 
-          <TextField
-            label="Gate Code"
-            value={form.gate_code}
-            disabled
-            error={!!gateCodeError}
-            helperText={gateCodeError || "Auto-generated from Gate Name"}
-            fullWidth
-          />
+        <CmSectionCard compact>
+          <div className="cm-gates-toolbar">
+            <Select
+              className="cm-gates-select cm-gates-mandi-select"
+              value={selectedMandiId || undefined}
+              placeholder="Select mandi"
+              options={mandis.map((m) => ({ value: m.value, label: m.isActive === "N" ? `${m.label} · inactive` : m.label, disabled: m.isActive === "N" }))}
+              onChange={(value) => { setSelectedMandiId(value); setPage(1); }}
+              showSearch
+              optionFilterProp="label"
+              disabled={!orgId}
+            />
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Search gate name or code"
+              value={searchText}
+              onChange={(e) => { setSearchText(e.target.value); setPage(1); }}
+              className="cm-gates-search"
+            />
+            <Select
+              className="cm-gates-select cm-gates-status-select"
+              value={statusFilter}
+              options={[{ value: "ALL", label: "All statuses" }, { value: "Y", label: "Active" }, { value: "N", label: "Inactive" }]}
+              onChange={(value) => { setStatusFilter(value); setPage(1); }}
+            />
+            <div className="cm-gates-toolbar-spacer" />
+            {canCreate && <Button type="primary" icon={<PlusOutlined />} disabled={!selectedMandiId} onClick={openCreate}>Add gate</Button>}
+          </div>
 
-          <TextField
-            label="Gate Name (EN)"
-            value={form.name_en}
-            onChange={(e) => {
-              const val = e.target.value;
-              setForm((f) => ({ ...f, name_en: val }));
-              if (!gateCodeDirty) {
-                const slug = val
-                  .trim()
-                  .toLowerCase()
-                  .replace(/[^a-z0-9_-]+/g, "-")
-                  .replace(/^-+|-+$/g, "")
-                  .slice(0, 32);
-                setForm((f) => ({ ...f, name_en: val, gate_code: slug }));
-              }
-            }}
-            fullWidth
-          />
+          {!selectedMandiId ? (
+            <Empty description="Select a mandi to view gates." />
+          ) : (
+            <Table<GateRow>
+              rowKey="id"
+              columns={columns}
+              dataSource={rows}
+              loading={loading}
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                showSizeChanger: true,
+                pageSizeOptions: PAGE_SIZE_OPTIONS,
+                showTotal: (count) => `${count} gates`,
+                onChange: (nextPage, nextSize) => { setPage(nextPage); setPageSize(nextSize); },
+              }}
+              locale={{ emptyText: <Empty description="No gates found for this mandi." /> }}
+              scroll={{ x: 900 }}
+            />
+          )}
+        </CmSectionCard>
+      </div>
 
-          <TextField
-            select
-            label="Direction"
-            value={form.gate_direction}
-            onChange={(e) => setForm((f) => ({ ...f, gate_direction: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="ENTRY">ENTRY</MenuItem>
-            <MenuItem value="EXIT">EXIT</MenuItem>
-            <MenuItem value="BOTH">BOTH</MenuItem>
-          </TextField>
-
-          <TextField
-            select
-            label="Type"
-            value={form.gate_type}
-            onChange={(e) => setForm((f) => ({ ...f, gate_type: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="VEHICLE">VEHICLE</MenuItem>
-            <MenuItem value="PEDESTRIAN">PEDESTRIAN</MenuItem>
-            <MenuItem value="MIXED">MIXED</MenuItem>
-          </TextField>
-
-          <TextField
-            select
-            label="Has Weighbridge"
-            value={form.has_weighbridge}
-            onChange={(e) => setForm((f) => ({ ...f, has_weighbridge: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
-
-          <TextField
-            label="Notes"
-            value={form.notes}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-
-          <TextField
-            select
-            label="Active"
-            value={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
-            fullWidth
-          >
-            <MenuItem value="Y">Yes</MenuItem>
-            <MenuItem value="N">No</MenuItem>
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!selectedMandi}>
-            {isEdit ? "Update" : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={3000}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      <Modal
+        title={editRow ? "Edit gate" : "Add gate"}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={submit}
+        okText={editRow ? "Save changes" : "Create gate"}
+        confirmLoading={submitting}
+        destroyOnHidden
+        className="cm-gates-modal"
       >
-        <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))}>
-          {toast.message}
-        </Alert>
-      </Snackbar>
+        <Form form={form} layout="vertical" requiredMark="optional">
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item label="Gate code" name="gate_code" rules={[{ required: true }, { pattern: /^[A-Za-z0-9_-]{2,32}$/, message: "Use 2–32 letters, numbers, _ or -." }]}>
+                <Input placeholder="e.g. main_entry" disabled={!!editRow} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Gate name" name="gate_name" rules={[{ required: true, message: "Enter a gate name." }]}>
+                <Input placeholder="Main Entry Gate" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Direction" name="direction" rules={[{ required: true }]}>
+            <Select className="cm-gates-select" options={[{ value: "ENTRY", label: "Entry only" }, { value: "EXIT", label: "Exit only" }, { value: "BOTH", label: "Entry & exit" }]} />
+          </Form.Item>
+          <Form.Item label="Allowed vehicle categories" name="allowed_vehicle_codes" rules={[{ required: true, message: "Select at least one category." }]}>
+            <Select
+              className="cm-gates-select"
+              mode="tags"
+              tokenSeparators={[","]}
+              options={["general", "tractor", "truck", "pickup", "two_wheeler", "car"].map((v) => ({ value: v, label: v.replace(/_/g, " ") }))}
+            />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item label="Weighbridge at gate" name="has_weighbridge" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Status" name="is_active">
+                <Select className="cm-gates-select" options={[{ value: "Y", label: "Active" }, { value: "N", label: "Inactive" }]} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Notes" name="description">
+            <Input.TextArea rows={3} maxLength={500} showCount placeholder="Operational notes" />
+          </Form.Item>
+          <Paragraph type="secondary" className="cm-gates-note">Gate changes affect only the selected mandi. Vehicle and device enforcement remains API-controlled.</Paragraph>
+        </Form>
+      </Modal>
     </PageContainer>
   );
 };
 
-
-// import React, { useEffect, useMemo, useState } from "react";
-// import {
-//   Box,
-//   Button,
-//   Card,
-//   CardActions,
-//   CardContent,
-//   Autocomplete,
-//   Dialog,
-//   DialogActions,
-//   DialogContent,
-//   DialogTitle,
-//   MenuItem,
-//   Snackbar,
-//   Stack,
-//   TextField,
-//   Typography,
-//   useMediaQuery,
-//   useTheme,
-//   Alert,
-//   IconButton,
-//   CircularProgress,
-//   Chip,
-// } from "@mui/material";
-// import { type GridColDef } from "@mui/x-data-grid";
-// import AddIcon from "@mui/icons-material/Add";
-// import EditIcon from "@mui/icons-material/EditOutlined";
-// import BlockIcon from "@mui/icons-material/BlockOutlined";
-// import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-// import { useTranslation } from "react-i18next";
-// import { PageContainer } from "../../components/PageContainer";
-
-// import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-// import { normalizeLanguageCode } from "../../config/languages";
-// import { fetchOrganisations } from "../../services/adminUsersApi";
-// import {
-//   fetchMandiGates,
-//   createMandiGate,
-//   updateMandiGate,
-//   deactivateMandiGate,
-//   fetchMandis,
-//   fetchGateBootstrap,
-// } from "../../services/mandiApi";
-// import { ActionGate } from "../../authz/ActionGate";
-// import { usePermissions } from "../../authz/usePermissions";
-// import { useRecordLock } from "../../authz/isRecordLocked";
-// import { useSearchParams } from "react-router-dom";
- 
-
-// function currentUsername(): string | null {
-//   try {
-//     const raw = localStorage.getItem("cd_user");
-//     const parsed = raw ? JSON.parse(raw) : null;
-//     return parsed?.username || null;
-//   } catch {
-//     return null;
-//   }
-// }
-
-// type GateRow = {
-//   id: string;
-//   org_id: string;
-//   org_name?: string;
-//   mandi_id: number;
-//   mandi_name?: string;
-//   gate_code: string;
-//   gate_name: string;
-//   gate_direction?: string;
-//   gate_type?: string;
-//   has_weighbridge?: string;
-//   description?: string | null;
-//   is_active: string;
-//   updated_on?: string;
-//   updated_by?: string;
-//   org_scope?: string | null;
-//   owner_type?: string | null;
-//   owner_org_id?: string | null;
-//   is_protected?: string | null;
-// };
-
-// const defaultForm = {
-//   org_id: "",
-//   mandi_id: "",
-//   gate_code: "",
-//   name_en: "",
-//   name_hi: "",
-//   gate_direction: "BOTH",
-//   gate_type: "VEHICLE",
-//   has_weighbridge: "N",
-//   notes: "",
-//   is_active: "Y",
-// };
-
-// export const MandiGates: React.FC = () => {
-//   const { t, i18n } = useTranslation();
-//   const language = normalizeLanguageCode(i18n.language);
-//   const theme = useTheme();
-//   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-//   const { can, authContext, isSuper } = usePermissions();
-//   const { isRecordLocked } = useRecordLock();
-//   const [searchParams, setSearchParams] = useSearchParams();
-
-//   const [rows, setRows] = useState<GateRow[]>([]);
-//   const [orgOptions, setOrgOptions] = useState<any[]>([]);
-//   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-//   const storedOrgId = searchParams.get("org_id") || localStorage.getItem("mandiGates.org_id") || authContext.org_id || "";
-//   const storedMandi = searchParams.get("mandi_id") || localStorage.getItem("mandiGates.mandi_id") || "";
-//   const storedStatus = (searchParams.get("status") as "ALL" | "Y" | "N" | null) || (localStorage.getItem("mandiGates.status") as any) || "ALL";
-//   const storedSearch = searchParams.get("search") || localStorage.getItem("mandiGates.search") || "";
-//   const isScopedOrg = authContext.role === "MANDI_ADMIN" || (!isSuper && !!authContext.org_id);
-//   const [selectedOrgId, setSelectedOrgId] = useState<string>(storedOrgId || "");
-//   const [selectedOrgCode, setSelectedOrgCode] = useState<string>(authContext.org_code || "");
-//   const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
-//   const [mandiSearchText, setMandiSearchText] = useState("");
-//   const [createMandiSearch, setCreateMandiSearch] = useState("");
-//   const [statusFilter, setStatusFilter] = useState(storedStatus as "ALL" | "Y" | "N");
-//   const [dialogOpen, setDialogOpen] = useState(false);
-//   const [createOpen, setCreateOpen] = useState(false);
-//   const [isEdit, setIsEdit] = useState(false);
-//   const [form, setForm] = useState(defaultForm);
-//   const [editId, setEditId] = useState<string | null>(null);
-//   const [gateCodeDirty, setGateCodeDirty] = useState(false);
-//   const [gateCodeError, setGateCodeError] = useState<string | null>(null);
-//   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
-//     open: false,
-//     message: "",
-//     severity: "success",
-//   });
-//   const [orgLabel, setOrgLabel] = useState<string>("");
-
-//   const canCreateMandiGate = useMemo(() => can("mandi_gates.create", "CREATE"), [can]);
-//   const canEdit = useMemo(() => can("mandi_gates.edit", "UPDATE"), [can]);
-//   const canDeactivate = useMemo(() => can("mandi_gates.deactivate", "DEACTIVATE"), [can]);
-
-//   const columns = useMemo<GridColDef<GateRow>[]>(
-//     () => [
-//       { field: "gate_code", headerName: "Gate Code", width: 140 },
-//       { field: "gate_name", headerName: "Gate Name", flex: 1 },
-//       { field: "gate_direction", headerName: "Direction", width: 120 },
-//       { field: "gate_type", headerName: "Type", width: 140 },
-//       { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
-//       { field: "mandi_name", headerName: "Mandi", width: 160 },
-//       {
-//         field: "is_active",
-//         headerName: "Active",
-//         width: 120,
-//         renderCell: (params) => {
-//           const val = String(params.row.is_active || "").toUpperCase() === "Y";
-//           return <Chip size="small" label={val ? "Active" : "Inactive"} color={val ? "success" : "default"} />;
-//         },
-//       },
-//       { field: "updated_on", headerName: "Updated On", width: 160 },
-//       {
-//         field: "actions",
-//         headerName: "Actions",
-//         width: 200,
-//         renderCell: (params) => {
-//           const row = params.row as GateRow;
-//           const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
-//           const nextActive = row.is_active === "Y" ? "N" : "Y";
-//           const toggleLabel = row.is_active === "Y" ? "Deactivate" : "Activate";
-//           return (
-//             <Stack direction="row" spacing={1}>
-//               <Button size="small" onClick={() => openEdit(row)}>
-//                 View
-//               </Button>
-//               <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-//                 {!lockInfo.locked && (
-//                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-//                     Edit
-//                   </Button>
-//                 )}
-//               </ActionGate>
-//               <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-//                 {!lockInfo.locked && (
-//                   <Button
-//                     size="small"
-//                     startIcon={row.is_active === "Y" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-//                     color={row.is_active === "Y" ? "error" : "success"}
-//                     onClick={() => handleDeactivate(row.id, nextActive)}
-//                   >
-//                     {toggleLabel}
-//                   </Button>
-//                 )}
-//               </ActionGate>
-//             </Stack>
-//           );
-//         },
-//       },
-//     ],
-//     [authContext, isSuper],
-//   );
-
-//   const loadOrgs = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await fetchOrganisations({ username, language });
-//       const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-//       if (orgs.length === 0 && isScopedOrg) {
-//         setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//         setSelectedOrgId(String(authContext.org_id));
-//         setSelectedOrgCode(String(authContext.org_code || ""));
-//         return;
-//       }
-//       setOrgOptions(orgs);
-//       if (!selectedOrgId && orgs.length) {
-//         setSelectedOrgId(String(orgs[0]._id));
-//         setSelectedOrgCode(String(orgs[0].org_code || ""));
-//       }
-//     } catch (err) {
-//       console.error("[mandiGates] loadOrgs failed", err);
-//       if (isScopedOrg && authContext.org_id) {
-//         setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//         setSelectedOrgId(String(authContext.org_id));
-//         setSelectedOrgCode(String(authContext.org_code || ""));
-//       }
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (!selectedOrgId) return;
-//     if (selectedOrgCode) return;
-//     const match = orgOptions.find((o: any) => String(o._id) === String(selectedOrgId));
-//     if (match?.org_code) {
-//       setSelectedOrgCode(String(match.org_code));
-//     }
-//   }, [selectedOrgId, selectedOrgCode, orgOptions]);
-
-//   // ORG scoped bootstrap: org label + mandis list, and optionally gates list (only when a mandi is selected)
-//   const loadGateBootstrap = async (mandiId?: number) => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await fetchGateBootstrap({
-//         username,
-//         language,
-//         payload: {
-//           mandi_page: 1,
-//           mandi_pageSize: 200,
-//           gates_page: 1,
-//           gates_pageSize: 200,
-//           mandi_id: typeof mandiId === "number" ? mandiId : undefined,
-//           gates_is_active: statusFilter === "ALL" ? undefined : statusFilter,
-//         },
-//       });
-
-//       const data = resp?.data || resp?.response?.data || null;
-//       const org = data?.org || null;
-//       const mandis = data?.mandis?.items || [];
-//       const gates = data?.gates?.items || [];
-
-//       if (org?.org_name) setOrgLabel(String(org.org_name));
-//       if (org?.org_id && !selectedOrgId) setSelectedOrgId(String(org.org_id));
-//       if (org?.org_code && !selectedOrgCode) setSelectedOrgCode(String(org.org_code));
-
-//       const mappedMandis = mandis.map((m: any) => ({
-//         mandi_id: String(m.mandi_id),
-//         label: m?.label || m?.name_i18n?.en || m?.mandi_slug || String(m.mandi_id),
-//       }));
-//       setMandiOptions([{ mandi_id: "", label: "All" }, ...mappedMandis]);
-
-//       if (typeof mandiId === "number") {
-//         setRows(
-//           gates.map((g: any) => ({
-//             id: g._id,
-//             org_id: g.org_id,
-//             org_name: org?.org_name || "",
-//             mandi_id: g.mandi_id,
-//             mandi_name: mappedMandis.find((m: any) => String(m.mandi_id) === String(g.mandi_id))?.label || "",
-//             gate_code: g.gate_code,
-//             gate_name: g?.name_i18n?.en || g.gate_code,
-//             gate_direction:
-//               g.gate_direction ||
-//               (g.is_entry_only === "Y" && g.is_exit_only === "N"
-//                 ? "ENTRY"
-//                 : g.is_entry_only === "N" && g.is_exit_only === "Y"
-//                   ? "EXIT"
-//                   : "BOTH"),
-//             gate_type:
-//               g.gate_type ||
-//               (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length
-//                 ? g.allowed_vehicle_codes.join(", ")
-//                 : "Gate"),
-//             has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-//             description: g.description || null,
-//             is_active: g.is_active,
-//             updated_on: g.updated_on,
-//             updated_by: g.updated_by,
-//             org_scope: g.org_scope || null,
-//             owner_type: g.owner_type || null,
-//             owner_org_id: g.owner_org_id || null,
-//             is_protected: g.is_protected || null,
-//           })),
-//         );
-//       } else {
-//         // Do not call gates list until a mandi is explicitly chosen
-//         setRows([]);
-//       }
-//     } catch (err) {
-//       console.error("[mandiGates] loadGateBootstrap failed", err);
-//       setMandiOptions([]);
-//       setRows([]);
-//     }
-//   };
-
-//   // SUPER_ADMIN / SYSTEM flow (legacy): load mandis from getMandis
-//   const loadMandis = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     const orgCodeParam = selectedOrgCode || authContext.org_code || undefined;
-//     try {
-//       const resp = await fetchMandis({
-//         username,
-//         language,
-//         filters: {
-//           is_active: true,
-//           org_code: orgCodeParam,
-//           page: 1,
-//           pageSize: 1000,
-//           search: mandiSearchText || undefined,
-//         },
-//       });
-//       const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
-//       const mapped = mandis.map((m: any) => ({
-//         mandi_id: String(m.mandi_id),
-//         label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
-//       }));
-//       const withAll = [{ mandi_id: "", label: "All" }, ...mapped];
-//       setMandiOptions(withAll);
-//       if (!selectedMandi) setSelectedMandi("");
-//     } catch (err) {
-//       console.error("[mandiGates] loadMandis failed", err);
-//       setMandiOptions([]);
-//     }
-//   };
-
-//   const loadData = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await fetchMandiGates({
-//         username,
-//         language,
-//         filters: {
-//           org_id: selectedOrgId || undefined,
-//           mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
-//           is_active: statusFilter === "ALL" ? undefined : statusFilter,
-//         },
-//       });
-//       const list = resp?.data?.gates || resp?.data?.items || [];
-//       setRows(
-//         list.map((g: any) => ({
-//           id: g._id,
-//           org_id: g.org_id,
-//           org_name: g.org_name || "",
-//           mandi_id: g.mandi_id,
-//           mandi_name: g.mandi_name || "",
-//           gate_code: g.gate_code,
-//           gate_name: g?.name_i18n?.en || g.gate_code,
-//           gate_direction:
-//             g.gate_direction ||
-//             (g.is_entry_only === "Y" && g.is_exit_only === "N"
-//               ? "ENTRY"
-//               : g.is_entry_only === "N" && g.is_exit_only === "Y"
-//                 ? "EXIT"
-//                 : "BOTH"),
-//         gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
-//         has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-//         description: g.description || null,
-//         is_active: g.is_active,
-//         updated_on: g.updated_on,
-//         updated_by: g.updated_by,
-//         org_scope: g.org_scope || null,
-//         owner_type: g.owner_type || null,
-//           owner_org_id: g.owner_org_id || null,
-//           is_protected: g.is_protected || null,
-//         })),
-//       );
-//     } catch (err) {
-//       console.error("[mandiGates] loadData failed", err);
-//       setRows([]);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (isScopedOrg && authContext.org_id) {
-//       setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//       setSelectedOrgId(String(authContext.org_id));
-//       setSelectedOrgCode(String(authContext.org_code || ""));
-//     } else {
-//       loadOrgs();
-//     }
-//   }, [isScopedOrg, authContext.org_id, authContext.org_code]);
-
-//   // Ensure scoped users always have at least their own org option visible
-//   useEffect(() => {
-//     if (!isScopedOrg || !selectedOrgId) return;
-//     const exists = orgOptions.some((o: any) => String(o._id) === String(selectedOrgId));
-//     if (!exists) {
-//       const fallback = {
-//         _id: selectedOrgId,
-//         org_code: selectedOrgCode || authContext.org_code || selectedOrgId,
-//         org_name: authContext.org_code || "",
-//       };
-//       setOrgOptions((opts) => [...opts, fallback]);
-//     }
-//   }, [isScopedOrg, selectedOrgId, selectedOrgCode, authContext.org_code, orgOptions]);
-
-//   // For ORG scoped roles: use gates bootstrap to fetch org label + mandis
-//   // For SUPER_ADMIN: keep legacy mandi list flow (getMandis)
-//   useEffect(() => {
-//     if (isSuper) {
-//       loadMandis();
-//       return;
-//     }
-//     // ORG admins: bootstrap gives mandis; search text is not supported here (dropdown is server-paged)
-//     loadGateBootstrap(undefined);
-//   }, [isSuper, selectedOrgCode]);
-
-//   useEffect(() => {
-//     // ORG admins: do NOT fetch gates until mandi selected
-//     if (!isSuper) {
-//       if (!selectedMandi) {
-//         setRows([]);
-//         return;
-//       }
-//       loadGateBootstrap(Number(selectedMandi));
-//     } else {
-//       loadData();
-//     }
-//     const next = new URLSearchParams(searchParams.toString());
-//     if (selectedOrgId) next.set("org_id", selectedOrgId); else next.delete("org_id");
-//     if (selectedMandi) next.set("mandi_id", selectedMandi); else next.delete("mandi_id");
-//     if (statusFilter) next.set("status", statusFilter);
-//     if (mandiSearchText) next.set("search", mandiSearchText); else next.delete("search");
-//     setSearchParams(next, { replace: true });
-//     try {
-//       localStorage.setItem("mandiGates.org_id", selectedOrgId || "");
-//       localStorage.setItem("mandiGates.mandi_id", selectedMandi || "");
-//       localStorage.setItem("mandiGates.status", statusFilter);
-//       localStorage.setItem("mandiGates.search", mandiSearchText || "");
-//     } catch {
-//       // ignore
-//     }
-//   }, [selectedMandi, statusFilter, selectedOrgId, selectedOrgCode, mandiSearchText]);
-
-//   const openCreate = () => {
-//     setIsEdit(false);
-//     setEditId(null);
-//     setGateCodeDirty(false);
-//     setGateCodeError(null);
-//     setForm({ ...defaultForm, mandi_id: selectedMandi === "" ? "" : selectedMandi, org_id: selectedOrgId });
-//     setDialogOpen(true);
-//   };
-
-//   const handleOpenCreate = () => {
-//     setCreateOpen(true);
-//     openCreate();
-//   };
-
-//   const handleCloseDialog = () => {
-//     setCreateOpen(false);
-//     setDialogOpen(false);
-//   };
-
-//   const openEdit = (row: GateRow) => {
-//     setCreateOpen(false);
-//     setIsEdit(true);
-//     setEditId(row.id);
-//     setGateCodeDirty(false);
-//     setGateCodeError(null);
-//     setForm({
-//       org_id: row.org_id,
-//       mandi_id: String(row.mandi_id),
-//       gate_code: row.gate_code,
-//       name_en: row.gate_name,
-//       name_hi: "",
-//       gate_direction: row.gate_direction || "BOTH",
-//       gate_type: (row.gate_type || "").toUpperCase() || "VEHICLE",
-//       has_weighbridge: row.has_weighbridge || "N",
-//       notes: row.description || "",
-//       is_active: row.is_active,
-//     });
-//     setDialogOpen(true);
-//   };
-
-//   const handleSave = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     const gateCodePattern = /^[a-z0-9_-]{2,32}$/;
-//     if (!gateCodePattern.test(form.gate_code)) {
-//       setGateCodeError("Gate code must be 2-32 chars, lowercase letters, numbers, _ or -");
-//       return;
-//     }
-//     if (!form.mandi_id) {
-//       setGateCodeError(null);
-//       setToast({ open: true, message: "Select a Mandi", severity: "error" });
-//       return;
-//     }
-//     const payload: any = {
-//       org_id: form.org_id || selectedOrgId,
-//       mandi_id: Number(form.mandi_id || selectedMandi),
-//       gate_code: form.gate_code,
-//       name_i18n: { en: form.name_en, hi: form.name_hi },
-//       gate_direction: form.gate_direction,
-//       gate_type: form.gate_type,
-//       has_weighbridge: form.has_weighbridge,
-//       allowed_vehicle_codes: [form.gate_type.toLowerCase() || "general"],
-//       is_entry_only: form.gate_direction === "ENTRY" ? "Y" : "N",
-//       is_exit_only: form.gate_direction === "EXIT" ? "Y" : "N",
-//       notes: form.notes,
-//       is_active: form.is_active,
-//     };
-//     try {
-//       let resp;
-//       if (isEdit && editId) {
-//         payload._id = editId;
-//         resp = await updateMandiGate({ username, language, payload });
-//       } else {
-//         resp = await createMandiGate({ username, language, payload });
-//       }
-//       const description =
-//         resp?.response?.description ||
-//         resp?.description ||
-//         (resp?.response?.responsecode === "0" ? "Success" : "Something went wrong");
-//       const code = resp?.response?.responsecode || resp?.responsecode || "1";
-//       if (code !== "0") {
-//         setToast({ open: true, message: description, severity: "error" });
-//         return;
-//       }
-//       setToast({ open: true, message: description || "Success", severity: "success" });
-//       handleCloseDialog();
-//       if (isSuper) {
-//         await loadData();
-//       } else {
-//         const mid = Number(form.mandi_id || selectedMandi);
-//         if (Number.isFinite(mid) && mid > 0) await loadGateBootstrap(mid);
-//       }
-//     } catch (err: any) {
-//       console.error("[mandiGates] save error", err);
-//       setToast({ open: true, message: err?.message || "Something went wrong", severity: "error" });
-//     }
-//   };
-
-//   const handleDeactivate = async (id: string, nextActive: string) => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
-//       const description = resp?.response?.description || resp?.description || "Updated";
-//       const code = resp?.response?.responsecode || resp?.responsecode || "1";
-//       if (code !== "0") {
-//         setToast({ open: true, message: description, severity: "error" });
-//       } else {
-//         setToast({ open: true, message: description, severity: "success" });
-//       }
-//       if (isSuper) {
-//         await loadData();
-//       } else {
-//         const mid = Number(selectedMandi);
-//         if (Number.isFinite(mid) && mid > 0) await loadGateBootstrap(mid);
-//       }
-//     } catch (err: any) {
-//       console.error("[mandiGates] deactivate error", err);
-//       setToast({ open: true, message: err?.message || "Failed to update gate", severity: "error" });
-//     }
-//   };
-
-//   return (
-//     <PageContainer
-//       title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
-//       actions={
-//         <ActionGate resourceKey="mandi_gates.create" action="CREATE">
-//           {canCreateMandiGate && (
-//             <Button
-//               variant="contained"
-//               startIcon={<AddIcon />}
-//               disabled={createOpen}
-//               onClick={handleOpenCreate}
-//             >
-//               {t("actions.create", { defaultValue: "Create" })}
-//             </Button>
-//           )}
-//         </ActionGate>
-//       }
-//     >
-//       <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
-//         {!isSuper && (
-//           <Typography variant="body2" sx={{ minWidth: 260 }}>
-//             Organisation: <b>{orgLabel || authContext.org_code || ""}</b>
-//           </Typography>
-//         )}
-//         <Autocomplete
-//           size="small"
-//           options={mandiOptions}
-//           getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-//           isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-//           filterOptions={(opts) => opts}
-//           freeSolo
-//           loading={mandiOptions.length === 0}
-//           value={selectedMandi ? mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null : null}
-//           onChange={(_, val: any) => {
-//             setSelectedMandi(val ? String(val.mandi_id) : "");
-//             setMandiSearchText(val ? val.label || String(val.mandi_id) : "");
-//           }}
-//           inputValue={mandiSearchText}
-//           onInputChange={(_, val: string, reason: string) => {
-//             if (reason === "clear") {
-//               setMandiSearchText("");
-//               setSelectedMandi("");
-//               return;
-//             }
-//             setMandiSearchText(val);
-//           }}
-//             renderInput={(params: any) => (
-//               <TextField
-//                 {...params}
-//                 label="Mandi"
-//                 placeholder="All"
-//                 fullWidth
-//                 InputProps={{
-//                   ...params.InputProps,
-//                   endAdornment: (
-//                     <>
-//                       {mandiOptions.length === 0 ? <CircularProgress color="inherit" size={16} /> : null}
-//                       {params.InputProps.endAdornment}
-//                     </>
-//                   ),
-//                 }}
-//               />
-//             )}
-//             sx={{ minWidth: 240 }}
-//           />
-//         <TextField
-//           select
-//           label="Status"
-//           size="small"
-//           value={statusFilter}
-//         onChange={(e) => setStatusFilter(e.target.value as any)}
-//         sx={{ width: 140 }}
-//       >
-//         <MenuItem value="ALL">All</MenuItem>
-//         <MenuItem value="Y">Active</MenuItem>
-//           <MenuItem value="N">Inactive</MenuItem>
-//         </TextField>
-//       </Stack>
-
-//       {isMobile ? (
-//         <Stack spacing={2}>
-//           {rows.map((row) => (
-//             <Card key={row.id} variant="outlined">
-//               <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-//               <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
-//               <Typography variant="body2" color="text.secondary">
-//                   Code: {row.gate_code} • Direction: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
-//               </Typography>
-//               <Typography variant="body2" color="text.secondary">
-//                   Org: {row.org_name || row.org_id} • Mandi: {row.mandi_name || row.mandi_id}
-//               </Typography>
-//                 <Typography variant="body2" color="text.secondary">
-//                   Weighbridge: {row.has_weighbridge || "N"} • Active: {row.is_active}
-//                 </Typography>
-//                 <Typography variant="caption" color="text.secondary">
-//                   Updated: {row.updated_on || "-"} by {row.updated_by || "-"}
-//                 </Typography>
-//               </CardContent>
-//               <CardActions>
-//                 <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-//                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-//                     Edit
-//                   </Button>
-//                 </ActionGate>
-//                 <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-//                   <Button
-//                     size="small"
-//                     color={row.is_active === "Y" ? "error" : "success"}
-//                     startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
-//                     onClick={() => handleDeactivate(row.id, row.is_active === "Y" ? "N" : "Y")}
-//                   >
-//                     {row.is_active === "Y" ? "Deactivate" : "Activate"}
-//                   </Button>
-//                 </ActionGate>
-//               </CardActions>
-//             </Card>
-//           ))}
-//         </Stack>
-//       ) : (
-//         <Box sx={{ height: 520 }}>
-//           <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
-//         </Box>
-//       )}
-
-//       <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm" fullScreen={isMobile}>
-//         <DialogTitle>{isEdit ? "Edit Gate" : "Create Gate"}</DialogTitle>
-//         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-//           <TextField
-//             select
-//             label="Organisation"
-//             value={form.org_id || selectedOrgId}
-//             onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
-//             fullWidth
-//             disabled={isEdit || isScopedOrg}
-//           >
-//             {orgOptions.map((o: any) => (
-//               <MenuItem key={o._id} value={o._id}>
-//                 {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-//               </MenuItem>
-//             ))}
-//           </TextField>
-//           <Autocomplete
-//             size="small"
-//             options={mandiOptions.filter((m: any) => m.mandi_id !== "")}
-//             getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-//             isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-//             filterOptions={(opts) => opts}
-//             freeSolo
-//             value={
-//               form.mandi_id
-//                 ? mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id)) || null
-//                 : null
-//             }
-//             onChange={(_, val: any) => {
-//               setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
-//               setCreateMandiSearch(val ? val.label || String(val.mandi_id) : "");
-//             }}
-//             inputValue={createMandiSearch}
-//             onInputChange={(_, val: string, reason: string) => {
-//               if (reason === "clear") {
-//                 setCreateMandiSearch("");
-//                 setForm((f) => ({ ...f, mandi_id: "" }));
-//                 setMandiSearchText("");
-//                 return;
-//               }
-//               setCreateMandiSearch(val);
-//               setMandiSearchText(val);
-//             }}
-//             renderInput={(params: any) => (
-//               <TextField
-//                 {...params}
-//                 label="Mandi"
-//                 placeholder="Search mandi by name or slug"
-//                 fullWidth
-//                 disabled={isEdit || !selectedOrgCode}
-//               />
-//             )}
-//           />
-//           <TextField
-//             label="Gate Code"
-//             value={form.gate_code}
-//             disabled
-//             error={!!gateCodeError}
-//             helperText={gateCodeError || "Auto-generated from Gate Name"}
-//             fullWidth
-//           />
-//           <TextField
-//             label="Gate Name (EN)"
-//             value={form.name_en}
-//             onChange={(e) => {
-//               const val = e.target.value;
-//               setForm((f) => ({ ...f, name_en: val }));
-//               if (!gateCodeDirty) {
-//                 const slug = val
-//                   .trim()
-//                   .toLowerCase()
-//                   .replace(/[^a-z0-9_-]+/g, "-")
-//                   .replace(/^-+|-+$/g, "")
-//                   .slice(0, 32);
-//                 setForm((f) => ({ ...f, name_en: val, gate_code: slug }));
-//               }
-//             }}
-//             fullWidth
-//           />
-//           <TextField
-//             select
-//             label="Direction"
-//             value={form.gate_direction}
-//             onChange={(e) => setForm((f) => ({ ...f, gate_direction: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="ENTRY">ENTRY</MenuItem>
-//             <MenuItem value="EXIT">EXIT</MenuItem>
-//             <MenuItem value="BOTH">BOTH</MenuItem>
-//           </TextField>
-//           <TextField
-//             select
-//             label="Type"
-//             value={form.gate_type}
-//             onChange={(e) => setForm((f) => ({ ...f, gate_type: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="VEHICLE">VEHICLE</MenuItem>
-//             <MenuItem value="PEDESTRIAN">PEDESTRIAN</MenuItem>
-//             <MenuItem value="MIXED">MIXED</MenuItem>
-//           </TextField>
-//           <TextField
-//             select
-//             label="Has Weighbridge"
-//             value={form.has_weighbridge}
-//             onChange={(e) => setForm((f) => ({ ...f, has_weighbridge: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="Y">Yes</MenuItem>
-//             <MenuItem value="N">No</MenuItem>
-//           </TextField>
-//           <TextField
-//             label="Notes"
-//             value={form.notes}
-//             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-//             fullWidth
-//             multiline
-//             minRows={2}
-//           />
-//           <TextField
-//             select
-//             label="Active"
-//             value={form.is_active}
-//             onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="Y">Yes</MenuItem>
-//             <MenuItem value="N">No</MenuItem>
-//           </TextField>
-//         </DialogContent>
-//         <DialogActions>
-//           <Button onClick={handleCloseDialog}>Cancel</Button>
-//           <Button variant="contained" onClick={handleSave}>
-//             {isEdit ? "Update" : "Create"}
-//           </Button>
-//         </DialogActions>
-//       </Dialog>
-//       <Snackbar
-//         open={toast.open}
-//         autoHideDuration={3000}
-//         onClose={() => setToast((t) => ({ ...t, open: false }))}
-//         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-//       >
-//         <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))}>
-//           {toast.message}
-//         </Alert>
-//       </Snackbar>
-//     </PageContainer>
-//   );
-// };
-
-
-//committed on 07-jun 2026 at 8:54 am
-// import React, { useEffect, useMemo, useState } from "react";
-// import {
-//   Box,
-//   Button,
-//   Card,
-//   CardActions,
-//   CardContent,
-//   Autocomplete,
-//   Dialog,
-//   DialogActions,
-//   DialogContent,
-//   DialogTitle,
-//   MenuItem,
-//   Snackbar,
-//   Stack,
-//   TextField,
-//   Typography,
-//   useMediaQuery,
-//   useTheme,
-//   Alert,
-//   IconButton,
-//   CircularProgress,
-//   Chip,
-// } from "@mui/material";
-// import { type GridColDef } from "@mui/x-data-grid";
-// import AddIcon from "@mui/icons-material/Add";
-// import EditIcon from "@mui/icons-material/EditOutlined";
-// import BlockIcon from "@mui/icons-material/BlockOutlined";
-// import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-// import { useTranslation } from "react-i18next";
-// import { PageContainer } from "../../components/PageContainer";
-
-// import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-// import { normalizeLanguageCode } from "../../config/languages";
-// import { fetchOrganisations } from "../../services/adminUsersApi";
-// import {
-//   fetchMandiGates,
-//   createMandiGate,
-//   updateMandiGate,
-//   deactivateMandiGate,
-//   fetchMandis,
-// } from "../../services/mandiApi";
-// import { ActionGate } from "../../authz/ActionGate";
-// import { usePermissions } from "../../authz/usePermissions";
-// import { useRecordLock } from "../../authz/isRecordLocked";
-// import { useSearchParams } from "react-router-dom";
-// import { ToggleButton, ToggleButtonGroup } from "@mui/material";
-
-// function currentUsername(): string | null {
-//   try {
-//     const raw = localStorage.getItem("cd_user");
-//     const parsed = raw ? JSON.parse(raw) : null;
-//     return parsed?.username || null;
-//   } catch {
-//     return null;
-//   }
-// }
-
-// type GateRow = {
-//   id: string;
-//   org_id: string;
-//   org_name?: string;
-//   mandi_id: number;
-//   mandi_name?: string;
-//   gate_code: string;
-//   gate_name: string;
-//   gate_direction?: string;
-//   gate_type?: string;
-//   has_weighbridge?: string;
-//   description?: string | null;
-//   is_active: string;
-//   updated_on?: string;
-//   updated_by?: string;
-//   org_scope?: string | null;
-//   owner_type?: string | null;
-//   owner_org_id?: string | null;
-//   is_protected?: string | null;
-// };
-
-// const defaultForm = {
-//   org_id: "",
-//   mandi_id: "",
-//   gate_code: "",
-//   name_en: "",
-//   name_hi: "",
-//   gate_direction: "BOTH",
-//   gate_type: "VEHICLE",
-//   has_weighbridge: "N",
-//   notes: "",
-//   is_active: "Y",
-// };
-
-// export const MandiGates: React.FC = () => {
-//   const { t, i18n } = useTranslation();
-//   const language = normalizeLanguageCode(i18n.language);
-//   const theme = useTheme();
-//   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-//   const { can, authContext, isSuper } = usePermissions();
-//   const { isRecordLocked } = useRecordLock();
-//   const [searchParams, setSearchParams] = useSearchParams();
-
-//   const [rows, setRows] = useState<GateRow[]>([]);
-//   const [orgOptions, setOrgOptions] = useState<any[]>([]);
-//   const [mandiOptions, setMandiOptions] = useState<any[]>([]);
-//   const storedOrgId = searchParams.get("org_id") || localStorage.getItem("mandiGates.org_id") || authContext.org_id || "";
-//   const storedMandi = searchParams.get("mandi_id") || localStorage.getItem("mandiGates.mandi_id") || "";
-//   const storedStatus = (searchParams.get("status") as "ALL" | "Y" | "N" | null) || (localStorage.getItem("mandiGates.status") as any) || "ALL";
-//   const storedSearch = searchParams.get("search") || localStorage.getItem("mandiGates.search") || "";
-//   const isScopedOrg = authContext.role === "MANDI_ADMIN" || (!isSuper && !!authContext.org_id);
-//   const [selectedOrgId, setSelectedOrgId] = useState<string>(storedOrgId || "");
-//   const [selectedOrgCode, setSelectedOrgCode] = useState<string>(authContext.org_code || "");
-//   const [selectedMandi, setSelectedMandi] = useState<string>(storedMandi);
-//   const [mandiSearchText, setMandiSearchText] = useState("");
-//   const [createMandiSearch, setCreateMandiSearch] = useState("");
-//   const [statusFilter, setStatusFilter] = useState(storedStatus as "ALL" | "Y" | "N");
-//   const [dialogOpen, setDialogOpen] = useState(false);
-//   const [createOpen, setCreateOpen] = useState(false);
-//   const [isEdit, setIsEdit] = useState(false);
-//   const [form, setForm] = useState(defaultForm);
-//   const [editId, setEditId] = useState<string | null>(null);
-//   const [gateCodeDirty, setGateCodeDirty] = useState(false);
-//   const [gateCodeError, setGateCodeError] = useState<string | null>(null);
-//   const [toast, setToast] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
-//     open: false,
-//     message: "",
-//     severity: "success",
-//   });
-//   const [mandiSource, setMandiSource] = useState<"ORG" | "SYSTEM">("ORG");
-
-//   const canCreateMandiGate = useMemo(() => can("mandi_gates.create", "CREATE"), [can]);
-//   const canEdit = useMemo(() => can("mandi_gates.edit", "UPDATE"), [can]);
-//   const canDeactivate = useMemo(() => can("mandi_gates.deactivate", "DEACTIVATE"), [can]);
-
-//   const columns = useMemo<GridColDef<GateRow>[]>(
-//     () => [
-//       { field: "gate_code", headerName: "Gate Code", width: 140 },
-//       { field: "gate_name", headerName: "Gate Name", flex: 1 },
-//       { field: "gate_direction", headerName: "Direction", width: 120 },
-//       { field: "gate_type", headerName: "Type", width: 140 },
-//       { field: "has_weighbridge", headerName: "Weighbridge", width: 130 },
-//       { field: "mandi_name", headerName: "Mandi", width: 160 },
-//       {
-//         field: "is_active",
-//         headerName: "Active",
-//         width: 120,
-//         renderCell: (params) => {
-//           const val = String(params.row.is_active || "").toUpperCase() === "Y";
-//           return <Chip size="small" label={val ? "Active" : "Inactive"} color={val ? "success" : "default"} />;
-//         },
-//       },
-//       { field: "updated_on", headerName: "Updated On", width: 160 },
-//       {
-//         field: "actions",
-//         headerName: "Actions",
-//         width: 200,
-//         renderCell: (params) => {
-//           const row = params.row as GateRow;
-//           const lockInfo = isRecordLocked(row as any, { ...authContext, isSuper });
-//           const nextActive = row.is_active === "Y" ? "N" : "Y";
-//           const toggleLabel = row.is_active === "Y" ? "Deactivate" : "Activate";
-//           return (
-//             <Stack direction="row" spacing={1}>
-//               <Button size="small" onClick={() => openEdit(row)}>
-//                 View
-//               </Button>
-//               <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-//                 {!lockInfo.locked && (
-//                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-//                     Edit
-//                   </Button>
-//                 )}
-//               </ActionGate>
-//               <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-//                 {!lockInfo.locked && (
-//                   <Button
-//                     size="small"
-//                     startIcon={row.is_active === "Y" ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-//                     color={row.is_active === "Y" ? "error" : "success"}
-//                     onClick={() => handleDeactivate(row.id, nextActive)}
-//                   >
-//                     {toggleLabel}
-//                   </Button>
-//                 )}
-//               </ActionGate>
-//             </Stack>
-//           );
-//         },
-//       },
-//     ],
-//     [authContext, isSuper],
-//   );
-
-//   const loadOrgs = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await fetchOrganisations({ username, language });
-//       const orgs = resp?.response?.data?.organisations || resp?.data?.organisations || [];
-//       if (orgs.length === 0 && isScopedOrg) {
-//         setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//         setSelectedOrgId(String(authContext.org_id));
-//         setSelectedOrgCode(String(authContext.org_code || ""));
-//         return;
-//       }
-//       setOrgOptions(orgs);
-//       if (!selectedOrgId && orgs.length) {
-//         setSelectedOrgId(String(orgs[0]._id));
-//         setSelectedOrgCode(String(orgs[0].org_code || ""));
-//       }
-//     } catch (err) {
-//       console.error("[mandiGates] loadOrgs failed", err);
-//       if (isScopedOrg && authContext.org_id) {
-//         setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//         setSelectedOrgId(String(authContext.org_id));
-//         setSelectedOrgCode(String(authContext.org_code || ""));
-//       }
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (!selectedOrgId) return;
-//     if (selectedOrgCode) return;
-//     const match = orgOptions.find((o: any) => String(o._id) === String(selectedOrgId));
-//     if (match?.org_code) {
-//       setSelectedOrgCode(String(match.org_code));
-//     }
-//   }, [selectedOrgId, selectedOrgCode, orgOptions]);
-
-//   const loadMandis = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     const orgCodeParam = mandiSource === "ORG" ? selectedOrgCode || authContext.org_code || undefined : "SYSTEM";
-//     try {
-//       const resp = await fetchMandis({
-//         username,
-//         language,
-//         filters: {
-//           is_active: true,
-//           org_code: orgCodeParam,
-//           page: 1,
-//           pageSize: 1000,
-//           search: mandiSearchText || undefined,
-//         },
-//       });
-//       const mandis = resp?.data?.mandis || resp?.response?.data?.mandis || [];
-//       const mapped = mandis.map((m: any) => ({
-//         mandi_id: String(m.mandi_id),
-//         label: m?.mandi_name || m?.name_i18n?.en || m.mandi_slug || m.mandi_id,
-//       }));
-//       const withAll = [{ mandi_id: "", label: "All" }, ...mapped];
-//       setMandiOptions(withAll);
-//       if (!selectedMandi) setSelectedMandi("");
-//     } catch (err) {
-//       console.error("[mandiGates] loadMandis failed", err);
-//       setMandiOptions([]);
-//     }
-//   };
-
-//   const loadData = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await fetchMandiGates({
-//         username,
-//         language,
-//         filters: {
-//           org_id: selectedOrgId || undefined,
-//           mandi_id: selectedMandi ? Number(selectedMandi) : undefined,
-//           is_active: statusFilter === "ALL" ? undefined : statusFilter,
-//         },
-//       });
-//       const list = resp?.data?.gates || resp?.data?.items || [];
-//       setRows(
-//         list.map((g: any) => ({
-//           id: g._id,
-//           org_id: g.org_id,
-//           org_name: g.org_name || "",
-//           mandi_id: g.mandi_id,
-//           mandi_name: g.mandi_name || "",
-//           gate_code: g.gate_code,
-//           gate_name: g?.name_i18n?.en || g.gate_code,
-//           gate_direction:
-//             g.gate_direction ||
-//             (g.is_entry_only === "Y" && g.is_exit_only === "N"
-//               ? "ENTRY"
-//               : g.is_entry_only === "N" && g.is_exit_only === "Y"
-//                 ? "EXIT"
-//                 : "BOTH"),
-//         gate_type: g.gate_type || (Array.isArray(g.allowed_vehicle_codes) && g.allowed_vehicle_codes.length ? g.allowed_vehicle_codes.join(", ") : "Gate"),
-//         has_weighbridge: g.is_weighbridge || g.has_weighbridge || "N",
-//         description: g.description || null,
-//         is_active: g.is_active,
-//         updated_on: g.updated_on,
-//         updated_by: g.updated_by,
-//         org_scope: g.org_scope || null,
-//         owner_type: g.owner_type || null,
-//           owner_org_id: g.owner_org_id || null,
-//           is_protected: g.is_protected || null,
-//         })),
-//       );
-//     } catch (err) {
-//       console.error("[mandiGates] loadData failed", err);
-//       setRows([]);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (isScopedOrg && authContext.org_id) {
-//       setOrgOptions([{ _id: authContext.org_id, org_code: authContext.org_code, org_name: authContext.org_code }]);
-//       setSelectedOrgId(String(authContext.org_id));
-//       setSelectedOrgCode(String(authContext.org_code || ""));
-//     } else {
-//       loadOrgs();
-//     }
-//   }, [isScopedOrg, authContext.org_id, authContext.org_code]);
-
-//   // Ensure scoped users always have at least their own org option visible
-//   useEffect(() => {
-//     if (!isScopedOrg || !selectedOrgId) return;
-//     const exists = orgOptions.some((o: any) => String(o._id) === String(selectedOrgId));
-//     if (!exists) {
-//       const fallback = {
-//         _id: selectedOrgId,
-//         org_code: selectedOrgCode || authContext.org_code || selectedOrgId,
-//         org_name: authContext.org_code || "",
-//       };
-//       setOrgOptions((opts) => [...opts, fallback]);
-//     }
-//   }, [isScopedOrg, selectedOrgId, selectedOrgCode, authContext.org_code, orgOptions]);
-
-//   useEffect(() => {
-//     loadMandis();
-//   }, [selectedOrgCode, mandiSearchText, mandiSource]);
-
-//   useEffect(() => {
-//     loadData();
-//     const next = new URLSearchParams(searchParams.toString());
-//     if (selectedOrgId) next.set("org_id", selectedOrgId); else next.delete("org_id");
-//     if (selectedMandi) next.set("mandi_id", selectedMandi); else next.delete("mandi_id");
-//     if (statusFilter) next.set("status", statusFilter);
-//     if (mandiSearchText) next.set("search", mandiSearchText); else next.delete("search");
-//     setSearchParams(next, { replace: true });
-//     try {
-//       localStorage.setItem("mandiGates.org_id", selectedOrgId || "");
-//       localStorage.setItem("mandiGates.mandi_id", selectedMandi || "");
-//       localStorage.setItem("mandiGates.status", statusFilter);
-//       localStorage.setItem("mandiGates.search", mandiSearchText || "");
-//     } catch {
-//       // ignore
-//     }
-//   }, [selectedMandi, statusFilter, selectedOrgId, selectedOrgCode, mandiSearchText]);
-
-//   const openCreate = () => {
-//     setIsEdit(false);
-//     setEditId(null);
-//     setGateCodeDirty(false);
-//     setGateCodeError(null);
-//     setForm({ ...defaultForm, mandi_id: selectedMandi === "" ? "" : selectedMandi, org_id: selectedOrgId });
-//     setDialogOpen(true);
-//   };
-
-//   const handleOpenCreate = () => {
-//     setCreateOpen(true);
-//     openCreate();
-//   };
-
-//   const handleCloseDialog = () => {
-//     setCreateOpen(false);
-//     setDialogOpen(false);
-//   };
-
-//   const openEdit = (row: GateRow) => {
-//     setCreateOpen(false);
-//     setIsEdit(true);
-//     setEditId(row.id);
-//     setGateCodeDirty(false);
-//     setGateCodeError(null);
-//     setForm({
-//       org_id: row.org_id,
-//       mandi_id: String(row.mandi_id),
-//       gate_code: row.gate_code,
-//       name_en: row.gate_name,
-//       name_hi: "",
-//       gate_direction: row.gate_direction || "BOTH",
-//       gate_type: (row.gate_type || "").toUpperCase() || "VEHICLE",
-//       has_weighbridge: row.has_weighbridge || "N",
-//       notes: row.description || "",
-//       is_active: row.is_active,
-//     });
-//     setDialogOpen(true);
-//   };
-
-//   const handleSave = async () => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     const gateCodePattern = /^[a-z0-9_-]{2,32}$/;
-//     if (!gateCodePattern.test(form.gate_code)) {
-//       setGateCodeError("Gate code must be 2-32 chars, lowercase letters, numbers, _ or -");
-//       return;
-//     }
-//     if (!form.mandi_id) {
-//       setGateCodeError(null);
-//       setToast({ open: true, message: "Select a Mandi", severity: "error" });
-//       return;
-//     }
-//     const payload: any = {
-//       org_id: form.org_id || selectedOrgId,
-//       mandi_id: Number(form.mandi_id || selectedMandi),
-//       gate_code: form.gate_code,
-//       name_i18n: { en: form.name_en, hi: form.name_hi },
-//       gate_direction: form.gate_direction,
-//       gate_type: form.gate_type,
-//       has_weighbridge: form.has_weighbridge,
-//       allowed_vehicle_codes: [form.gate_type.toLowerCase() || "general"],
-//       is_entry_only: form.gate_direction === "ENTRY" ? "Y" : "N",
-//       is_exit_only: form.gate_direction === "EXIT" ? "Y" : "N",
-//       notes: form.notes,
-//       is_active: form.is_active,
-//     };
-//     try {
-//       let resp;
-//       if (isEdit && editId) {
-//         payload._id = editId;
-//         resp = await updateMandiGate({ username, language, payload });
-//       } else {
-//         resp = await createMandiGate({ username, language, payload });
-//       }
-//       const description =
-//         resp?.response?.description ||
-//         resp?.description ||
-//         (resp?.response?.responsecode === "0" ? "Success" : "Something went wrong");
-//       const code = resp?.response?.responsecode || resp?.responsecode || "1";
-//       if (code !== "0") {
-//         setToast({ open: true, message: description, severity: "error" });
-//         return;
-//       }
-//       setToast({ open: true, message: description || "Success", severity: "success" });
-//       handleCloseDialog();
-//       await loadData();
-//     } catch (err: any) {
-//       console.error("[mandiGates] save error", err);
-//       setToast({ open: true, message: err?.message || "Something went wrong", severity: "error" });
-//     }
-//   };
-
-//   const handleDeactivate = async (id: string, nextActive: string) => {
-//     const username = currentUsername();
-//     if (!username) return;
-//     try {
-//       const resp = await deactivateMandiGate({ username, language, _id: id, is_active: nextActive });
-//       const description = resp?.response?.description || resp?.description || "Updated";
-//       const code = resp?.response?.responsecode || resp?.responsecode || "1";
-//       if (code !== "0") {
-//         setToast({ open: true, message: description, severity: "error" });
-//       } else {
-//         setToast({ open: true, message: description, severity: "success" });
-//       }
-//       await loadData();
-//     } catch (err: any) {
-//       console.error("[mandiGates] deactivate error", err);
-//       setToast({ open: true, message: err?.message || "Failed to update gate", severity: "error" });
-//     }
-//   };
-
-//   return (
-//     <PageContainer
-//       title={t("menu.mandiGates", { defaultValue: "Mandi Gates" })}
-//       actions={
-//         <ActionGate resourceKey="mandi_gates.create" action="CREATE">
-//           {canCreateMandiGate && (
-//             <Button
-//               variant="contained"
-//               startIcon={<AddIcon />}
-//               disabled={createOpen}
-//               onClick={handleOpenCreate}
-//             >
-//               {t("actions.create", { defaultValue: "Create" })}
-//             </Button>
-//           )}
-//         </ActionGate>
-//       }
-//     >
-//       <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} mb={2}>
-//         <TextField
-//           select
-//           size="small"
-//           label="Mandi Source"
-//           value={mandiSource}
-//           onChange={(e) => setMandiSource(e.target.value as "ORG" | "SYSTEM")}
-//           sx={{ width: 200 }}
-//         >
-//           <MenuItem value="ORG">Organisation Mandis</MenuItem>
-//           <MenuItem value="SYSTEM">System Mandis</MenuItem>
-//         </TextField>
-//         <Autocomplete
-//           size="small"
-//           options={mandiOptions}
-//           getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-//           isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-//           filterOptions={(opts) => opts}
-//           freeSolo
-//           loading={mandiOptions.length === 0}
-//           value={selectedMandi ? mandiOptions.find((m: any) => String(m.mandi_id) === String(selectedMandi)) || null : null}
-//           onChange={(_, val: any) => {
-//             setSelectedMandi(val ? String(val.mandi_id) : "");
-//             setMandiSearchText(val ? val.label || String(val.mandi_id) : "");
-//           }}
-//           inputValue={mandiSearchText}
-//           onInputChange={(_, val: string, reason: string) => {
-//             if (reason === "clear") {
-//               setMandiSearchText("");
-//               setSelectedMandi("");
-//               return;
-//             }
-//             setMandiSearchText(val);
-//           }}
-//             renderInput={(params: any) => (
-//               <TextField
-//                 {...params}
-//                 label="Mandi"
-//                 placeholder="All"
-//                 fullWidth
-//                 InputProps={{
-//                   ...params.InputProps,
-//                   endAdornment: (
-//                     <>
-//                       {mandiOptions.length === 0 ? <CircularProgress color="inherit" size={16} /> : null}
-//                       {params.InputProps.endAdornment}
-//                     </>
-//                   ),
-//                 }}
-//               />
-//             )}
-//             sx={{ minWidth: 240 }}
-//           />
-//         <TextField
-//           select
-//           label="Status"
-//           size="small"
-//           value={statusFilter}
-//         onChange={(e) => setStatusFilter(e.target.value as any)}
-//         sx={{ width: 140 }}
-//       >
-//         <MenuItem value="ALL">All</MenuItem>
-//         <MenuItem value="Y">Active</MenuItem>
-//           <MenuItem value="N">Inactive</MenuItem>
-//         </TextField>
-//       </Stack>
-
-//       {isMobile ? (
-//         <Stack spacing={2}>
-//           {rows.map((row) => (
-//             <Card key={row.id} variant="outlined">
-//               <CardContent sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-//               <Typography variant="h6">{row.gate_name || row.gate_code}</Typography>
-//               <Typography variant="body2" color="text.secondary">
-//                   Code: {row.gate_code} • Direction: {row.gate_direction || "-"} • Type: {row.gate_type || "-"}
-//               </Typography>
-//               <Typography variant="body2" color="text.secondary">
-//                   Org: {row.org_name || row.org_id} • Mandi: {row.mandi_name || row.mandi_id}
-//               </Typography>
-//                 <Typography variant="body2" color="text.secondary">
-//                   Weighbridge: {row.has_weighbridge || "N"} • Active: {row.is_active}
-//                 </Typography>
-//                 <Typography variant="caption" color="text.secondary">
-//                   Updated: {row.updated_on || "-"} by {row.updated_by || "-"}
-//                 </Typography>
-//               </CardContent>
-//               <CardActions>
-//                 <ActionGate resourceKey="mandi_gates.edit" action="UPDATE" record={row}>
-//                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>
-//                     Edit
-//                   </Button>
-//                 </ActionGate>
-//                 <ActionGate resourceKey="mandi_gates.deactivate" action="DEACTIVATE" record={row}>
-//                   <Button
-//                     size="small"
-//                     color={row.is_active === "Y" ? "error" : "success"}
-//                     startIcon={row.is_active === "Y" ? <BlockIcon /> : <CheckCircleIcon />}
-//                     onClick={() => handleDeactivate(row.id, row.is_active === "Y" ? "N" : "Y")}
-//                   >
-//                     {row.is_active === "Y" ? "Deactivate" : "Activate"}
-//                   </Button>
-//                 </ActionGate>
-//               </CardActions>
-//             </Card>
-//           ))}
-//         </Stack>
-//       ) : (
-//         <Box sx={{ height: 520 }}>
-//           <ResponsiveDataGrid columns={columns} rows={rows} loading={false} getRowId={(r) => r.id} />
-//         </Box>
-//       )}
-
-//       <Dialog open={dialogOpen} onClose={handleCloseDialog} fullWidth maxWidth="sm" fullScreen={isMobile}>
-//         <DialogTitle>{isEdit ? "Edit Gate" : "Create Gate"}</DialogTitle>
-//         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-//           <TextField
-//             select
-//             label="Organisation"
-//             value={form.org_id || selectedOrgId}
-//             onChange={(e) => setForm((f) => ({ ...f, org_id: e.target.value }))}
-//             fullWidth
-//             disabled={isEdit || isScopedOrg}
-//           >
-//             {orgOptions.map((o: any) => (
-//               <MenuItem key={o._id} value={o._id}>
-//                 {o.org_code} {o.org_name ? `- ${o.org_name}` : ""}
-//               </MenuItem>
-//             ))}
-//           </TextField>
-//           <Autocomplete
-//             size="small"
-//             options={mandiOptions.filter((m: any) => m.mandi_id !== "")}
-//             getOptionLabel={(option: any) => option.label || String(option.mandi_id)}
-//             isOptionEqualToValue={(opt: any, val: any) => String(opt.mandi_id) === String(val.mandi_id)}
-//             filterOptions={(opts) => opts}
-//             freeSolo
-//             value={
-//               form.mandi_id
-//                 ? mandiOptions.find((m: any) => String(m.mandi_id) === String(form.mandi_id)) || null
-//                 : null
-//             }
-//             onChange={(_, val: any) => {
-//               setForm((f) => ({ ...f, mandi_id: val ? String(val.mandi_id) : "" }));
-//               setCreateMandiSearch(val ? val.label || String(val.mandi_id) : "");
-//             }}
-//             inputValue={createMandiSearch}
-//             onInputChange={(_, val: string, reason: string) => {
-//               if (reason === "clear") {
-//                 setCreateMandiSearch("");
-//                 setForm((f) => ({ ...f, mandi_id: "" }));
-//                 setMandiSearchText("");
-//                 return;
-//               }
-//               setCreateMandiSearch(val);
-//               setMandiSearchText(val);
-//             }}
-//             renderInput={(params: any) => (
-//               <TextField
-//                 {...params}
-//                 label="Mandi"
-//                 placeholder="Search mandi by name or slug"
-//                 fullWidth
-//                 disabled={isEdit || !selectedOrgCode}
-//               />
-//             )}
-//           />
-//           <TextField
-//             label="Gate Code"
-//             value={form.gate_code}
-//             disabled
-//             error={!!gateCodeError}
-//             helperText={gateCodeError || "Auto-generated from Gate Name"}
-//             fullWidth
-//           />
-//           <TextField
-//             label="Gate Name (EN)"
-//             value={form.name_en}
-//             onChange={(e) => {
-//               const val = e.target.value;
-//               setForm((f) => ({ ...f, name_en: val }));
-//               if (!gateCodeDirty) {
-//                 const slug = val
-//                   .trim()
-//                   .toLowerCase()
-//                   .replace(/[^a-z0-9_-]+/g, "-")
-//                   .replace(/^-+|-+$/g, "")
-//                   .slice(0, 32);
-//                 setForm((f) => ({ ...f, name_en: val, gate_code: slug }));
-//               }
-//             }}
-//             fullWidth
-//           />
-//           <TextField
-//             select
-//             label="Direction"
-//             value={form.gate_direction}
-//             onChange={(e) => setForm((f) => ({ ...f, gate_direction: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="ENTRY">ENTRY</MenuItem>
-//             <MenuItem value="EXIT">EXIT</MenuItem>
-//             <MenuItem value="BOTH">BOTH</MenuItem>
-//           </TextField>
-//           <TextField
-//             select
-//             label="Type"
-//             value={form.gate_type}
-//             onChange={(e) => setForm((f) => ({ ...f, gate_type: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="VEHICLE">VEHICLE</MenuItem>
-//             <MenuItem value="PEDESTRIAN">PEDESTRIAN</MenuItem>
-//             <MenuItem value="MIXED">MIXED</MenuItem>
-//           </TextField>
-//           <TextField
-//             select
-//             label="Has Weighbridge"
-//             value={form.has_weighbridge}
-//             onChange={(e) => setForm((f) => ({ ...f, has_weighbridge: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="Y">Yes</MenuItem>
-//             <MenuItem value="N">No</MenuItem>
-//           </TextField>
-//           <TextField
-//             label="Notes"
-//             value={form.notes}
-//             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-//             fullWidth
-//             multiline
-//             minRows={2}
-//           />
-//           <TextField
-//             select
-//             label="Active"
-//             value={form.is_active}
-//             onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value }))}
-//             fullWidth
-//           >
-//             <MenuItem value="Y">Yes</MenuItem>
-//             <MenuItem value="N">No</MenuItem>
-//           </TextField>
-//         </DialogContent>
-//         <DialogActions>
-//           <Button onClick={handleCloseDialog}>Cancel</Button>
-//           <Button variant="contained" onClick={handleSave}>
-//             {isEdit ? "Update" : "Create"}
-//           </Button>
-//         </DialogActions>
-//       </Dialog>
-//       <Snackbar
-//         open={toast.open}
-//         autoHideDuration={3000}
-//         onClose={() => setToast((t) => ({ ...t, open: false }))}
-//         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-//       >
-//         <Alert severity={toast.severity} onClose={() => setToast((t) => ({ ...t, open: false }))}>
-//           {toast.message}
-//         </Alert>
-//       </Snackbar>
-//     </PageContainer>
-//   );
-// };
+export default MandiGates;

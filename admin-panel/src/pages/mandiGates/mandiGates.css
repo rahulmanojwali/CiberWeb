@@ -1,0 +1,47 @@
+.cm-gates-page { display: flex; flex-direction: column; gap: 14px; }
+.cm-gates-scope-card .ant-card-body { padding: 14px 16px; }
+.cm-gates-kicker { display: block; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--cm-color-primary, #55632c); }
+.cm-gates-scope-title { margin-top: 3px; font-size: 16px; line-height: 1.25; font-weight: 700; }
+.cm-gates-stats { margin-top: 0; }
+.cm-gates-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.cm-gates-toolbar-spacer { flex: 1 1 auto; }
+.cm-gates-search { min-width: 240px; flex: 1 1 280px; }
+.cm-gates-mandi-select { min-width: 220px; }
+.cm-gates-status-select { min-width: 130px; }
+.cm-gates-code { font-size: 11px; }
+.cm-gates-note { margin-bottom: 0; }
+
+/* Ant 6 Select: exactly one visible outer control. The project-wide native input rule must not style rc-select internals. */
+.cm-gates-page .cm-gates-select.ant-select,
+.cm-gates-modal .cm-gates-select.ant-select,
+.cm-gates-page .ant-pagination-options .ant-select {
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 10px;
+  background: #fff;
+  min-height: 36px;
+}
+.cm-gates-page .cm-gates-select.ant-select .ant-select-selector,
+.cm-gates-modal .cm-gates-select.ant-select .ant-select-selector,
+.cm-gates-page .ant-pagination-options .ant-select .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.cm-gates-page .cm-gates-select.ant-select input,
+.cm-gates-modal .cm-gates-select.ant-select input,
+.cm-gates-page .ant-pagination-options .ant-select input {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+.cm-gates-page .ant-pagination-options .ant-select { min-height: 30px; border-radius: 8px; }
+
+@media (max-width: 900px) {
+  .cm-gates-toolbar > * { flex: 1 1 100%; min-width: 0 !important; width: 100%; }
+  .cm-gates-toolbar-spacer { display: none; }
+}

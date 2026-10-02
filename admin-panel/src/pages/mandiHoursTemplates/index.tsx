@@ -1,187 +1,390 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
+  Alert,
   Button,
-  Card,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  MenuItem,
-  Stack,
+  Checkbox,
+  Col,
+  Empty,
+  Input,
+  Modal,
+  Popconfirm,
+  Row,
+  Select,
+  Space,
   Switch,
-  TextField,
+  Table,
+  Tag,
   Typography,
-} from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import BlockIcon from "@mui/icons-material/BlockOutlined";
-import { useTranslation } from "react-i18next";
-import { PageContainer } from "../../components/PageContainer";
-import { CmInput } from "../../design-system/components/CmInput";
-import { CmSelect } from "../../design-system/components/CmSelect";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
-import { useCrudPermissions } from "../../utils/useCrudPermissions";
+  message,
+} from "antd";
+import type { TableColumnsType } from "antd";
 import {
-  fetchMandiHoursTemplates,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  StopOutlined,
+} from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
+import { PageContainer } from "../../components/PageContainer";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
+import { normalizeLanguageCode } from "../../config/languages";
+import { usePermissions } from "../../authz/usePermissions";
+import { fetchOrganisations } from "../../services/adminUsersApi";
+import {
   createMandiHoursTemplate,
-  updateMandiHoursTemplate,
   deactivateMandiHoursTemplate,
+  fetchMandiHoursTemplates,
   getMandisForCurrentScope,
+  updateMandiHoursTemplate,
 } from "../../services/mandiApi";
+import "./mandiHoursTemplates.css";
+
+const { Text } = Typography;
+
+const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
+const DAY_LABELS: Record<(typeof DAYS)[number], string> = {
+  MON: "Mon",
+  TUE: "Tue",
+  WED: "Wed",
+  THU: "Thu",
+  FRI: "Fri",
+  SAT: "Sat",
+  SUN: "Sun",
+};
+const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => String(index + 1));
+
+type StatusFlag = "Y" | "N";
+type StatusFilter = "ALL" | StatusFlag;
+type DayKey = (typeof DAYS)[number];
+
+type OrganisationOption = {
+  value: string;
+  label: string;
+  orgCode: string;
+};
 
 type MandiOption = {
-  mandi_id: number;
-  label?: string;
-  name_i18n?: Record<string, string>;
-  mandi_slug?: string;
+  value: string;
+  label: string;
+};
+
+type TimeWindow = {
+  open: string;
+  close: string;
+  note?: string;
 };
 
 type HoursRow = {
   id: string;
   mandi_id: number;
   timezone: string;
-  is_active: "Y" | "N";
+  is_active: StatusFlag;
   effective_from?: string | null;
   effective_to?: string | null;
-  open_days?: string[];
-  day_hours?: any[];
+  open_days: DayKey[];
+  day_hours: any[];
   exclusions?: {
     exclude_day_of_month?: number[];
     exclude_dates?: string[];
   };
 };
 
-const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+type HoursSummary = {
+  total: number;
+  active: number;
+  inactive: number;
+  future: number;
+};
 
-function currentUsername(): string | null {
+const EMPTY_SUMMARY: HoursSummary = { total: 0, active: 0, inactive: 0, future: 0 };
+
+function currentUsername(): string {
   try {
     const raw = localStorage.getItem("cd_user");
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed?.username || null;
+    return String(parsed?.username || "");
   } catch {
-    return null;
+    return "";
   }
 }
 
-function formatSummary(openDays: string[] = [], dayHours: any[] = []) {
-  if (!openDays.length || !dayHours.length) return "No schedule";
-  const times = dayHours.flatMap((entry: any) => {
-    if (Array.isArray(entry?.windows)) {
-      return entry.windows.map(
-        (w: any) => `${w.open_time || w.open}-${w.close_time || w.close}`,
-      );
-    }
-    return [`${entry.open_time || entry.open}-${entry.close_time || entry.close}`];
-  }).filter(Boolean);
-  return `${openDays.join(", ")} ${times.join(", ")}`;
+function responseData(raw: any): any {
+  return raw?.data || raw?.response?.data || raw || {};
 }
 
-function formatDate(value?: string | null) {
+function responseMeta(raw: any): { code: string; description: string } {
+  const response = raw?.response || raw?.data?.response || raw;
+  return {
+    code: String(response?.responsecode ?? raw?.responsecode ?? raw?.responseCode ?? "0"),
+    description: String(response?.description ?? raw?.description ?? ""),
+  };
+}
+
+function localizedMandiLabel(row: any, language: string): string {
+  return String(
+    row?.label ||
+      row?.name_i18n?.[language] ||
+      row?.name_i18n?.en ||
+      row?.mandi_name ||
+      row?.mandi_slug ||
+      row?.mandi_id ||
+      "",
+  );
+}
+
+function formatDate(value?: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString();
 }
 
-export const MandiHoursTemplates: React.FC = () => {
-  const { i18n } = useTranslation();
-  const language = normalizeLanguageCode(i18n.language);
-  const uiConfig = useAdminUiConfig();
-  const orgId = uiConfig?.scope?.org_id ? String(uiConfig.scope.org_id) : "";
+function normalizeRow(item: any): HoursRow {
+  const openDays = Array.isArray(item?.open_days)
+    ? item.open_days.filter((day: string) => DAYS.includes(day as DayKey))
+    : [];
+  return {
+    id: String(item?.template_id ?? item?._id ?? ""),
+    mandi_id: Number(item?.mandi_id || 0),
+    timezone: String(item?.timezone || "Asia/Kolkata"),
+    is_active: String(item?.is_active || "Y").toUpperCase() === "N" ? "N" : "Y",
+    effective_from: item?.effective_from || null,
+    effective_to: item?.effective_to || null,
+    open_days: openDays as DayKey[],
+    day_hours: Array.isArray(item?.day_hours) ? item.day_hours : [],
+    exclusions: item?.exclusions || undefined,
+  };
+}
 
-  const { canCreate, canEdit, canDeactivate } = useCrudPermissions("mandi_hours");
+function toDayHoursMap(dayHours: any[]): Record<string, TimeWindow[]> {
+  const result: Record<string, TimeWindow[]> = {};
+  (Array.isArray(dayHours) ? dayHours : []).forEach((entry: any) => {
+    const day = String(entry?.day || "").toUpperCase();
+    if (!DAYS.includes(day as DayKey)) return;
+    const windows = Array.isArray(entry?.windows) ? entry.windows : [entry];
+    windows.forEach((window: any) => {
+      const open = String(window?.open_time || window?.open || "");
+      const close = String(window?.close_time || window?.close || "");
+      if (!open && !close) return;
+      if (!result[day]) result[day] = [];
+      result[day].push({ open, close, note: String(window?.note || "") });
+    });
+  });
+  return result;
+}
+
+function scheduleSummary(row: HoursRow): string {
+  if (!row.open_days.length) return "No weekly schedule";
+  const hours = toDayHoursMap(row.day_hours);
+  const signatures = row.open_days.map((day) => {
+    const windows = hours[day] || [];
+    return `${day}:${windows.map((window) => `${window.open}-${window.close}`).join("|")}`;
+  });
+  const times = signatures
+    .map((signature) => signature.split(":").slice(1).join(":"))
+    .filter(Boolean);
+  const sameHours = times.length > 0 && times.every((value) => value === times[0]);
+  if (sameHours) {
+    return `${row.open_days.map((day) => DAY_LABELS[day]).join(", ")} · ${times[0].split("|").join(", ")}`;
+  }
+  return `${row.open_days.length} open day${row.open_days.length === 1 ? "" : "s"} · variable hours`;
+}
+
+function validateWindows(openDays: DayKey[], dayHours: Record<string, TimeWindow[]>): string | null {
+  if (!openDays.length) return "Select at least one open day.";
+  for (const day of openDays) {
+    const windows = dayHours[day] || [];
+    if (!windows.length) return `Add at least one opening window for ${DAY_LABELS[day]}.`;
+    for (const window of windows) {
+      if (!window.open || !window.close) return `Complete the opening and closing time for ${DAY_LABELS[day]}.`;
+      if (window.open >= window.close) return `Closing time must be after opening time for ${DAY_LABELS[day]}.`;
+    }
+  }
+  return null;
+}
+
+export const MandiHoursTemplates: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const language = normalizeLanguageCode(i18n.language);
+  const username = currentUsername();
+  const [searchParams] = useSearchParams();
+  const { authContext, can, isSuper } = usePermissions();
+  const [messageApi, messageContextHolder] = message.useMessage();
+
+  const canCreate = can("mandi_hours.create", "CREATE");
+  const canUpdate = can("mandi_hours.edit", "UPDATE");
+  const canDeactivate = can("mandi_hours.deactivate", "DEACTIVATE");
+
+  const requestedOrgId = String(searchParams.get("org_id") || "").trim();
+  const [selectedSuperOrgId, setSelectedSuperOrgId] = useState<string>(isSuper ? requestedOrgId : "");
+  const [organisationOptions, setOrganisationOptions] = useState<OrganisationOption[]>([]);
+  const [organisationsLoading, setOrganisationsLoading] = useState(false);
+  const orgId = isSuper ? selectedSuperOrgId : String(authContext.org_id || "");
+  const selectedOrg = organisationOptions.find((item) => item.value === selectedSuperOrgId);
 
   const [mandis, setMandis] = useState<MandiOption[]>([]);
-  const [selectedMandiId, setSelectedMandiId] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "Y" | "N">("ALL");
+  const [mandisLoading, setMandisLoading] = useState(false);
+  const [selectedMandiId, setSelectedMandiId] = useState<string>(String(searchParams.get("mandi_id") || ""));
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [rows, setRows] = useState<HoursRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [effectiveFrom, setEffectiveFrom] = useState<string>("");
-  const [effectiveTo, setEffectiveTo] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [effectiveFrom, setEffectiveFrom] = useState("");
+  const [effectiveTo, setEffectiveTo] = useState("");
   const [useEndDate, setUseEndDate] = useState(false);
-  const [timezone, setTimezone] = useState<string>("Asia/Kolkata");
-  const [openDays, setOpenDays] = useState<string[]>([]);
-  const [openAllDays, setOpenAllDays] = useState(false);
-  const [dayHours, setDayHours] = useState<Record<string, { open: string; close: string; note?: string }[]>>({});
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const [openDays, setOpenDays] = useState<DayKey[]>([]);
+  const [dayHours, setDayHours] = useState<Record<string, TimeWindow[]>>({});
   const [closedOnMonthlyDay, setClosedOnMonthlyDay] = useState(false);
   const [monthlyDays, setMonthlyDays] = useState<string[]>([]);
   const [closedOnDates, setClosedOnDates] = useState(false);
   const [closedDates, setClosedDates] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (!isSuper || !username) return;
+    let cancelled = false;
+    const load = async () => {
+      setOrganisationsLoading(true);
+      try {
+        const raw = await fetchOrganisations({ username, language });
+        const data = responseData(raw);
+        const organisations = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.organisations)
+            ? data.organisations
+            : Array.isArray(data)
+              ? data
+              : [];
+        const options: OrganisationOption[] = organisations
+          .map((item: any) => ({
+            value: String(item?._id || item?.org_id || ""),
+            label: String(item?.org_name || item?.name || item?.org_code || item?._id || ""),
+            orgCode: String(item?.org_code || ""),
+          }))
+          .filter((item: OrganisationOption) => item.value && item.label);
+        if (!cancelled) {
+          setOrganisationOptions(options);
+          if (selectedSuperOrgId && !options.some((item) => item.value === selectedSuperOrgId)) {
+            setSelectedSuperOrgId("");
+          }
+        }
+      } catch (error: any) {
+        if (!cancelled) messageApi.error(error?.message || "Unable to load organisations.");
+      } finally {
+        if (!cancelled) setOrganisationsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuper, language, messageApi, selectedSuperOrgId, username]);
+
   const loadMandis = useCallback(async () => {
-    const username = currentUsername();
-    if (!username || !orgId) return;
-    const resp = await getMandisForCurrentScope({
-      username,
-      language,
-      org_id: orgId,
-      filters: { page: 1, pageSize: 200 },
-    });
-    setMandis(Array.isArray(resp) ? resp : []);
-  }, [language, orgId]);
+    if (!username || !orgId) {
+      setMandis([]);
+      setSelectedMandiId("");
+      return;
+    }
+    setMandisLoading(true);
+    try {
+      const list = await getMandisForCurrentScope({
+        username,
+        language,
+        org_id: orgId,
+        filters: { page: 1, pageSize: 500, is_active: "Y" },
+      });
+      const options: MandiOption[] = (Array.isArray(list) ? list : [])
+        .map((item: any) => ({
+          value: String(item?.mandi_id || ""),
+          label: localizedMandiLabel(item, language),
+        }))
+        .filter((item: MandiOption) => item.value && item.label);
+      setMandis(options);
+      setSelectedMandiId((current) => (current && options.some((item) => item.value === current) ? current : ""));
+    } catch (error: any) {
+      setMandis([]);
+      setSelectedMandiId("");
+      messageApi.error(error?.message || "Unable to load mandis.");
+    } finally {
+      setMandisLoading(false);
+    }
+  }, [language, messageApi, orgId, username]);
+
+  useEffect(() => {
+    void loadMandis();
+  }, [loadMandis]);
 
   const loadTemplates = useCallback(async () => {
-    const username = currentUsername();
-    if (!username || !selectedMandiId) {
+    if (!username || !orgId || !selectedMandiId) {
       setRows([]);
       return;
     }
     setLoading(true);
     try {
-      const resp = await fetchMandiHoursTemplates({
+      const raw = await fetchMandiHoursTemplates({
         username,
         language,
         filters: {
+          org_id: orgId,
           mandi_id: Number(selectedMandiId),
-          is_active: statusFilter === "ALL" ? undefined : statusFilter,
         },
       });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
-      setRows(
-        list.map((item: any) => ({
-          id: String(item.template_id || item._id),
-          mandi_id: Number(item.mandi_id || 0),
-          timezone: item.timezone || "Asia/Kolkata",
-          is_active: item.is_active || "Y",
-          effective_from: item.effective_from || null,
-          effective_to: item.effective_to || null,
-          open_days: item.open_days || [],
-          day_hours: item.day_hours || [],
-          exclusions: item.exclusions || undefined,
-        })),
-      );
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Unable to load hours templates.");
+      const data = responseData(raw);
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setRows(items.map(normalizeRow));
+    } catch (error: any) {
+      setRows([]);
+      messageApi.error(error?.message || "Unable to load hours templates.");
     } finally {
       setLoading(false);
     }
-  }, [language, selectedMandiId, statusFilter]);
+  }, [language, messageApi, orgId, selectedMandiId, username]);
 
   useEffect(() => {
-    loadMandis();
-  }, [loadMandis]);
-
-  useEffect(() => {
-    loadTemplates();
+    void loadTemplates();
   }, [loadTemplates]);
 
+  const selectedMandi = mandis.find((item) => item.value === selectedMandiId);
+  const visibleRows = useMemo(
+    () => rows.filter((row) => statusFilter === "ALL" || row.is_active === statusFilter),
+    [rows, statusFilter],
+  );
+
+  const summary = useMemo<HoursSummary>(() => {
+    if (!rows.length) return EMPTY_SUMMARY;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return {
+      total: rows.length,
+      active: rows.filter((row) => row.is_active === "Y").length,
+      inactive: rows.filter((row) => row.is_active === "N").length,
+      future: rows.filter((row) => {
+        if (!row.effective_from) return false;
+        const date = new Date(row.effective_from);
+        return !Number.isNaN(date.getTime()) && date.getTime() > today.getTime();
+      }).length,
+    };
+  }, [rows]);
+
   const resetForm = useCallback(() => {
-    setEffectiveFrom("");
+    setEffectiveFrom(new Date().toISOString().slice(0, 10));
     setEffectiveTo("");
     setUseEndDate(false);
     setTimezone("Asia/Kolkata");
     setOpenDays([]);
-    setOpenAllDays(false);
     setDayHours({});
     setClosedOnMonthlyDay(false);
     setMonthlyDays([]);
@@ -193,511 +396,543 @@ export const MandiHoursTemplates: React.FC = () => {
     setIsEdit(false);
     setEditId(null);
     resetForm();
-    setDialogOpen(true);
+    setModalOpen(true);
   };
 
   const openEdit = (row: HoursRow) => {
     setIsEdit(true);
     setEditId(row.id);
-    setEffectiveFrom(row.effective_from ? String(row.effective_from).slice(0, 10) : "");
+    setEffectiveFrom(row.effective_from ? String(row.effective_from).slice(0, 10) : new Date().toISOString().slice(0, 10));
     setEffectiveTo(row.effective_to ? String(row.effective_to).slice(0, 10) : "");
     setUseEndDate(Boolean(row.effective_to));
     setTimezone(row.timezone || "Asia/Kolkata");
     setOpenDays(row.open_days || []);
-    const nextDayHours: Record<string, { open: string; close: string; note?: string }[]> = {};
-    (row.day_hours || []).forEach((w: any) => {
-      const day = w.day || "MON";
-      if (Array.isArray(w.windows)) {
-        w.windows.forEach((win: any) => {
-          if (!nextDayHours[day]) nextDayHours[day] = [];
-          nextDayHours[day].push({
-            open: win.open_time || win.open || "",
-            close: win.close_time || win.close || "",
-            note: win.note || "",
-          });
-        });
-      } else {
-        if (!nextDayHours[day]) nextDayHours[day] = [];
-        nextDayHours[day].push({
-          open: w.open_time || w.open || "",
-          close: w.close_time || w.close || "",
-          note: w.note || "",
-        });
-      }
-    });
-    setDayHours(nextDayHours);
-    const excludeDayOfMonth = row.exclusions?.exclude_day_of_month || [];
-    const excludeDates = row.exclusions?.exclude_dates || [];
-    setClosedOnMonthlyDay(excludeDayOfMonth.length > 0);
-    setMonthlyDays(excludeDayOfMonth.map((d) => String(d)));
-    setClosedOnDates(excludeDates.length > 0);
-    setClosedDates(excludeDates.map((d) => String(d).slice(0, 10)));
-    setDialogOpen(true);
+    setDayHours(toDayHoursMap(row.day_hours));
+    const exclusionDays = row.exclusions?.exclude_day_of_month || [];
+    const exclusionDates = row.exclusions?.exclude_dates || [];
+    setClosedOnMonthlyDay(exclusionDays.length > 0);
+    setMonthlyDays(exclusionDays.map(String));
+    setClosedOnDates(exclusionDates.length > 0);
+    setClosedDates(exclusionDates.map((value) => String(value).slice(0, 10)));
+    setModalOpen(true);
   };
 
-  const toggleDay = (day: string) => {
-    setOpenDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
-    );
-    setDayHours((prev) => {
-      if (prev[day]) return prev;
-      return { ...prev, [day]: [{ open: "09:00", close: "17:00" }] };
+  const toggleDay = (day: DayKey) => {
+    setOpenDays((current) => {
+      if (current.includes(day)) return current.filter((value) => value !== day);
+      return DAYS.filter((candidate) => [...current, day].includes(candidate));
+    });
+    setDayHours((current) => {
+      if (current[day]?.length) return current;
+      return { ...current, [day]: [{ open: "09:00", close: "17:00", note: "" }] };
     });
   };
 
-  const updateWindow = (day: string, index: number, field: "open" | "close" | "note", value: string) => {
-    setDayHours((prev) => {
-      const next = { ...prev };
-      const list = [...(next[day] || [])];
-      const row = { ...list[index], [field]: value };
-      list[index] = row;
-      next[day] = list;
+  const setAllDays = (checked: boolean) => {
+    if (!checked) {
+      setOpenDays([]);
+      return;
+    }
+    setOpenDays([...DAYS]);
+    setDayHours((current) => {
+      const next = { ...current };
+      DAYS.forEach((day) => {
+        if (!next[day]?.length) next[day] = [{ open: "09:00", close: "17:00", note: "" }];
+      });
       return next;
     });
   };
 
-  const addWindow = (day: string) => {
-    setDayHours((prev) => ({
-      ...prev,
-      [day]: [...(prev[day] || []), { open: "09:00", close: "17:00" }],
-    }));
-  };
-
-  const removeWindow = (day: string, index: number) => {
-    setDayHours((prev) => {
-      const list = [...(prev[day] || [])];
-      list.splice(index, 1);
-      return { ...prev, [day]: list };
+  const updateWindow = (day: DayKey, index: number, field: keyof TimeWindow, value: string) => {
+    setDayHours((current) => {
+      const list = [...(current[day] || [])];
+      list[index] = { ...list[index], [field]: value };
+      return { ...current, [day]: list };
     });
   };
 
-  useEffect(() => {
-    setOpenAllDays(openDays.length === DAYS.length);
-  }, [openDays]);
-
-  const handleToggleAllDays = (checked: boolean) => {
-    setOpenAllDays(checked);
-    if (checked) {
-      setOpenDays(DAYS);
-      setDayHours((prev) => {
-        const next = { ...prev };
-        DAYS.forEach((day) => {
-          if (!next[day] || next[day].length === 0) {
-            next[day] = [{ open: "09:00", close: "17:00" }];
-          }
-        });
-        return next;
-      });
-    }
+  const addWindow = (day: DayKey) => {
+    setDayHours((current) => ({
+      ...current,
+      [day]: [...(current[day] || []), { open: "09:00", close: "17:00", note: "" }],
+    }));
   };
 
-  const addClosedDate = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    setClosedDates((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
-  };
-
-  const removeClosedDate = (value: string) => {
-    setClosedDates((prev) => prev.filter((item) => item !== value));
+  const removeWindow = (day: DayKey, index: number) => {
+    setDayHours((current) => ({
+      ...current,
+      [day]: (current[day] || []).filter((_, itemIndex) => itemIndex !== index),
+    }));
   };
 
   const handleSave = async () => {
-    const username = currentUsername();
-    if (!username || !selectedMandiId) return;
+    if (!username || !orgId || !selectedMandiId) return;
+    if (!effectiveFrom) {
+      messageApi.error("Effective from date is required.");
+      return;
+    }
+    if (useEndDate && !effectiveTo) {
+      messageApi.error("Select an effective to date or turn off the end date.");
+      return;
+    }
+    if (useEndDate && effectiveTo < effectiveFrom) {
+      messageApi.error("Effective to cannot be earlier than effective from.");
+      return;
+    }
+    const windowError = validateWindows(openDays, dayHours);
+    if (windowError) {
+      messageApi.error(windowError);
+      return;
+    }
+
     const compiledHours = openDays.map((day) => ({
       day,
-      windows: (dayHours[day] || []).map((w) => ({
-        open_time: w.open,
-        close_time: w.close,
-        note: w.note || undefined,
+      windows: (dayHours[day] || []).map((window) => ({
+        open_time: window.open,
+        close_time: window.close,
+        ...(window.note?.trim() ? { note: window.note.trim() } : {}),
       })),
     }));
-    const effectiveFromValue =
-      effectiveFrom || new Date().toISOString().slice(0, 10);
-    const payload: any = {
+    const exclusions = {
+      exclude_day_of_month: closedOnMonthlyDay
+        ? monthlyDays.map(Number).filter((value) => Number.isInteger(value) && value >= 1 && value <= 31)
+        : [],
+      exclude_dates: closedOnDates ? closedDates : [],
+    };
+    const payload: Record<string, any> = {
+      org_id: orgId,
       mandi_id: Number(selectedMandiId),
-      timezone,
+      timezone: timezone.trim() || "Asia/Kolkata",
       open_days: openDays,
       day_hours: compiledHours,
-      effective_from: effectiveFromValue,
-      effective_to: useEndDate ? effectiveTo || undefined : null,
+      effective_from: effectiveFrom,
+      effective_to: useEndDate ? effectiveTo : null,
+      exclusions,
       is_active: "Y",
     };
-    if (isEdit && editId) {
-      const exclusionDays = closedOnMonthlyDay
-        ? monthlyDays.map((value) => Number(value)).filter((value) => Number.isInteger(value))
-        : [];
-      const exclusionDates = closedOnDates ? closedDates : [];
-      payload.exclusions = {
-        exclude_day_of_month: exclusionDays,
-        exclude_dates: exclusionDates,
-      };
-      payload.template_id = editId;
-      await updateMandiHoursTemplate({ username, language, payload });
-    } else {
-      const exclusionDays = closedOnMonthlyDay
-        ? monthlyDays.map((value) => Number(value)).filter((value) => Number.isInteger(value))
-        : [];
-      const exclusionDates = closedOnDates ? closedDates : [];
-      if (exclusionDays.length || exclusionDates.length) {
-        payload.exclusions = {
-          exclude_day_of_month: exclusionDays,
-          exclude_dates: exclusionDates,
-        };
-      }
-      await createMandiHoursTemplate({ username, language, payload });
+    if (isEdit && editId) payload.template_id = editId;
+
+    setSubmitting(true);
+    try {
+      const raw = isEdit
+        ? await updateMandiHoursTemplate({ username, language, payload })
+        : await createMandiHoursTemplate({ username, language, payload });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || `Unable to ${isEdit ? "update" : "create"} template.`);
+      messageApi.success(`Hours template ${isEdit ? "updated" : "created"}.`);
+      setModalOpen(false);
+      await loadTemplates();
+    } catch (error: any) {
+      messageApi.error(error?.message || `Unable to ${isEdit ? "update" : "create"} template.`);
+    } finally {
+      setSubmitting(false);
     }
-    setDialogOpen(false);
-    await loadTemplates();
   };
 
   const handleDeactivate = async (row: HoursRow) => {
-    const username = currentUsername();
-    if (!username || !selectedMandiId) return;
-    await deactivateMandiHoursTemplate({
-      username,
-      language,
-      payload: {
-        mandi_id: Number(selectedMandiId),
-        template_id: row.id,
-        is_active: "N",
-      },
-    });
-    await loadTemplates();
+    if (!username || !orgId || !selectedMandiId) return;
+    try {
+      const raw = await deactivateMandiHoursTemplate({
+        username,
+        language,
+        payload: { org_id: orgId, mandi_id: Number(selectedMandiId), template_id: row.id, is_active: "N" },
+      });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Unable to deactivate template.");
+      messageApi.success("Hours template deactivated.");
+      await loadTemplates();
+    } catch (error: any) {
+      messageApi.error(error?.message || "Unable to deactivate template.");
+    }
   };
 
   const handleActivate = async (row: HoursRow) => {
-    const username = currentUsername();
-    if (!username || !selectedMandiId) return;
-    await deactivateMandiHoursTemplate({
-      username,
-      language,
-      payload: {
-        mandi_id: Number(selectedMandiId),
-        template_id: row.id,
-        is_active: "Y",
-      },
-    });
-    await loadTemplates();
+    if (!username || !orgId || !selectedMandiId) return;
+    try {
+      const raw = await updateMandiHoursTemplate({
+        username,
+        language,
+        payload: {
+          org_id: orgId,
+          mandi_id: Number(selectedMandiId),
+          template_id: row.id,
+          is_active: "Y",
+        },
+      });
+      const meta = responseMeta(raw);
+      if (meta.code !== "0") throw new Error(meta.description || "Unable to activate template.");
+      messageApi.success("Hours template activated. Any previously active template for this mandi was deactivated.");
+      await loadTemplates();
+    } catch (error: any) {
+      messageApi.error(error?.message || "Unable to activate template.");
+    }
   };
 
-  const mandiNameById = useMemo(() => {
-    const map = new Map<number, string>();
-    mandis.forEach((mandi) => {
-      const name = mandi.label || mandi.name_i18n?.en || mandi.mandi_slug;
-      if (name) map.set(mandi.mandi_id, name);
-    });
-    return map;
-  }, [mandis]);
-
-  const columns = useMemo<GridColDef<HoursRow>[]>(
+  const columns = useMemo<TableColumnsType<HoursRow>>(
     () => [
       {
-        field: "mandi_id",
-        headerName: "Mandi",
-        width: 200,
-        valueGetter: (_, row) => mandiNameById.get(row.mandi_id) ?? String(row.mandi_id),
+        title: "Schedule",
+        key: "schedule",
+        render: (_, row) => (
+          <div className="cm-hours-schedule-cell">
+            <Text strong>{scheduleSummary(row)}</Text>
+            <Text type="secondary">{row.timezone}</Text>
+          </div>
+        ),
       },
       {
-        field: "summary",
-        headerName: "Schedule",
-        flex: 1,
-        minWidth: 260,
-        valueGetter: (_, row) => formatSummary(row.open_days, row.day_hours),
-      },
-      {
-        field: "effective_from",
-        headerName: "Effective From",
+        title: "Effective from",
+        dataIndex: "effective_from",
         width: 150,
-        valueGetter: (_, row) => formatDate(row.effective_from),
+        render: (value) => formatDate(value),
       },
       {
-        field: "effective_to",
-        headerName: "Effective To",
+        title: "Effective to",
+        dataIndex: "effective_to",
         width: 150,
-        valueGetter: (_, row) => formatDate(row.effective_to),
+        render: (value) => formatDate(value),
       },
       {
-        field: "status",
-        headerName: "Status",
-        width: 120,
-        valueGetter: (_, row) => (row.is_active === "Y" ? "Active" : "Inactive"),
+        title: "Exceptions",
+        key: "exceptions",
+        width: 150,
+        render: (_, row) => {
+          const monthly = row.exclusions?.exclude_day_of_month?.length || 0;
+          const dates = row.exclusions?.exclude_dates?.length || 0;
+          if (!monthly && !dates) return <Text type="secondary">None</Text>;
+          return <Text>{monthly + dates} configured</Text>;
+        },
       },
       {
-        field: "actions",
-        headerName: "Actions",
+        title: "Status",
+        dataIndex: "is_active",
+        width: 110,
+        render: (value: StatusFlag) => (
+          <Tag color={value === "Y" ? "success" : "default"}>{value === "Y" ? "Active" : "Inactive"}</Tag>
+        ),
+      },
+      {
+        title: "Actions",
+        key: "actions",
         width: 220,
-        sortable: false,
-        renderCell: (params) => (
-          <Stack direction="row" spacing={1}>
-            {canEdit && (
-              <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(params.row)}>
+        render: (_, row) => (
+          <Space size={6} wrap>
+            {canUpdate && (
+              <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
                 Edit
               </Button>
             )}
-            {canDeactivate && (
-              params.row.is_active === "Y" ? (
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<BlockIcon />}
-                  onClick={() => handleDeactivate(params.row)}
-                >
-                  Deactivate
-                </Button>
-              ) : (
-                <Button size="small" onClick={() => handleActivate(params.row)}>
-                  Activate
-                </Button>
-              )
-            )}
-          </Stack>
+            {row.is_active === "Y" && canDeactivate ? (
+              <Popconfirm
+                title="Deactivate hours template?"
+                description="The template is retained for history but will no longer be active."
+                okText="Deactivate"
+                onConfirm={() => void handleDeactivate(row)}
+              >
+                <Button size="small" danger icon={<StopOutlined />}>Deactivate</Button>
+              </Popconfirm>
+            ) : row.is_active === "N" && canUpdate ? (
+              <Popconfirm
+                title="Activate this template?"
+                description="Any currently active template for this mandi will be deactivated."
+                okText="Activate"
+                onConfirm={() => void handleActivate(row)}
+              >
+                <Button size="small" icon={<CheckCircleOutlined />}>Activate</Button>
+              </Popconfirm>
+            ) : null}
+          </Space>
         ),
       },
     ],
-    [canDeactivate, canEdit, mandiNameById],
+    [canDeactivate, canUpdate],
   );
 
+  const noScope = !orgId;
+  const allDaysChecked = openDays.length === DAYS.length;
+
   return (
-    <PageContainer title="Mandi Hours Templates">
-      <Card>
-        <CardContent>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <CmSelect
-              label="Mandi"
-              value={selectedMandiId}
-              onChange={(value) => setSelectedMandiId(String(value || ""))}
-              options={[
-                { value: "", label: "Select mandi" },
-                ...mandis.map((mandi) => ({
-                  value: String(mandi.mandi_id),
-                  label: mandi.label || mandi.name_i18n?.en || mandi.mandi_slug || String(mandi.mandi_id),
-                })),
-              ]}
-              style={{ minWidth: 220 }}
-            />
-            <CmSelect
-              label="Status"
-              value={statusFilter}
-              onChange={(value) => setStatusFilter(String(value) as "ALL" | "Y" | "N")}
-              options={[
-                { value: "ALL", label: "All" },
-                { value: "Y", label: "Active" },
-                { value: "N", label: "Inactive" },
-              ]}
-              style={{ minWidth: 160 }}
-            />
-            <Box sx={{ flex: 1 }} />
+    <PageContainer title={t("menu.mandiHoursTemplates", { defaultValue: "Mandi Hours Templates" })}>
+      {messageContextHolder}
+      <div className="cm-mandi-hours-page">
+        <CmPageHeader
+          eyebrow="MANDI OPERATIONS"
+          title={t("menu.mandiHoursTemplates", { defaultValue: "Mandi Hours Templates" })}
+          subtitle="Define mandi operating schedules, effective periods and closure exceptions with one controlled active template at a time."
+          actions={<Button icon={<ReloadOutlined />} onClick={() => void loadTemplates()} disabled={!selectedMandiId}>Refresh</Button>}
+        />
+
+        <CmSectionCard compact className="cm-hours-scope-card">
+          <Row gutter={[16, 12]} align="middle">
+            <Col xs={24} lg={12}>
+              <div className="cm-hours-scope-copy">
+                <Text className="cm-hours-scope-kicker">WORKING SCOPE</Text>
+                <Text strong className="cm-hours-scope-title">
+                  {isSuper ? selectedOrg?.label || "Select an organisation" : authContext.org_code || "Organisation"}
+                </Text>
+                <Text type="secondary">Hours templates are mandi-specific. Organisation and mandi access remain locked to the current role scope.</Text>
+              </div>
+            </Col>
+            <Col xs={24} lg={12}>
+              {isSuper ? (
+                <Select
+                  className="cm-hours-select"
+                  value={selectedSuperOrgId || undefined}
+                  placeholder="Select organisation"
+                  loading={organisationsLoading}
+                  showSearch
+                  optionFilterProp="label"
+                  options={organisationOptions}
+                  onChange={(value) => {
+                    setSelectedSuperOrgId(String(value));
+                    setSelectedMandiId("");
+                    setRows([]);
+                  }}
+                  style={{ width: "100%" }}
+                />
+              ) : (
+                <div className="cm-hours-scope-lock">{authContext.org_code || "Organisation scope locked by role"}</div>
+              )}
+            </Col>
+          </Row>
+        </CmSectionCard>
+
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={12} xl={6}>
+            <CmStatCard label="Templates" value={summary.total} helper={selectedMandi?.label || "Select a mandi"} icon={<CalendarOutlined />} tone="olive" />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <CmStatCard label="Active" value={summary.active} helper="Current active schedule" icon={<CheckCircleOutlined />} tone="olive" />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <CmStatCard label="Inactive" value={summary.inactive} helper="Retained schedule history" icon={<StopOutlined />} tone="neutral" />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <CmStatCard label="Future dated" value={summary.future} helper="Starts after today" icon={<ClockCircleOutlined />} tone="amber" />
+          </Col>
+        </Row>
+
+        <CmSectionCard compact className="cm-hours-catalogue-card">
+          <div className="cm-hours-toolbar">
+            <div className="cm-hours-toolbar-left">
+              <Select
+                className="cm-hours-select cm-hours-mandi-select"
+                value={selectedMandiId || undefined}
+                placeholder="Select mandi"
+                showSearch
+                optionFilterProp="label"
+                loading={mandisLoading}
+                options={mandis}
+                disabled={noScope}
+                onChange={(value) => setSelectedMandiId(String(value))}
+              />
+              <Select
+                className="cm-hours-select cm-hours-status-select"
+                value={statusFilter}
+                options={[
+                  { value: "ALL", label: "All statuses" },
+                  { value: "Y", label: "Active" },
+                  { value: "N", label: "Inactive" },
+                ]}
+                onChange={(value) => setStatusFilter(value as StatusFilter)}
+              />
+            </div>
             {canCreate && (
-              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} disabled={!selectedMandiId}>
-                Create Template
+              <Button type="primary" icon={<PlusOutlined />} disabled={!selectedMandiId} onClick={openCreate}>
+                Create template
               </Button>
             )}
-          </Stack>
+          </div>
 
-          {!selectedMandiId && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Select a mandi to view hours templates.
-            </Typography>
+          {!orgId ? (
+            <Alert type="info" showIcon message="Select an organisation to load its mandis." />
+          ) : !selectedMandiId ? (
+            <Alert type="info" showIcon message="Select a mandi to view and manage its operating-hours templates." />
+          ) : null}
+
+          <Table<HoursRow>
+            className="cm-hours-table"
+            rowKey="id"
+            loading={loading}
+            columns={columns}
+            dataSource={visibleRows}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={selectedMandiId ? "No hours templates found for this mandi." : "Select a mandi to begin."} /> }}
+            pagination={{
+              pageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: [10, 20, 50],
+              showTotal: (total) => `${total} template${total === 1 ? "" : "s"}`,
+            }}
+            scroll={{ x: 980 }}
+          />
+        </CmSectionCard>
+      </div>
+
+      <Modal
+        className="cm-hours-modal"
+        title={`${isEdit ? "Edit" : "Create"} hours template${selectedMandi ? ` · ${selectedMandi.label}` : ""}`}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        width={920}
+        destroyOnClose
+        footer={[
+          <Button key="cancel" onClick={() => setModalOpen(false)}>Cancel</Button>,
+          <Button key="save" type="primary" loading={submitting} onClick={() => void handleSave()}>
+            {isEdit ? "Save changes" : "Create template"}
+          </Button>,
+        ]}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="Only one template is active for a mandi at a time. Activating or creating a template automatically retires the previously active one."
+        />
+
+        <div className="cm-hours-form-grid">
+          <label className="cm-hours-field">
+            <span>Effective from *</span>
+            <Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} />
+          </label>
+          <label className="cm-hours-field">
+            <span>Timezone *</span>
+            <Input value={timezone} onChange={(event) => setTimezone(event.target.value)} placeholder="Asia/Kolkata" />
+          </label>
+        </div>
+
+        <div className="cm-hours-inline-switch">
+          <Switch
+            checked={useEndDate}
+            onChange={(checked) => {
+              setUseEndDate(checked);
+              if (!checked) setEffectiveTo("");
+            }}
+          />
+          <Text>Set an end date</Text>
+        </div>
+        {useEndDate && (
+          <label className="cm-hours-field cm-hours-end-date">
+            <span>Effective to *</span>
+            <Input type="date" value={effectiveTo} min={effectiveFrom || undefined} onChange={(event) => setEffectiveTo(event.target.value)} />
+          </label>
+        )}
+
+        <div className="cm-hours-days-section">
+          <div className="cm-hours-section-heading">
+            <div>
+              <Text strong>Weekly operating days</Text>
+              <Text type="secondary">Select open days and define one or more trading windows for each day.</Text>
+            </div>
+            <Checkbox checked={allDaysChecked} onChange={(event) => setAllDays(event.target.checked)}>Open all days</Checkbox>
+          </div>
+
+          <div className="cm-hours-day-pills">
+            {DAYS.map((day) => (
+              <Button
+                key={day}
+                type={openDays.includes(day) ? "primary" : "default"}
+                onClick={() => toggleDay(day)}
+              >
+                {DAY_LABELS[day]}
+              </Button>
+            ))}
+          </div>
+
+          <div className="cm-hours-day-cards">
+            {openDays.map((day) => (
+              <div className="cm-hours-day-card" key={day}>
+                <div className="cm-hours-day-card-title">
+                  <Text strong>{DAY_LABELS[day]}</Text>
+                  <Button size="small" onClick={() => addWindow(day)}>+ Window</Button>
+                </div>
+                {(dayHours[day] || []).map((window, index) => (
+                  <div className="cm-hours-window-row" key={`${day}-${index}`}>
+                    <label className="cm-hours-field">
+                      <span>Open</span>
+                      <Input type="time" value={window.open} onChange={(event) => updateWindow(day, index, "open", event.target.value)} />
+                    </label>
+                    <label className="cm-hours-field">
+                      <span>Close</span>
+                      <Input type="time" value={window.close} onChange={(event) => updateWindow(day, index, "close", event.target.value)} />
+                    </label>
+                    <label className="cm-hours-field cm-hours-note-field">
+                      <span>Note</span>
+                      <Input value={window.note || ""} maxLength={160} placeholder="Optional" onChange={(event) => updateWindow(day, index, "note", event.target.value)} />
+                    </label>
+                    <Button danger disabled={(dayHours[day] || []).length <= 1} onClick={() => removeWindow(day, index)}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="cm-hours-exceptions-card">
+          <div className="cm-hours-section-heading">
+            <div>
+              <Text strong>Closure exceptions</Text>
+              <Text type="secondary">Exceptions override the normal weekly operating schedule.</Text>
+            </div>
+          </div>
+
+          <div className="cm-hours-exception-row">
+            <Switch
+              checked={closedOnMonthlyDay}
+              onChange={(checked) => {
+                setClosedOnMonthlyDay(checked);
+                if (checked && monthlyDays.length === 0) setMonthlyDays(["1"]);
+                if (!checked) setMonthlyDays([]);
+              }}
+            />
+            <div className="cm-hours-exception-copy">
+              <Text strong>Recurring monthly closure</Text>
+              <Text type="secondary">Close on selected calendar day(s) every month.</Text>
+            </div>
+          </div>
+          {closedOnMonthlyDay && (
+            <Select
+              mode="multiple"
+              className="cm-hours-select"
+              value={monthlyDays}
+              options={MONTH_DAYS.map((day) => ({ value: day, label: `Day ${day}` }))}
+              onChange={setMonthlyDays}
+              placeholder="Select day(s) of month"
+              style={{ width: "100%" }}
+            />
           )}
 
-          <Box sx={{ width: "100%", overflowX: "auto" }}>
-            <ResponsiveDataGrid
-              rows={rows}
-              columns={columns}
-              loading={loading}
-              pageSizeOptions={[10, 25, 50]}
-              paginationMode="client"
-              autoHeight
-              disableRowSelectionOnClick
+          <div className="cm-hours-exception-row">
+            <Switch
+              checked={closedOnDates}
+              onChange={(checked) => {
+                setClosedOnDates(checked);
+                if (!checked) setClosedDates([]);
+              }}
             />
-          </Box>
-        </CardContent>
-      </Card>
-
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{isEdit ? "Edit Template" : "Create Template"}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Effective From"
+            <div className="cm-hours-exception-copy">
+              <Text strong>Specific-date closure</Text>
+              <Text type="secondary">Add holidays, maintenance days or other one-off closures.</Text>
+            </div>
+          </div>
+          {closedOnDates && (
+            <div className="cm-hours-specific-dates">
+              <Input
                 type="date"
-                value={effectiveFrom}
-                onChange={(event) => setEffectiveFrom(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!value) return;
+                  setClosedDates((current) => (current.includes(value) ? current : [...current, value].sort()));
+                  event.currentTarget.value = "";
+                }}
               />
-            </Stack>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={useEndDate}
-                  onChange={(event) => {
-                    const checked = event.target.checked;
-                    setUseEndDate(checked);
-                    if (!checked) setEffectiveTo("");
-                  }}
-                />
-              }
-              label="Set end date"
-            />
-            {useEndDate && (
-              <TextField
-                label="Effective To"
-                type="date"
-                value={effectiveTo}
-                onChange={(event) => setEffectiveTo(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-            )}
-            <TextField
-              label="Timezone"
-              value={timezone}
-              onChange={(event) => setTimezone(event.target.value)}
-              fullWidth
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={openAllDays}
-                  onChange={(event) => handleToggleAllDays(event.target.checked)}
-                />
-              }
-              label="Open all days"
-            />
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              {DAYS.map((day) => (
-                <Button
-                  key={day}
-                  variant={openDays.includes(day) ? "contained" : "outlined"}
-                  size="small"
-                  onClick={() => toggleDay(day)}
-                >
-                  {day}
-                </Button>
-              ))}
-            </Stack>
-            {openDays.map((day) => (
-              <Box key={day} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
-                <Typography sx={{ fontWeight: 700, mb: 1 }}>{day}</Typography>
-                <Stack spacing={1}>
-                  {(dayHours[day] || []).map((window, index) => (
-                    <Stack key={`${day}-${index}`} direction={{ xs: "column", sm: "row" }} spacing={2}>
-                      <TextField
-                        label="Open"
-                        type="time"
-                        value={window.open}
-                        onChange={(event) => updateWindow(day, index, "open", event.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                      <TextField
-                        label="Close"
-                        type="time"
-                        value={window.close}
-                        onChange={(event) => updateWindow(day, index, "close", event.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                      <TextField
-                        label="Note"
-                        value={window.note || ""}
-                        onChange={(event) => updateWindow(day, index, "note", event.target.value)}
-                        fullWidth
-                      />
-                      <Button onClick={() => removeWindow(day, index)}>Remove</Button>
-                    </Stack>
-                  ))}
-                  <Button variant="outlined" onClick={() => addWindow(day)}>
-                    Add Window
-                  </Button>
-                </Stack>
-              </Box>
-            ))}
-            <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
-              <Typography sx={{ fontWeight: 700, mb: 1 }}>Exceptions (Optional)</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Exceptions override weekly schedule.
-              </Typography>
-              <Stack spacing={2} sx={{ mt: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={closedOnMonthlyDay}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setClosedOnMonthlyDay(checked);
-                        if (checked && monthlyDays.length === 0) {
-                          setMonthlyDays(["1"]);
-                        }
-                      }}
-                    />
-                  }
-                  label="Closed on a day every month"
-                />
-                {closedOnMonthlyDay && (
-                  <TextField
-                    label="Day of month"
-                    select
-                    SelectProps={{ multiple: true }}
-                    value={monthlyDays}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setMonthlyDays(Array.isArray(value) ? value : String(value).split(","));
-                    }}
-                    fullWidth
-                  >
-                    {MONTH_DAYS.map((day) => (
-                      <MenuItem key={day} value={day}>
-                        {day}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={closedOnDates}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setClosedOnDates(checked);
-                        if (!checked) setClosedDates([]);
-                      }}
-                    />
-                  }
-                  label="Closed on specific dates"
-                />
-                {closedOnDates && (
-                  <Stack spacing={1}>
-                    <TextField
-                      label="Add date"
-                      type="date"
-                      InputLabelProps={{ shrink: true }}
-                      onChange={(event) => addClosedDate(event.target.value)}
-                    />
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {closedDates.map((date) => (
-                        <Chip
-                          key={date}
-                          label={date}
-                          onDelete={() => removeClosedDate(date)}
-                          size="small"
-                        />
-                      ))}
-                    </Stack>
-                  </Stack>
-                )}
-              </Stack>
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!selectedMandiId || !openDays.length}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <div className="cm-hours-date-tags">
+                {closedDates.map((date) => (
+                  <Tag key={date} closable onClose={() => setClosedDates((current) => current.filter((item) => item !== date))}>{date}</Tag>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
     </PageContainer>
   );
 };

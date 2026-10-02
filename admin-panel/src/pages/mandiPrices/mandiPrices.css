@@ -1,0 +1,107 @@
+.cm-mandi-prices-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cm-mandi-prices-scope-card .ant-card-body {
+  padding: 14px 16px;
+}
+
+.cm-mandi-prices-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cm-mandi-prices-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cm-color-primary, #55632c);
+}
+
+.cm-mandi-prices-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cm-mandi-prices-toolbar {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.9fr) minmax(240px, 1.1fr) minmax(230px, 1.25fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.cm-mandi-prices-product {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-mandi-prices-empty {
+  padding: 48px 12px;
+}
+
+/* The legacy global native-input rules must not create a second box inside Ant controls. */
+.cm-mandi-prices-page .ant-select-selector {
+  border: 1px solid var(--cm-border, #d9ded2) !important;
+  box-shadow: none !important;
+}
+
+.cm-mandi-prices-page .ant-select-selection-search-input,
+.cm-mandi-prices-page .ant-picker input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  outline: 0 !important;
+}
+
+.cm-mandi-prices-page .ant-select-focused .ant-select-selector,
+.cm-mandi-prices-page .ant-picker-focused {
+  border-color: var(--cm-color-primary, #55632c) !important;
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.1) !important;
+}
+
+.cm-mandi-prices-page .ant-input-affix-wrapper input.ant-input {
+  border: 0 !important;
+  box-shadow: none !important;
+  min-height: auto !important;
+}
+
+@media (max-width: 1180px) {
+  .cm-mandi-prices-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cm-mandi-prices-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .cm-mandi-prices-stats,
+  .cm-mandi-prices-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-mandi-prices-scope {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cm-mandi-prices-toolbar .ant-picker,
+  .cm-mandi-prices-toolbar .ant-select,
+  .cm-mandi-prices-toolbar .ant-input-affix-wrapper {
+    width: 100%;
+  }
+}

@@ -1,0 +1,270 @@
+.cm-mandi-hours-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-hours-scope-card .ant-card-body {
+  padding: 14px 16px;
+}
+
+.cm-hours-scope-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cm-hours-scope-kicker {
+  color: var(--cm-color-primary, #55632c);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cm-hours-scope-title {
+  font-size: 15px;
+}
+
+.cm-hours-scope-lock {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: rgba(0, 0, 0, 0.58);
+  font-size: 12px;
+}
+
+.cm-hours-catalogue-card .ant-card-body {
+  padding: 12px;
+}
+
+.cm-hours-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cm-hours-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cm-hours-mandi-select {
+  width: 280px;
+}
+
+.cm-hours-status-select {
+  width: 150px;
+}
+
+.cm-hours-schedule-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-hours-modal .ant-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.cm-hours-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cm-hours-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cm-hours-end-date {
+  max-width: 420px;
+}
+
+.cm-hours-inline-switch,
+.cm-hours-exception-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cm-hours-days-section,
+.cm-hours-exceptions-card {
+  border: 1px solid rgba(85, 99, 44, 0.16);
+  border-radius: 12px;
+  background: rgba(85, 99, 44, 0.025);
+  padding: 14px;
+}
+
+.cm-hours-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cm-hours-section-heading > div:first-child,
+.cm-hours-exception-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-hours-day-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.cm-hours-day-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.cm-hours-day-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+}
+
+.cm-hours-day-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.cm-hours-window-row {
+  display: grid;
+  grid-template-columns: 130px 130px minmax(160px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cm-hours-exceptions-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-hours-specific-dates {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.cm-hours-date-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 32px;
+  align-items: center;
+}
+
+/*
+ * Legacy Admin CSS styles native inputs globally. Ant Select contains an
+ * internal search/focus input, so remove only that internal styling and keep
+ * Ant's selector as the single visible control.
+ */
+.cm-mandi-hours-page .cm-hours-select.ant-select .ant-select-selector,
+.cm-hours-modal .cm-hours-select.ant-select .ant-select-selector,
+.cm-mandi-hours-page .ant-table-pagination .ant-select .ant-select-selector,
+.cm-hours-modal .ant-table-pagination .ant-select .ant-select-selector {
+  border-radius: 9px !important;
+}
+
+.cm-mandi-hours-page .cm-hours-select.ant-select input,
+.cm-hours-modal .cm-hours-select.ant-select input,
+.cm-mandi-hours-page .ant-table-pagination .ant-select input,
+.cm-hours-modal .ant-table-pagination .ant-select input,
+.cm-mandi-hours-page .cm-hours-select .ant-select-selection-search-input,
+.cm-hours-modal .cm-hours-select .ant-select-selection-search-input,
+.cm-mandi-hours-page .ant-table-pagination .ant-select-selection-search-input,
+.cm-hours-modal .ant-table-pagination .ant-select-selection-search-input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.cm-mandi-hours-page .cm-hours-select.ant-select-focused .ant-select-selector,
+.cm-hours-modal .cm-hours-select.ant-select-focused .ant-select-selector,
+.cm-mandi-hours-page .ant-table-pagination .ant-select-focused .ant-select-selector,
+.cm-hours-modal .ant-table-pagination .ant-select-focused .ant-select-selector {
+  border-color: #6e7c3a !important;
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.08) !important;
+}
+
+@media (max-width: 900px) {
+  .cm-hours-toolbar,
+  .cm-hours-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cm-hours-toolbar-left {
+    flex-wrap: wrap;
+  }
+
+  .cm-hours-mandi-select {
+    width: 100%;
+  }
+
+  .cm-hours-status-select {
+    width: 180px;
+  }
+
+  .cm-hours-scope-lock {
+    justify-content: flex-start;
+  }
+
+  .cm-hours-window-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cm-hours-note-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .cm-hours-toolbar-left,
+  .cm-hours-form-grid,
+  .cm-hours-specific-dates,
+  .cm-hours-window-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cm-hours-status-select,
+  .cm-hours-mandi-select {
+    width: 100%;
+  }
+}

@@ -320,6 +320,7 @@ function App() {
                   <Route path="/mandi-gates" element={<MandiGates />} />
                   <Route path="/mandi-hours-templates" element={<MandiHoursTemplates />} />
                   <Route path="/gate-entry-reasons" element={<GateEntryReasons />} />
+                  <Route path="/gate/vehicle-types" element={<GateVehicleTypes />} />
                   <Route path="/gate-vehicle-types" element={<GateVehicleTypes />} />
                   <Route path="/auction-methods" element={<AuctionMethods />} />
                   <Route path="/auction-rounds" element={<AuctionRounds />} />

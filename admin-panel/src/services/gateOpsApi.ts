@@ -33,6 +33,22 @@ export const fetchGateEntryTokens = async ({
     ...filters,
   });
 
+export const fetchGateEntryTokenAnalytics = async ({
+  username,
+  language = DEFAULT_LANGUAGE,
+  filters = {},
+}: {
+  username: string;
+  language?: string;
+  filters?: Record<string, any>;
+}) =>
+  postEncrypted(API_ROUTES.admin.getGateEntryTokenAnalytics, {
+    api: API_TAGS.GATE_ENTRY_TOKENS.analytics,
+    username,
+    language,
+    ...filters,
+  });
+
 export const fetchGateOperatorContext = async ({
   username,
   language = DEFAULT_LANGUAGE,

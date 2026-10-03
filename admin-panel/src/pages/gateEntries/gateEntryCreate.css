@@ -1,0 +1,183 @@
+.cm-gate-entry-create-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cm-gate-entry-debug {
+  margin: 0;
+}
+
+.cm-gate-entry-scope-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border, #e4e7df);
+  border-radius: 14px;
+  background: var(--cm-surface, #fff);
+}
+
+.cm-gate-entry-scope-strip .ant-typography {
+  margin: 0 !important;
+}
+
+.cm-gate-entry-scope-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #747a6f;
+}
+
+.cm-gate-entry-card {
+  height: 100%;
+}
+
+.cm-gate-entry-card .ant-card-body {
+  padding: 16px;
+}
+
+.cm-gate-entry-search-row {
+  width: 100%;
+}
+
+.cm-gate-entry-selected-listing {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #d6e5cf;
+  border-radius: 12px;
+  background: #f6faf3;
+}
+
+.cm-gate-entry-listing-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cm-gate-entry-listing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cm-gate-entry-listing-grid > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.cm-gate-entry-listing-grid span,
+.cm-gate-entry-listing-grid strong {
+  display: block;
+}
+
+.cm-gate-entry-listing-grid span {
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: #777d73;
+}
+
+.cm-gate-entry-listing-grid strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-gate-entry-listing-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cm-gate-entry-listing-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e1e4dc;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cm-gate-entry-listing-result:hover {
+  border-color: #85934d;
+  background: #fafbf7;
+}
+
+.cm-gate-entry-listing-result strong,
+.cm-gate-entry-listing-result span {
+  display: block;
+}
+
+.cm-gate-entry-listing-result span {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #777d73;
+}
+
+.cm-gate-entry-empty {
+  margin: 28px 0 12px;
+}
+
+.cm-gate-entry-field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #32372f;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.cm-gate-entry-field-label > span {
+  color: #b42318;
+}
+
+.cm-gate-entry-create-page .ant-select {
+  width: 100%;
+}
+
+/* The Ant Select owns the visible field chrome. Reset inherited legacy input styles. */
+.cm-gate-entry-create-page .ant-select-selector {
+  box-shadow: none !important;
+}
+
+.cm-gate-entry-create-page .ant-select-selection-search-input {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-gate-entry-create-page .ant-input,
+.cm-gate-entry-create-page .ant-select-selector,
+.cm-gate-entry-create-page .ant-input-affix-wrapper {
+  border-radius: 10px !important;
+}
+
+.cm-gate-entry-form-hint {
+  margin-top: 18px;
+}
+
+@media (max-width: 767px) {
+  .cm-gate-entry-scope-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cm-gate-entry-listing-grid {
+    grid-template-columns: 1fr;
+  }
+}

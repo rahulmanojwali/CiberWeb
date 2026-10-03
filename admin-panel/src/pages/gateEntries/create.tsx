@@ -1,29 +1,59 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box,
+  Alert,
   Button,
-  CircularProgress,
-  MenuItem,
-  Stack,
-  TextField,
+  Col,
+  Empty,
+  Input,
+  Row,
+  Select,
+  Space,
+  Spin,
+  Tag,
   Typography,
-} from "@mui/material";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import SaveIcon from "@mui/icons-material/Save";
+  message,
+} from "antd";
+import {
+  ArrowLeftOutlined,
+  CarOutlined,
+  CheckCircleOutlined,
+  LinkOutlined,
+  SaveOutlined,
+  SearchOutlined,
+  ShopOutlined,
+} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import { useSnackbar } from "notistack";
 
 import { PageContainer } from "../../components/PageContainer";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
 import { usePermissions } from "../../authz/usePermissions";
 import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchMandiGates } from "../../services/mandiApi";
-import { fetchGateDevices, fetchGateEntryReasons, fetchGateVehicleTypesMaster } from "../../services/gateApi";
+import {
+  fetchGateDevices,
+  fetchGateEntryReasons,
+  fetchGateVehicleTypesMaster,
+} from "../../services/gateApi";
 import { normalizeLanguageCode } from "../../config/languages";
 import { DEFAULT_LANGUAGE } from "../../config/appConfig";
 import { fetchGateOperatorContext, issueGateToken } from "../../services/gateOpsApi";
-import { searchPreMarketListingsForGate, markPreMarketArrival } from "../../services/preMarketListingsApi";
+import {
+  searchPreMarketListingsForGate,
+  markPreMarketArrival,
+} from "../../services/preMarketListingsApi";
+import "./gateEntryCreate.css";
 
 type SelectOption = { value: string; label: string };
+
+type GateEntryFormState = {
+  vehicle_no: string;
+  gate_code: string;
+  device_code: string;
+  reason_code: string;
+  vehicle_type_code: string;
+  notes: string;
+};
 
 function currentUsername(): string | null {
   try {
@@ -53,9 +83,13 @@ function todayLocal(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function responseData(resp: any) {
+  return resp?.data || resp?.response?.data || {};
+}
+
 export const GateEntryCreate: React.FC = () => {
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const [messageApi, contextHolder] = message.useMessage();
   const { can, permissionsMap } = usePermissions();
   const uiConfig = useAdminUiConfig();
   const language = normalizeLanguageCode(DEFAULT_LANGUAGE);
@@ -65,7 +99,7 @@ export const GateEntryCreate: React.FC = () => {
     [can],
   );
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<GateEntryFormState>({
     vehicle_no: "",
     gate_code: "",
     device_code: "",
@@ -76,7 +110,7 @@ export const GateEntryCreate: React.FC = () => {
 
   const [context, setContext] = useState({
     org_id: "",
-    mandi_id: "",
+    mandi_id: "" as string | number,
     gate_code: "",
     device_code: "",
   });
@@ -94,10 +128,11 @@ export const GateEntryCreate: React.FC = () => {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [loadingReasons, setLoadingReasons] = useState(false);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const isDebug = new URLSearchParams(window.location.search).get("debugAuth") === "1";
 
-  const updateField = (key: keyof typeof form, value: string) => {
+  const updateField = (key: keyof GateEntryFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -106,7 +141,7 @@ export const GateEntryCreate: React.FC = () => {
     if (!username) return;
     try {
       const resp = await fetchGateOperatorContext({ username, language });
-      const ctx = resp?.data?.context || resp?.response?.data?.context || null;
+      const ctx = responseData(resp)?.context || null;
       if (!ctx) return;
       setContext({
         org_id: ctx.org_id || "",
@@ -119,8 +154,8 @@ export const GateEntryCreate: React.FC = () => {
         gate_code: prev.gate_code || ctx.gate_code || "",
         device_code: prev.device_code || ctx.device_code || "",
       }));
-    } catch (_) {
-      // Ignore context failures; fallback to manual selection.
+    } catch {
+      // Manual/scoped selection remains available when no operator context is bound.
     }
   };
 
@@ -137,18 +172,18 @@ export const GateEntryCreate: React.FC = () => {
       if (scopedMandiId !== "" && scopedMandiId !== null && scopedMandiId !== undefined) {
         filters.mandi_id = scopedMandiId;
       }
-      const resp = await fetchMandiGates({
-        username,
-        language,
-        filters,
-      });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
+      const resp = await fetchMandiGates({ username, language, filters });
+      const list = responseData(resp)?.items || [];
       setGateOptions(
-        list.map((g: any) => ({
-          value: g.gate_code || g.code || g.slug || "",
-          label: g.gate_name || g.gate_code || g.code || g.slug || "",
-        })),
+        list
+          .map((g: any) => ({
+            value: g.gate_code || g.code || g.slug || "",
+            label: g.gate_name || g.gate_code || g.code || g.slug || "",
+          }))
+          .filter((option: SelectOption) => option.value),
       );
+    } catch (err: any) {
+      messageApi.error(err?.message || "Unable to load gates.");
     } finally {
       setLoadingGates(false);
     }
@@ -175,13 +210,17 @@ export const GateEntryCreate: React.FC = () => {
         filters.mandi_id = scopedMandiId;
       }
       const resp = await fetchGateDevices({ username, language, filters });
-      const list = resp?.data?.devices || resp?.response?.data?.devices || [];
+      const list = responseData(resp)?.devices || [];
       setDeviceOptions(
-        list.map((d: any) => ({
-          value: d.device_code || d.device_id || "",
-          label: d.device_label || d.device_name || d.device_code || d.device_id || "",
-        })),
+        list
+          .map((d: any) => ({
+            value: d.device_code || d.device_id || "",
+            label: d.device_label || d.device_name || d.device_code || d.device_id || "",
+          }))
+          .filter((option: SelectOption) => option.value),
       );
+    } catch (err: any) {
+      messageApi.error(err?.message || "Unable to load gate devices.");
     } finally {
       setLoadingDevices(false);
     }
@@ -193,14 +232,29 @@ export const GateEntryCreate: React.FC = () => {
     if (!username) return;
     setLoadingReasons(true);
     try {
-      const resp = await fetchGateEntryReasons({ username, language, filters: { is_active: "Y" } });
-      const list = resp?.data?.reasons || resp?.response?.data?.reasons || [];
+      const resp = await fetchGateEntryReasons({
+        username,
+        language,
+        filters: { is_active: "Y" },
+      });
+      const data = responseData(resp);
+      const list = data?.reasons || data?.items || [];
       setReasonOptions(
-        list.map((r: any) => ({
-          value: r.reason_code,
-          label: r.name_i18n?.en || r.name_en || r.reason_code,
-        })),
+        list
+          .map((r: any) => ({
+            value: r.reason_code || "",
+            label:
+              r.name_i18n?.[language] ||
+              r.name_i18n?.en ||
+              r.name_en ||
+              r.display_label ||
+              r.reason_code ||
+              "",
+          }))
+          .filter((option: SelectOption) => option.value),
       );
+    } catch (err: any) {
+      messageApi.error(err?.message || "Unable to load gate entry reasons.");
     } finally {
       setLoadingReasons(false);
     }
@@ -213,13 +267,25 @@ export const GateEntryCreate: React.FC = () => {
     setLoadingVehicleTypes(true);
     try {
       const resp = await fetchGateVehicleTypesMaster({ username, language, is_active: "Y" });
-      const list = resp?.data?.vehicle_types || resp?.response?.data?.vehicle_types || [];
+      const data = responseData(resp);
+      const list = data?.vehicle_types || data?.items || [];
       setVehicleTypes(
-        list.map((v: any) => ({
-          value: v.vehicle_type_code || v.code || "",
-          label: v.name_i18n?.en || v.vehicle_type_name || v.code || "",
-        })),
+        list
+          .map((v: any) => ({
+            value: v.vehicle_type_code || v.code || "",
+            label:
+              v.name_i18n?.[language] ||
+              v.name_i18n?.en ||
+              v.display_label ||
+              v.vehicle_type_name ||
+              v.vehicle_type_code ||
+              v.code ||
+              "",
+          }))
+          .filter((option: SelectOption) => option.value),
       );
+    } catch (err: any) {
+      messageApi.error(err?.message || "Unable to load vehicle types.");
     } finally {
       setLoadingVehicleTypes(false);
     }
@@ -232,11 +298,11 @@ export const GateEntryCreate: React.FC = () => {
     const mandiId = context.mandi_id ?? "";
     const country = currentUserCountry() || "IN";
     if (!quickLinkMobile.trim()) {
-      enqueueSnackbar("Enter farmer mobile to search.", { variant: "warning" });
+      messageApi.warning("Enter farmer mobile to search.");
       return;
     }
     if (!mandiId) {
-      enqueueSnackbar("Missing mandi context.", { variant: "warning" });
+      messageApi.warning("Missing mandi context.");
       return;
     }
     setQuickLinkLoading(true);
@@ -252,13 +318,11 @@ export const GateEntryCreate: React.FC = () => {
           farmer_mobile: quickLinkMobile.trim(),
         },
       });
-      const items = resp?.data?.items || resp?.response?.data?.items || [];
-      setQuickLinkResults(items || []);
-      if (!items || items.length === 0) {
-        enqueueSnackbar("No pre-market listings found.", { variant: "info" });
-      }
+      const items = responseData(resp)?.items || [];
+      setQuickLinkResults(items);
+      if (!items.length) messageApi.info("No pre-market listings found.");
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Search failed.", { variant: "error" });
+      messageApi.error(err?.message || "Search failed.");
     } finally {
       setQuickLinkLoading(false);
     }
@@ -275,15 +339,14 @@ export const GateEntryCreate: React.FC = () => {
   };
 
   useEffect(() => {
-    loadOperatorContext();
-    loadGates();
-    loadReasons();
-    loadVehicleTypes();
+    void loadOperatorContext();
+    void loadReasons();
+    void loadVehicleTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    loadGates();
+    void loadGates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context.org_id, context.mandi_id, uiConfig.scope?.org_id]);
 
@@ -292,15 +355,15 @@ export const GateEntryCreate: React.FC = () => {
       setDeviceOptions([]);
       return;
     }
-    loadDevices(form.gate_code);
+    void loadDevices(form.gate_code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.gate_code]);
+  }, [form.gate_code, context.org_id, context.mandi_id]);
 
   const handleSubmit = async () => {
-    if (!canCreate) return;
+    if (!canCreate || submitting) return;
     const username = currentUsername();
     if (!username) {
-      enqueueSnackbar("Not authorized.", { variant: "error" });
+      messageApi.error("Not authorized.");
       return;
     }
     if (
@@ -309,38 +372,41 @@ export const GateEntryCreate: React.FC = () => {
       !form.reason_code.trim() ||
       !form.vehicle_type_code.trim()
     ) {
-      enqueueSnackbar("Please fill required fields.", { variant: "warning" });
+      messageApi.warning("Select gate, device, entry reason and vehicle type.");
       return;
     }
     const scopedOrgId = context.org_id || uiConfig.scope?.org_id || "";
     const scopedMandiId = context.mandi_id ?? "";
     if (!scopedOrgId || scopedMandiId === "" || scopedMandiId === null || scopedMandiId === undefined) {
-      enqueueSnackbar("Missing operator context (org/mandi).", { variant: "warning" });
+      messageApi.warning("Missing operator context (organisation/mandi).");
       return;
     }
-    const payload = {
-      username,
-      language,
-      org_id: scopedOrgId,
-      mandi_id: scopedMandiId,
-      gate_code: form.gate_code.trim(),
-      device_code: form.device_code.trim(),
-      vehicle_type_code: form.vehicle_type_code.trim(),
-      reason_code: form.reason_code.trim(),
-      vehicle_no: form.vehicle_no.trim() || null,
-      remarks: form.notes.trim() || null,
-    };
+
+    setSubmitting(true);
     try {
-      const resp = await issueGateToken(payload);
+      const resp = await issueGateToken({
+        username,
+        language,
+        org_id: scopedOrgId,
+        mandi_id: scopedMandiId,
+        gate_code: form.gate_code.trim(),
+        device_code: form.device_code.trim(),
+        vehicle_type_code: form.vehicle_type_code.trim(),
+        reason_code: form.reason_code.trim(),
+        vehicle_no: form.vehicle_no.trim() || null,
+        remarks: form.notes.trim() || null,
+      });
       const code = resp?.response?.responsecode || resp?.responsecode || "1";
       const desc = resp?.response?.description || resp?.description || "Failed to issue token.";
       if (code !== "0") {
-        enqueueSnackbar(desc, { variant: "error" });
+        messageApi.error(desc);
         return;
       }
-      const tokenCode = resp?.data?.token_code || resp?.response?.data?.token_code || "";
-      const tokenId = resp?.data?.gate_entry_token?._id || resp?.response?.data?.gate_entry_token?._id || "";
-      enqueueSnackbar(`Token issued: ${tokenCode || "unknown"}`, { variant: "success" });
+
+      const data = responseData(resp);
+      const tokenCode = data?.token_code || "";
+      const tokenId = data?.gate_entry_token?._id || "";
+      messageApi.success(`Token issued: ${tokenCode || "created"}`);
 
       if (selectedPreListing) {
         try {
@@ -358,234 +424,254 @@ export const GateEntryCreate: React.FC = () => {
           });
           const arrivalCode = arrivalResp?.response?.responsecode || arrivalResp?.responsecode || "1";
           if (arrivalCode !== "0") {
-            enqueueSnackbar(
-              "Token created, but pre-listing could not be linked. Please open listing and mark arrived manually.",
-              { variant: "warning" },
-            );
-            console.warn("[preMarketLink] mark arrival failed", arrivalResp);
+            messageApi.warning("Token created, but the pre-market listing could not be linked.");
           }
-        } catch (err) {
-          enqueueSnackbar(
-            "Token created, but pre-listing could not be linked. Please open listing and mark arrived manually.",
-            { variant: "warning" },
-          );
-          console.warn("[preMarketLink] mark arrival error", err);
+        } catch {
+          messageApi.warning("Token created, but the pre-market listing could not be linked.");
         }
       }
 
-      if (tokenCode) {
-        navigate(`/gate-tokens/${encodeURIComponent(tokenCode)}`);
-      } else {
-        navigate("/gate-tokens");
-      }
+      navigate(tokenCode ? `/gate-tokens/${encodeURIComponent(tokenCode)}` : "/gate-tokens");
     } catch (err: any) {
-      enqueueSnackbar(err?.message || "Unable to issue token.", { variant: "error" });
+      messageApi.error(err?.message || "Unable to issue token.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   if (!canCreate) {
     return (
-      <PageContainer>
-        <Typography variant="h6">Forbidden: You do not have permission.</Typography>
+      <PageContainer className="cm-gate-entry-create-page">
+        {contextHolder}
+        <Alert
+          type="error"
+          showIcon
+          message="Access denied"
+          description="You do not have permission to create a gate entry token."
+        />
       </PageContainer>
     );
   }
 
+  const scopeOrgLabel = context.org_id || String(uiConfig.scope?.org_id || "Not resolved");
+  const scopeMandiLabel = context.mandi_id !== "" ? String(context.mandi_id) : "Not resolved";
+
   return (
-    <PageContainer>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} mb={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h5">Gate Entry (Create Token)</Typography>
-          {isDebug && (
-            <Typography variant="caption" color="text.secondary">
-              canCreate: {String(canCreate)} | permKeys: {Object.keys(permissionsMap || {}).length}
-            </Typography>
-          )}
-        </Stack>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIosNewIcon fontSize="small" />}
-            onClick={() => navigate("/gate-entries")}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon fontSize="small" />}
-            onClick={handleSubmit}
-          >
-            Submit
-          </Button>
-        </Stack>
-      </Stack>
+    <PageContainer className="cm-gate-entry-create-page">
+      {contextHolder}
 
-        <Box mb={2}>
-        <Typography variant="subtitle1">Link pre-market listing (optional)</Typography>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }} mt={1}>
-          <TextField
-            label="Farmer Mobile"
-            value={quickLinkMobile}
-            onChange={(e) => setQuickLinkMobile(e.target.value)}
-            sx={{ minWidth: 220 }}
-          />
-          <Button
-            variant="outlined"
-            onClick={handleSearchPreListings}
-            disabled={quickLinkLoading}
-          >
-            {quickLinkLoading ? "Searching..." : "Search"}
-          </Button>
-        </Stack>
+      <CmPageHeader
+        eyebrow="GATE & YARD"
+        title="Create Gate Entry Token"
+        subtitle="Capture the vehicle, gate and reason for entry. A pre-market listing can be linked when one exists."
+        actions={
+          <>
+            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/gate-tokens")}>Back</Button>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={submitting}
+              onClick={() => void handleSubmit()}
+            >
+              Issue Token
+            </Button>
+          </>
+        }
+      />
 
-        {selectedPreListing ? (
-          <Box mt={2} p={2} sx={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 1 }}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
-              <Box>
-                <Typography variant="body2">Selected Listing: {selectedPreListing?._id || "-"}</Typography>
-                <Typography variant="body2">Farmer: {selectedPreListing?.farmer?.name || "-"} ({selectedPreListing?.farmer?.mobile || "-"})</Typography>
-                <Typography variant="body2">Commodity: {selectedPreListing?.produce?.commodity_name || "-"}</Typography>
-                <Typography variant="body2">Bags: {selectedPreListing?.produce?.quantity?.bags ?? "-"} | Weight/Bag: {selectedPreListing?.produce?.quantity?.weight_per_bag_kg ?? "-"}</Typography>
-              </Box>
-              <Button variant="text" color="error" onClick={clearPreListing}>Clear</Button>
-            </Stack>
-          </Box>
-        ) : (
-          <Stack spacing={1} mt={2}>
-            {quickLinkResults.map((item: any) => (
-              <Box key={String(item._id)} p={2} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 1 }}>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
-                  <Box>
-                    <Typography variant="body2">Listing: {String(item._id)}</Typography>
-                    <Typography variant="body2">Farmer: {item?.farmer?.name || "-"} ({item?.farmer?.mobile || "-"})</Typography>
-                    <Typography variant="body2">Commodity: {item?.produce?.commodity_name || "-"}</Typography>
-                    <Typography variant="body2">Bags: {item?.produce?.quantity?.bags ?? "-"} | Weight/Bag: {item?.produce?.quantity?.weight_per_bag_kg ?? "-"}</Typography>
-                  </Box>
-                  <Button variant="contained" onClick={() => selectPreListing(item)}>Use this listing</Button>
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-        )}
-      </Box>
+      {isDebug && (
+        <Alert
+          className="cm-gate-entry-debug"
+          type="info"
+          showIcon
+          message={`canCreate: ${String(canCreate)} · permission keys: ${Object.keys(permissionsMap || {}).length}`}
+        />
+      )}
 
-      <Box component="form" noValidate autoComplete="off">
-        <Stack spacing={2} maxWidth={520}>
-          <TextField
-            label="Vehicle Number"
-            value={form.vehicle_no}
-            onChange={(e) => updateField("vehicle_no", e.target.value)}
-            fullWidth
-          />
-          <TextField
-            select
-            label="Gate"
-            value={form.gate_code}
-            onChange={(e) => {
-              updateField("gate_code", e.target.value);
-              updateField("device_code", "");
-            }}
-            required
-            fullWidth
-            helperText={loadingGates ? "Loading gates..." : gateOptions.length ? "Select gate" : "No gates found"}
-            SelectProps={{ displayEmpty: true }}
-            InputProps={{
-              endAdornment: loadingGates ? <CircularProgress size={18} /> : undefined,
-            }}
+      <div className="cm-gate-entry-scope-strip">
+        <div>
+          <Typography.Text className="cm-gate-entry-scope-label">Working scope</Typography.Text>
+          <Typography.Title level={5}>{scopeOrgLabel}</Typography.Title>
+        </div>
+        <Space size={8} wrap>
+          <Tag icon={<ShopOutlined />}>Mandi {scopeMandiLabel}</Tag>
+          {form.gate_code && <Tag color="processing">Gate {form.gate_code}</Tag>}
+        </Space>
+      </div>
+
+      <Row gutter={[16, 16]} align="top">
+        <Col xs={24} xl={9}>
+          <CmSectionCard
+            className="cm-gate-entry-card"
+            title="Link pre-market listing"
+            subtitle="Optional · search today's listing by farmer mobile"
           >
-            <MenuItem value="">
-              <em>Select gate</em>
-            </MenuItem>
-            {gateOptions.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Device"
-            value={form.device_code}
-            onChange={(e) => updateField("device_code", e.target.value)}
-            required
-            fullWidth
-            helperText={
-              loadingDevices
-                ? "Loading devices..."
-                : form.gate_code
-                  ? deviceOptions.length
-                    ? "Select device"
-                    : "No active devices for this gate"
-                  : "Select a gate first"
-            }
-            SelectProps={{ displayEmpty: true }}
-            InputProps={{
-              endAdornment: loadingDevices ? <CircularProgress size={18} /> : undefined,
-            }}
+            <Space.Compact className="cm-gate-entry-search-row" block>
+              <Input
+                size="large"
+                value={quickLinkMobile}
+                onChange={(e) => setQuickLinkMobile(e.target.value)}
+                placeholder="Farmer mobile number"
+                prefix={<SearchOutlined />}
+                onPressEnter={() => void handleSearchPreListings()}
+              />
+              <Button
+                size="large"
+                loading={quickLinkLoading}
+                onClick={() => void handleSearchPreListings()}
+              >
+                Search
+              </Button>
+            </Space.Compact>
+
+            {selectedPreListing ? (
+              <div className="cm-gate-entry-selected-listing">
+                <div className="cm-gate-entry-listing-heading">
+                  <Space>
+                    <CheckCircleOutlined />
+                    <Typography.Text strong>Listing linked</Typography.Text>
+                  </Space>
+                  <Button type="link" danger onClick={clearPreListing}>Clear</Button>
+                </div>
+                <div className="cm-gate-entry-listing-grid">
+                  <div><span>Farmer</span><strong>{selectedPreListing?.farmer?.name || "-"}</strong></div>
+                  <div><span>Mobile</span><strong>{selectedPreListing?.farmer?.mobile || "-"}</strong></div>
+                  <div><span>Commodity</span><strong>{selectedPreListing?.produce?.commodity_name || "-"}</strong></div>
+                  <div><span>Bags</span><strong>{selectedPreListing?.produce?.quantity?.bags ?? "-"}</strong></div>
+                </div>
+              </div>
+            ) : quickLinkResults.length ? (
+              <div className="cm-gate-entry-listing-results">
+                {quickLinkResults.map((item: any) => (
+                  <button
+                    className="cm-gate-entry-listing-result"
+                    key={String(item._id)}
+                    type="button"
+                    onClick={() => selectPreListing(item)}
+                  >
+                    <div>
+                      <strong>{item?.farmer?.name || item?.farmer?.mobile || "Farmer listing"}</strong>
+                      <span>{item?.produce?.commodity_name || "Commodity not available"}</span>
+                    </div>
+                    <LinkOutlined />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Empty
+                className="cm-gate-entry-empty"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="Search only when this arrival relates to a pre-market listing."
+              />
+            )}
+          </CmSectionCard>
+        </Col>
+
+        <Col xs={24} xl={15}>
+          <CmSectionCard
+            className="cm-gate-entry-card"
+            title="Entry details"
+            subtitle="Required operational information for issuing the token"
           >
-            <MenuItem value="">
-              <em>Select device</em>
-            </MenuItem>
-            {deviceOptions.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Entry Reason"
-            value={form.reason_code}
-            onChange={(e) => updateField("reason_code", e.target.value)}
-            required
-            fullWidth
-            helperText={loadingReasons ? "Loading reasons..." : reasonOptions.length ? "Select reason" : "No reasons found"}
-            SelectProps={{ displayEmpty: true }}
-            InputProps={{
-              endAdornment: loadingReasons ? <CircularProgress size={18} /> : undefined,
-            }}
-          >
-            <MenuItem value="">
-              <em>Select reason</em>
-            </MenuItem>
-            {reasonOptions.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Vehicle Type"
-            value={form.vehicle_type_code}
-            onChange={(e) => updateField("vehicle_type_code", e.target.value)}
-            required
-            fullWidth
-            helperText={loadingVehicleTypes ? "Loading vehicle types..." : "Select vehicle type"}
-            SelectProps={{ displayEmpty: true }}
-            InputProps={{
-              endAdornment: loadingVehicleTypes ? <CircularProgress size={18} /> : undefined,
-            }}
-          >
-            <MenuItem value="">
-              <em>Select vehicle type</em>
-            </MenuItem>
-            {vehicleTypes.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Notes"
-            value={form.notes}
-            onChange={(e) => updateField("notes", e.target.value)}
-            fullWidth
-            multiline
-            minRows={2}
-          />
-        </Stack>
-      </Box>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <label className="cm-gate-entry-field-label">Vehicle number</label>
+                <Input
+                  size="large"
+                  value={form.vehicle_no}
+                  onChange={(e) => updateField("vehicle_no", e.target.value.toUpperCase())}
+                  placeholder="e.g. UP14AB1234"
+                  prefix={<CarOutlined />}
+                  maxLength={24}
+                />
+              </Col>
+
+              <Col xs={24} md={12}>
+                <label className="cm-gate-entry-field-label">Gate <span>*</span></label>
+                <Select
+                  size="large"
+                  value={form.gate_code || undefined}
+                  options={gateOptions}
+                  loading={loadingGates}
+                  placeholder={loadingGates ? "Loading gates..." : "Select gate"}
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={(value) => {
+                    updateField("gate_code", value);
+                    updateField("device_code", "");
+                  }}
+                  notFoundContent={loadingGates ? <Spin size="small" /> : "No active gates found"}
+                />
+              </Col>
+
+              <Col xs={24} md={12}>
+                <label className="cm-gate-entry-field-label">Gate device <span>*</span></label>
+                <Select
+                  size="large"
+                  value={form.device_code || undefined}
+                  options={deviceOptions}
+                  loading={loadingDevices}
+                  disabled={!form.gate_code}
+                  placeholder={!form.gate_code ? "Select a gate first" : "Select gate device"}
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={(value) => updateField("device_code", value)}
+                  notFoundContent={loadingDevices ? <Spin size="small" /> : "No active devices for this gate"}
+                />
+              </Col>
+
+              <Col xs={24} md={12}>
+                <label className="cm-gate-entry-field-label">Entry reason <span>*</span></label>
+                <Select
+                  size="large"
+                  value={form.reason_code || undefined}
+                  options={reasonOptions}
+                  loading={loadingReasons}
+                  placeholder="Select entry reason"
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={(value) => updateField("reason_code", value)}
+                  notFoundContent={loadingReasons ? <Spin size="small" /> : "No active reasons found"}
+                />
+              </Col>
+
+              <Col xs={24} md={12}>
+                <label className="cm-gate-entry-field-label">Vehicle type <span>*</span></label>
+                <Select
+                  size="large"
+                  value={form.vehicle_type_code || undefined}
+                  options={vehicleTypes}
+                  loading={loadingVehicleTypes}
+                  placeholder="Select vehicle type"
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={(value) => updateField("vehicle_type_code", value)}
+                  notFoundContent={loadingVehicleTypes ? <Spin size="small" /> : "No active vehicle types found"}
+                />
+              </Col>
+
+              <Col xs={24}>
+                <label className="cm-gate-entry-field-label">Notes</label>
+                <Input.TextArea
+                  value={form.notes}
+                  onChange={(e) => updateField("notes", e.target.value)}
+                  placeholder="Optional operational notes"
+                  autoSize={{ minRows: 3, maxRows: 6 }}
+                  maxLength={500}
+                  showCount
+                />
+              </Col>
+            </Row>
+
+            <Alert
+              className="cm-gate-entry-form-hint"
+              type="info"
+              showIcon
+              message="Gate devices are filtered by the selected gate. Reasons and vehicle types come from active controlled masters."
+            />
+          </CmSectionCard>
+        </Col>
+      </Row>
     </PageContainer>
   );
 };

@@ -1,0 +1,206 @@
+.cm-gate-tokens-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cm-gate-token-scope-card .ant-card-body,
+.cm-gate-token-list-card .ant-card-body {
+  padding: 14px;
+}
+
+.cm-gate-token-scope-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cm-gate-token-scope-grid > .ant-select,
+.cm-gate-token-scope-grid > .ant-input-affix-wrapper,
+.cm-gate-token-filter-grid > .ant-select,
+.cm-gate-token-filter-grid > .ant-input,
+.cm-gate-token-filter-grid > .ant-input-affix-wrapper,
+.cm-gate-token-filter-grid > .ant-input-group-wrapper {
+  width: 100%;
+}
+
+.cm-gate-tokens-page .ant-select-selector {
+  box-shadow: none !important;
+}
+
+.cm-gate-tokens-page .ant-select-selector input,
+.cm-gate-tokens-page .ant-select-selection-search-input {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-month-input input[type="month"] {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-gate-token-stats .cm-ant-stat-card {
+  height: 100%;
+}
+
+.cm-gate-token-chart-card .ant-card-body {
+  padding: 12px 16px 16px;
+}
+
+.cm-gate-token-chart-wrap {
+  height: 300px;
+  min-height: 300px;
+  width: 100%;
+}
+
+.cm-gate-token-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cm-token-primary-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.cm-token-primary-cell .ant-typography {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-token-status-tag {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  min-width: 74px;
+  padding-inline: 8px !important;
+  margin-inline-end: 0 !important;
+  white-space: nowrap;
+}
+
+.cm-gate-token-table .ant-table-cell {
+  vertical-align: middle;
+}
+
+.cm-gate-token-table .ant-table-thead > tr > th {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .cm-gate-token-scope-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cm-gate-token-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cm-gate-token-scope-grid,
+  .cm-gate-token-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-gate-token-chart-wrap {
+    height: 250px;
+    min-height: 250px;
+  }
+
+  .cm-gate-token-chart-card .ant-card-head-wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Gate Entry Tokens Ant Select — keep exactly one visible control border.
+   Legacy/native input rules can style rc-select internals and create the
+   nested rounded rectangle visible in Token Type / Status filters. */
+.cm-gate-tokens-page .ant-select {
+  min-height: 40px !important;
+  height: 40px !important;
+  border: 1px solid var(--cm-border-strong, #d7dccf) !important;
+  border-radius: var(--cm-radius-md, 10px) !important;
+  background: var(--cm-surface, #ffffff) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.cm-gate-tokens-page .ant-select:hover {
+  border-color: var(--cm-primary-soft, #6e7c3a) !important;
+}
+
+.cm-gate-tokens-page .ant-select.ant-select-focused {
+  border-color: var(--cm-primary, #55632c) !important;
+  box-shadow: 0 0 0 3px rgba(85, 99, 44, 0.12) !important;
+}
+
+.cm-gate-tokens-page .ant-select .ant-select-selector {
+  width: 100% !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 0 11px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.cm-gate-tokens-page .ant-select .ant-select-selection-wrap,
+.cm-gate-tokens-page .ant-select .ant-select-selection-search,
+.cm-gate-tokens-page .ant-select .ant-select-selection-search input,
+.cm-gate-tokens-page .ant-select input,
+.cm-gate-tokens-page .ant-select input:hover,
+.cm-gate-tokens-page .ant-select input:focus {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-gate-tokens-page .ant-select .ant-select-selection-search input,
+.cm-gate-tokens-page .ant-select input {
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.cm-gate-tokens-page .ant-select .ant-select-selection-item,
+.cm-gate-tokens-page .ant-select .ant-select-selection-placeholder {
+  line-height: 38px !important;
+}
+
+/* Keep the table page-size selector compact. */
+.cm-gate-tokens-page .ant-pagination .ant-select {
+  min-height: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+}
+
+.cm-gate-tokens-page .ant-pagination .ant-select .ant-select-selector {
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 9px !important;
+}
+
+.cm-gate-tokens-page .ant-pagination .ant-select .ant-select-selection-item,
+.cm-gate-tokens-page .ant-pagination .ant-select .ant-select-selection-placeholder {
+  line-height: 30px !important;
+}

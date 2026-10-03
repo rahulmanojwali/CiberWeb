@@ -1,0 +1,117 @@
+.cm-gate-reasons-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cm-gate-reasons-stat-row {
+  margin-top: 0 !important;
+}
+
+.cm-gate-reasons-card .ant-card-body {
+  padding-top: 12px;
+}
+
+.cm-gate-reasons-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(150px, 190px);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cm-gate-reasons-toolbar .ant-input-search,
+.cm-gate-reasons-toolbar .ant-select {
+  width: 100%;
+}
+
+.cm-gate-reasons-primary,
+.cm-gate-reasons-updated {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cm-gate-reasons-primary .ant-typography,
+.cm-gate-reasons-updated .ant-typography {
+  margin: 0;
+}
+
+.cm-gate-reasons-category.ant-tag {
+  margin-inline-end: 0;
+}
+
+.cm-gate-reasons-status.ant-tag {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: max-content !important;
+  min-width: 72px;
+  max-width: none !important;
+  padding: 3px 9px !important;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.cm-gate-reasons-table .ant-table-cell {
+  vertical-align: middle;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.cm-gate-reasons-modal .ant-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cm-gate-reasons-form {
+  margin-top: 2px;
+}
+
+.cm-gate-reasons-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* CiberMandi has global native input styling. Ant Select owns the visible
+   border; its internal rc-select input must remain visually neutral. */
+.cm-gate-reasons-page .ant-select,
+.cm-gate-reasons-modal .ant-select {
+  border: 1px solid var(--cm-border, #dfe5d9);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.cm-gate-reasons-page .ant-select .ant-select-selector,
+.cm-gate-reasons-modal .ant-select .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-gate-reasons-page .ant-select .ant-select-selection-search-input,
+.cm-gate-reasons-modal .ant-select .ant-select-selection-search-input,
+.cm-gate-reasons-page .ant-select input,
+.cm-gate-reasons-modal .ant-select input {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+.cm-gate-reasons-page .ant-pagination .ant-select {
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .cm-gate-reasons-toolbar,
+  .cm-gate-reasons-check-grid {
+    grid-template-columns: 1fr;
+  }
+}

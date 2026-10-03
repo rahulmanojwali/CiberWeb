@@ -1,28 +1,33 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Box,
+  Alert,
   Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
+  Empty,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
   Typography,
-} from "@mui/material";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import { type GridColDef } from "@mui/x-data-grid";
+} from "antd";
+import type { TableColumnsType } from "antd";
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  LinkOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import { useSnackbar } from "notistack";
 import { useTranslation } from "react-i18next";
 import { PageContainer } from "../../components/PageContainer";
-import { CmInput } from "../../design-system/components/CmInput";
-import { CmSelect } from "../../design-system/components/CmSelect";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
 import { normalizeLanguageCode } from "../../config/languages";
-import { useAdminUiConfig } from "../../contexts/admin-ui-config";
 import { fetchOrganisations } from "../../services/adminUsersApi";
 import { getMandisForCurrentScope } from "../../services/mandiApi";
 import {
@@ -30,7 +35,12 @@ import {
   updateMandiAssociationRequest,
 } from "../../services/mandiAssociationsApi";
 import { usePermissions } from "../../authz/usePermissions";
-import { ActionGate } from "../../authz/ActionGate";
+import "./mandiAssociations.css";
+
+const { Text } = Typography;
+const { Search, TextArea } = Input;
+
+type StatusFlag = "REQUESTED" | "TEMP_APPROVED" | "APPROVED" | "REJECTED" | "EXPIRED" | string;
 
 type AssociationRow = {
   id: string;
@@ -48,8 +58,7 @@ type AssociationRow = {
   } | null;
   walkin_name?: string | null;
   walkin_mobile?: string | null;
-  source?: string | null;
-  status?: string | null;
+  status?: StatusFlag | null;
   org_name?: string | null;
   org_code?: string | null;
   mandi_name?: string | null;
@@ -62,7 +71,21 @@ type AssociationRow = {
   created_on?: string | null;
 };
 
-type Option = { value: string; label: string };
+type SelectOption = { value: string; label: string };
+
+type StatusCounts = {
+  REQUESTED: number;
+  TEMP_APPROVED: number;
+  APPROVED: number;
+  REJECTED: number;
+};
+
+const DEFAULT_COUNTS: StatusCounts = {
+  REQUESTED: 0,
+  TEMP_APPROVED: 0,
+  APPROVED: 0,
+  REJECTED: 0,
+};
 
 function currentUsername(): string | null {
   try {
@@ -75,29 +98,29 @@ function currentUsername(): string | null {
 }
 
 function formatDate(value?: string | Date | null) {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString();
-}
-
-function chipColor(status?: string | null) {
-  const normalized = String(status || "").toUpperCase();
-  if (normalized === "PENDING" || normalized === "REQUESTED") return "primary";
-  if (normalized === "TEMP_APPROVED") return "warning";
-  if (normalized === "APPROVED") return "success";
-  if (normalized === "REJECTED") return "error";
-  return "default";
+  if (!value) return "—";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
 }
 
 function statusLabel(status?: string | null) {
   const normalized = String(status || "").trim().toUpperCase();
-  if (!normalized) return "-";
+  if (!normalized) return "Unknown";
   return normalized
     .toLowerCase()
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function statusTag(status?: string | null) {
+  const normalized = String(status || "").trim().toUpperCase();
+  if (normalized === "APPROVED") return <Tag color="success">Approved</Tag>;
+  if (normalized === "TEMP_APPROVED") return <Tag color="warning">Temp approved</Tag>;
+  if (normalized === "REJECTED") return <Tag color="error">Rejected</Tag>;
+  if (normalized === "EXPIRED") return <Tag>Expired</Tag>;
+  return <Tag color="processing">Requested</Tag>;
 }
 
 function numericFilterValue(value: string) {
@@ -109,517 +132,594 @@ function numericFilterValue(value: string) {
 export const MandiAssociations: React.FC = () => {
   const { i18n } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
-  const uiConfig = useAdminUiConfig();
-  const { can } = usePermissions();
+  const { can, authContext, isSuper } = usePermissions();
   const language = normalizeLanguageCode(i18n.language);
 
   const canView = useMemo(() => can("mandi_associations.view", "VIEW"), [can]);
   const canUpdate = useMemo(() => can("mandi_associations.update", "UPDATE"), [can]);
 
   const [rows, setRows] = useState<AssociationRow[]>([]);
-  const [statusCounts, setStatusCounts] = useState({ REQUESTED: 0, TEMP_APPROVED: 0, APPROVED: 0, REJECTED: 0 });
   const [loading, setLoading] = useState(false);
-  const [orgOptions, setOrgOptions] = useState<Option[]>([]);
-  const [mandiOptions, setMandiOptions] = useState<Option[]>([]);
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>(DEFAULT_COUNTS);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
-  const [filters, setFilters] = useState({
-    org_id: "",
-    mandi_id: "",
-    party_type: "",
-    status: "REQUESTED",
-    mobile: "",
-  });
+  const [orgOptions, setOrgOptions] = useState<SelectOption[]>([]);
+  const [mandiOptions, setMandiOptions] = useState<SelectOption[]>([]);
 
-  const [tempDialogOpen, setTempDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [orgId, setOrgId] = useState("");
+  const [mandiId, setMandiId] = useState("");
+  const [partyType, setPartyType] = useState("");
+  const [status, setStatus] = useState("REQUESTED");
+  const [mobileSearch, setMobileSearch] = useState("");
+  const [appliedMobileSearch, setAppliedMobileSearch] = useState("");
+
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [tempOpen, setTempOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AssociationRow | null>(null);
-  const [tempHours, setTempHours] = useState("8");
+  const [tempHours, setTempHours] = useState<number>(8);
   const [rejectReason, setRejectReason] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const statusOptions: Option[] = [
-    { value: "REQUESTED", label: "Requested" },
-    { value: "TEMP_APPROVED", label: "Temp Approved" },
-    { value: "APPROVED", label: "Approved" },
-    { value: "REJECTED", label: "Rejected" },
-    { value: "EXPIRED", label: "Expired" },
-  ];
-  const partyTypeOptions: Option[] = [
-    { value: "", label: "All" },
-    { value: "FARMER", label: "Farmer" },
-    { value: "TRADER", label: "Trader" },
-  ];
+  const effectiveOrgId = isSuper ? orgId : authContext.org_id || "";
 
-  const loadOrganisations = async () => {
-    if (uiConfig.role !== "SUPER_ADMIN") return;
+  const displayUser = (row?: AssociationRow | null) =>
+    row?.display_name ||
+    row?.user_name ||
+    row?.user_ref?.walkin?.name ||
+    row?.walkin_name ||
+    row?.user_ref?.username ||
+    row?.party_ref ||
+    "—";
+
+  const displayUsername = (row?: AssociationRow | null) =>
+    row?.username || row?.user_ref?.username || row?.party_ref || row?.mobile || "—";
+
+  const displayMobile = (row?: AssociationRow | null) =>
+    row?.mobile ||
+    row?.user_ref?.mobile ||
+    row?.user_ref?.walkin?.mobile ||
+    row?.walkin_mobile ||
+    row?.user_ref?.username ||
+    row?.party_ref ||
+    "—";
+
+  const displayMandi = (row?: AssociationRow | null) =>
+    row?.mandi_name || row?.mandi_code || (row?.mandi_id != null ? String(row.mandi_id) : "Unknown mandi");
+
+  const loadOrganisations = useCallback(async () => {
+    if (!isSuper) return;
     const username = currentUsername();
     if (!username) return;
-    const resp = await fetchOrganisations({ username, language });
-    const list = resp?.data?.organisations || resp?.response?.data?.organisations || [];
-    setOrgOptions(
-      list.map((org: any) => ({
-        value: org._id || org.org_id || org.org_code,
-        label: org.org_name ? `${org.org_name} (${org.org_code || org._id})` : org.org_code || org._id,
-      })),
-    );
-  };
+    try {
+      const response = await fetchOrganisations({ username, language });
+      const list = response?.data?.organisations || response?.response?.data?.organisations || [];
+      const options: SelectOption[] = (Array.isArray(list) ? list : []).map((org: any) => ({
+        value: String(org._id || org.org_id || org.org_code || ""),
+        label: org.org_name
+          ? `${org.org_name}${org.org_code ? ` · ${org.org_code}` : ""}`
+          : String(org.org_code || org._id || "Organisation"),
+      }));
+      setOrgOptions(options.filter((item) => item.value));
+      if (!orgId && options.length === 1) setOrgId(options[0].value);
+    } catch (error) {
+      console.error("[MandiAssociations] organisation load failed", error);
+      enqueueSnackbar("Unable to load organisations.", { variant: "error" });
+    }
+  }, [enqueueSnackbar, isSuper, language, orgId]);
 
-  const loadMandis = async () => {
+  const loadMandis = useCallback(async () => {
     const username = currentUsername();
-    if (!username) return;
-    const orgId = uiConfig.role === "SUPER_ADMIN" ? filters.org_id : uiConfig.scope?.org_id || "";
-    if (!orgId) {
+    if (!username || !effectiveOrgId) {
       setMandiOptions([]);
+      setMandiId("");
       return;
     }
     try {
       const list = await getMandisForCurrentScope({
         username,
         language,
-        org_id: orgId,
+        org_id: effectiveOrgId,
         filters: { page: 1, pageSize: 200 },
       });
-      setMandiOptions(
-        list.map((m: any) => ({
-          value: String(m.mandi_id ?? m.id ?? m._id ?? m.mandi_code ?? m.code ?? ""),
-          label: m.mandi_name || m.display_name || m.label || m?.name_i18n?.en || m.mandi_code || m.code || m.mandi_slug || String(m.mandi_id ?? ""),
-        })),
-      );
-    } catch (err) {
-      console.error("[MandiAssociations] loadMandis error", err);
+      const options: SelectOption[] = (Array.isArray(list) ? list : []).map((mandi: any) => ({
+        value: String(mandi.mandi_id ?? mandi.id ?? mandi._id ?? mandi.mandi_code ?? ""),
+        label:
+          mandi.mandi_name ||
+          mandi.display_name ||
+          mandi.label ||
+          mandi?.name_i18n?.[language] ||
+          mandi?.name_i18n?.en ||
+          mandi.mandi_code ||
+          String(mandi.mandi_id ?? "Mandi"),
+      }));
+      setMandiOptions(options.filter((item) => item.value));
+      if (mandiId && !options.some((item) => item.value === mandiId)) setMandiId("");
+    } catch (error) {
+      console.error("[MandiAssociations] mandi load failed", error);
       setMandiOptions([]);
+      enqueueSnackbar("Unable to load mandis for this scope.", { variant: "error" });
     }
-  };
+  }, [effectiveOrgId, enqueueSnackbar, language, mandiId]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const username = currentUsername();
     if (!username || !canView) return;
+    if (isSuper && !effectiveOrgId) {
+      setRows([]);
+      setTotalRecords(0);
+      setStatusCounts(DEFAULT_COUNTS);
+      return;
+    }
+
     setLoading(true);
     try {
-      const orgId = uiConfig.role === "SUPER_ADMIN" ? filters.org_id : uiConfig.scope?.org_id || undefined;
-      const resp = await fetchMandiAssociationRequests({
+      const response = await fetchMandiAssociationRequests({
         username,
         language,
         filters: {
-          org_id: orgId || undefined,
-          mandi_id: numericFilterValue(filters.mandi_id),
-          party_type: filters.party_type || undefined,
-          status: filters.status || "REQUESTED",
-          user_ref_username: filters.mobile || undefined,
-          page_size: 100,
+          org_id: effectiveOrgId || undefined,
+          mandi_id: numericFilterValue(mandiId),
+          party_type: partyType || undefined,
+          status: status || undefined,
+          user_ref_username: appliedMobileSearch.trim() || undefined,
+          page,
+          page_size: pageSize,
         },
       });
-      const list = resp?.data?.items || resp?.response?.data?.items || [];
-      const counts = resp?.data?.status_counts || resp?.response?.data?.status_counts || {};
+      const code = response?.response?.responsecode || response?.responsecode || "1";
+      const description = response?.response?.description || response?.description || "Unable to load association requests.";
+      if (code !== "0") {
+        setRows([]);
+        setTotalRecords(0);
+        enqueueSnackbar(description, { variant: "error" });
+        return;
+      }
+
+      const data = response?.data || response?.response?.data || {};
+      const list = Array.isArray(data.items) ? data.items : [];
+      const counts = data.status_counts || {};
+      setRows(list.map((item: any) => ({ id: String(item._id || item.id), ...item })));
+      setTotalRecords(Number(data.total_records || 0));
       setStatusCounts({
         REQUESTED: Number(counts.REQUESTED || 0),
         TEMP_APPROVED: Number(counts.TEMP_APPROVED || 0),
         APPROVED: Number(counts.APPROVED || 0),
         REJECTED: Number(counts.REJECTED || 0),
       });
-      setRows(
-        list.map((item: any) => ({
-          id: item._id || item.id,
-          ...item,
-        })),
-      );
-    } catch (err: any) {
-      console.error("[MandiAssociations] loadData error", err);
-      enqueueSnackbar(err?.message || "Unable to load association requests.", { variant: "error" });
+    } catch (error: any) {
+      console.error("[MandiAssociations] request load failed", error);
+      setRows([]);
+      setTotalRecords(0);
+      enqueueSnackbar(error?.message || "Unable to load association requests.", { variant: "error" });
     } finally {
       setLoading(false);
     }
+  }, [appliedMobileSearch, canView, effectiveOrgId, enqueueSnackbar, isSuper, language, mandiId, page, pageSize, partyType, status]);
+
+  const updateRequest = useCallback(
+    async (row: AssociationRow, extra: Record<string, any>) => {
+      if (!canUpdate) return;
+      const username = currentUsername();
+      if (!username) return;
+
+      setSaving(true);
+      try {
+        const response = await updateMandiAssociationRequest({
+          username,
+          language,
+          request_id: row.id,
+          org_id: row.org_id,
+          mandi_id: row.mandi_id,
+          ...extra,
+        });
+        const code = response?.response?.responsecode || response?.responsecode || "1";
+        const description = response?.response?.description || response?.description || "Update failed.";
+        if (code !== "0") {
+          enqueueSnackbar(description, { variant: "error" });
+          return;
+        }
+        enqueueSnackbar("Mandi association request updated.", { variant: "success" });
+        await loadData();
+      } catch (error: any) {
+        enqueueSnackbar(error?.message || "Unable to update association request.", { variant: "error" });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [canUpdate, enqueueSnackbar, language, loadData],
+  );
+
+  const openApprove = (row: AssociationRow) => {
+    setSelectedRow(row);
+    setApproveOpen(true);
   };
 
-  const handleUpdate = useCallback(async (row: AssociationRow, extra: Record<string, any>) => {
-    if (!canUpdate) return;
-    const username = currentUsername();
-    if (!username) return;
-    try {
-      const payload = {
-        username,
-        language,
-        request_id: row.id,
-        org_id: row.org_id,
-        mandi_id: row.mandi_id,
-        ...extra,
-      };
-      const resp = await updateMandiAssociationRequest(payload);
-      const code = resp?.response?.responsecode || resp?.responsecode || "1";
-      const desc = resp?.response?.description || resp?.description || "Update failed.";
-      if (code !== "0") {
-        enqueueSnackbar(desc, { variant: "error" });
-        return;
-      }
-      enqueueSnackbar("Association updated.", { variant: "success" });
-      loadData();
-    } catch (err: any) {
-      enqueueSnackbar(err?.message || "Update failed.", { variant: "error" });
-    }
-  }, [canUpdate, enqueueSnackbar, language]);
+  const openTempApprove = (row: AssociationRow) => {
+    setSelectedRow(row);
+    setTempHours(8);
+    setTempOpen(true);
+  };
 
-  const stats = statusCounts;
+  const openReject = (row: AssociationRow) => {
+    setSelectedRow(row);
+    setRejectReason("");
+    setRejectOpen(true);
+  };
 
-  const displayUser = (row?: AssociationRow | null) =>
-    row?.display_name || row?.user_name || row?.user_ref?.walkin?.name || row?.walkin_name || row?.user_ref?.username || row?.party_ref || "-";
-
-  const displayUsername = (row?: AssociationRow | null) =>
-    row?.username || row?.user_ref?.username || row?.party_ref || row?.mobile || "-";
-
-  const displayMobile = (row?: AssociationRow | null) =>
-    row?.mobile || row?.user_ref?.mobile || row?.user_ref?.walkin?.mobile || row?.walkin_mobile || row?.user_ref?.username || row?.party_ref || "-";
-
-  const displayOrg = (row?: AssociationRow | null) => row?.org_name || row?.org_code || "Unknown organisation";
-  const displayMandi = (row?: AssociationRow | null) => row?.mandi_name || row?.mandi_code || (row?.mandi_id != null ? String(row.mandi_id) : "Unknown mandi");
-
-  const columns = useMemo<GridColDef<AssociationRow>[]>(
+  const columns = useMemo<TableColumnsType<AssociationRow>>(
     () => [
       {
-        field: "user",
-        headerName: "User",
-        width: 190,
-        sortable: false,
-        renderCell: (params) => (
-          <Box>
-            <Typography variant="body2" fontWeight={700} lineHeight={1.25}>
-              {displayUser(params.row)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-              {displayUsername(params.row)}
-            </Typography>
-          </Box>
-        ),
-      },
-      {
-        field: "mobile",
-        headerName: "Mobile",
-        width: 135,
-        valueGetter: (_value, row) => displayMobile(row),
-      },
-      {
-        field: "party_type",
-        headerName: "Party",
-        width: 105,
-        valueGetter: (value) => value || "-",
-      },
-      {
-        field: "org_id",
-        headerName: "Organisation",
+        title: "Participant",
+        key: "participant",
         width: 220,
-        sortable: false,
-        renderCell: (params) => (
-          <Typography variant="body2" fontWeight={600} noWrap title={displayOrg(params.row)}>
-            {displayOrg(params.row)}
-          </Typography>
+        render: (_, row) => (
+          <div className="cm-associations-primary-cell">
+            <Text strong>{displayUser(row)}</Text>
+            <Text type="secondary">{displayUsername(row)}</Text>
+          </div>
         ),
       },
       {
-        field: "mandi_id",
-        headerName: "Mandi",
-        width: 170,
-        sortable: false,
-        renderCell: (params) => (
-          <Box title={params.row.mandi_id != null ? `ID: ${params.row.mandi_id}` : undefined}>
-            <Typography variant="body2" fontWeight={700} lineHeight={1.25}>
-              {displayMandi(params.row)}
-            </Typography>
-            {params.row.mandi_code ? (
-              <Typography variant="caption" color="text.secondary" lineHeight={1.2}>
-                Code: {params.row.mandi_code}
-              </Typography>
-            ) : null}
-          </Box>
-        ),
+        title: "Mobile",
+        key: "mobile",
+        width: 145,
+        render: (_, row) => displayMobile(row),
       },
       {
-        field: "status",
-        headerName: "Status",
-        width: 135,
-        renderCell: (params) => (
-          <Chip size="small" label={statusLabel(params.value)} color={chipColor(params.value)} sx={{ fontWeight: 700 }} />
-        ),
+        title: "Party",
+        dataIndex: "party_type",
+        key: "party_type",
+        width: 100,
+        render: (value) => <Tag>{String(value || "—")}</Tag>,
       },
+      ...(isSuper
+        ? [
+            {
+              title: "Organisation",
+              key: "organisation",
+              width: 190,
+              render: (_: unknown, row: AssociationRow) => row.org_name || row.org_code || "—",
+            },
+          ]
+        : []),
       {
-        field: "requested_on",
-        headerName: "Requested On",
+        title: "Mandi",
+        key: "mandi",
         width: 190,
-        valueFormatter: (value, row) => formatDate(value || row?.created_on),
+        render: (_, row) => (
+          <div className="cm-associations-primary-cell">
+            <Text strong>{displayMandi(row)}</Text>
+            {row.mandi_code ? <Text type="secondary">{row.mandi_code}</Text> : null}
+          </div>
+        ),
       },
       {
-        field: "actions",
-        headerName: "Actions",
-        sortable: false,
-        filterable: false,
-        width: 330,
-        minWidth: 330,
-        align: "left",
-        headerAlign: "left",
-        renderCell: (params) => (
-          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ width: "100%" }}>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
-                sx={{ minWidth: 78, px: 1.25, py: 0.35, fontSize: 12, boxShadow: "none" }}
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setApproveDialogOpen(true);
-                }}
-              >
+        title: "Requested",
+        key: "requested",
+        width: 180,
+        render: (_, row) => formatDate(row.requested_on || row.created_on),
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+        width: 130,
+        render: (value) => statusTag(value),
+      },
+      {
+        title: "Actions",
+        key: "actions",
+        width: 250,
+        fixed: "right",
+        render: (_, row) => {
+          const requested = String(row.status || "").toUpperCase() === "REQUESTED";
+          if (!canUpdate) return <Text type="secondary">View only</Text>;
+          return (
+            <Space size={6} wrap>
+              <Button size="small" type="primary" disabled={!requested} onClick={() => openApprove(row)}>
                 Approve
               </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
-                sx={{ minWidth: 70, px: 1.25, py: 0.35, fontSize: 12 }}
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setRejectReason("");
-                  setRejectDialogOpen(true);
-                }}
-              >
+              <Button size="small" disabled={!requested} onClick={() => openTempApprove(row)}>
+                Temp approve
+              </Button>
+              <Button size="small" danger disabled={!requested} onClick={() => openReject(row)}>
                 Reject
               </Button>
-            </ActionGate>
-            <ActionGate resourceKey="mandi_associations.update" action="UPDATE" record={params.row}>
-              <Button
-                size="small"
-                variant="outlined"
-                color="warning"
-                disabled={String(params.row.status || "").toUpperCase() !== "REQUESTED"}
-                sx={{ minWidth: 112, px: 1.25, py: 0.35, fontSize: 12 }}
-                onClick={() => {
-                  setSelectedRow(params.row);
-                  setTempHours("8");
-                  setTempDialogOpen(true);
-                }}
-              >
-                Temp Approve
-              </Button>
-            </ActionGate>
-          </Stack>
-        ),
+            </Space>
+          );
+        },
       },
     ],
-    [handleUpdate],
+    [canUpdate, isSuper],
   );
 
   useEffect(() => {
-    loadOrganisations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void loadOrganisations();
+  }, [loadOrganisations]);
 
   useEffect(() => {
-    loadMandis();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.org_id, uiConfig.scope?.org_id]);
+    void loadMandis();
+  }, [loadMandis]);
 
   useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.org_id, filters.mandi_id, filters.party_type, filters.status, filters.mobile, uiConfig.scope?.org_id, canView]);
+    void loadData();
+  }, [loadData]);
 
   if (!canView) {
     return (
-      <PageContainer>
-        <Typography variant="h6">Forbidden: You do not have permission.</Typography>
+      <PageContainer className="cm-associations-page">
+        <Alert type="error" showIcon message="Forbidden" description="You do not have permission to view mandi association requests." />
       </PageContainer>
     );
   }
 
+  const scopeTitle = isSuper
+    ? orgOptions.find((item) => item.value === orgId)?.label || "Select an organisation"
+    : authContext.org_code || "Organisation scope";
+
   return (
-    <PageContainer>
-      <ActionGate resourceKey="mandi_associations.view" action="VIEW">
-        <Stack spacing={2} mb={2}>
-          <Paper sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="h5">Mandi Association Requests</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Review farmer/trader requests to work with mandis.
-            </Typography>
-          </Paper>
+    <PageContainer className="cm-associations-page">
+      <CmPageHeader
+        eyebrow="MANDI OPERATIONS"
+        title="Mandi Associations"
+        subtitle="Review farmer and trader requests to operate in organisation mandis, with approval actions locked to your current role scope."
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={() => void loadData()} loading={loading}>
+            Refresh
+          </Button>
+        }
+      />
 
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }, gap: 1.5 }}>
-            {[
-              ["Requested", stats.REQUESTED],
-              ["Temp Approved", stats.TEMP_APPROVED],
-              ["Approved", stats.APPROVED],
-              ["Rejected", stats.REJECTED],
-            ].map(([label, value]) => (
-              <Paper key={String(label)} sx={{ p: 2, borderRadius: 2 }}>
-                <Typography variant="body2" color="text.secondary">{label}</Typography>
-                <Typography variant="h5" sx={{ mt: 0.5 }}>{value}</Typography>
-              </Paper>
-            ))}
-          </Box>
+      <CmSectionCard className="cm-associations-scope-card" compact>
+        <div className="cm-associations-scope-grid">
+          <div>
+            <Text className="cm-associations-kicker">WORKING SCOPE</Text>
+            <div className="cm-associations-scope-title">{scopeTitle}</div>
+            <Text type="secondary">
+              Association approvals remain constrained by organisation and mandi scope enforced by the API.
+            </Text>
+          </div>
+          {isSuper ? (
+            <Select
+              className="cm-associations-select"
+              value={orgId || undefined}
+              placeholder="Select organisation"
+              options={orgOptions}
+              showSearch
+              optionFilterProp="label"
+              onChange={(value) => {
+                setOrgId(String(value || ""));
+                setMandiId("");
+                setPage(1);
+              }}
+            />
+          ) : (
+            <Alert type="info" showIcon message={`Organisation scope: ${authContext.org_code || authContext.org_id || "Assigned organisation"}`} />
+          )}
+        </div>
+      </CmSectionCard>
 
-          <Paper sx={{ p: 2, borderRadius: 2 }}>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} flexWrap="wrap">
-            {uiConfig.role === "SUPER_ADMIN" && (
-              <CmSelect
-                label="Organisation"
-                value={filters.org_id}
-                onChange={(value) => setFilters((prev) => ({ ...prev, org_id: String(value || ""), mandi_id: "" }))}
-                options={[{ value: "", label: "Select org" }, ...orgOptions]}
-                style={{ minWidth: 220 }}
-              />
-            )}
-            <CmSelect
-              label="Mandi"
-              value={filters.mandi_id}
-              onChange={(value) => setFilters((prev) => ({ ...prev, mandi_id: String(value || "") }))}
-              options={[{ value: "", label: "All mandis" }, ...mandiOptions]}
-              style={{ minWidth: 200 }}
-              disabled={uiConfig.role === "SUPER_ADMIN" && !filters.org_id}
-            />
-            <CmSelect
-              label="Party Type"
-              value={filters.party_type}
-              onChange={(value) => setFilters((prev) => ({ ...prev, party_type: String(value || "") }))}
-              options={partyTypeOptions}
-              style={{ minWidth: 160 }}
-            />
-            <CmSelect
-              label="Status"
-              value={filters.status}
-              onChange={(value) => setFilters((prev) => ({ ...prev, status: String(value || "") }))}
-              options={statusOptions}
-              style={{ minWidth: 200 }}
-            />
-            <CmInput
-              label="Mobile"
-              value={filters.mobile}
-              onChange={(value) => setFilters((prev) => ({ ...prev, mobile: value }))}
-              style={{ minWidth: 180 }}
-            />
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={loadData}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-          </Stack>
-          </Paper>
-        </Stack>
+      <div className="cm-associations-stats">
+        <CmStatCard
+          label="Requested"
+          value={statusCounts.REQUESTED}
+          helper="Awaiting decision"
+          icon={<TeamOutlined />}
+          onClick={() => {
+            setStatus("REQUESTED");
+            setPage(1);
+          }}
+        />
+        <CmStatCard
+          label="Temp approved"
+          value={statusCounts.TEMP_APPROVED}
+          helper="Time-limited access"
+          icon={<ClockCircleOutlined />}
+          tone="amber"
+          onClick={() => {
+            setStatus("TEMP_APPROVED");
+            setPage(1);
+          }}
+        />
+        <CmStatCard
+          label="Approved"
+          value={statusCounts.APPROVED}
+          helper="Active mandi memberships"
+          icon={<CheckCircleOutlined />}
+          onClick={() => {
+            setStatus("APPROVED");
+            setPage(1);
+          }}
+        />
+        <CmStatCard
+          label="Rejected"
+          value={statusCounts.REJECTED}
+          helper="Declined requests"
+          icon={<StopOutlined />}
+          tone="neutral"
+          onClick={() => {
+            setStatus("REJECTED");
+            setPage(1);
+          }}
+        />
+      </div>
 
-        <Paper sx={{ p: 2, borderRadius: 2 }}>
-          <Box sx={{ mb: 1.5 }}>
-            <Typography variant="h6">Pending Requests</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Review farmer/trader access requests for mandis.
-            </Typography>
-          </Box>
-          <ResponsiveDataGrid
-            rows={rows}
-            columns={columns}
-            loading={loading}
-            autoHeight
-            rowHeight={58}
-            getRowId={(r) => r.id}
-            pageSizeOptions={[20, 50, 100]}
-            initialState={{ pagination: { paginationModel: { pageSize: 20, page: 0 } } }}
-            minWidth={1180}
-            sx={{
-              boxShadow: "none",
-              "& .MuiDataGrid-cell": {
-                alignItems: "center",
-                display: "flex",
-              },
+      <CmSectionCard className="cm-associations-list-card" compact>
+        <div className="cm-associations-toolbar">
+          <Select
+            className="cm-associations-select cm-associations-filter"
+            value={mandiId || undefined}
+            placeholder="All mandis"
+            allowClear
+            options={mandiOptions}
+            showSearch
+            optionFilterProp="label"
+            disabled={!effectiveOrgId}
+            onChange={(value) => {
+              setMandiId(String(value || ""));
+              setPage(1);
             }}
           />
-        </Paper>
-      </ActionGate>
-
-      <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Approve request?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {displayUser(selectedRow)} will be allowed to sell in {displayMandi(selectedRow)}.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              if (!selectedRow) return;
-              handleUpdate(selectedRow, { status: "APPROVED" });
-              setApproveDialogOpen(false);
+          <Select
+            className="cm-associations-select cm-associations-filter"
+            value={partyType || undefined}
+            placeholder="All parties"
+            allowClear
+            options={[
+              { value: "FARMER", label: "Farmer" },
+              { value: "TRADER", label: "Trader" },
+            ]}
+            onChange={(value) => {
+              setPartyType(String(value || ""));
+              setPage(1);
             }}
-          >
-            Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
+          />
+          <Select
+            className="cm-associations-select cm-associations-filter"
+            value={status || undefined}
+            placeholder="All statuses"
+            allowClear
+            options={[
+              { value: "REQUESTED", label: "Requested" },
+              { value: "TEMP_APPROVED", label: "Temp approved" },
+              { value: "APPROVED", label: "Approved" },
+              { value: "REJECTED", label: "Rejected" },
+              { value: "EXPIRED", label: "Expired" },
+            ]}
+            onChange={(value) => {
+              setStatus(String(value || ""));
+              setPage(1);
+            }}
+          />
+          <Search
+            className="cm-associations-search"
+            value={mobileSearch}
+            placeholder="Search mobile or username"
+            allowClear
+            enterButton="Search"
+            onChange={(event) => setMobileSearch(event.target.value)}
+            onSearch={(value) => {
+              setAppliedMobileSearch(String(value || "").trim());
+              setPage(1);
+            }}
+          />
+        </div>
 
-      <Dialog open={tempDialogOpen} onClose={() => setTempDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Temp Approve (Hours)</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <CmInput
-            label="Valid for (hours)"
-            type="number"
-            value={tempHours}
-            onChange={setTempHours}
+        <Table<AssociationRow>
+          rowKey="id"
+          columns={columns}
+          dataSource={rows}
+          loading={loading}
+          scroll={{ x: 1180 }}
+          locale={{
+            emptyText: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  isSuper && !effectiveOrgId
+                    ? "Select an organisation to review association requests."
+                    : "No association requests match the current filters."
+                }
+              />
+            ),
+          }}
+          pagination={{
+            current: page,
+            pageSize,
+            total: totalRecords,
+            showSizeChanger: true,
+            pageSizeOptions: [20, 50, 100],
+            showTotal: (total) => `${total} requests`,
+            onChange: (nextPage, nextPageSize) => {
+              setPage(nextPageSize !== pageSize ? 1 : nextPage);
+              setPageSize(nextPageSize);
+            },
+          }}
+        />
+      </CmSectionCard>
+
+      <Modal
+        rootClassName="cm-associations-modal"
+        title="Approve mandi association"
+        open={approveOpen}
+        onCancel={() => setApproveOpen(false)}
+        okText="Approve"
+        confirmLoading={saving}
+        onOk={async () => {
+          if (!selectedRow) return;
+          await updateRequest(selectedRow, { status: "APPROVED" });
+          setApproveOpen(false);
+        }}
+      >
+        <p>
+          Approve <strong>{displayUser(selectedRow)}</strong> to operate in <strong>{displayMandi(selectedRow)}</strong>?
+        </p>
+      </Modal>
+
+      <Modal
+        rootClassName="cm-associations-modal"
+        title="Temporary approval"
+        open={tempOpen}
+        onCancel={() => setTempOpen(false)}
+        okText="Approve temporarily"
+        confirmLoading={saving}
+        onOk={async () => {
+          if (!selectedRow) return;
+          const hours = Math.max(1, Math.min(72, Number(tempHours) || 8));
+          await updateRequest(selectedRow, {
+            status: "TEMP_APPROVED",
+            status_note: `TEMP_APPROVED_${hours}H`,
+            expires_in_hours: hours,
+          });
+          setTempOpen(false);
+        }}
+      >
+        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+          <Text>Temporary access duration</Text>
+          <InputNumber
             min={1}
             max={72}
+            value={tempHours}
+            onChange={(value) => setTempHours(Number(value || 8))}
+            addonAfter="hours"
+            style={{ width: "100%" }}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTempDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              if (!selectedRow) return;
-              const hours = Number(tempHours) || 8;
-              handleUpdate(selectedRow, {
-                status: "TEMP_APPROVED",
-                status_note: `TEMP_APPROVED_${hours}H`,
-                expires_in_hours: hours,
-              });
-              setTempDialogOpen(false);
-            }}
-          >
-            Approve
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <Text type="secondary">Allowed range: 1–72 hours.</Text>
+        </Space>
+      </Modal>
 
-      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Reject Association</DialogTitle>
-        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-          <CmInput
-            label="Reason"
+      <Modal
+        rootClassName="cm-associations-modal"
+        title="Reject mandi association"
+        open={rejectOpen}
+        onCancel={() => setRejectOpen(false)}
+        okText="Reject request"
+        okButtonProps={{ danger: true }}
+        confirmLoading={saving}
+        onOk={async () => {
+          if (!selectedRow) return;
+          await updateRequest(selectedRow, {
+            status: "REJECTED",
+            decision_note: rejectReason.trim() || null,
+          });
+          setRejectOpen(false);
+        }}
+      >
+        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+          <Text>Reason</Text>
+          <TextArea
+            rows={4}
+            maxLength={500}
+            showCount
             value={rejectReason}
-            onChange={setRejectReason}
-            multiline
-            rows={3}
+            placeholder="Enter a clear rejection reason"
+            onChange={(event) => setRejectReason(event.target.value)}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => {
-              if (!selectedRow) return;
-              handleUpdate(selectedRow, {
-                status: "REJECTED",
-                decision_note: rejectReason.trim() || null,
-              });
-              setRejectDialogOpen(false);
-            }}
-          >
-            Reject
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Space>
+      </Modal>
     </PageContainer>
   );
 };

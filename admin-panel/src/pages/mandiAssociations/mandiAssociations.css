@@ -1,0 +1,156 @@
+.cm-associations-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-associations-scope-card .ant-card-body,
+.cm-associations-list-card .ant-card-body {
+  padding: 12px;
+}
+
+.cm-associations-scope-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.cm-associations-kicker {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cm-color-primary, #55632c);
+}
+
+.cm-associations-scope-title {
+  margin-bottom: 2px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cm-color-text-primary, #1f2933);
+}
+
+.cm-associations-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cm-associations-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(135px, 0.65fr) minmax(155px, 0.72fr) minmax(260px, 1.35fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cm-associations-primary-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/*
+ * CiberMandi has a legacy global native-input rule. Ant Select renders an
+ * internal input for focus/search, so let the outer Select own the single
+ * visible border and keep the selector/internal input visually neutral.
+ */
+.cm-associations-select.ant-select {
+  min-height: 38px;
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 10px;
+  background: var(--cm-color-surface, #ffffff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cm-associations-select.ant-select:hover {
+  border-color: var(--cm-color-primary, #55632c);
+}
+
+.cm-associations-select.ant-select-focused {
+  border-color: var(--cm-color-primary, #55632c);
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.1);
+}
+
+.cm-associations-select.ant-select .ant-select-selector {
+  min-height: 36px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cm-associations-select.ant-select .ant-select-selection-search,
+.cm-associations-select.ant-select .ant-select-selection-search-input,
+.cm-associations-select.ant-select input {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+.cm-associations-filter {
+  width: 100%;
+}
+
+.cm-associations-search .ant-input,
+.cm-associations-search .ant-input-affix-wrapper {
+  box-shadow: none;
+}
+
+.cm-associations-list-card .ant-table-wrapper .ant-table {
+  border-radius: 12px;
+}
+
+.cm-associations-list-card .ant-table-thead > tr > th {
+  font-weight: 700;
+  color: var(--cm-color-text-primary, #1f2933);
+  background: var(--cm-color-surface-variant, #f4f6ef);
+}
+
+.cm-associations-list-card .ant-table-tbody > tr > td {
+  vertical-align: middle;
+}
+
+.cm-associations-list-card .ant-pagination-options .ant-select {
+  min-height: 30px;
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 8px;
+}
+
+.cm-associations-list-card .ant-pagination-options .ant-select .ant-select-selector,
+.cm-associations-list-card .ant-pagination-options .ant-select input {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-associations-modal .ant-input-number-input,
+.cm-associations-modal textarea.ant-input {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1100px) {
+  .cm-associations-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cm-associations-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .cm-associations-scope-grid,
+  .cm-associations-stats,
+  .cm-associations-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

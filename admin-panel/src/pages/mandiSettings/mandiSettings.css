@@ -1,0 +1,229 @@
+.cm-mandi-settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-mandi-settings-scope-card .ant-card-body,
+.cm-mandi-settings-card .ant-card-body {
+  padding: 14px;
+}
+
+.cm-mandi-settings-scope-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.cm-mandi-settings-kicker {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cm-color-primary, #55632c);
+}
+
+.cm-mandi-settings-scope-title.ant-typography {
+  margin: 0 0 2px !important;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cm-color-text-primary, #1f2933);
+}
+
+.cm-mandi-settings-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cm-mandi-settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-mandi-settings-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.cm-mandi-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cm-mandi-settings-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cm-color-text-primary, #1f2933);
+}
+
+.cm-mandi-settings-field-helper {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cm-mandi-settings-toggle-row,
+.cm-mandi-settings-effective-box {
+  display: flex;
+  min-height: 82px;
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 12px;
+  background: var(--cm-color-surface, #ffffff);
+}
+
+.cm-mandi-settings-toggle-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+}
+
+.cm-mandi-settings-toggle-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cm-mandi-settings-toggle-copy .ant-typography:last-child {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cm-mandi-settings-effective-box {
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 14px;
+  background: var(--cm-color-surface-variant, #f7f8f3);
+}
+
+.cm-mandi-settings-effective-box .ant-typography:last-child {
+  font-size: 11px;
+}
+
+.cm-mandi-settings-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cm-mandi-settings-warning {
+  margin-bottom: 12px;
+}
+
+.cm-mandi-settings-savebar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 28px rgba(36, 44, 27, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.cm-mandi-settings-save-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-mandi-settings-save-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/*
+ * Legacy global native input rules otherwise style the internal rc-select
+ * search/focus input and create a second rounded box. The outer Ant Select
+ * owns the only visible border on this page.
+ */
+.cm-mandi-settings-select.ant-select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--cm-color-border, #dfe4d8);
+  border-radius: 10px;
+  background: var(--cm-color-surface, #ffffff);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cm-mandi-settings-select.ant-select:hover:not(.ant-select-disabled) {
+  border-color: var(--cm-color-primary, #55632c);
+}
+
+.cm-mandi-settings-select.ant-select-focused {
+  border-color: var(--cm-color-primary, #55632c);
+  box-shadow: 0 0 0 2px rgba(85, 99, 44, 0.1);
+}
+
+.cm-mandi-settings-select.ant-select .ant-select-selector {
+  min-height: 36px !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cm-mandi-settings-select.ant-select .ant-select-selection-search,
+.cm-mandi-settings-select.ant-select .ant-select-selection-search-input,
+.cm-mandi-settings-select.ant-select input {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cm-mandi-settings-page .ant-input {
+  min-height: 38px;
+  border-radius: 10px;
+}
+
+.cm-mandi-settings-page .ant-switch.ant-switch-checked {
+  background: var(--cm-color-primary, #55632c);
+}
+
+@media (max-width: 1100px) {
+  .cm-mandi-settings-stats,
+  .cm-mandi-settings-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .cm-mandi-settings-scope-grid,
+  .cm-mandi-settings-stats,
+  .cm-mandi-settings-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-mandi-settings-savebar {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cm-mandi-settings-save-actions {
+    width: 100%;
+  }
+
+  .cm-mandi-settings-save-actions .ant-btn {
+    flex: 1;
+  }
+}

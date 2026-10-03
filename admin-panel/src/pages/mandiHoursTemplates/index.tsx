@@ -652,7 +652,7 @@ export const MandiHoursTemplates: React.FC = () => {
   const allDaysChecked = openDays.length === DAYS.length;
 
   return (
-    <PageContainer title={t("menu.mandiHoursTemplates", { defaultValue: "Mandi Hours Templates" })}>
+    <PageContainer>
       {messageContextHolder}
       <div className="cm-mandi-hours-page">
         <CmPageHeader

@@ -518,7 +518,7 @@ export const MandiCommodityProductsMasters: React.FC = () => {
   const mappingReady = Boolean(selectedMandiId && selectedCommodityId);
 
   return (
-    <PageContainer title="Mandi Commodity Products">
+    <PageContainer>
       {messageContextHolder}
       <div className="cm-mcp-page">
         <CmPageHeader

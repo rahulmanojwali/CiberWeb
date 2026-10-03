@@ -1,0 +1,236 @@
+.cm-notification-templates-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cm-notification-validation-alert {
+  margin: 0;
+}
+
+.cm-notification-stat-row {
+  margin-top: 0 !important;
+}
+
+.cm-notification-catalogue-card .ant-card-body {
+  padding-top: 12px;
+}
+
+.cm-notification-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) minmax(145px, 180px) minmax(140px, 170px) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cm-notification-toolbar .ant-input-search,
+.cm-notification-toolbar .ant-select {
+  width: 100%;
+}
+
+.cm-notification-template-event,
+.cm-notification-template-copy,
+.cm-notification-template-updated {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cm-notification-template-copy .ant-typography,
+.cm-notification-template-updated .ant-typography {
+  margin: 0;
+}
+
+.cm-notification-table .ant-table-cell {
+  vertical-align: middle;
+}
+
+.cm-notification-template-event .ant-typography,
+.cm-notification-template-updated .ant-typography {
+  display: block;
+  max-width: 100%;
+}
+
+.cm-notification-template-event .ant-typography:first-child,
+.cm-notification-template-updated .ant-typography {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cm-notification-table .ant-table-cell {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.cm-notification-template-modal .ant-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cm-notification-editor-form {
+  margin-top: 2px;
+}
+
+.cm-notification-preview-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cm-notification-field-label {
+  font-weight: 600;
+}
+
+.cm-notification-preview-actions {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.cm-notification-preview-output {
+  padding: 14px;
+  border: 1px solid var(--cm-border, #e4e8df);
+  border-radius: 12px;
+  background: var(--cm-surface-soft, #f8faf5);
+}
+
+.cm-notification-preview-output .ant-typography {
+  margin-bottom: 0;
+}
+
+/* The project has global native input styling. Ant Select owns the single
+   visible border; its internal rc-select input must stay visually neutral. */
+.cm-notification-templates-page .ant-select,
+.cm-notification-template-modal .ant-select {
+  border: 1px solid var(--cm-border, #dfe5d9);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.cm-notification-templates-page .ant-select .ant-select-selector,
+.cm-notification-template-modal .ant-select .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.cm-notification-templates-page .ant-select .ant-select-selection-search-input,
+.cm-notification-template-modal .ant-select .ant-select-selection-search-input,
+.cm-notification-templates-page .ant-select input,
+.cm-notification-template-modal .ant-select input {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+.cm-notification-templates-page .ant-pagination .ant-select {
+  border-radius: 8px;
+}
+
+@media (max-width: 1100px) {
+  .cm-notification-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .cm-notification-toolbar,
+  .cm-notification-preview-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-notification-template-modal {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+
+/* Table should sit flush inside the catalogue card. Keep controls and pagination
+   padded, but remove the white vertical gutters beside the scrollable body. */
+.cm-notification-catalogue-card .ant-card-body {
+  padding-inline: 0 !important;
+  overflow: hidden;
+}
+
+.cm-notification-catalogue-card .cm-notification-toolbar {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.cm-notification-table .ant-table-container,
+.cm-notification-table .ant-table-content,
+.cm-notification-table .ant-table-body {
+  border-inline: 0 !important;
+}
+
+.cm-notification-table .ant-table-thead > tr > th:first-child,
+.cm-notification-table .ant-table-tbody > tr > td:first-child {
+  padding-left: 16px;
+}
+
+.cm-notification-table .ant-table-thead > tr > th:last-child,
+.cm-notification-table .ant-table-tbody > tr > td:last-child {
+  padding-right: 16px;
+}
+
+.cm-notification-table .ant-table-pagination.ant-pagination {
+  padding: 0 12px 12px;
+  margin-bottom: 0;
+}
+
+/* Do not allow Ant tags/buttons at the right edge to be visually clipped. */
+.cm-notification-table .ant-table-cell:nth-last-child(3),
+.cm-notification-table .ant-table-cell:nth-last-child(1) {
+  overflow: visible;
+}
+
+.cm-notification-table .ant-tag {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.cm-notification-table .ant-table-cell:last-child .ant-btn {
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+
+/* Status pill must contain the complete icon + label. Global tag/cell rules in
+   the Admin shell can otherwise squeeze the tag so only the icon background
+   remains visible. */
+.cm-notification-status-tag.ant-tag {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: max-content !important;
+  min-width: 66px;
+  max-width: none !important;
+  padding: 3px 9px !important;
+  margin-inline-end: 0 !important;
+  line-height: 18px !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  border-radius: 999px !important;
+}
+
+.cm-notification-status-tag.ant-tag .anticon {
+  flex: 0 0 auto;
+  margin-inline-end: 0 !important;
+}
+
+.cm-notification-table .ant-table-cell.cm-notification-status-cell {
+  min-width: 96px;
+  overflow: visible !important;
+}

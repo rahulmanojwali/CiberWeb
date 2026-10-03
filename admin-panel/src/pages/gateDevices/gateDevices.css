@@ -1,0 +1,24 @@
+.cm-gate-devices-page { display:flex; flex-direction:column; gap:12px; }
+.cm-gd-scope-row,.cm-gd-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.cm-gd-scope-copy { flex:1 1 420px; min-width:260px; }
+.cm-gd-scope-control { width:min(430px,100%); }
+.cm-gd-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.cm-gd-toolbar { margin-bottom:10px; }
+.cm-gd-search { flex:1 1 260px; min-width:220px; }
+.cm-gd-select { min-width:150px; }
+.cm-gd-mandi { min-width:210px; }
+.cm-gd-type { min-width:210px; }
+.cm-gd-hint { margin-bottom:10px; }
+.cm-gd-device { display:flex; flex-direction:column; gap:2px; }
+.cm-gd-device span { color:#7b8374; font-size:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+.cm-gd-status { display:inline-flex!important; align-items:center; gap:4px; min-width:76px; justify-content:center; width:max-content; padding-inline:9px!important; }
+.cm-gd-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 14px; }
+.cm-gd-pairing { display:flex; flex-direction:column; gap:8px; }
+.cm-gd-pair-code { font-size:38px; font-weight:800; letter-spacing:8px; text-align:center; padding:16px; border:1px dashed #89956d; border-radius:14px; background:#f8faf4; }
+
+.cm-gate-devices-page .ant-select,.cm-gd-modal .ant-select { border:1px solid var(--cm-border,#dfe3d7); border-radius:10px; background:#fff; }
+.cm-gate-devices-page .ant-select .ant-select-selector,.cm-gd-modal .ant-select .ant-select-selector { border:0!important; box-shadow:none!important; background:transparent!important; }
+.cm-gate-devices-page .ant-select input,.cm-gd-modal .ant-select input { border:0!important; box-shadow:none!important; outline:0!important; min-height:0!important; padding:0!important; background:transparent!important; }
+
+@media (max-width:950px){ .cm-gd-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width:640px){ .cm-gd-stats{grid-template-columns:1fr;} .cm-gd-form-grid{grid-template-columns:1fr;} .cm-gd-scope-control,.cm-gd-search,.cm-gd-select,.cm-gd-mandi,.cm-gd-type{width:100%;min-width:0;} .cm-gd-toolbar>*{width:100%;} }

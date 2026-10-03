@@ -1,875 +1,375 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Autocomplete,
-  Box,
+  Alert,
   Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  MenuItem,
-  Pagination,
-  Stack,
-  TextField,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
   Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
-import { type GridColDef } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
-import SearchIcon from "@mui/icons-material/Search";
-import StorefrontIcon from "@mui/icons-material/Storefront";
-import SensorsOutlinedIcon from "@mui/icons-material/SensorsOutlined";
-import MeetingRoomOutlinedIcon from "@mui/icons-material/MeetingRoomOutlined";
-import CloseIcon from "@mui/icons-material/Close";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import ToggleOnOutlinedIcon from "@mui/icons-material/ToggleOnOutlined";
-import ToggleOffOutlinedIcon from "@mui/icons-material/ToggleOffOutlined";
+  message,
+} from "antd";
+import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
+import {
+  ApiOutlined,
+  CheckCircleOutlined,
+  EditOutlined,
+  LinkOutlined,
+  MobileOutlined,
+  PlusOutlined,
+  QrcodeOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  StopOutlined,
+} from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 
 import { PageContainer } from "../../components/PageContainer";
-import { ResponsiveDataGrid } from "../../components/ResponsiveDataGrid";
-import { CMActionButton } from "../../components/ui/CMActionButton";
-import { CMDataTable } from "../../components/ui/CMDataTable";
-import { CMFilterCard } from "../../components/ui/CMFilterCard";
-import { FilterInputAdornment } from "../../components/ui/FilterInputAdornment";
-import { CMStatusChip } from "../../components/ui/CMStatusChip";
-
-import {
-  fetchGateDevicesBootstrap,
-  createGateDevice,
-  updateGateDevice,
-  deactivateGateDevice,
-} from "../../services/gateApi";
-
-import { useSnackbar } from "notistack";
+import { CmPageHeader } from "../../design-system/components/CmPageHeader";
+import { CmSectionCard } from "../../design-system/components/CmSectionCard";
+import { CmStatCard } from "../../design-system/components/CmStatCard";
+import { normalizeLanguageCode } from "../../config/languages";
 import { usePermissions } from "../../authz/usePermissions";
-import { ActionGate } from "../../authz/ActionGate";
+import { fetchOrganisations } from "../../services/adminUsersApi";
+import {
+  createGateDevice,
+  deactivateGateDevice,
+  fetchGateDevicesBootstrap,
+  generateGateDevicePairCode,
+  updateGateDevice,
+} from "../../services/gateApi";
 import { formatBusinessDateTime } from "../../utils/formatters";
+import "./gateDevices.css";
 
-type MandiOption = {
-  mandi_id: number;
-  mandi_slug?: string;
-  label?: string;
-  name_i18n?: Record<string, string>;
+const { Text } = Typography;
+type DeviceStatus = "ACTIVE" | "INACTIVE";
+type ConfigField = { key: string; label: string; type: "TEXT" | "NUMBER" | "BOOLEAN"; default?: any };
+type DeviceTypeMaster = {
+  device_type_code: string;
+  label: string;
+  category?: string;
+  icon_key?: string;
+  default_capabilities?: string[];
+  connection_types?: string[];
+  provisioning_methods?: string[];
+  platforms?: string[];
+  config_fields?: ConfigField[];
 };
-
-type GateOption = {
-  _id: string;
-  gate_code: string;
-  name_i18n?: Record<string, string>;
-  is_active?: string;
-};
-
+type MandiOption = { mandi_id: number; label?: string; name_i18n?: Record<string, string>; mandi_slug?: string };
+type GateOption = { _id: string; gate_code: string; name_i18n?: Record<string, string>; is_active?: string };
+type OrgOption = { value: string; label: string };
 type DeviceRow = {
-  id: string;
   _id: string;
-
-  org_id?: string;
-  mandi_id: number;
-  gate_id: string;
-
   device_code: string;
   device_label?: string | null;
-  device_type?: string | null;
-  status?: string | null;
-
-  gate_code?: string | null;
+  device_type: string;
+  mandi_id: number;
+  gate_id: string;
+  gate_code?: string;
+  status: DeviceStatus;
+  platform?: string | null;
+  hardware_id?: string | null;
+  linked_user?: string | null;
   last_seen_on?: string | null;
-  updated_on?: string | null;
+  last_seen_ip?: string | null;
+  meta?: {
+    connection_type?: string | null;
+    capabilities?: string[];
+    manufacturer?: string | null;
+    model?: string | null;
+    serial_number?: string | null;
+    firmware_version?: string | null;
+    provisioning_method?: string | null;
+    config?: Record<string, any>;
+  };
 };
 
-function safeLabel(val: any, fallback = "—") {
-  const s = val === null || val === undefined ? "" : String(val);
-  return s.trim() ? s : fallback;
+function currentUsername(): string | null {
+  try {
+    const raw = localStorage.getItem("cd_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.username || localStorage.getItem("cm_username") || localStorage.getItem("cd_username");
+  } catch {
+    return localStorage.getItem("cm_username") || localStorage.getItem("cd_username");
+  }
 }
-
-function safeType(v: any): string {
-  return String(v || "").split("_").join(" ");
+function normalizeCode(value: string) {
+  return String(value || "").trim().toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_-]/g, "_").replace(/_+/g, "_");
 }
-
-function getUsernameFromStorage(): string | null {
-  if (typeof window === "undefined") return null;
-  return (
-    localStorage.getItem("cm_username") ||
-    localStorage.getItem("cd_username") ||
-    (() => {
-      try {
-        const raw = localStorage.getItem("cd_user");
-        const parsed = raw ? JSON.parse(raw) : null;
-        return parsed?.username || null;
-      } catch {
-        return null;
-      }
-    })()
-  );
-}
-
-function normalizeDeviceCode(input: string) {
-  return (input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_-]/g, "_")
-    .replace(/_+/g, "_");
+function healthOf(row: DeviceRow) {
+  if (row.status === "INACTIVE") return { label: "Disabled", color: "default" as const };
+  if (!row.last_seen_on) return { label: "Unpaired", color: "gold" as const };
+  const age = Date.now() - new Date(row.last_seen_on).getTime();
+  if (!Number.isFinite(age)) return { label: "Unknown", color: "default" as const };
+  if (age <= 10 * 60 * 1000) return { label: "Online", color: "success" as const };
+  if (age <= 60 * 60 * 1000) return { label: "Degraded", color: "warning" as const };
+  return { label: "Offline", color: "error" as const };
 }
 
 const GateDevicesPage: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const { enqueueSnackbar } = useSnackbar();
-  const { authContext, can } = usePermissions();
-
-  const orgId = String((authContext as any)?.org_id || "");
-
-  // RBAC (canonical keys used across this project)
+  const { i18n } = useTranslation();
+  const language = normalizeLanguageCode(i18n.language);
+  const { can, authContext, isSuper } = usePermissions();
   const canCreate = can("gate_devices.create", "CREATE");
   const canEdit = can("gate_devices.edit", "UPDATE");
-  const canToggle = can("gate_devices.deactivate", "DEACTIVATE");
-  const showActions = canEdit || canToggle;
+  const canDeactivate = can("gate_devices.deactivate", "DEACTIVATE");
 
-  // Single query state (primitives only)
-  const [mandiId, setMandiId] = useState<number | "">("");
-  const [gateId, setGateId] = useState<string>("");
-  const [deviceType, setDeviceType] = useState<string>("");
-  const [searchInput, setSearchInput] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [orgOptions, setOrgOptions] = useState<OrgOption[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState(authContext.org_id || "");
+  const scopedOrgId = isSuper ? selectedOrgId : (authContext.org_id || "");
 
-  // Pagination
-  const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
-  const [totalCount, setTotalCount] = useState<number>(0);
-
-  // Bootstrap data
-  const [org, setOrg] = useState<{ org_id?: string; org_code?: string; org_name?: string }>({});
   const [mandis, setMandis] = useState<MandiOption[]>([]);
   const [gates, setGates] = useState<GateOption[]>([]);
-  const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
-  const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [deviceTypes, setDeviceTypes] = useState<DeviceTypeMaster[]>([]);
+  const [rows, setRows] = useState<DeviceRow[]>([]);
+  const [mandiId, setMandiId] = useState<number | undefined>();
+  const [gateId, setGateId] = useState<string | undefined>();
+  const [typeFilter, setTypeFilter] = useState<string | undefined>();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // Explicit refresh trigger (for create/update/deactivate actions)
-  const [refreshTick, setRefreshTick] = useState<number>(0);
-
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [form] = Form.useForm();
+  const [deviceModalOpen, setDeviceModalOpen] = useState(false);
+  const [editing, setEditing] = useState<DeviceRow | null>(null);
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pairing, setPairing] = useState<any>(null);
+  const [pairingLoading, setPairingLoading] = useState(false);
+  const selectedTypeCode = Form.useWatch("device_type", form);
+  const selectedType = useMemo(() => deviceTypes.find((x) => x.device_type_code === selectedTypeCode), [deviceTypes, selectedTypeCode]);
 
-  const [form, setForm] = useState({
-    mandi_id: "" as number | "",
-    gate_id: "" as string,
-    device_code: "" as string,
-    device_label: "" as string,
-    device_type: "" as string,
-    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
-  });
-
-  // Inflight guard (dedupe / mutex)
-  const inflightRef = useRef<Promise<any> | null>(null);
-  const inflightKeyRef = useRef<string>("");
-  const lastCompletedKeyRef = useRef<string>("");
-
-  const selectedMandi = useMemo(() => {
-    if (!mandiId) return null;
-    return mandis.find((m) => String(m.mandi_id) === String(mandiId)) || null;
-  }, [mandis, mandiId]);
-
-  const selectedGate = useMemo(() => {
-    if (!gateId) return null;
-    return gates.find((g) => String(g._id) === String(gateId)) || null;
-  }, [gates, gateId]);
-
-  // Debounce search input
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  // Reset page on filter/search changes
-  useEffect(() => {
-    setPage(1);
-  }, [mandiId, gateId, deviceType, debouncedSearch]);
-
-  // ✅ Single effect that fetches bootstrap (depends on primitives only)
-  useEffect(() => {
-    const username = getUsernameFromStorage();
+    if (!isSuper) return;
+    const username = currentUsername();
     if (!username) return;
+    fetchOrganisations({ username, language }).then((resp: any) => {
+      const list = resp?.response?.data?.organisations || resp?.data?.organisations || [];
+      const opts = (Array.isArray(list) ? list : []).map((o: any) => ({ value: String(o?._id || o?.org_id || ""), label: String(o?.org_name || o?.org_code || o?._id || "Organisation") })).filter((x: OrgOption) => x.value);
+      setOrgOptions(opts);
+      if (!selectedOrgId && opts.length) setSelectedOrgId(opts[0].value);
+    }).catch(() => setOrgOptions([]));
+  }, [isSuper, language, selectedOrgId]);
 
-    const reqKey = JSON.stringify({
-      org_id: orgId,
-      mandi_id: mandiId || "",
-      gate_id: gateId || "",
-      device_type: deviceType || "",
-      search: debouncedSearch || "",
-      page,
-      pageSize,
-    });
-
-    // Dedupe: same inflight request
-    if (inflightRef.current && inflightKeyRef.current === reqKey) return;
-    // Dedupe: same as last completed (prevents StrictMode/prod re-renders)
-    if (lastCompletedKeyRef.current === reqKey) return;
-
+  const load = useCallback(async () => {
+    const username = currentUsername();
+    if (!username || !scopedOrgId) return;
     setLoading(true);
-
-    const p = (async () => {
-      const resp = await fetchGateDevicesBootstrap({
+    try {
+      const resp: any = await fetchGateDevicesBootstrap({
         username,
-        language: "en",
+        language,
         filters: {
-          mandi_id: mandiId ? Number(mandiId) : undefined,
-          gate_id: gateId ? String(gateId) : undefined,
-          device_type: deviceType || undefined,
-          search: debouncedSearch || undefined,
+          org_id: scopedOrgId,
+          mandi_id: mandiId,
+          gate_id: gateId,
+          device_type: typeFilter,
+          search: search.trim() || undefined,
           page,
           pageSize,
         },
       });
-
       if (!resp?.ok) {
-        setDevices([]);
-        setTotalCount(0);
-        enqueueSnackbar(resp?.description || "Failed to load gate devices", { variant: "error" });
-        return;
+        message.error(resp?.description || "Unable to load gate devices.");
+        setRows([]); setTotal(0); return;
       }
+      const data = resp?.data || {};
+      setMandis(Array.isArray(data?.mandis?.items) ? data.mandis.items : []);
+      setGates(Array.isArray(data?.gates?.items) ? data.gates.items : []);
+      setDeviceTypes(Array.isArray(data?.device_types?.items) ? data.device_types.items.map((x: any) => typeof x === "string" ? { device_type_code: x, label: x.split("_").join(" ") } : x) : []);
+      setRows(Array.isArray(data?.devices?.items) ? data.devices.items : []);
+      setTotal(Number(data?.devices?.meta?.totalCount || 0));
+    } finally { setLoading(false); }
+  }, [gateId, language, mandiId, page, pageSize, scopedOrgId, search, typeFilter]);
 
-      const data = resp.data || {};
-      setOrg(data.org || {});
-      setMandis(data.mandis?.items || []);
-      setGates(data.gates?.items || []);
-      setDeviceTypes(data.device_types?.items || []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setGateId(undefined); setPage(1); }, [mandiId]);
 
-      const list: any[] = data.devices?.items || [];
-      const meta = data.devices?.meta || {};
-      setDevices(
-        list.map((d) => ({
-          ...d,
-          id: String(d._id || d.device_code),
-        })),
-      );
-      setTotalCount(Number(meta.totalCount || 0));
-    })();
+  const mandiOptions = useMemo(() => mandis.map((m) => ({ value: Number(m.mandi_id), label: m.label || m.name_i18n?.[language] || m.name_i18n?.en || m.mandi_slug || String(m.mandi_id) })), [language, mandis]);
+  const gateOptions = useMemo(() => gates.map((g) => ({ value: String(g._id), label: `${g.gate_code}${g.name_i18n?.[language] || g.name_i18n?.en ? ` · ${g.name_i18n?.[language] || g.name_i18n?.en}` : ""}` })), [gates, language]);
+  const typeOptions = useMemo(() => deviceTypes.map((d) => ({ value: d.device_type_code, label: d.label || d.device_type_code })), [deviceTypes]);
+  const typeLookup = useMemo(() => new Map(deviceTypes.map((d) => [d.device_type_code, d])), [deviceTypes]);
 
-    inflightRef.current = p;
-    inflightKeyRef.current = reqKey;
-    lastCompletedKeyRef.current = ""; // clear until this finishes
-
-    (async () => {
-      try {
-        await p;
-        lastCompletedKeyRef.current = reqKey;
-      } finally {
-        inflightRef.current = null;
-        inflightKeyRef.current = "";
-        setLoading(false);
-      }
-    })();
-  }, [orgId, mandiId, gateId, deviceType, debouncedSearch, page, pageSize, refreshTick, enqueueSnackbar]);
-
-  // Manual refresh helper for actions (does not affect effect deps)
-  const refresh = useCallback(() => {
-    lastCompletedKeyRef.current = "";
-    setRefreshTick((t) => t + 1);
-  }, []);
-
-  // UX: when mandi changes, clear gate; gates come back from bootstrap for mandi
-  const onSelectMandi = (m: MandiOption | null) => {
-    setMandiId(m?.mandi_id ?? "");
-    setGateId("");
-  };
+  const stats = useMemo(() => {
+    const active = rows.filter((x) => x.status === "ACTIVE").length;
+    const online = rows.filter((x) => healthOf(x).label === "Online").length;
+    const unpaired = rows.filter((x) => healthOf(x).label === "Unpaired").length;
+    return { visible: rows.length, active, online, unpaired };
+  }, [rows]);
 
   const openAdd = () => {
-    setDialogMode("add");
-    setEditingId(null);
-    setForm({
-      mandi_id: mandiId || "",
-      gate_id: gateId || "",
-      device_code: "",
-      device_label: "",
-      device_type: deviceType || "GPS_PHONE",
-      status: "ACTIVE",
-    });
-    setDialogOpen(true);
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ mandi_id: mandiId, gate_id: gateId, status: "ACTIVE" });
+    setDeviceModalOpen(true);
   };
-
   const openEdit = (row: DeviceRow) => {
-    setDialogMode("edit");
-    setEditingId(row._id);
-    setForm({
+    setEditing(row);
+    form.setFieldsValue({
       mandi_id: row.mandi_id,
       gate_id: row.gate_id,
       device_code: row.device_code,
-      device_label: row.device_label ? String(row.device_label) : "",
-      device_type: row.device_type ? String(row.device_type) : "",
-      status: (String(row.status || "ACTIVE").toUpperCase() === "INACTIVE" ? "INACTIVE" : "ACTIVE") as any,
+      device_label: row.device_label,
+      device_type: row.device_type,
+      status: row.status,
+      platform: row.platform,
+      hardware_id: row.hardware_id,
+      linked_user: row.linked_user,
+      connection_type: row.meta?.connection_type,
+      capabilities: row.meta?.capabilities || [],
+      manufacturer: row.meta?.manufacturer,
+      model: row.meta?.model,
+      serial_number: row.meta?.serial_number,
+      firmware_version: row.meta?.firmware_version,
+      provisioning_method: row.meta?.provisioning_method,
+      ...(row.meta?.config || {}),
     });
-    setDialogOpen(true);
+    setDeviceModalOpen(true);
+  };
+
+  const handleTypeChange = (code: string) => {
+    const master = typeLookup.get(code);
+    if (!master) return;
+    const configDefaults: Record<string, any> = {};
+    (master.config_fields || []).forEach((f) => { if (f.default !== undefined) configDefaults[f.key] = f.default; });
+    form.setFieldsValue({ capabilities: master.default_capabilities || [], connection_type: master.connection_types?.[0], provisioning_method: master.provisioning_methods?.[0], platform: master.platforms?.[0], ...configDefaults });
   };
 
   const save = async () => {
-    const username = getUsernameFromStorage();
-    const orgId = (authContext as any)?.org_id;
-
-    if (!username) {
-      enqueueSnackbar("Username missing", { variant: "error" });
-      return;
-    }
-    if (!orgId) {
-      enqueueSnackbar("Organisation context missing", { variant: "error" });
-      return;
-    }
-
-    const device_code = normalizeDeviceCode(form.device_code);
-    const payloadBase: Record<string, any> = {
-      org_id: String(orgId),
-      mandi_id: Number(form.mandi_id),
-      gate_id: String(form.gate_id),
-      device_code,
-      device_label: form.device_label?.trim() ? form.device_label.trim() : undefined,
-      device_type: form.device_type,
-      status: form.status,
+    const username = currentUsername();
+    if (!username || !scopedOrgId) return;
+    const values = await form.validateFields();
+    const cfg: Record<string, any> = {};
+    (selectedType?.config_fields || []).forEach((f) => { if (values[f.key] !== undefined) cfg[f.key] = values[f.key]; });
+    const payload: Record<string, any> = {
+      org_id: scopedOrgId,
+      mandi_id: Number(values.mandi_id),
+      gate_id: String(values.gate_id),
+      device_code: editing ? editing.device_code : normalizeCode(values.device_code),
+      device_label: values.device_label || undefined,
+      device_type: values.device_type,
+      status: values.status,
+      platform: values.platform || undefined,
+      hardware_id: values.hardware_id || undefined,
+      linked_user: values.linked_user || undefined,
+      meta: {
+        connection_type: values.connection_type || null,
+        capabilities: values.capabilities || [],
+        manufacturer: values.manufacturer || null,
+        model: values.model || null,
+        serial_number: values.serial_number || null,
+        firmware_version: values.firmware_version || null,
+        provisioning_method: values.provisioning_method || null,
+        config: cfg,
+      },
     };
-
     setSaving(true);
     try {
-      if (dialogMode === "add") {
-        const resp = await createGateDevice({
-          username,
-          language: "en",
-          payload: payloadBase,
-        });
-        if (!resp?.ok) {
-          enqueueSnackbar(resp?.description || "Failed to create device", { variant: "error" });
-          return;
-        }
-        enqueueSnackbar(resp.description || "Device created", { variant: "success" });
-      } else {
-        const resp = await updateGateDevice({
-          username,
-          language: "en",
-          payload: {
-            org_id: String(orgId),
-            mandi_id: Number(form.mandi_id),
-            device_code,
-            device_label: payloadBase.device_label,
-            device_type: payloadBase.device_type,
-            status: payloadBase.status,
-          },
-        });
-        if (!resp?.ok) {
-          enqueueSnackbar(resp?.description || "Failed to update device", { variant: "error" });
-          return;
-        }
-        enqueueSnackbar(resp.description || "Device updated", { variant: "success" });
-      }
-
-      setDialogOpen(false);
-      refresh();
-    } catch (e: any) {
-      enqueueSnackbar(e?.message || "Save failed", { variant: "error" });
-    } finally {
-      setSaving(false);
-    }
+      const resp: any = editing ? await updateGateDevice({ username, language, payload }) : await createGateDevice({ username, language, payload });
+      if (!resp?.ok) throw new Error(resp?.description || "Unable to save device.");
+      message.success(editing ? "Device updated." : "Device registered.");
+      setDeviceModalOpen(false); await load();
+    } catch (e: any) { message.error(e?.message || "Unable to save device."); }
+    finally { setSaving(false); }
   };
 
-  const toggleActive = async (row: DeviceRow) => {
-    const username = getUsernameFromStorage();
-    const orgId = (authContext as any)?.org_id;
+  const toggleStatus = async (row: DeviceRow) => {
+    const username = currentUsername(); if (!username || !scopedOrgId) return;
+    const next = row.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const resp: any = next === "INACTIVE"
+      ? await deactivateGateDevice({ username, language, device_code: row.device_code, org_id: scopedOrgId, mandi_id: row.mandi_id })
+      : await updateGateDevice({ username, language, payload: { org_id: scopedOrgId, mandi_id: row.mandi_id, device_code: row.device_code, status: "ACTIVE" } });
+    if (!resp?.ok) return message.error(resp?.description || "Unable to update device status.");
+    message.success(next === "ACTIVE" ? "Device activated." : "Device disabled."); await load();
+  };
 
-    if (!username) {
-      enqueueSnackbar("Username missing", { variant: "error" });
-      return;
-    }
-    if (!orgId) {
-      enqueueSnackbar("Organisation context missing", { variant: "error" });
-      return;
-    }
-
-    const isActive = String(row.status || "").toUpperCase() === "ACTIVE";
-
+  const pair = async (row: DeviceRow) => {
+    const username = currentUsername(); if (!username) return;
+    setPairingLoading(true);
     try {
-      if (isActive) {
-        const resp = await deactivateGateDevice({
-          username,
-          language: "en",
-          device_code: row.device_code,
-          org_id: String(orgId),
-          mandi_id: Number(row.mandi_id),
-        });
-        if (!resp?.ok) {
-          enqueueSnackbar(resp?.description || "Failed to deactivate", { variant: "error" });
-          return;
-        }
-        enqueueSnackbar(resp.description || "Device deactivated", { variant: "success" });
-      } else {
-        const resp = await updateGateDevice({
-          username,
-          language: "en",
-          payload: {
-            org_id: String(orgId),
-            mandi_id: Number(row.mandi_id),
-            device_code: row.device_code,
-            status: "ACTIVE",
-          },
-        });
-        if (!resp?.ok) {
-          enqueueSnackbar(resp?.description || "Failed to activate", { variant: "error" });
-          return;
-        }
-        enqueueSnackbar(resp.description || "Device activated", { variant: "success" });
-      }
-
-      refresh();
-    } catch (e: any) {
-      enqueueSnackbar(e?.message || "Failed to update status", { variant: "error" });
-    }
+      const resp: any = await generateGateDevicePairCode({ username, language, device_id: row._id, ttl_minutes: 10 });
+      if (!resp?.ok) throw new Error(resp?.description || "Unable to create pairing code.");
+      setPairing({ ...resp.data, label: row.device_label || row.device_code });
+    } catch (e: any) { message.error(e?.message || "Unable to create pairing code."); }
+    finally { setPairingLoading(false); }
   };
 
-  const columns = useMemo<GridColDef<DeviceRow>[]>(() => {
-    const cols: GridColDef<DeviceRow>[] = [
-      { field: "device_code", headerName: "Device Code", width: 240 },
-      {
-        field: "device_label",
-        headerName: "Label",
-        width: 260,
-        renderCell: (params) => safeLabel((params.row as any)?.device_label),
-      },
-      {
-        field: "device_type",
-        headerName: "Type",
-        width: 180,
-        renderCell: (params) => safeLabel(safeType((params.row as any)?.device_type)),
-      },
-      {
-        field: "gate_code",
-        headerName: "Gate",
-        width: 140,
-        renderCell: (params) => safeLabel((params.row as any)?.gate_code),
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        width: 140,
-        renderCell: (params) => {
-          const status = safeLabel((params.row as any)?.status, "UNKNOWN").toUpperCase();
-          return (
-            <CMStatusChip
-              label={status}
-              tone={status === "ACTIVE" ? "success" : status === "INACTIVE" ? "warning" : "neutral"}
-            />
-          );
-        },
-      },
-      {
-        field: "last_seen_on",
-        headerName: "Last Seen",
-        width: 200,
-        renderCell: (params) => {
-          const v = (params.row as any)?.last_seen_on;
-          return formatBusinessDateTime(v);
-        },
-      },
-    ];
+  const columns: ColumnsType<DeviceRow> = [
+    { title: "Device", key: "device", width: 240, render: (_, row) => <div className="cm-gd-device"><strong>{row.device_label || row.device_code}</strong><span>{row.device_code}</span></div> },
+    { title: "Type", dataIndex: "device_type", width: 190, render: (v) => <Tag icon={<ApiOutlined />}>{typeLookup.get(String(v))?.label || String(v).split("_").join(" ")}</Tag> },
+    { title: "Gate", dataIndex: "gate_code", width: 120, render: (v) => v || "—" },
+    { title: "Connection", key: "connection", width: 150, render: (_, row) => row.meta?.connection_type ? <Tag>{row.meta.connection_type}</Tag> : "—" },
+    { title: "Capabilities", key: "caps", width: 250, render: (_, row) => <Space size={[4, 4]} wrap>{(row.meta?.capabilities || []).slice(0, 3).map((x) => <Tag key={x}>{x}</Tag>)}{(row.meta?.capabilities?.length || 0) > 3 && <Tag>+{(row.meta?.capabilities?.length || 0) - 3}</Tag>}</Space> },
+    { title: "Health", key: "health", width: 115, render: (_, row) => { const h = healthOf(row); return <Tag color={h.color}>{h.label}</Tag>; } },
+    { title: "Last seen", dataIndex: "last_seen_on", width: 170, render: (v) => v ? formatBusinessDateTime(v) : "Never" },
+    { title: "Status", dataIndex: "status", width: 110, render: (v) => v === "ACTIVE" ? <Tag className="cm-gd-status" color="success" icon={<CheckCircleOutlined />}>Active</Tag> : <Tag className="cm-gd-status" icon={<StopOutlined />}>Inactive</Tag> },
+    { title: "Actions", key: "actions", width: 130, align: "right", render: (_, row) => <Space size={2}>{canEdit && <Tooltip title="Pair / provision"><Button type="text" icon={<QrcodeOutlined />} loading={pairingLoading} onClick={() => pair(row)} /></Tooltip>}{canEdit && <Tooltip title="Edit"><Button type="text" icon={<EditOutlined />} onClick={() => openEdit(row)} /></Tooltip>}{canDeactivate && <Tooltip title={row.status === "ACTIVE" ? "Disable" : "Activate"}><Button type="text" danger={row.status === "ACTIVE"} icon={row.status === "ACTIVE" ? <StopOutlined /> : <CheckCircleOutlined />} onClick={() => toggleStatus(row)} /></Tooltip>}</Space> },
+  ];
 
-    // Inline actions (same style as Admin Users)
-    if (showActions) {
-      cols.push({
-        field: "actions",
-        headerName: "",
-        width: 110,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => {
-          const row = params.row as any as DeviceRow;
-          const isActive = String(row.status || "").toUpperCase() === "ACTIVE";
+  const pagination: TablePaginationConfig = { current: page, pageSize, total, showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100], showTotal: (n) => `${n} devices`, onChange: (p, ps) => { setPage(p); setPageSize(ps); } };
+  const orgLabel = isSuper ? (orgOptions.find((x) => x.value === selectedOrgId)?.label || "Select organisation") : (authContext.org_code || "Organisation");
 
-          return (
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <ActionGate resourceKey="gate_devices.edit" action="UPDATE" record={row}>
-                <Tooltip title="Edit">
-                  <IconButton size="small" onClick={() => openEdit(row)}>
-                    <EditOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </ActionGate>
+  return <PageContainer className="cm-gate-devices-page">
+    <CmPageHeader eyebrow="GATE & YARD" title="Gate Devices" subtitle="Register, pair and configure mobile, scanner, camera, weighing, access-control and IoT devices by capability." actions={<Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>} />
 
-              <ActionGate resourceKey="gate_devices.deactivate" action="DEACTIVATE" record={row}>
-                <Tooltip title={isActive ? "Deactivate" : "Activate"}>
-                  <IconButton size="small" onClick={() => toggleActive(row)}>
-                    {isActive ? <ToggleOffOutlinedIcon fontSize="small" /> : <ToggleOnOutlinedIcon fontSize="small" />}
-                  </IconButton>
-                </Tooltip>
-              </ActionGate>
-            </Stack>
-          );
-        },
-      });
-    }
+    <CmSectionCard compact>
+      <div className="cm-gd-scope-row"><div className="cm-gd-scope-copy"><Text type="secondary">WORKING SCOPE</Text><div><strong>{orgLabel}</strong></div><Text type="secondary">Device inventory is organisation-owned and assigned to authorised mandis and gates.</Text></div>{isSuper ? <Select className="cm-gd-scope-control" value={selectedOrgId || undefined} options={orgOptions} placeholder="Select organisation" showSearch optionFilterProp="label" onChange={(v) => { setSelectedOrgId(v); setMandiId(undefined); setGateId(undefined); }} /> : <Alert className="cm-gd-scope-control" type="info" showIcon message="Organisation scope is fixed by your signed-in role." />}</div>
+    </CmSectionCard>
 
-    return cols;
-  }, [showActions]);
+    <div className="cm-gd-stats">
+      <CmStatCard label="Visible devices" value={stats.visible} icon={<ApiOutlined />} helper="Current filtered page" />
+      <CmStatCard label="Active" value={stats.active} icon={<SafetyCertificateOutlined />} helper="Enabled for operations" />
+      <CmStatCard label="Online" value={stats.online} icon={<LinkOutlined />} helper="Seen in last 10 minutes" />
+      <CmStatCard label="Unpaired" value={stats.unpaired} icon={<MobileOutlined />} helper="Active but never seen" tone="amber" />
+    </div>
 
-  const selectedOrgLabel =
-    org?.org_name || org?.org_code || (authContext as any)?.org_name || (authContext as any)?.org_code;
+    <CmSectionCard compact className="cm-gd-table-card">
+      <div className="cm-gd-toolbar">
+        <Select className="cm-gd-select cm-gd-mandi" value={mandiId} placeholder="Select mandi" allowClear options={mandiOptions} showSearch optionFilterProp="label" onChange={(v) => setMandiId(v)} />
+        <Select className="cm-gd-select" value={gateId} placeholder="All gates" allowClear disabled={!mandiId} options={gateOptions} onChange={(v) => { setGateId(v); setPage(1); }} />
+        <Select className="cm-gd-select cm-gd-type" value={typeFilter} placeholder="All device types" allowClear options={typeOptions} showSearch optionFilterProp="label" onChange={(v) => { setTypeFilter(v); setPage(1); }} />
+        <Input.Search className="cm-gd-search" allowClear placeholder="Search code, label, hardware or user" value={search} onChange={(e) => setSearch(e.target.value)} onSearch={() => { setPage(1); load(); }} />
+        {canCreate && <Button type="primary" icon={<PlusOutlined />} disabled={!mandiId || !gateId} onClick={openAdd}>Register device</Button>}
+      </div>
+      {!mandiId && <Alert type="info" showIcon message="Select a mandi to load its gates and registered devices." className="cm-gd-hint" />}
+      <Table<DeviceRow> rowKey={(r) => r._id} columns={columns} dataSource={rows} loading={loading} pagination={pagination} scroll={{ x: 1450 }} locale={{ emptyText: mandiId ? "No devices found for this scope." : "Select a mandi to begin." }} />
+    </CmSectionCard>
 
-  const showSelectHint = !mandiId || !gateId;
+    <Modal className="cm-gd-modal" width={820} open={deviceModalOpen} onCancel={() => setDeviceModalOpen(false)} onOk={save} confirmLoading={saving} okText={editing ? "Save changes" : "Register device"} title={editing ? `Edit ${editing.device_code}` : "Register gate device"} destroyOnHidden>
+      <Form form={form} layout="vertical">
+        <div className="cm-gd-form-grid">
+          <Form.Item name="mandi_id" label="Mandi" rules={[{ required: true }]}><Select options={mandiOptions} disabled={!!editing} /></Form.Item>
+          <Form.Item name="gate_id" label="Gate" rules={[{ required: true }]}><Select options={gateOptions} disabled={!!editing} /></Form.Item>
+          <Form.Item name="device_code" label="Device code" rules={[{ required: true }]}><Input disabled={!!editing} placeholder="CM-G1-DEVICE-01" /></Form.Item>
+          <Form.Item name="device_label" label="Display label"><Input placeholder="Inbound rugged phone" /></Form.Item>
+          <Form.Item name="device_type" label="Device type" rules={[{ required: true }]}><Select options={typeOptions} showSearch optionFilterProp="label" onChange={handleTypeChange} /></Form.Item>
+          <Form.Item name="status" label="Status" initialValue="ACTIVE"><Select options={[{value:"ACTIVE",label:"Active"},{value:"INACTIVE",label:"Inactive"}]} /></Form.Item>
+          <Form.Item name="connection_type" label="Connection type"><Select allowClear options={(selectedType?.connection_types || []).map((x) => ({value:x,label:x.split("_").join(" ")}))} /></Form.Item>
+          <Form.Item name="provisioning_method" label="Provisioning"><Select allowClear options={(selectedType?.provisioning_methods || []).map((x) => ({value:x,label:x.split("_").join(" ")}))} /></Form.Item>
+          <Form.Item name="platform" label="Platform"><Select allowClear options={(selectedType?.platforms || ["ANDROID","LINUX","WINDOWS","EMBEDDED"]).map((x) => ({value:x,label:x}))} /></Form.Item>
+          <Form.Item name="hardware_id" label="Hardware / device ID"><Input placeholder="Serial, Android ID or controller ID" /></Form.Item>
+          <Form.Item name="manufacturer" label="Manufacturer"><Input /></Form.Item>
+          <Form.Item name="model" label="Model"><Input /></Form.Item>
+          <Form.Item name="serial_number" label="Serial number"><Input /></Form.Item>
+          <Form.Item name="firmware_version" label="Firmware / app version"><Input /></Form.Item>
+          <Form.Item name="linked_user" label="Primary operator"><Input placeholder="Optional admin/operator username" /></Form.Item>
+        </div>
+        <Form.Item name="capabilities" label="Capabilities"><Select mode="tags" tokenSeparators={[","]} options={(selectedType?.default_capabilities || []).map((x) => ({value:x,label:x.split("_").join(" ")}))} /></Form.Item>
+        {!!selectedType?.config_fields?.length && <CmSectionCard compact title="Device configuration" subtitle="Fields are driven by the selected device-type master."><div className="cm-gd-form-grid">{selectedType.config_fields.map((f) => <Form.Item key={f.key} name={f.key} label={f.label} initialValue={f.default}>{f.type === "NUMBER" ? <InputNumber style={{width:"100%"}} /> : f.type === "BOOLEAN" ? <Switch /> : <Input />}</Form.Item>)}</div></CmSectionCard>}
+      </Form>
+    </Modal>
 
-  return (
-    <PageContainer>
-      <Stack spacing={1} mb={2}>
-        <Typography variant="h5">Gate Devices</Typography>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          {selectedOrgLabel ? <Chip size="small" label={`Org: ${selectedOrgLabel}`} /> : null}
-          <Typography variant="body2" color="text.secondary">
-            Configure devices for gate operations
-          </Typography>
-        </Stack>
-      </Stack>
-
-      <CMFilterCard
-        className="cm-card"
-        actions={null}
-      >
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "minmax(200px, 260px) minmax(170px, 220px) minmax(170px, 220px) minmax(220px, 1fr) 150px" },
-            gap: 1.5,
-            alignItems: "center",
-          }}
-        >
-            <Autocomplete
-              className="cm-filter-field"
-              loading={loading}
-              options={mandis}
-              value={selectedMandi}
-              onChange={(_, value) => onSelectMandi(value)}
-              getOptionLabel={(o) => o?.name_i18n?.en || o?.label || o?.mandi_slug || String(o?.mandi_id || "")}
-              isOptionEqualToValue={(a, b) => String(a?.mandi_id) === String(b?.mandi_id)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Mandi"
-                  size="small"
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: (
-                      <>
-                        <FilterInputAdornment icon={StorefrontIcon} />
-                        {params.InputProps.startAdornment}
-                      </>
-                    ),
-                    endAdornment: (
-                      <>
-                        {loading ? <CircularProgress color="inherit" size={16} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-            />
-
-            <TextField
-              select
-              className="cm-filter-field"
-              label="Gate"
-              size="small"
-              value={gateId}
-              onChange={(e) => setGateId(e.target.value)}
-              disabled={!mandiId}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={MeetingRoomOutlinedIcon} />,
-              }}
-            >
-              <option value="" />
-              {gates.map((g) => (
-                <option key={g._id} value={g._id}>
-                  {g.gate_code}
-                </option>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              className="cm-filter-field"
-              label="Device Type"
-              size="small"
-              value={deviceType}
-              onChange={(e) => setDeviceType(e.target.value)}
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={SensorsOutlinedIcon} />,
-              }}
-            >
-              <option value="" />
-              {deviceTypes.map((t) => (
-                <option key={t} value={t}>
-                  {safeType(t)}
-                </option>
-              ))}
-            </TextField>
-
-            <TextField
-              className="cm-filter-field"
-              label="Search"
-              size="small"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Device code, label..."
-              InputProps={{
-                startAdornment: <FilterInputAdornment icon={SearchIcon} />,
-              }}
-            />
-
-            <ActionGate resourceKey="gate_devices.create" action="CREATE">
-              <CMActionButton
-                fullWidth
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={openAdd}
-                sx={{ width: "100%", minWidth: 130 }}
-              >
-                Add Device
-              </CMActionButton>
-            </ActionGate>
-        </Box>
-      </CMFilterCard>
-
-      <Card sx={{ transition: "box-shadow 160ms ease", "&:hover": { boxShadow: "var(--cm-shadow-md)" } }}>
-        <CardContent>
-          {showSelectHint ? (
-            <Typography variant="body2" color="text.secondary">
-              Select <b>Mandi</b> and <b>Gate</b> to view devices.
-            </Typography>
-          ) : null}
-
-          <Divider sx={{ my: 1 }} />
-
-          {isMobile ? (
-            <Stack spacing={1}>
-              {devices.map((r) => {
-                const isActive = String(r.status || "").toUpperCase() === "ACTIVE";
-                return (
-                  <Card key={r.id} variant="outlined">
-                    <CardContent sx={{ pb: 1.5 }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                        <Box>
-                          <Typography variant="subtitle2">{r.device_code}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {safeLabel(r.device_label)}
-                          </Typography>
-                        </Box>
-
-                        {showActions ? (
-                          <Stack direction="row" spacing={0.5} alignItems="center">
-                            <ActionGate resourceKey="gate_devices.edit" action="UPDATE" record={r}>
-                              <Tooltip title="Edit">
-                                <IconButton size="small" onClick={() => openEdit(r)}>
-                                  <EditOutlinedIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </ActionGate>
-
-                            <ActionGate resourceKey="gate_devices.deactivate" action="DEACTIVATE" record={r}>
-                              <Tooltip title={isActive ? "Deactivate" : "Activate"}>
-                                <IconButton size="small" onClick={() => toggleActive(r)}>
-                                  {isActive ? (
-                                    <ToggleOffOutlinedIcon fontSize="small" />
-                                  ) : (
-                                    <ToggleOnOutlinedIcon fontSize="small" />
-                                  )}
-                                </IconButton>
-                              </Tooltip>
-                            </ActionGate>
-                          </Stack>
-                        ) : null}
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
-                        <CMStatusChip label={`Type: ${safeLabel(safeType(r.device_type))}`} tone="neutral" />
-                        <CMStatusChip label={`Gate: ${safeLabel(r.gate_code)}`} tone="info" />
-                        <CMStatusChip
-                          label={`Status: ${safeLabel(r.status)}`}
-                          tone={String(r.status || "").toUpperCase() === "ACTIVE" ? "success" : "warning"}
-                        />
-                      </Stack>
-
-                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                        Last Seen: {formatBusinessDateTime(r.last_seen_on)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-
-              {totalCount > pageSize ? (
-                <Stack direction="row" justifyContent="center" mt={1}>
-                  <Pagination
-                    count={Math.max(1, Math.ceil(totalCount / pageSize))}
-                    page={page}
-                    onChange={(_, p) => setPage(p)}
-                    size="small"
-                  />
-                </Stack>
-              ) : null}
-            </Stack>
-          ) : (
-            <Box sx={{ width: "100%", overflowX: "auto" }}>
-              <CMDataTable
-              sx={{
-    "& .MuiDataGrid-cell": { display: "flex", alignItems: "center" },
-    "& .MuiDataGrid-columnHeaderTitleContainer": { alignItems: "center" },
-    "& .MuiDataGrid-columnHeaders": { backgroundColor: "#ede4d6", color: "#453f34" },
-    "& .MuiDataGrid-footerContainer": { borderTop: "1px solid var(--cm-border)", backgroundColor: "var(--cm-surface-muted)" },
-  }}
-                columns={columns}
-                rows={devices}
-                loading={loading}
-                getRowId={(r: any) => r.id}
-                paginationMode="server"
-                rowCount={totalCount}
-                paginationModel={{ page: page - 1, pageSize }}
-                onPaginationModelChange={(model: any) => {
-                  setPage(model.page + 1);
-                  if (model.pageSize !== pageSize) {
-                    setPageSize(model.pageSize);
-                    setPage(1);
-                  }
-                }}
-                pageSizeOptions={[10, 20, 50]}
-                minWidth={980}
-              />
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add/Edit dialog */}
-      <Dialog open={dialogOpen} onClose={() => (!saving ? setDialogOpen(false) : null)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {dialogMode === "add" ? "Add Device" : "Edit Device"}
-          <IconButton size="small" onClick={() => (!saving ? setDialogOpen(false) : null)} aria-label="close">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              className="cm-dialog-field"
-              label="Device Code"
-              size="small"
-              fullWidth
-              value={form.device_code}
-              onChange={(e) => setForm((f) => ({ ...f, device_code: normalizeDeviceCode(e.target.value) }))}
-              disabled={dialogMode === "edit"}
-              helperText="Example: phone_orgadmin_gate01_gps"
-            />
-
-            <TextField
-              className="cm-dialog-field"
-              label="Device Label"
-              size="small"
-              fullWidth
-              value={form.device_label}
-              onChange={(e) => setForm((f) => ({ ...f, device_label: e.target.value }))}
-            />
-
-            <TextField
-              className="cm-dialog-field"
-              select
-              label="Device Type"
-              size="small"
-              fullWidth
-              value={form.device_type}
-              onChange={(e) => setForm((f) => ({ ...f, device_type: e.target.value }))}
-            >
-              {deviceTypes.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {safeType(t)}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              className="cm-dialog-field"
-              select
-              label="Status"
-              size="small"
-              fullWidth
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
-            >
-              <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-              <MenuItem value="INACTIVE">INACTIVE</MenuItem>
-            </TextField>
-
-            <Autocomplete
-              disabled={dialogMode === "edit"}
-              options={mandis}
-              value={mandis.find((m) => String(m.mandi_id) === String(form.mandi_id)) || null}
-              onChange={(_, value) => {
-                setForm((f) => ({ ...f, mandi_id: value?.mandi_id ?? "", gate_id: "" }));
-              }}
-              getOptionLabel={(o) => o?.name_i18n?.en || o?.label || o?.mandi_slug || String(o?.mandi_id || "")}
-              isOptionEqualToValue={(a, b) => String(a?.mandi_id) === String(b?.mandi_id)}
-              renderInput={(params) => <TextField {...params} className="cm-dialog-field" label="Mandi" size="small" fullWidth />}
-            />
-
-            <TextField
-              className="cm-dialog-field"
-              select
-              label="Gate"
-              size="small"
-              fullWidth
-              value={form.gate_id}
-              onChange={(e) => setForm((f) => ({ ...f, gate_id: e.target.value }))}
-              disabled={!form.mandi_id || dialogMode === "edit"}
-              FormHelperTextProps={{ className: "cm-dialog-help-text" }}
-              helperText={!form.mandi_id ? "Select mandi first" : gates.length === 0 ? "No gates" : ""}
-            >
-              <MenuItem value="" />
-              {gates.map((g) => (
-                <MenuItem key={g._id} value={g._id}>
-                  {g.gate_code}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions className="cm-modal-footer">
-          <Button variant="outlined" size="small" onClick={() => setDialogOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            size="small"
-            onClick={save}
-            disabled={
-              saving ||
-              !String(form.device_code || "").trim() ||
-              !String(form.device_type || "").trim() ||
-              !form.mandi_id ||
-              !String(form.gate_id || "").trim()
-            }
-          >
-            {saving ? "Saving…" : dialogMode === "add" ? "Save" : "Update"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </PageContainer>
-  );
+    <Modal open={!!pairing} onCancel={() => setPairing(null)} footer={<Button type="primary" onClick={() => setPairing(null)}>Done</Button>} title="Pair / provision device" width={520}>
+      {pairing && <div className="cm-gd-pairing"><Text type="secondary">Device</Text><strong>{pairing.label}</strong><Text type="secondary">Pair code</Text><div className="cm-gd-pair-code">{pairing.pair_code}</div><Text>Enter this code on the device or mobile provisioning flow before it expires.</Text><Text type="secondary">Expires: {pairing.expires_on ? formatBusinessDateTime(pairing.expires_on) : "—"}</Text></div>}
+    </Modal>
+  </PageContainer>;
 };
 
 export default GateDevicesPage;

@@ -27,10 +27,16 @@ export async function fetchUiResourcesCatalog({
   username,
   language = DEFAULT_LANGUAGE,
   country = "IN",
+  role_slug,
+  include_policy = false,
+  compact = false,
 }: {
   username: string;
   language?: string;
   country?: string;
+  role_slug?: string;
+  include_policy?: boolean;
+  compact?: boolean;
 }) {
   return postEncrypted(API_ROUTES.admin.getUiResourcesCatalog, {
     api: API_TAGS.ROLE_POLICIES.catalog,
@@ -38,6 +44,9 @@ export async function fetchUiResourcesCatalog({
     username,
     language,
     country,
+    ...(role_slug ? { role_slug } : {}),
+    ...(include_policy ? { include_policy: true } : {}),
+    ...(compact ? { compact: true } : {}),
   });
 }
 
@@ -147,6 +156,83 @@ export async function restoreRolePolicyVersion({
     role_slug,
     history_id,
     expected_version,
+    resource_key: "role_policies.edit",
+    action: "UPDATE",
+  });
+}
+
+
+export async function fetchRbacBackups({
+  username,
+  language = DEFAULT_LANGUAGE,
+  country = "IN",
+  page = 1,
+  limit = 30,
+}: {
+  username: string;
+  language?: string;
+  country?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return postEncrypted(API_ROUTES.admin.getRbacBackups, {
+    api: API_TAGS.ROLE_POLICIES.backups,
+    api_name: API_TAGS.ROLE_POLICIES.backups,
+    username,
+    language,
+    country,
+    page,
+    limit,
+    resource_key: "role_policies.view",
+    action: "VIEW",
+  });
+}
+
+export async function createRbacBackup({
+  username,
+  language = DEFAULT_LANGUAGE,
+  country = "IN",
+  backup_name,
+  reason,
+}: {
+  username: string;
+  language?: string;
+  country?: string;
+  backup_name: string;
+  reason?: string;
+}) {
+  return postEncrypted(API_ROUTES.admin.createRbacBackup, {
+    api: API_TAGS.ROLE_POLICIES.createBackup,
+    api_name: API_TAGS.ROLE_POLICIES.createBackup,
+    username,
+    language,
+    country,
+    backup_name,
+    reason: reason || null,
+    resource_key: "role_policies.edit",
+    action: "UPDATE",
+  });
+}
+
+export async function restoreRbacBackup({
+  username,
+  language = DEFAULT_LANGUAGE,
+  country = "IN",
+  backup_id,
+}: {
+  username: string;
+  language?: string;
+  country?: string;
+  backup_id: string;
+}) {
+  return postEncrypted(API_ROUTES.admin.restoreRbacBackup, {
+    api: API_TAGS.ROLE_POLICIES.restoreBackup,
+    api_name: API_TAGS.ROLE_POLICIES.restoreBackup,
+    username,
+    language,
+    country,
+    backup_id,
+    confirmation: "RESTORE",
     resource_key: "role_policies.edit",
     action: "UPDATE",
   });

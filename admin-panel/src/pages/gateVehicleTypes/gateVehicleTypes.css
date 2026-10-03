@@ -1,0 +1,82 @@
+.cm-gate-vehicle-types-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-gvt-scope-card .ant-card-body,
+.cm-gvt-table-card .ant-card-body { padding: 14px; }
+
+.cm-gvt-scope-row,
+.cm-gvt-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cm-gvt-scope-copy { flex: 1 1 360px; min-width: 240px; }
+.cm-gvt-scope-control { width: min(420px, 100%); }
+.cm-gvt-search { flex: 1 1 280px; min-width: 220px; }
+.cm-gvt-select { min-width: 150px; }
+.cm-gvt-mandi-select { min-width: 220px; }
+
+.cm-gvt-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cm-gvt-status-tag {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 76px;
+  width: max-content;
+  padding-inline: 9px !important;
+  white-space: nowrap;
+}
+
+.cm-gate-vehicle-types-page .ant-select {
+  border: 1px solid var(--cm-border, #dfe3d7);
+  border-radius: 10px;
+  background: #fff;
+}
+.cm-gate-vehicle-types-page .ant-select .ant-select-selector {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.cm-gate-vehicle-types-page .ant-select input {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.cm-gvt-modal .ant-select {
+  border: 1px solid var(--cm-border, #dfe3d7);
+  border-radius: 10px;
+  background: #fff;
+}
+.cm-gvt-modal .ant-select .ant-select-selector,
+.cm-gvt-modal .ant-select input {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.cm-gvt-modal .ant-select input { min-height: 0 !important; padding: 0 !important; }
+
+.cm-gvt-master-label { display: flex; flex-direction: column; gap: 2px; }
+.cm-gvt-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #65705d; }
+
+@media (max-width: 900px) {
+  .cm-gvt-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .cm-gvt-stats { grid-template-columns: 1fr; }
+  .cm-gvt-scope-control, .cm-gvt-search, .cm-gvt-select, .cm-gvt-mandi-select { width: 100%; min-width: 0; }
+  .cm-gvt-toolbar > * { width: 100%; }
+}
